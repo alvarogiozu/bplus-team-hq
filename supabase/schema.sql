@@ -102,3 +102,65 @@ insert into hq_members (id, name, color, role, job) values
   ('fabricio',  'Fabricio',  '#eaa545', 'Kickstarter - comunidad',  'Contarle esto al mundo: video, copy, campana.'),
   ('angel',     'Angel',     '#a573a5', 'Diseno - sistema analogo', 'La siguiente invencion del sistema de objetos.')
 on conflict (id) do nothing;
+
+-- ============================================================
+-- v2: el espacio es configurable (nombre, tema, manifiesto),
+-- las columnas y las areas las define cada equipo, y hay logros.
+-- ============================================================
+create table if not exists hq_space (
+  id           int primary key default 1 check (id = 1),   -- una sola fila
+  name         text not null default 'HQ',
+  tagline      text,
+  color_theme  text not null default 'coral',
+  hero_title   text,
+  hero_lead    text,
+  about        text,
+  rules        jsonb not null default '[]'::jsonb,        -- [{t,d,c}]
+  northstar    jsonb not null default '[]'::jsonb,        -- [{t,d}]
+  links        jsonb not null default '[]'::jsonb,        -- [{t,d,url,c}]
+  updated_at   timestamptz not null default now()
+);
+insert into hq_space (id) values (1) on conflict (id) do nothing;
+
+create table if not exists hq_columns (
+  id          text primary key,
+  name        text not null,
+  color       text not null default '#9893a5',
+  kind        text not null default 'open' check (kind in ('open','done')),
+  sort_order  int  not null default 0
+);
+insert into hq_columns (id, name, color, kind, sort_order) values
+  ('todo',  'Por hacer', '#9893a5', 'open', 0),
+  ('doing', 'En curso',  '#eaa545', 'open', 1),
+  ('done',  'Hecho',     '#4a7c3f', 'done', 2)
+on conflict (id) do nothing;
+
+create table if not exists hq_areas (
+  id     text primary key,
+  name   text not null,
+  color  text not null default '#4a6fa5'
+);
+
+-- la tarea guarda su posicion dentro de la columna (drag & drop)
+alter table hq_tasks add column if not exists sort_order int not null default 0;
+-- y el color de cada hito
+alter table hq_milestones add column if not exists color text not null default '#b4637a';
+
+create table if not exists hq_achievements (
+  id           text primary key,             -- 'first', 'streak7', ...
+  unlocked_at  timestamptz not null default now()
+);
+
+alter table hq_space        enable row level security;
+alter table hq_columns      enable row level security;
+alter table hq_areas        enable row level security;
+alter table hq_achievements enable row level security;
+do $$
+declare t text;
+begin
+  foreach t in array array['hq_space','hq_columns','hq_areas','hq_achievements']
+  loop
+    execute format('create policy "equipo lee %1$s" on %1$s for select to authenticated using (true)', t);
+    execute format('create policy "equipo escribe %1$s" on %1$s for all to authenticated using (true) with check (true)', t);
+  end loop;
+end $$;

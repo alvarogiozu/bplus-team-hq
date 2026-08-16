@@ -1,85 +1,94 @@
-# B+ HQ — el cuartel del equipo
+# HQ — el cuartel del equipo
 
-Tablero de tareas, hitos y equipo de **B+**, construido con las mismas reglas del
-producto: una tarea tiene dueño, todo se valida con prueba, y los colores hablan solos.
+Tablero de tareas, hitos y equipo con **gamificación real**: cada tarea tiene dueño,
+todo se valida con prueba, y el color siempre significa algo.
 
-Somos el primer grupo que usa B+ antes que nadie — este cuartel es el ensayo general
-del **modo Grupos** que después llegará a los estudiantes.
+Nació como el cuartel interno de **B+** (la app de hábitos con validación por foto),
+construido con las mismas reglas del producto. Hoy es una herramienta que **cualquier
+equipo, curso o empresa configura como suya**: nombre, tema de color, manifiesto,
+columnas, áreas, miembros e hitos — todo se edita desde la interfaz.
 
 ---
 
 ## Cómo se usa
 
-Abre `index.html`. No hay que instalar nada, ni compilar, ni tener cuenta.
+Abre `index.html`. No hay que instalar nada, ni compilar, ni crear cuenta.
 Funciona igual en el celular, en la computadora y sin internet.
 
-La primera vez te pregunta **quién eres** y eliges tu Rockie. A partir de ahí tus
+La primera vez pregunta **quién eres** y eliges tu Rockie. A partir de ahí tus
 validaciones suman XP a tu nombre.
 
 | Pantalla | Para qué |
 |---|---|
-| **Manifiesto** | De qué trata todo, las 4 reglas y la estrella del norte |
-| **Tablero** | Por hacer / En curso / Hecho — arrastra o usa los botones |
-| **Hitos** | El mapa grande con barras de progreso |
-| **Base** | Recursos, apartados libres y respaldo de datos |
-| **Nosotros** (el Rockie del centro) | Roles y XP de cada miembro |
+| **Manifiesto** | De qué trata el proyecto, las reglas del equipo y la estrella del norte. Todo editable con "Editar esta página". |
+| **Tablero** | Columnas que tú defines. Arrastra las tarjetas con el mouse o el dedo; mantén presionada una para editarla. |
+| **Hitos** | Tres vistas: **Lista** (barras + slider), **Línea** (los hitos sobre un eje de fechas con la marca de "hoy") y **Mapa** (anillos de progreso). |
+| **Base** | Recursos con link, apartados libres y respaldo de datos. |
+| **Nosotros** (el Rockie del centro) | Roles, XP, nivel y rango de cada miembro, medallas y los logros del equipo. |
+| **⚙ Ajustes** (arriba a la derecha) | Nombre del espacio, lema, tema de color, áreas y datos. |
 
-**Gestos:** arrastrar entre columnas, mantener presionada una tarjeta para editarla
-(igual que en la app), y el botón **Validar** para cerrarla.
+### Validar = el corazón del sistema
 
-**Validar una tarea** funciona como validar un hábito en B+:
+Al cerrar una tarea eliges cómo:
 
 - **Con prueba** (link, foto, build) → **+100 XP**, sello verde oscuro sólido
 - **Lo hice** (sin prueba) → **+40 XP**, sello verde punteado
+- **La primera validación del día de cada miembro vale doble** (×2)
 
 La **racha del equipo** son días seguidos con al menos una validación.
+
+### Gamificación
+
+- **Niveles con rango**: Chispa → Aprendiz → Constructor → Artesano → Maestro → Leyenda
+- **Medallas** de oro, plata y bronce para los tres con más XP
+- **10 logros del equipo**: primera piedra, con pruebas, semana entera, todos a bordo, cero atrasos…
+- Cada validación: sello que cae con spring, XP flotante, confetti, Rockie que celebra, vibración en el celular
 
 ---
 
 ## Estructura
 
 ```
-index.html        pantalla + estilos (tokens de B+)
-app.js            lógica de interfaz — nunca toca el almacenamiento directamente
+index.html        estructura de las pantallas
+styles.css        tokens de diseño (papel cálido, tinta violeta, cantos 2.5D)
+app.js            interfaz — nunca toca el almacenamiento directamente
 db.js             capa de datos — HOY localStorage, MAÑANA Supabase
 agenda.html       póster de reuniones (se exporta a PNG para el grupo)
 supabase/
   schema.sql      tablas, vista de XP y políticas RLS listas para ejecutar
 ```
 
-**Por qué sigue siendo HTML plano:** cero build, cero dependencias, abre con doble
-clic y funciona offline. Cuando conectemos Supabase, el cliente entra por CDN y solo
-cambia `db.js` — no hace falta migrar a React para esto.
+**Por qué es HTML plano:** cero build, cero dependencias, abre con doble clic y
+funciona offline. Cuando conectemos Supabase, el cliente entra por CDN y solo cambia
+`db.js` — no hace falta React para esto.
 
 ---
 
 ## Conectar Supabase (siguiente paso)
 
-Todo el estado pasa por `DB.*` en `db.js`, y **todos sus métodos ya devuelven Promesas**,
-justamente para que el cambio a una base remota no obligue a tocar la interfaz.
+Todo el estado pasa por `DB.*` en `db.js`, y **todos sus métodos ya devuelven Promesas**
+para que el cambio a una base remota no obligue a tocar la interfaz.
 
-1. Ejecuta `supabase/schema.sql` en el SQL Editor del proyecto
-   (el mismo de la app B+: `wmsizqixjjrglygskhdb`, región `sa-east-1`).
+1. Ejecuta `supabase/schema.sql` en el SQL Editor del proyecto.
 2. Añade el cliente en `index.html`, antes de `db.js`:
    ```html
    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
    ```
 3. Reescribe **solo** `db.js` manteniendo la misma API:
 
-   | Método actual | Equivalente en Supabase |
+   | Método | Tabla |
    |---|---|
-   | `DB.load()` | `select()` de las 5 tablas + vista `hq_member_xp` |
-   | `DB.addTask(t)` | `insert` en `hq_tasks` |
-   | `DB.updateTask(id, patch)` | `update ... eq('id', id)` |
-   | `DB.removeTask(id)` | `delete ... eq('id', id)` |
-   | `DB.validateTask(id, mode, proof)` | `update` de la tarea + `insert` en `hq_xp_log` |
-   | `DB.setHito(id, pct)` | `update` en `hq_milestones` |
-   | `DB.addNote / updateNote / removeNote` | CRUD en `hq_notes` |
-   | `DB.updateMember(id, patch)` | `update` en `hq_members` |
+   | `load()` | `select()` de todas las `hq_*` + vista `hq_member_xp` |
+   | `updateSpace / setAreas` | `hq_space` (una sola fila) · `hq_areas` |
+   | `addColumn / updateColumn / removeColumn` | `hq_columns` |
+   | `addTask / updateTask / moveTask / removeTask` | `hq_tasks` (`sort_order` = posición) |
+   | `validateTask(id, mode, proof)` | `update` de la tarea + `insert` en `hq_xp_log` + `hq_achievements` |
+   | `addHito / updateHito / removeHito` | `hq_milestones` |
+   | `addNote / updateNote / removeNote` | `hq_notes` |
+   | `addMember / updateMember / removeMember` | `hq_members` |
 
-4. Para que todos vean los cambios en vivo, suscríbete a los cambios de `hq_tasks`
-   y vuelve a pintar el tablero. Los `renderBoard()` / `renderHitos()` de `app.js`
-   ya son idempotentes, así que se pueden llamar tantas veces como haga falta.
+4. Para ver los cambios de todos en vivo, suscríbete a `hq_tasks` y vuelve a llamar
+   `renderBoard()` — todos los `render*()` de `app.js` son idempotentes.
 
 **Ojo con las claves:** solo va la `anon key` en el cliente, nunca la `service_role`.
 La seguridad real la dan las políticas RLS del `schema.sql`.
@@ -88,20 +97,20 @@ La seguridad real la dan las políticas RLS del `schema.sql`.
 
 ## Mientras tanto: cómo compartimos el estado
 
-En modo beta los datos viven en el navegador de cada quien. Para juntarlos:
+En modo beta los datos viven en el navegador de cada quien:
 
-- **Base › Exportar respaldo** genera un `.json` que se pasa por el grupo
-- **Base › Importar** lo carga en otra máquina
+- **Ajustes › Datos › Exportar respaldo** genera un `.json` para pasar por el grupo
+- **Importar** lo carga en otra máquina
 - El botón de **WhatsApp** (arriba a la derecha) manda un resumen en texto del tablero
 
 ---
 
 ## Identidad visual
 
-Los tokens de color, tipografía y espaciado son los mismos de la app
-(`app/src/styles/tokens.css` en el repo *BPLUS COMEBACK*): papel cálido `#f0ebe5`,
-tinta violeta `#575279`, Fraunces para títulos, Quicksand para todo lo demás y los
-cantos 2.5D de la gamificación.
+Los tokens vienen de la app B+ (`app/src/styles/tokens.css` en *BPLUS COMEBACK*):
+papel cálido `#f0ebe5`, tinta violeta `#575279`, Fraunces para títulos, Quicksand para
+todo lo demás y los cantos 2.5D de la gamificación. Los seis temas de color cambian
+solo los acentos; el idioma visual se mantiene.
 
 Reglas que no se rompen: **nunca blanco puro**, nunca glassmorphism, y el color siempre
 significa algo (coral = urgente, ámbar = en curso, verde = validado).
