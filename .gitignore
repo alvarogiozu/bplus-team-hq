@@ -13,3 +13,4 @@ e2e/screens/
 
 .vercel
 .env*
+!.env.example
