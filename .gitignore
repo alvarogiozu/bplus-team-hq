@@ -10,3 +10,6 @@ dist/
 test-results/
 playwright-report/
 e2e/screens/
+
+.vercel
+.env*
