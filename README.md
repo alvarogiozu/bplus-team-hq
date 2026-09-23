@@ -1,116 +1,88 @@
-# HQ — el cuartel del equipo
+# B+ HQ — el cuartel del equipo
 
-Tablero de tareas, hitos y equipo con **gamificación real**: cada tarea tiene dueño,
-todo se valida con prueba, y el color siempre significa algo.
+Un gestor de proyectos **anti-Notion y anti-ClickUp**: una tarea, un dueño, una fecha. Todo se valida.
+Nada de campos personalizados, automatizaciones, plantillas ni vistas guardadas: si algo necesita un menú
+de ajustes para entenderse, está mal.
 
-Nació como el cuartel interno de **B+** (la app de hábitos con validación por foto),
-construido con las mismas reglas del producto. Hoy es una herramienta que **cualquier
-equipo, curso o empresa configura como suya**: nombre, tema de color, manifiesto,
-columnas, áreas, miembros e hitos — todo se edita desde la interfaz.
+- **Hoy** — lo tuyo atrasado, de hoy y de los próximos 3 días; tus reuniones; qué movió el equipo.
+- **Tareas** — los mismos datos en 3 vistas fijas (**Lista · Tablero · Calendario**) con una sola barra de filtros.
+- **Proyectos** — el progreso se calcula solo (tareas validadas / tareas del proyecto).
+- **Equipo** — Rockies, XP, niveles, los 10 logros, invitaciones.
+- **Rockie** (barra de abajo, `Ctrl/Cmd + K`) — escribes "subir firmware @Sebastián viernes urgente", te muestra
+  una tarjeta para confirmar y todo se puede deshacer. Hoy es un intérprete local; en la fase 5 será el agente con IA.
 
----
+Validar es el corazón: **Lo hice +40 XP**, **con prueba (link o foto) +100 XP**, y la primera validación del día
+de cada persona vale doble. El XP lo calcula el servidor (`validate_task`), así que no se puede hacer trampa.
+Colores con función: **coral = urgente, ámbar = en curso, verde = validado**.
 
-## Cómo se usa
+## Stack
 
-Abre `index.html`. No hay que instalar nada, ni compilar, ni crear cuenta.
-Funciona igual en el celular, en la computadora y sin internet.
-
-La primera vez pregunta **quién eres** y eliges tu Rockie. A partir de ahí tus
-validaciones suman XP a tu nombre.
-
-| Pantalla | Para qué |
-|---|---|
-| **Manifiesto** | De qué trata el proyecto, las reglas del equipo y la estrella del norte. Todo editable con "Editar esta página". |
-| **Tablero** | Columnas que tú defines. Arrastra las tarjetas con el mouse o el dedo; mantén presionada una para editarla. |
-| **Hitos** | Tres vistas: **Lista** (barras + slider), **Línea** (los hitos sobre un eje de fechas con la marca de "hoy") y **Mapa** (anillos de progreso). |
-| **Base** | Recursos con link, apartados libres y respaldo de datos. |
-| **Nosotros** (el Rockie del centro) | Roles, XP, nivel y rango de cada miembro, medallas y los logros del equipo. |
-| **⚙ Ajustes** (arriba a la derecha) | Nombre del espacio, lema, tema de color, áreas y datos. |
-
-### Validar = el corazón del sistema
-
-Al cerrar una tarea eliges cómo:
-
-- **Con prueba** (link, foto, build) → **+100 XP**, sello verde oscuro sólido
-- **Lo hice** (sin prueba) → **+40 XP**, sello verde punteado
-- **La primera validación del día de cada miembro vale doble** (×2)
-
-La **racha del equipo** son días seguidos con al menos una validación.
-
-### Gamificación
-
-- **Niveles con rango**: Chispa → Aprendiz → Constructor → Artesano → Maestro → Leyenda
-- **Medallas** de oro, plata y bronce para los tres con más XP
-- **10 logros del equipo**: primera piedra, con pruebas, semana entera, todos a bordo, cero atrasos…
-- Cada validación: sello que cae con spring, XP flotante, confetti, Rockie que celebra, vibración en el celular
-
----
-
-## Estructura
+Vite + React 18 + TypeScript estricto · react-router · TanStack Query · date-fns(-tz) · @dnd-kit ·
+Supabase (Auth, Postgres con RLS, Realtime, Storage, Edge Functions) · Vitest + Playwright · Vercel.
 
 ```
-index.html        estructura de las pantallas
-styles.css        tokens de diseño (papel cálido, tinta violeta, cantos 2.5D)
-app.js            interfaz — nunca toca el almacenamiento directamente
-db.js             capa de datos — HOY localStorage, MAÑANA Supabase
-agenda.html       póster de reuniones (se exporta a PNG para el grupo)
+src/
+  app/          router, layout (barra lateral / barra inferior), tema
+  components/   Rockie, íconos, hojas/paneles, toasts, estados
+  features/     auth · spaces · data (queries + realtime) · tasks · views · today · projects · team · settings · agent
+  lib/          supabase, fechas (America/Lima), xp, intérprete de Rockie, tipos generados
 supabase/
-  schema.sql      tablas, vista de XP y políticas RLS listas para ejecutar
+  migrations/   esquema + RLS + funciones (validate_task, import_v2, invitaciones…)
+  functions/    admin-reset-password
+  seed.sql      datos de desarrollo local
+scripts/qa.mjs  usuarios desechables qa.* para probar contra el proyecto real
+e2e/            Playwright (flujos + capturas 375×812 y 1440×900, claro/oscuro)
 ```
 
-**Por qué es HTML plano:** cero build, cero dependencias, abre con doble clic y
-funciona offline. Cuando conectemos Supabase, el cliente entra por CDN y solo cambia
-`db.js` — no hace falta React para esto.
+## Correrlo en local
 
----
+```bash
+npm install
+cp .env.example .env.local   # y completa las variables
+npm run dev                  # http://localhost:5173
+```
 
-## Conectar Supabase (siguiente paso)
+| Comando | Qué hace |
+|---|---|
+| `npm run typecheck` | TypeScript estricto |
+| `npm run lint` | ESLint |
+| `npm run test` | Vitest (fechas, XP, grupos de la Lista, intérprete de Rockie) |
+| `npm run e2e` | Playwright contra Supabase con usuarios `qa.*` (crea y borra todo solo) |
+| `npm run build` | build de producción en `dist/` |
 
-Todo el estado pasa por `DB.*` en `db.js`, y **todos sus métodos ya devuelven Promesas**
-para que el cambio a una base remota no obligue a tocar la interfaz.
+## Variables de entorno
 
-1. Ejecuta `supabase/schema.sql` en el SQL Editor del proyecto.
-2. Añade el cliente en `index.html`, antes de `db.js`:
-   ```html
-   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-   ```
-3. Reescribe **solo** `db.js` manteniendo la misma API:
+| Variable | Dónde | Para qué |
+|---|---|---|
+| `VITE_SUPABASE_URL` | cliente | URL del proyecto |
+| `VITE_SUPABASE_ANON_KEY` | cliente | clave pública (la seguridad la da la RLS) |
+| `VITE_AUTH_EMAIL_DOMAIN` | cliente | dominio del email sintético (`hq.rockie.plus`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | solo `.secrets/` y Edge Functions | nunca al navegador ni al repo |
 
-   | Método | Tabla |
-   |---|---|
-   | `load()` | `select()` de todas las `hq_*` + vista `hq_member_xp` |
-   | `updateSpace / setAreas` | `hq_space` (una sola fila) · `hq_areas` |
-   | `addColumn / updateColumn / removeColumn` | `hq_columns` |
-   | `addTask / updateTask / moveTask / removeTask` | `hq_tasks` (`sort_order` = posición) |
-   | `validateTask(id, mode, proof)` | `update` de la tarea + `insert` en `hq_xp_log` + `hq_achievements` |
-   | `addHito / updateHito / removeHito` | `hq_milestones` |
-   | `addNote / updateNote / removeNote` | `hq_notes` |
-   | `addMember / updateMember / removeMember` | `hq_members` |
+## Supabase
 
-4. Para ver los cambios de todos en vivo, suscríbete a `hq_tasks` y vuelve a llamar
-   `renderBoard()` — todos los `render*()` de `app.js` son idempotentes.
+Proyecto propio **`bplus-team-hq`** (ref `xhtxhmfohtkezhpobbcr`, São Paulo), separado del de la app B+.
 
-**Ojo con las claves:** solo va la `anon key` en el cliente, nunca la `service_role`.
-La seguridad real la dan las políticas RLS del `schema.sql`.
+```bash
+npx supabase link --project-ref xhtxhmfohtkezhpobbcr
+npx supabase db push                                   # aplica supabase/migrations
+npx supabase config push                               # auth: sin confirmar email, contraseña ≥ 8
+npx supabase functions deploy admin-reset-password
+```
 
----
+**Login con usuario y contraseña.** Por debajo, Supabase Auth usa `<usuario>@hq.rockie.plus`; el usuario nunca lo
+ve. Como no hay correo real, "olvidé mi contraseña" = el dueño del espacio la restablece desde **Equipo** (llave) y
+le pasa una temporal; al entrar, se le pide cambiarla.
 
-## Mientras tanto: cómo compartimos el estado
+## Primer espacio e invitaciones
 
-En modo beta los datos viven en el navegador de cada quien:
+1. Entra a la app → **Crea tu cuenta** → sin código de invitación → **Crear espacio** ("B+"). Quedas como dueño.
+2. **Equipo › Crear enlace** → copia el enlace (`/invitacion/XXXXXXXX`, dura 7 días, se puede regenerar).
+3. Quien abra el enlace se registra y entra directo al espacio.
+4. ¿Datos del HQ anterior? Que todos creen su cuenta primero; luego, en el navegador que tenía los datos,
+   exporta el respaldo v2 y en **Ajustes › Datos › Importar respaldo v2** súbelo (empareja miembros por nombre).
 
-- **Ajustes › Datos › Exportar respaldo** genera un `.json` para pasar por el grupo
-- **Importar** lo carga en otra máquina
-- El botón de **WhatsApp** (arriba a la derecha) manda un resumen en texto del tablero
+## Deploy
 
----
-
-## Identidad visual
-
-Los tokens vienen de la app B+ (`app/src/styles/tokens.css` en *BPLUS COMEBACK*):
-papel cálido `#f0ebe5`, tinta violeta `#575279`, Fraunces para títulos, Quicksand para
-todo lo demás y los cantos 2.5D de la gamificación. Los seis temas de color cambian
-solo los acentos; el idioma visual se mantiene.
-
-Reglas que no se rompen: **nunca blanco puro**, nunca glassmorphism, y el color siempre
-significa algo (coral = urgente, ámbar = en curso, verde = validado).
+Vercel (proyecto `bplus-team-hq`), SPA con rewrites a `index.html`; `/agenda.html` redirige a
+`/tareas?vista=calendario`. Las variables `VITE_*` deben existir en el proyecto de Vercel.

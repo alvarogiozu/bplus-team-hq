@@ -1,191 +1,26 @@
 <!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>HQ — el cuartel del equipo</title>
-<meta name="description" content="Tablero de tareas, hitos y equipo con gamificación real: cada tarea tiene dueño y se valida con prueba.">
-<meta name="theme-color" content="#f0ebe5">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'%3E%3Cpath d='M22 3C33 3 40 11 40 22C40 34 33 41 22 41C11 41 4 34 4 22C4 11 11 3 22 3Z' fill='%232a82ad'/%3E%3Cellipse cx='16' cy='20' rx='3.4' ry='4.6' fill='%23fdfbf7'/%3E%3Cellipse cx='28' cy='20' rx='3.4' ry='4.6' fill='%23fdfbf7'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-</head>
-<body>
-
-<canvas id="confetti"></canvas>
-
-<!-- ===== onboarding: elegir quien soy ===== -->
-<div class="onb" id="onb">
-  <div class="inner">
-    <div id="onbRockie"></div>
-    <h1>¿Quién eres?</h1>
-    <p>Cada miembro tiene su Rockie. Elige el tuyo — tus validaciones suman XP a tu nombre. <strong>Lo que se hace, se demuestra.</strong></p>
-    <div class="pickgrid" id="pickgrid"></div>
-    <p class="tiny">Se guarda en este navegador. Puedes cambiarlo luego en Nosotros.</p>
-  </div>
-</div>
-
-<header class="top">
-  <div class="logo"><span id="spaceName">HQ</span> <span class="hq">HQ · Cuartel del equipo</span></div>
-  <div class="topbtns">
-    <button class="iconbtn" id="settingsBtn" aria-label="Ajustes del espacio" title="Ajustes del espacio">
-      <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-    </button>
-    <button class="iconbtn" id="themeBtn" aria-label="Cambiar tema claro/oscuro" title="Tema">
-      <svg class="ico" viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5 19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5 19 5"/><circle cx="12" cy="12" r="4"/></svg>
-    </button>
-    <button class="iconbtn" id="shareBtn" aria-label="Enviar resumen por WhatsApp" title="Resumen a WhatsApp">
-      <svg class="ico" viewBox="0 0 24 24"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9z"/><path d="M9.5 13.5c.5 1 1.5 2 2.5 2s2-1 2.5-2"/></svg>
-    </button>
-  </div>
-</header>
-
-<main class="wrap">
-
-  <!-- ===== MANIFIESTO ===== -->
-  <section class="view" id="v-manifiesto">
-    <div class="hero">
-      <span class="eyebrow">Cuartel general · <span id="spaceTagline"></span></span>
-      <h1 id="heroTitle"></h1>
-      <p class="lede" id="heroLead"></p>
-      <div class="herostats">
-        <div class="stat"><div class="n" id="stTeamXp">0</div><div class="l">XP del equipo</div></div>
-        <div class="stat"><div class="n" id="stStreak">0</div><div class="l">Racha (días)</div></div>
-        <div class="stat"><div class="n" id="stOpen">0</div><div class="l">Tareas abiertas</div></div>
-        <div class="stat"><div class="n" id="stDone">0</div><div class="l">Validadas</div></div>
-      </div>
-      <div class="herobtns">
-        <button class="btn" id="ctaBoard">Entrar al tablero <span class="tail"><svg class="ico" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>
-        <button class="btn ghost" id="editManifest">Editar esta página</button>
-      </div>
-    </div>
-    <div class="rules4" id="rulesList"></div>
-    <div class="essence">
-      <div class="card reveal about" id="aboutCard">
-        <h2>De qué trata todo esto</h2>
-        <div id="aboutBody"></div>
-      </div>
-      <div class="card northstar reveal">
-        <h2>Estrella del norte</h2>
-        <ul id="northList"></ul>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== TABLERO ===== -->
-  <section class="view" id="v-tablero">
-    <div class="boardhead">
-      <div>
-        <div class="screen-title">Tablero</div>
-        <div class="screen-sub">Arrastra las tarjetas · mantén presionada una para editarla</div>
-      </div>
-      <div class="chips" id="memberChips"></div>
-    </div>
-    <div class="boardscroll">
-      <div class="board" id="board"></div>
-    </div>
-  </section>
-
-  <!-- ===== HITOS ===== -->
-  <section class="view" id="v-hitos">
-    <div class="boardhead">
-      <div>
-        <div class="screen-title">Hitos</div>
-        <div class="screen-sub">El mapa grande. Mueve el progreso cuando avancemos de verdad.</div>
-      </div>
-      <div class="segmented" id="hitoViews" role="tablist" aria-label="Vista de hitos">
-        <button role="tab" data-hv="lista" class="on">Lista</button>
-        <button role="tab" data-hv="linea">Línea</button>
-        <button role="tab" data-hv="mapa">Mapa</button>
-      </div>
-    </div>
-    <div id="hitosHost"></div>
-    <div class="addrow"><button class="btn ghost sm" id="addHito">+ Nuevo hito</button></div>
-  </section>
-
-  <!-- ===== BASE ===== -->
-  <section class="view" id="v-base">
-    <div class="boardhead">
-      <div>
-        <div class="screen-title">Base</div>
-        <div class="screen-sub">Recursos, apartados libres y los datos del espacio.</div>
-      </div>
-    </div>
-    <div class="grid2">
-      <div>
-        <div class="card pad">
-          <div class="cardhead"><h2>Recursos</h2><button class="btn ghost sm" id="addLink">+ Link</button></div>
-          <ul class="rlist" id="linksList"></ul>
-        </div>
-        <div class="card pad mt">
-          <h2>Datos del espacio</h2>
-          <p class="hint">Modo beta: todo vive en este navegador. Exporta un respaldo y compártelo al grupo; la siguiente versión se conecta a Supabase.</p>
-          <div class="btnrow">
-            <button class="btn ghost sm" id="exportBtn">Exportar respaldo</button>
-            <button class="btn ghost sm" id="importBtn">Importar</button>
-            <button class="btn coral sm" id="resetBtn">Reiniciar demo</button>
-            <input type="file" id="importFile" accept=".json" hidden>
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="sectionh"><h2>Apartados libres</h2><button class="btn ghost sm" id="addNote">+ Apartado</button></div>
-        <p class="hint">Para lo que el equipo considere: acuerdos, ideas sueltas, la lista de compras…</p>
-        <div class="notes" id="notesList"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== EQUIPO ===== -->
-  <section class="view" id="v-equipo">
-    <div class="boardhead">
-      <div>
-        <div class="screen-title">Nosotros</div>
-        <div class="screen-sub">Cada uno con su Rockie, su rol y su XP.</div>
-      </div>
-      <div class="btnrow">
-        <button class="btn ghost sm" id="switchWho">Cambiar quién soy</button>
-        <button class="btn ghost sm" id="addMember">+ Miembro</button>
-      </div>
-    </div>
-    <div class="team" id="teamList"></div>
-    <div class="sectionh"><h2>Logros del equipo</h2><span class="hint" id="achCount"></span></div>
-    <div class="achgrid" id="achList"></div>
-  </section>
-
-</main>
-
-<button class="fab" id="fabAdd" aria-label="Nueva tarea">
-  <svg class="ico" style="width:26px;height:26px" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-</button>
-
-<nav class="dock" aria-label="Navegación">
-  <button class="navitem" data-view="manifiesto"><svg class="ico" viewBox="0 0 24 24"><path d="M5 21V4a1 1 0 0 1 1-1h12l-3 4 3 4H6"/></svg><span class="nlabel">Manifiesto</span><span class="ndot"></span></button>
-  <button class="navitem" data-view="tablero"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="16" rx="2"/><rect x="14" y="4" width="6" height="10" rx="2"/></svg><span class="nlabel">Tablero</span><span class="ndot"></span></button>
-  <button class="rockiebtn" id="rockieBtn" aria-label="Equipo y logros"><span id="navRockie"></span></button>
-  <button class="navitem" data-view="hitos"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.2l5.9-.9z"/></svg><span class="nlabel">Hitos</span><span class="ndot"></span></button>
-  <button class="navitem" data-view="base"><svg class="ico" viewBox="0 0 24 24"><path d="M4 20h16M6 20V9l6-5 6 5v11M10 20v-5h4v5"/></svg><span class="nlabel">Base</span><span class="ndot"></span></button>
-</nav>
-
-<!-- ===== MODAL GENERICO (centrado en PC, sheet en movil) ===== -->
-<div class="overlay" id="modal" aria-hidden="true">
-  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="grab" aria-hidden="true"></div>
-    <div class="dhead">
-      <h2 id="modalTitle"></h2>
-      <button class="iconbtn close" id="modalClose" aria-label="Cerrar"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    </div>
-    <div class="dbody" id="modalBody"></div>
-    <div class="dfoot" id="modalFoot"></div>
-  </div>
-</div>
-
-<!-- capa de arrastre (el "fantasma" de la tarjeta) -->
-<div id="dragLayer" aria-hidden="true"></div>
-
-<script src="db.js"></script>
-<script src="app.js"></script>
-</body>
+<html lang="es-PE">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>B+ HQ — el cuartel del equipo</title>
+    <meta name="description" content="Gestor de proyectos anti-Notion: una tarea, un dueño, una fecha. Todo se valida." />
+    <meta name="theme-color" content="#f0ebe5" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'%3E%3Cpath d='M22 3C33 3 40 11 40 22C40 34 33 41 22 41C11 41 4 34 4 22C4 11 11 3 22 3Z' fill='%232a82ad'/%3E%3Cellipse cx='16' cy='20' rx='3.4' ry='4.6' fill='%23fdfbf7'/%3E%3Cellipse cx='28' cy='20' rx='3.4' ry='4.6' fill='%23fdfbf7'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      try {
+        var t = localStorage.getItem('hq.theme');
+        if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <canvas id="confetti" aria-hidden="true"></canvas>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

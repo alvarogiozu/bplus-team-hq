@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "redirects": [{ "source": "/agenda.html", "destination": "/tareas?vista=calendario", "permanent": true }],
+  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }]
+}

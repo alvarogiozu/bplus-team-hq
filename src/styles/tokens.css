@@ -1,0 +1,57 @@
+/* ============================================================
+   B+ HQ — tokens. Espejo de la app B+ (app/src/styles/tokens.css):
+   papel cálido, tinta violeta, sombras tintadas, cantos 2.5D.
+   Un solo tema de marca: coral (títulos) + azul (acción).
+   Nunca blanco puro, nunca glassmorphism.
+   Colores con función: coral = urgente, ámbar = en curso, verde = validado.
+   ============================================================ */
+:root {
+  color-scheme: light;
+  --paper: #f0ebe5; --paper-alt: #eee6dd; --paper-dark: #dccfc5;
+  --paper-clean: #f8f6f3; --card: #fdfbf7; --card-2: #f7f3ec; --card-3: #f2ede6;
+  --ink: #575279; --ink-soft: #797593; --ink-muted: #8a859c; --ink-faint: #c9c4d3;
+  --on-color: #fdfbf7;
+  --brand: #2a82ad; --brand-logo: #4a8db3; --navbar-blue: #3c5d73; --navbar-blue-edge: #2b4456;
+  --title: #cf7358; --title-soft: #f7e9e3;
+  --accent: #2e88aa; --accent-edge: #216b87; --accent-soft: #e2eef3; --accent-ink: #216b87;
+  --berry: #b4637a; --berry-soft: #f6e8ec; --berry-edge: #944d63;
+  --coral: #bd6c56; --coral-edge: #9d5541; --coral-ink: #a4553f;
+  --amber: #eaa545; --amber-edge: #c8831e; --amber-soft: #fbf0dc; --amber-ink: #95600f;
+  --olive: #8aa54a; --olive-edge: #6d833a;
+  --green: #73a58a; --green-edge: #5c8871;
+  --green-photo: #4a7c3f; --green-photo-edge: #3a622f; --green-soft: #e4efdf;
+  --shadow-soft: 0 3px 12px rgba(87, 82, 121, 0.11);
+  --shadow-card: 0 10px 24px rgba(87, 82, 121, 0.16);
+  --shadow-lift: 0 22px 48px rgba(87, 82, 121, 0.28);
+  --line: #dfdad9; --card-line: #e7ddcf; --card-edge: #dbcfbc; --edge-soft: rgba(87, 82, 121, 0.16);
+  --overlay: rgba(87, 82, 121, 0.38);
+  --r-sm: 10px; --r-md: 14px; --r-lg: 16px; --r-xl: 22px; --r-pill: 999px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px; --s12: 48px;
+  --screen-x: 20px;
+  --t-3xs: 11px; --t-2xs: 12px; --t-xs: 13px; --t-s: 14px; --t-sm: 15px; --t-base: 16px;
+  --t-md: 18px; --t-lg: 19px; --t-xl: 22px; --t-2xl: 26px; --t-3xl: 29px; --t-display: 40px;
+  --tap: 44px;
+  --serif: 'Fraunces', Georgia, serif;
+  --sans: 'Quicksand', system-ui, -apple-system, sans-serif;
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --glide: cubic-bezier(0.32, 0.72, 0, 1);
+  --sidebar-w: 232px;
+  --rail-w: 64px;
+  --drawer-w: 420px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #232136; --paper-alt: #2a273f; --paper-dark: #1f1d31;
+  --paper-clean: #2a273f; --card: #302c48; --card-2: #2a273f; --card-3: #262339;
+  --ink: #e0def4; --ink-soft: #b5b1cf; --ink-muted: #9c98b8; --ink-faint: #55516e;
+  --title: #e08a70; --title-soft: rgba(207, 115, 88, 0.18);
+  --accent: #3a95b8; --accent-soft: rgba(46, 136, 170, 0.26); --accent-ink: #8cc9e2;
+  --berry-soft: rgba(180, 99, 122, 0.22);
+  --coral-ink: #f0a28c; --amber-soft: rgba(234, 165, 69, 0.2); --amber-ink: #f3c27c;
+  --green-soft: rgba(74, 124, 63, 0.28);
+  --shadow-soft: 0 3px 12px rgba(0, 0, 0, 0.3); --shadow-card: 0 10px 24px rgba(0, 0, 0, 0.38);
+  --shadow-lift: 0 22px 48px rgba(0, 0, 0, 0.55);
+  --line: #3b3852; --card-line: #44405e; --card-edge: #171522; --edge-soft: rgba(0, 0, 0, 0.42);
+  --overlay: rgba(0, 0, 0, 0.55);
+}

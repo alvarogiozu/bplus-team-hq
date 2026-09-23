@@ -4,3 +4,9 @@ node_modules/
 .env
 .env.*
 respaldos/
+
+.secrets/
+dist/
+test-results/
+playwright-report/
+e2e/screens/
