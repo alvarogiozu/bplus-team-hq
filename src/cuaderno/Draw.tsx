@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { haptic } from '../lib/fx'
 import { closeDialog, openDialog } from './bus'
 import { useCuadernoActions } from './data'
+import { strokeTouches } from './board'
 import { srcOf, upload } from './files'
 import { CIcon } from './icons'
 
@@ -46,15 +47,7 @@ function strokePath(st: Stroke, last = true) {
 }
 
 /** ¿El borrador toca este trazo? (distancia a cualquiera de sus puntos) */
-export function touches(st: Stroke, x: number, y: number, r: number) {
-  const rr = (r + st.s / 2) ** 2
-  for (let i = 0; i < st.p.length; i += 3) {
-    const dx = st.p[i] - x
-    const dy = st.p[i + 1] - y
-    if (dx * dx + dy * dy <= rr) return true
-  }
-  return false
-}
+export const touches = strokeTouches
 
 function readInks() {
   const cs = getComputedStyle(document.documentElement)

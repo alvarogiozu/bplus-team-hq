@@ -378,7 +378,10 @@ async function procesar(supa: Supa, entryId: string, hoy?: string, zona?: string
   const noteIds = new Set([...simIds, ...recent.map((n) => n.id)])
   const projIds = new Set(projects.map((p) => p.id))
   const bookIds = new Set(books.map((b) => b.id))
-  const { proposals, say } = validateProcesar(r.calls, r.say, noteIds, projIds, bookIds)
+  // una pizarra se conecta, pero no se "amplía": su texto sale de lo que tiene dibujado y se reescribe solo
+  const { data: boards } = await supa.from('cuaderno_notes').select('id').eq('kind', 'pizarra').in('id', [...noteIds])
+  const boardIds = new Set((boards ?? []).map((n) => n.id))
+  const { proposals, say } = validateProcesar(r.calls, r.say, noteIds, projIds, bookIds, boardIds)
 
   const { data: saved, error } = await supa
     .from('cuaderno_entries')
@@ -393,7 +396,7 @@ async function procesar(supa: Supa, entryId: string, hoy?: string, zona?: string
 
 type P = { tool: string; input: Record<string, unknown> }
 
-function validateProcesar(calls: Call[], sayIn: string, noteIds: Set<string>, projIds: Set<string>, bookIds: Set<string>) {
+function validateProcesar(calls: Call[], sayIn: string, noteIds: Set<string>, projIds: Set<string>, bookIds: Set<string>, boardIds: Set<string> = new Set()) {
   let say = sayIn
   const out: P[] = []
   const keys = new Set<string>()
@@ -418,7 +421,7 @@ function validateProcesar(calls: Call[], sayIn: string, noteIds: Set<string>, pr
     const a = c.args
     if (c.name === 'ampliar_nota') {
       const text = clean(a.text, 4000)
-      if (typeof a.note_id === 'string' && noteIds.has(a.note_id) && text) out.push({ tool: 'ampliar_nota', input: { note_id: a.note_id, text } })
+      if (typeof a.note_id === 'string' && noteIds.has(a.note_id) && !boardIds.has(a.note_id) && text) out.push({ tool: 'ampliar_nota', input: { note_id: a.note_id, text } })
     } else if (c.name === 'conectar') {
       const reason = clean(a.reason, 300)
       const to = a.to ?? null

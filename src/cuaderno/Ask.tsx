@@ -64,8 +64,8 @@ export function AskCard(p: { note: Note; req: AskRequest; editor: Editor | null;
     const dom = ed.view.nodeDOM(at)
     const show = () => {
       if (!(dom instanceof HTMLElement)) return
-      dom.classList.add('cu-flash')
-      setTimeout(() => dom.classList.remove('cu-flash'), 1400)
+      dom.classList.add('cu-justadded')
+      setTimeout(() => dom.classList.remove('cu-justadded'), 1400)
       dom.scrollIntoView({ behavior: 'smooth', block: p.closeAfterInsert ? 'center' : 'nearest' })
     }
     if (p.closeAfterInsert)

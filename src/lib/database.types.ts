@@ -154,8 +154,79 @@ export type Database = {
           },
         ]
       }
+      agenda_calendars: {
+        Row: {
+          color: string
+          created_at: string
+          hidden: boolean
+          icon: string
+          id: string
+          name: string
+          position: number
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          hidden?: boolean
+          icon?: string
+          id?: string
+          name: string
+          position?: number
+          user_id?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          hidden?: boolean
+          icon?: string
+          id?: string
+          name?: string
+          position?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_calendars_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_google: {
+        Row: {
+          connected_at: string
+          email: string | null
+          refresh_token: string
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string
+          email?: string | null
+          refresh_token: string
+          user_id: string
+        }
+        Update: {
+          connected_at?: string
+          email?: string | null
+          refresh_token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_google_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agenda_items: {
         Row: {
+          calendar_id: string | null
           color: string
           created_at: string
           day: string | null
@@ -173,6 +244,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          calendar_id?: string | null
           color?: string
           created_at?: string
           day?: string | null
@@ -190,6 +262,7 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          calendar_id?: string | null
           color?: string
           created_at?: string
           day?: string | null
@@ -207,6 +280,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "agenda_items_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_calendars"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agenda_items_hq_task_id_fkey"
             columns: ["hq_task_id"]
@@ -227,6 +307,8 @@ export type Database = {
         Row: {
           created_at: string
           default_duration: number
+          google_hidden: string[]
+          hide_team: boolean
           onboarded_at: string | null
           presets: number[]
           sleep_min: number
@@ -237,6 +319,8 @@ export type Database = {
         Insert: {
           created_at?: string
           default_duration?: number
+          google_hidden?: string[]
+          hide_team?: boolean
           onboarded_at?: string | null
           presets?: number[]
           sleep_min?: number
@@ -247,6 +331,8 @@ export type Database = {
         Update: {
           created_at?: string
           default_duration?: number
+          google_hidden?: string[]
+          hide_team?: boolean
           onboarded_at?: string | null
           presets?: number[]
           sleep_min?: number
@@ -343,6 +429,42 @@ export type Database = {
             columns: ["space_id"]
             isOneToOne: false
             referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_boards: {
+        Row: {
+          note_id: string
+          scene: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          note_id: string
+          scene?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          note_id?: string
+          scene?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_boards_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: true
+            referencedRelation: "cuaderno_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_boards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -632,6 +754,7 @@ export type Database = {
           embedding: string | null
           entry_id: string | null
           id: string
+          kind: string
           position: number
           title: string
           updated_at: string
@@ -646,6 +769,7 @@ export type Database = {
           embedding?: string | null
           entry_id?: string | null
           id?: string
+          kind?: string
           position?: number
           title: string
           updated_at?: string
@@ -660,6 +784,7 @@ export type Database = {
           embedding?: string | null
           entry_id?: string | null
           id?: string
+          kind?: string
           position?: number
           title?: string
           updated_at?: string
@@ -888,6 +1013,170 @@ export type Database = {
           },
         ]
       }
+      goal_checkins: {
+        Row: {
+          author_id: string | null
+          created_at: string
+          goal_id: string
+          id: string
+          note: string
+          space_id: string
+          value: number
+        }
+        Insert: {
+          author_id?: string | null
+          created_at?: string
+          goal_id: string
+          id?: string
+          note?: string
+          space_id: string
+          value: number
+        }
+        Update: {
+          author_id?: string | null
+          created_at?: string
+          goal_id?: string
+          id?: string
+          note?: string
+          space_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_checkins_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_checkins_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_checkins_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          area_id: string | null
+          created_at: string
+          created_by: string | null
+          current_value: number
+          description: string
+          due_date: string | null
+          id: string
+          kind: string
+          owner_id: string | null
+          parent_id: string | null
+          position: number
+          project_id: string | null
+          space_id: string
+          start_date: string | null
+          start_value: number
+          status_override: string | null
+          target_value: number
+          title: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          area_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_value?: number
+          description?: string
+          due_date?: string | null
+          id?: string
+          kind?: string
+          owner_id?: string | null
+          parent_id?: string | null
+          position?: number
+          project_id?: string | null
+          space_id: string
+          start_date?: string | null
+          start_value?: number
+          status_override?: string | null
+          target_value?: number
+          title: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          area_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_value?: number
+          description?: string
+          due_date?: string | null
+          id?: string
+          kind?: string
+          owner_id?: string | null
+          parent_id?: string | null
+          position?: number
+          project_id?: string | null
+          space_id?: string
+          start_date?: string | null
+          start_value?: number
+          status_override?: string | null
+          target_value?: number
+          title?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invites: {
         Row: {
           code: string
@@ -938,6 +1227,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          accent: string | null
           avatar_rockie: Json
           color: string
           created_at: string
@@ -949,6 +1239,7 @@ export type Database = {
           username: string
         }
         Insert: {
+          accent?: string | null
           avatar_rockie?: Json
           color?: string
           created_at?: string
@@ -960,6 +1251,7 @@ export type Database = {
           username: string
         }
         Update: {
+          accent?: string | null
           avatar_rockie?: Json
           color?: string
           created_at?: string
@@ -1077,6 +1369,7 @@ export type Database = {
           created_by: string | null
           id: string
           links: Json
+          mission: string
           name: string
           tagline: string
           updated_at: string
@@ -1087,6 +1380,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           links?: Json
+          mission?: string
           name?: string
           tagline?: string
           updated_at?: string
@@ -1097,6 +1391,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           links?: Json
+          mission?: string
           name?: string
           tagline?: string
           updated_at?: string
@@ -1287,6 +1582,7 @@ export type Database = {
     }
     Functions: {
       agenda_agent_bump: { Args: never; Returns: number }
+      agenda_seed_calendars: { Args: never; Returns: undefined }
       check_achievements: { Args: { sid: string }; Returns: string[] }
       create_invite: {
         Args: { p_space: string }

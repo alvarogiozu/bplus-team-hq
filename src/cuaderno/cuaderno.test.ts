@@ -4,6 +4,7 @@ import { buildArea, buildGroup, crossings, crossingsBy, distToSegment } from './
 import { buildTree, nextColor, pathOf, rootOf, type BookColor } from './books'
 import { touches } from './Draw'
 import { plain } from './text'
+import { asScene, edgePoint, sceneText, strokeTouches } from './board'
 import type { Link, Note } from './data'
 
 const note = (id: string, area: Note['area']): Note => ({
@@ -12,6 +13,7 @@ const note = (id: string, area: Note['area']): Note => ({
   title: id,
   body: '',
   area,
+  kind: 'pagina',
   entry_id: null,
   book_id: null,
   position: 0,
@@ -166,5 +168,41 @@ describe('dibujo y texto', () => {
   it('las vistas previas no muestran marcas de Markdown', () => {
     const md = ['## Título', '- [x] hecho', '- [ ] falta', '**negrita** y ==resalte== y ++subrayado++ en C++'].join(String.fromCharCode(10))
     expect(plain(md)).toBe('Título ✓ hecho ○ falta negrita y resalte y subrayado en C++')
+  })
+})
+
+describe('colores, columnas y pizarra', () => {
+  const NL = String.fromCharCode(10)
+  it('las vistas previas limpian el color de letra y los bordes de columnas', () => {
+    const md = ['## <span data-color="green">Funciones</span>', ':::columns', '', ':::column {width="50"}', '', 'Membrana', '', ':::', '', ':::column {width="50"}', '', 'Matriz <span data-color="coral">ATP</span>', '', ':::', '', ':::'].join(NL)
+    expect(plain(md)).toBe('Funciones Membrana Matriz ATP')
+  })
+  it('el borrador toca el tramo entre dos puntos lejanos (trazo rápido)', () => {
+    const st = { s: 4, p: [0, 0, 0.5, 100, 0, 0.5] }
+    expect(strokeTouches(st, 50, 3, 2)).toBe(true)
+    expect(strokeTouches(st, 50, 30, 2)).toBe(false)
+  })
+  it('una flecha sale del borde de la caja, no del centro', () => {
+    const p = edgePoint({ x: 0, y: 0, w: 100, h: 50 }, 300, 25, 0)
+    expect(p).toEqual({ x: 100, y: 25 })
+  })
+  it('la escena se lee aunque venga incompleta o rara', () => {
+    const s = asScene({ items: [{ id: 'a', t: 'note', x: 1, y: 2, w: 200, c: 'amber', text: 'Hola' }, { nope: true }], strokes: 'x' })
+    expect(s.items).toHaveLength(1)
+    expect(s.strokes).toEqual([])
+    expect(s.links).toEqual([])
+  })
+  it('el texto de la pizarra resume notas, páginas y flechas', () => {
+    const s = asScene({
+      items: [
+        { id: 'a', t: 'note', x: 0, y: 0, w: 200, c: 'amber', text: 'Núcleo:  guarda' + NL + 'el ADN' },
+        { id: 'b', t: 'page', x: 300, y: 0, w: 240, noteId: 'n1' },
+        { id: 'c', t: 'note', x: 0, y: 200, w: 200, c: 'green', text: '   ' },
+      ],
+      links: [{ id: 'l', a: 'a', b: 'b' }],
+    })
+    expect(sceneText(s, (id) => (id === 'n1' ? 'La mitocondria' : '?'))).toBe(
+      ['- Núcleo: guarda el ADN', '- Página: La mitocondria', '- «Núcleo: guarda el ADN» → «La mitocondria»'].join(NL),
+    )
   })
 })

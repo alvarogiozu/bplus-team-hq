@@ -47,7 +47,9 @@ export type Entry = Omit<Tables<'cuaderno_entries'>, 'proposals' | 'source' | 's
   source: 'voz' | 'texto' | 'conversa'
   status: 'nuevo' | 'propuesto' | 'listo'
 }
-export type Note = Omit<Tables<'cuaderno_notes'>, 'embedding' | 'area'> & { area: Area }
+/** Una página se escribe (Markdown) o es una pizarra infinita (su escena vive en cuaderno_boards). */
+export type NoteKind = 'pagina' | 'pizarra'
+export type Note = Omit<Tables<'cuaderno_notes'>, 'embedding' | 'area' | 'kind'> & { area: Area; kind: NoteKind }
 export type Link = Tables<'cuaderno_links'>
 export type Card = Tables<'cuaderno_cards'>
 export type DayLog = Tables<'cuaderno_days'>
@@ -68,7 +70,7 @@ export const AREAS: { id: Area; label: string; icon: string; hint: string }[] = 
 export const areaOf = (id: string) => AREAS.find((a) => a.id === id) ?? AREAS[4]
 
 // sin la columna embedding: pesa y el cliente no la usa
-const NOTE_COLS = 'id, user_id, title, body, area, entry_id, book_id, position, embedded_at, created_at, updated_at'
+const NOTE_COLS = 'id, user_id, title, body, area, kind, entry_id, book_id, position, embedded_at, created_at, updated_at'
 
 export const ckeys = {
   notes: (u: string | null) => ['cu-notes', u] as const,
@@ -335,6 +337,7 @@ export function useCuadernoActions() {
       entry_id?: string | null
       book_id?: string | null
       position?: number
+      kind?: NoteKind
     }): Promise<{ note: Note; undo: Undo } | null> => {
       const { data, error } = await supabase
         .from('cuaderno_notes')
@@ -342,6 +345,7 @@ export function useCuadernoActions() {
           title: input.title.slice(0, 160),
           body: input.body ?? '',
           area: input.area ?? 'libre',
+          kind: input.kind ?? 'pagina',
           entry_id: input.entry_id ?? null,
           book_id: input.book_id ?? null,
           // al final de su cuaderno, en el orden en que se crean
@@ -408,6 +412,11 @@ export function useCuadernoActions() {
     async (note: Note) => {
       const links = linksNow().filter((l) => l.a_id === note.id || l.b_id === note.id)
       const cards = cardsNow().filter((c) => c.note_id === note.id)
+      // una pizarra se lleva su escena al borrarse: se guarda aquí para que deshacer la devuelva
+      const scene =
+        note.kind === 'pizarra'
+          ? ((await supabase.from('cuaderno_boards').select('scene').eq('note_id', note.id).maybeSingle()).data?.scene ?? null)
+          : null
       dropIn(qc, ckeys.notes(uid), note.id)
       qc.setQueryData<Link[]>(ckeys.links(uid), (old) => old?.filter((l) => !links.includes(l)))
       qc.setQueryData<Card[]>(ckeys.cards(uid), (old) => old?.filter((c) => !cards.includes(c)))
@@ -427,6 +436,7 @@ export function useCuadernoActions() {
               .select(NOTE_COLS)
               .single()
             if (data) upsertIn(qc, ckeys.notes(uid), data as unknown as Note, true)
+            if (scene) await supabase.from('cuaderno_boards').insert({ note_id: note.id, scene })
             if (links.length) {
               const { data: l } = await supabase
                 .from('cuaderno_links')
@@ -562,6 +572,26 @@ export function useCuadernoActions() {
     },
     [qc, uid, booksNow, notesNow],
   )
+
+  // ----- pizarras (la escena aparte, para que la lista de páginas siga liviana) -----
+  const loadBoard = useCallback(async (noteId: string): Promise<Record<string, unknown> | null> => {
+    const { data, error } = await supabase.from('cuaderno_boards').select('scene').eq('note_id', noteId).maybeSingle()
+    if (error) {
+      toastError(humanError(error))
+      return null
+    }
+    return (data?.scene as Record<string, unknown> | undefined) ?? {}
+  }, [])
+  const saveBoard = useCallback(async (noteId: string, scene: Record<string, unknown>) => {
+    const { error } = await supabase
+      .from('cuaderno_boards')
+      .upsert({ note_id: noteId, scene: scene as TablesInsert<'cuaderno_boards'>['scene'] }, { onConflict: 'note_id' })
+    if (error) {
+      toastError(humanError(error))
+      return false
+    }
+    return true
+  }, [])
 
   // ----- dibujos (los trazos, para volver a editarlos) -----
   const saveDrawing = useCallback(
@@ -772,6 +802,8 @@ export function useCuadernoActions() {
     updateBook,
     deleteBook,
     saveDrawing,
+    loadBoard,
+    saveBoard,
     createLink,
     deleteLink,
     createCards,

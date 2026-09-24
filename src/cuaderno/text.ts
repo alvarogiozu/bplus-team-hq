@@ -1,6 +1,8 @@
-/** Markdown → texto para vistas previas: sin #, **, >, casillas, resaltados ni saltos de más. */
+/** Markdown → texto para vistas previas: sin #, **, >, casillas, resaltados, colores, columnas ni saltos de más. */
 export function plain(md: string, opts: { lines?: boolean } = {}) {
   const out = md
+    .replace(/^:::.*$/gm, '') // bordes de columnas (:::columns, :::column {…}, :::)
+    .replace(/<span data-color="[a-z]+">|<\/span>/g, '') // color de letra
     .replace(/^\s*[-*]\s+\[x\]\s+/gim, '✓ ')
     .replace(/^\s*[-*]\s+\[ \]\s+/gm, '○ ')
     .replace(/^\s*[-*+]\s+/gm, '• ')

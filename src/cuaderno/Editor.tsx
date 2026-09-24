@@ -3,7 +3,7 @@ import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/r
 import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
-import { Placeholder } from '@tiptap/extensions'
+import { Placeholder, TrailingNode } from '@tiptap/extensions'
 import { Highlight } from '@tiptap/extension-highlight'
 import { Image } from '@tiptap/extension-image'
 import { TableKit } from '@tiptap/extension-table'
@@ -11,12 +11,27 @@ import { Markdown } from '@tiptap/markdown'
 import { useAuth } from '../features/auth/AuthProvider'
 import { haptic } from '../lib/fx'
 import { openDialog } from './bus'
+import {
+  Column,
+  Columns,
+  TEXT_COLORS,
+  TextColorMark,
+  addColumn,
+  applyTextColor,
+  inColumns,
+  insertColumns,
+  removeColumn,
+  unwrapColumns,
+  type TextColor,
+} from './extensions'
 import { isStored, resolveSrc, shrinkImage, srcOf, upload } from './files'
 import { CIcon } from './icons'
+import { Popover } from './ui'
 
 // El editor de páginas: como Google Docs + OneNote, pero guardando Markdown (portátil, exportable).
 // Barra fija con lo esencial, menú al seleccionar (formato + "Pregúntale a Rockie"),
-// imágenes pegadas o arrastradas, tablas y dibujos a mano que se pueden volver a editar.
+// imágenes pegadas o arrastradas, tablas, columnas que se ensanchan arrastrando, color de letra
+// y dibujos a mano que se pueden volver a editar.
 
 export type AskMode = 'explicar' | 'ejemplo' | 'conectar' | 'pregunta' | 'libre'
 export type AskRequest = { text: string; to: number; modo: AskMode; pregunta?: string }
@@ -100,8 +115,13 @@ export function useNoteEditor(p: { noteId: string; body: string; onChange: (md: 
         TaskList,
         TaskItem.configure({ nested: true }),
         Highlight,
+        TextColorMark,
         CuImage.configure({ inline: false }),
         TableKit.configure({ table: { resizable: false } }),
+        Columns,
+        Column,
+        // siempre queda un párrafo al final (para seguir escribiendo después de una tabla o columnas)
+        TrailingNode,
         Placeholder.configure({
           placeholder: ({ node }) =>
             node.type.name === 'heading' ? 'Título' : 'Escribe aquí… o selecciona un texto y pregúntale a Rockie',
@@ -216,11 +236,14 @@ export function Toolbar({ editor }: { editor: Editor | null }) {
             code: e.isActive('codeBlock'),
             link: e.isActive('link'),
             table: e.isActive('table'),
+            cols: inColumns(e),
+            color: (e.getAttributes('textColor').color as TextColor | undefined) ?? null,
             canUndo: e.can().undo(),
             canRedo: e.can().redo(),
           }
         : null,
   })
+  const [colorAt, setColorAt] = useState<HTMLElement | null>(null)
   if (!editor || !s) return <div className="cu-toolbar" aria-hidden="true" />
   const c = () => editor.chain().focus()
   const setBlock = (v: string) => {
@@ -246,6 +269,22 @@ export function Toolbar({ editor }: { editor: Editor | null }) {
       <Btn icon="underline" label="Subrayado (Ctrl+U)" on={s.underline} onClick={() => c().toggleUnderline().run()} />
       <Btn icon="strike" label="Tachado" on={s.strike} onClick={() => c().toggleStrike().run()} />
       <Btn icon="highlight" label="Resaltar" on={s.highlight} onClick={() => c().toggleHighlight().run()} />
+      <button
+        type="button"
+        className={`cu-tb cu-tb-color${colorAt ? ' on' : ''}`}
+        aria-label="Color de letra"
+        title="Color de letra (sin seleccionar, pinta todo el bloque: ideal para títulos)"
+        aria-haspopup="menu"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => setColorAt(colorAt ? null : e.currentTarget)}
+      >
+        <CIcon name="textcolor" size={18} />
+        <i className="cu-tb-colorbar" data-color={s.color ?? ''} aria-hidden="true" />
+      </button>
+      <Popover anchor={colorAt} open={Boolean(colorAt)} onClose={() => setColorAt(null)} label="Color de letra">
+        <p className="cu-pop-title">Color de letra</p>
+        <TextColorPicker editor={editor} current={s.color} onDone={() => setColorAt(null)} />
+      </Popover>
       <span className="cu-tb-sep" />
       <Btn icon="list" label="Lista" on={s.bullet} onClick={() => c().toggleBulletList().run()} />
       <Btn icon="listnum" label="Lista numerada" on={s.ordered} onClick={() => c().toggleOrderedList().run()} />
@@ -257,6 +296,20 @@ export function Toolbar({ editor }: { editor: Editor | null }) {
       <Btn icon="image" label="Imagen" onClick={() => fileRef.current?.click()} />
       <Btn icon="pen" label="Dibujar" onClick={draw} />
       <Btn icon="table" label="Tabla" on={s.table} onClick={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
+      <Btn icon="columns" label="Columnas (arrastra el borde entre ellas para cambiar el ancho)" on={s.cols} onClick={() => insertColumns(editor, 2)} />
+      {s.cols && (
+        <span className="cu-tb-table">
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => addColumn(editor)}>
+            + columna
+          </button>
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => removeColumn(editor)}>
+            − columna
+          </button>
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => unwrapColumns(editor)}>
+            quitar columnas
+          </button>
+        </span>
+      )}
       {s.table && (
         <span className="cu-tb-table">
           <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => c().addRowAfter().run()}>
@@ -295,6 +348,37 @@ export function Toolbar({ editor }: { editor: Editor | null }) {
   )
 }
 
+// ---------- color de letra ----------
+/** Las letras "A" en cada color: la primera vuelve al color normal. */
+function TextColorPicker({ editor, current, onDone }: { editor: Editor; current: TextColor | null; onDone?: () => void }) {
+  const pick = (c: TextColor | null) => {
+    applyTextColor(editor, c)
+    haptic(6)
+    onDone?.()
+  }
+  return (
+    <div className="cu-txpick" role="group" aria-label="Color de letra">
+      <button type="button" className={`cu-txsw${current ? '' : ' on'}`} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(null)} aria-label="Color normal" title="Normal">
+        A
+      </button>
+      {TEXT_COLORS.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          className={`cu-txsw${current === c.id ? ' on' : ''}`}
+          data-color={c.id}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => pick(c.id)}
+          aria-label={c.label}
+          title={c.label}
+        >
+          A
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ---------- menú al seleccionar ----------
 const ASKS: { modo: AskMode; label: string }[] = [
   { modo: 'explicar', label: 'Explícamelo simple' },
@@ -304,8 +388,23 @@ const ASKS: { modo: AskMode; label: string }[] = [
 ]
 
 export function SelectionMenu({ editor, onAsk }: { editor: Editor | null; onAsk: (r: AskRequest) => void }) {
-  const [mode, setMode] = useState<'fmt' | 'ask' | 'link'>('fmt')
+  const [mode, setMode] = useState<'fmt' | 'ask' | 'link' | 'color'>('fmt')
   const [text, setText] = useState('')
+  // lo activo se lee del estado del editor (si no, la burbuja mostraría lo de la selección anterior)
+  const on = useEditorState({
+    editor,
+    selector: ({ editor: e }) =>
+      e
+        ? {
+            bold: e.isActive('bold'),
+            italic: e.isActive('italic'),
+            underline: e.isActive('underline'),
+            link: e.isActive('link'),
+            highlight: e.isActive('highlight'),
+            color: (e.getAttributes('textColor').color as TextColor | undefined) ?? null,
+          }
+        : null,
+  })
   // otra selección = vuelve al menú de formato
   useEffect(() => {
     if (!editor) return
@@ -317,7 +416,7 @@ export function SelectionMenu({ editor, onAsk }: { editor: Editor | null; onAsk:
       editor.off('selectionUpdate', reset)
     }
   }, [editor])
-  if (!editor) return null
+  if (!editor || !on) return null
   const selected = () => {
     const { from, to } = editor.state.selection
     return { text: editor.state.doc.textBetween(from, to, ' ').trim(), to }
@@ -341,15 +440,15 @@ export function SelectionMenu({ editor, onAsk }: { editor: Editor | null; onAsk:
     >
       {mode === 'fmt' && (
         <>
-          <Btn icon="bold" label="Negrita" on={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} />
-          <Btn icon="italic" label="Cursiva" on={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} />
+          <Btn icon="bold" label="Negrita" on={on.bold} onClick={() => editor.chain().focus().toggleBold().run()} />
+          <Btn icon="italic" label="Cursiva" on={on.italic} onClick={() => editor.chain().focus().toggleItalic().run()} />
           {/* en el celular el subrayado queda solo en la barra de arriba, para que la burbuja quepa */}
-          <Btn icon="underline" label="Subrayado" className="cu-wide-only" on={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} />
-          <Btn icon="highlight" label="Resaltar" on={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()} />
+          <Btn icon="underline" label="Subrayado" className="cu-wide-only" on={on.underline} onClick={() => editor.chain().focus().toggleUnderline().run()} />
+          <Btn icon="textcolor" label="Color y resaltado" on={Boolean(on.color) || on.highlight} onClick={() => setMode('color')} />
           <Btn
             icon="link"
             label="Enlace"
-            on={editor.isActive('link')}
+            on={on.link}
             onClick={() => {
               setText(String(editor.getAttributes('link').href ?? ''))
               setMode('link')
@@ -377,6 +476,21 @@ export function SelectionMenu({ editor, onAsk }: { editor: Editor | null; onAsk:
           >
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder="O escribe tu pregunta…" aria-label="Tu pregunta sobre lo seleccionado" />
           </form>
+        </div>
+      )}
+      {mode === 'color' && (
+        <div className="cu-bubble-color">
+          <TextColorPicker editor={editor} current={on.color} onDone={() => setMode('fmt')} />
+          <span className="cu-tb-sep" />
+          <Btn
+            icon="highlight"
+            label="Resaltar"
+            on={on.highlight}
+            onClick={() => {
+              editor.chain().focus().toggleHighlight().run()
+              setMode('fmt')
+            }}
+          />
         </div>
       )}
       {mode === 'link' && (

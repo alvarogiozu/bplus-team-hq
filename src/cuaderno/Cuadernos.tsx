@@ -36,6 +36,14 @@ export async function newPage(actions: ReturnType<typeof useCuadernoActions>, na
   nav(`/cuaderno/nota/${res.note.id}?nueva=1`)
 }
 
+/** Una pizarra infinita (opcional): una página que es un lienzo sin bordes. */
+export async function newBoard(actions: ReturnType<typeof useCuadernoActions>, nav: (to: string) => void, bookId: string | null) {
+  const res = await actions.createNote({ title: 'Pizarra sin título', book_id: bookId, area: 'mente', kind: 'pizarra' })
+  if (!res) return
+  haptic(8)
+  nav(`/cuaderno/nota/${res.note.id}`)
+}
+
 export async function newBook(actions: ReturnType<typeof useCuadernoActions>, nav: (to: string) => void, books: Book[]) {
   const color = nextColor(books.filter((b) => !b.parent_id).map((b) => b.color))
   const res = await actions.createBook({ name: 'Cuaderno nuevo', color })
@@ -173,7 +181,10 @@ export function PageRow({ n, i, mem }: { n: Note; i: number; mem: Memory }) {
       <Link to={`/cuaderno/nota/${n.id}`} className="cu-row">
         <span className={`cu-mem ${mem}`} title={MEMORY_LABEL[mem]} aria-label={MEMORY_LABEL[mem]} />
         <span className="cu-row-txt">
-          <b>{n.title}</b>
+          <b>
+            {n.kind === 'pizarra' && <CIcon name="board" size={14} className="cu-row-kind" />}
+            {n.title}
+          </b>
           {snip && <span>{snip}</span>}
         </span>
         <span className="cu-row-meta">
@@ -226,6 +237,10 @@ export function CuadernoPage() {
   }
 
   const pages = loose ? unfiled : [...t!.loose, ...t!.sections.flatMap((s) => s.pages)]
+  const newSection = async (b: Book) => {
+    const res = await actions.createBook({ name: 'Sección nueva', color: b.color, parent_id: b.id })
+    if (res) haptic(8)
+  }
   const nCards = cards.filter((c) => pages.some((p) => p.id === c.note_id)).length
   const book = t?.book
 
@@ -248,36 +263,49 @@ export function CuadernoPage() {
 
         <div className="cu-read">
           <div className={`cu-bookbar${book ? ' is-book' : ''}${nCards > 0 ? ' has-practice' : ''}`}>
+            <button className="btn sm cu-bb-page" onClick={() => void newPage(actions, nav, book?.id ?? null)}>
+              <CIcon name="plus" size={16} /> Página
+            </button>
+            <button className="btn sm ghost cu-bb-board" onClick={() => void newBoard(actions, nav, book?.id ?? null)} title="Una página que es un lienzo sin bordes: dibuja, pon notas y únelas con flechas">
+              <CIcon name="board" size={16} /> Pizarra
+            </button>
             {book && (
               <>
-                <button className="btn sm" onClick={() => void newPage(actions, nav, book.id)}>
-                  <CIcon name="plus" size={16} /> Página
-                </button>
-                <button
-                  className="btn sm ghost"
-                  onClick={async () => {
-                    const res = await actions.createBook({ name: 'Sección nueva', color: book.color, parent_id: book.id })
-                    if (res) haptic(8)
-                  }}
-                >
+                <button className="btn sm ghost cu-bb-section" onClick={() => void newSection(book)}>
                   <CIcon name="section" size={16} /> Sección
                 </button>
-                <button className="btn sm ghost" onClick={() => openDialog({ kind: 'aprender', bookId: book.id })}>
+                <button className="btn sm ghost cu-bb-learn" onClick={() => openDialog({ kind: 'aprender', bookId: book.id })}>
                   <CIcon name="sparkle" size={16} /> Aprender con Rockie
                 </button>
               </>
             )}
             {nCards > 0 && (
-              <Link className="btn sm gphoto" to={`/cuaderno/repaso?cuaderno=${book?.id ?? 'sueltas'}`}>
+              <Link className="btn sm gphoto cu-bb-practice" to={`/cuaderno/repaso?cuaderno=${book?.id ?? 'sueltas'}`}>
                 <CIcon name="cards" size={16} /> Practicar
               </Link>
             )}
             {book && (
               <>
-                <button className="iconbtn" onClick={(e) => setMenuAt(e.currentTarget)} aria-label="Más opciones del cuaderno" aria-haspopup="menu">
+                <button className="iconbtn cu-bb-more" onClick={(e) => setMenuAt(e.currentTarget)} aria-label="Más opciones del cuaderno" aria-haspopup="menu">
                   <CIcon name="more" size={18} />
                 </button>
                 <Popover anchor={menuAt} open={Boolean(menuAt)} onClose={() => setMenuAt(null)} label="Opciones del cuaderno">
+                  {mobile && (
+                    // en el celular, "Sección" vive aquí (arriba no caben todas)
+                    <>
+                      <button
+                        role="menuitem"
+                        className="cu-pop-item"
+                        onClick={() => {
+                          setMenuAt(null)
+                          void newSection(book)
+                        }}
+                      >
+                        <CIcon name="section" size={16} /> Nueva sección
+                      </button>
+                      <hr />
+                    </>
+                  )}
                   <p className="cu-pop-title">Color del lomo</p>
                   <ColorPick
                     value={book.color}

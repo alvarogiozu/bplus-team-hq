@@ -10,7 +10,8 @@ import { NONE, useBooks, useCuadernoActions, useNotes, type Note } from './data'
 import { CIcon } from './icons'
 
 // El árbol de la barra lateral (como tu Obsidian): cada cuaderno es una barra de su color,
-// con canto; al abrirla aparecen sus páginas y secciones. Lo que se abrió se recuerda.
+// con canto; al abrirla aparecen sus páginas y secciones. "Sueltas" se despliega igual.
+// Lo que se abrió o cerró se recuerda.
 
 function useOpenSet() {
   const { userId } = useAuth()
@@ -45,10 +46,14 @@ export function BookTree() {
 
   const pageLink = (n: Note) => (
     <NavLink key={n.id} to={`/cuaderno/nota/${n.id}`} className="cu-tree-page" title={n.title}>
-      <CIcon name="note" size={14} />
+      <CIcon name={n.kind === 'pizarra' ? 'board' : 'note'} size={14} />
       <span>{n.title}</span>
     </NavLink>
   )
+  // Sueltas empieza desplegada (como las secciones): se guarda solo si la cierras
+  const looseOpen = !open.has('-sueltas')
+  const looseHere = loc.pathname === '/cuaderno/c/sueltas'
+  const LOOSE_MAX = 30
 
   return (
     <section className="cu-tree" aria-label="Tus cuadernos">
@@ -107,9 +112,34 @@ export function BookTree() {
             </div>
           )
         })}
-        <NavLink to="/cuaderno/c/sueltas" className="cu-tree-loose">
-          <CIcon name="note" size={15} /> Sueltas <small>{unfiled.length || ''}</small>
-        </NavLink>
+        <div className="cu-tree-book loose">
+          <div className={`cu-tree-loosebar${looseHere ? ' here' : ''}`}>
+            <button className="cu-tree-chev" onClick={() => toggle('-sueltas')} aria-label={looseOpen ? 'Cerrar Sueltas' : 'Abrir Sueltas'} aria-expanded={looseOpen}>
+              <motion.span animate={{ rotate: looseOpen ? 90 : 0 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+                <CIcon name="right" size={14} />
+              </motion.span>
+            </button>
+            <NavLink to="/cuaderno/c/sueltas" className="cu-tree-name" onClick={() => toggle('-sueltas', false)}>
+              Sueltas <small>{unfiled.length || ''}</small>
+            </NavLink>
+            <button className="cu-tree-add" onClick={() => void newPage(actions, nav, null)} aria-label="Nueva página suelta" title="Nueva página suelta">
+              <CIcon name="plus" size={14} />
+            </button>
+          </div>
+          <AnimatePresence initial={false}>
+            {looseOpen && (
+              <motion.div className="cu-tree-kids" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}>
+                {unfiled.slice(0, LOOSE_MAX).map(pageLink)}
+                {unfiled.length > LOOSE_MAX && (
+                  <NavLink to="/cuaderno/c/sueltas" className="cu-tree-page more">
+                    Ver las {unfiled.length}
+                  </NavLink>
+                )}
+                {!unfiled.length && <p className="cu-tree-empty">Nada suelto</p>}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
         {!tree.length && (
           <button className="cu-tree-first" onClick={() => openDialog({ kind: 'aprender' })}>
             <CIcon name="sparkle" size={15} /> Crea tu primer cuaderno con Rockie

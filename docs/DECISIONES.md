@@ -182,3 +182,38 @@ aprueben el conector; mientras tanto todo va con Gemini.
 **Celular (375×812).** Barra inferior de 5 lugares con Rockie al centro; cabeceras compactas (en una página: volver,
 ruta, ✦ Profundizar y ⋯ con mapa/borrar; "Guardado" pasa a la línea de fecha); acciones del cuaderno en dos filas
 parejas; hojas (sheets) para preguntar y aprender; zonas seguras arriba y abajo en dibujo y conversación.
+
+### Cuaderno v2.2 — color de letra, columnas, pizarra infinita y Sueltas desplegable (sep 2026)
+
+**Sueltas se despliega como un cuaderno.** En el árbol de la barra lateral, "Sueltas" tiene su flecha y muestra sus
+páginas (hasta 30, luego "Ver las N"), con "+" para una página suelta. Empieza abierta; se recuerda si la cierras.
+
+**Color de letra con función, en tokens.** Seis colores (terracota, ámbar, verde, azul, mora, gris) que en tema oscuro
+cambian solos (`--cu-tx-*`). Sin selección, el color pinta el bloque entero donde está el cursor (como el color de
+bloque de Notion): así un título se colorea con un toque. En la burbuja, el botón de color reemplaza al de resaltar y
+trae los dos. En Markdown viaja como `<span data-color="…">` con su propio lector (lo de adentro sigue siendo
+Markdown: una negrita dentro de un color no se pierde); Obsidian lo muestra como texto normal.
+
+**Columnas como Notion.** Un bloque de 2 a 4 columnas; el borde entre dos se arrastra para cambiar el ancho (se guarda
+como `width` de cada una); "+ columna", "− columna" (lo que tenía pasa a la de al lado: nada se pierde) y "quitar
+columnas" (todo vuelve al flujo normal). En pantallas angostas se apilan solas. En Markdown son bloques estilo Pandoc
+(`:::columns` / `:::column {width="…"}`), el formato que TipTap ya sabe leer anidado; las vistas previas los limpian.
+Siempre queda un párrafo al final de la página (para seguir escribiendo después de una tabla o columnas).
+
+**Pizarra infinita, opcional.** Una página puede ser pizarra (`cuaderno_notes.kind = 'pizarra'`); se crea con el botón
+"Pizarra" del cuaderno (o de Sueltas). Lienzo sin bordes con cámara propia: arrastrar el fondo mueve, Ctrl/⌘ + rueda o
+pellizcar acerca (10 %–400 %), "Ver todo" encuadra. Herramientas: mover/elegir, lápiz (con presión) y resaltador en las
+tintas del color de letra, borrador (trazos y flechas), nota adhesiva (5 papeles), texto (3 tamaños), página pegada
+(una tarjeta con el lomo de su cuaderno; doble clic la abre) y flecha (arrastrar de un elemento a otro). Doble clic en
+el fondo = nota nueva. La tinta va encima de las notas (se escribe sobre ellas); los grosores se eligen en px de
+pantalla, así un trazo hecho con zoom sale fino. Deshacer/rehacer propio (Ctrl+Z / Ctrl+Y), atajos V P R E N T F.
+Con lápiz, el dedo mueve en vez de rayar.
+- La escena vive aparte (`cuaderno_boards`, RLS y solo sobre tus páginas, tope 3 MB) para que la lista de páginas siga
+  liviana; su texto (notas, páginas y flechas "A → B") se copia al cuerpo de la página: búsqueda, mapa, Rockie y
+  "Profundizar" la leen como a cualquier otra. Por eso Rockie puede conectarla pero no "ampliarla" (el servidor lo filtra).
+- Borrar una pizarra guarda su escena para que Deshacer la devuelva completa.
+- Los elementos no se re-renderizan al mover la cámara (transform en una capa; los trazos y flechas en canvas).
+
+**Migraciones: ojo con los números.** La sesión del HQ/Agenda usó `20260928120000` en paralelo; la de pizarras quedó
+como `20260929200000`. Para aplicarla hubo que tener en la carpeta local las migraciones que el remoto ya tenía (se
+copiaron solo para el `db push` y no se commitearon).

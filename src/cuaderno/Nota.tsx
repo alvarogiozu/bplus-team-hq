@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { EditorContent, type Editor } from '@tiptap/react'
@@ -10,22 +10,25 @@ import { dayOfTs, fmtDayLong } from '../lib/dates'
 import { burst, haptic, pointOf } from '../lib/fx'
 import { acceptProposal, embedNotes, reopen, reviewNote, type Look, type Reply } from './agent'
 import { AskCard } from './Ask'
-import { rootOf, spine } from './books'
-import { openDialog } from './bus'
 import { useToday } from './capture'
 import { NONE, AREAS, useBooks, useCards, useCuadernoActions, useLinks, useNotes, useProjects, type Note } from './data'
 import { SelectionMenu, Toolbar, useNoteEditor, type AskRequest } from './Editor'
 import { CIcon } from './icons'
 import { MEMORY_LABEL, memoryOf } from './leitner'
+import { PageHeader, SavedTag } from './PageHeader'
 import { ProposalList } from './Proposals'
-import { BookPicker, Popover, useHasPanel, useIsMobile } from './ui'
+import { useHasPanel, useIsMobile } from './ui'
+
+// la pizarra (trazos, notas adhesivas, flechas) solo se descarga si abres una
+const Pizarra = lazy(() => import('./Pizarra'))
 
 export default function NotaPage() {
   const { id = '' } = useParams()
   const notesQ = useNotes()
   const note = notesQ.data?.find((n) => n.id === id)
   const mobile = useIsMobile()
-  useHasPanel(!mobile && Boolean(note))
+  // la pizarra usa todo el ancho: sin panel a la derecha
+  useHasPanel(!mobile && Boolean(note) && note?.kind !== 'pizarra')
   if (notesQ.isLoading) return <div className="cu-loading" aria-busy="true" />
   if (!note)
     return (
@@ -41,21 +44,23 @@ export default function NotaPage() {
         </div>
       </div>
     )
+  if (note.kind === 'pizarra')
+    return (
+      <Suspense fallback={<div className="cu-loading" aria-busy="true" />}>
+        <Pizarra key={note.id} note={note} mobile={mobile} />
+      </Suspense>
+    )
   return <NoteView key={note.id} note={note} mobile={mobile} />
 }
 
 function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
   const actions = useCuadernoActions()
-  const nav = useNavigate()
   const [params, setParams] = useSearchParams()
   const { profile } = useMe()
   const today = useToday(profile.timezone)
-  const books = useBooks().data ?? NONE
   const [title, setTitle] = useState(note.title)
   const [saved, setSaved] = useState<'ok' | 'saving'>('ok')
   const [ask, setAsk] = useState<AskRequest | null>(null)
-  const [moveAt, setMoveAt] = useState<HTMLElement | null>(null)
-  const [moreAt, setMoreAt] = useState<HTMLElement | null>(null)
   const pending = useRef<{ title?: string; body?: string }>({})
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const embedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -101,94 +106,22 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
     el.style.height = `${el.scrollHeight}px`
   }, [title])
 
-  const root = rootOf(books, note.book_id)
-  const section = note.book_id && root && root.id !== note.book_id ? books.find((b) => b.id === note.book_id) : null
   const created = dayOfTs(note.created_at, profile.timezone)
-  const deepen = () => openDialog({ kind: 'conversar', contexto: { tipo: 'nota', id: note.id, titulo: note.title } })
-  const remove = () => {
-    clearTimeout(timer.current)
-    pending.current = {}
-    void actions.deleteNote(note)
-    nav(root ? `/cuaderno/c/${root.id}` : '/cuaderno/cuadernos', { replace: true })
-  }
-  const savedTag = (
-    <span className={`cu-saved ${saved}`} aria-live="polite">
-      {saved === 'saving' ? 'Guardando…' : 'Guardado'}
-    </span>
-  )
 
   const panel = <NotePanel note={note} today={today} ask={ask} editor={editor} onCloseAsk={() => setAsk(null)} />
 
   return (
     <div className="cu-page">
       <div className="cu-center cu-docwrap" data-scroll>
-        <header className="cu-head cu-dochead">
-          <button className="iconbtn" onClick={() => nav(-1)} aria-label="Volver">
-            <CIcon name="left" size={18} />
-          </button>
-          <button className="cu-crumb" style={root ? spine(root.color) : undefined} onClick={(e) => setMoveAt(e.currentTarget)} aria-haspopup="menu" title="Mover a otro cuaderno">
-            <i aria-hidden="true" className={root ? '' : 'loose'} />
-            <span>{root ? root.name : 'Sueltas'}</span>
-            {section && (
-              <>
-                <em aria-hidden="true">›</em>
-                <span>{section.name}</span>
-              </>
-            )}
-            <CIcon name="down" size={14} />
-          </button>
-          <Popover anchor={moveAt} open={Boolean(moveAt)} onClose={() => setMoveAt(null)} label="Mover a">
-            <p className="cu-pop-title">Mover a…</p>
-            <BookPicker
-              books={books}
-              current={note.book_id}
-              onPick={(id, label) => {
-                setMoveAt(null)
-                void actions.moveNote(note, id, label)
-              }}
-            />
-          </Popover>
-          {!mobile && savedTag}
-          <span className="spacer" />
-          {mobile ? (
-            // en el celular no cabe todo: Profundizar queda como el botón de Rockie; mapa y borrar, en el ⋯
-            <>
-              <button className="iconbtn cu-deepen" onClick={deepen} aria-label="Profundizar con Rockie" title="Profundizar con Rockie">
-                <CIcon name="sparkle" size={18} />
-              </button>
-              <button className="iconbtn" onClick={(e) => setMoreAt(e.currentTarget)} aria-label="Más opciones de la página" aria-haspopup="menu">
-                <CIcon name="more" size={18} />
-              </button>
-              <Popover anchor={moreAt} open={Boolean(moreAt)} onClose={() => setMoreAt(null)} label="Opciones de la página">
-                <Link role="menuitem" className="cu-pop-item" to={`/cuaderno/mapa?nota=${note.id}`}>
-                  <CIcon name="map" size={16} /> Ver en el mapa
-                </Link>
-                <button
-                  role="menuitem"
-                  className="cu-pop-item danger"
-                  onClick={() => {
-                    setMoreAt(null)
-                    remove()
-                  }}
-                >
-                  <CIcon name="trash" size={16} /> Borrar página
-                </button>
-              </Popover>
-            </>
-          ) : (
-            <>
-              <button className="btn sm" onClick={deepen} title="Conversar con Rockie sobre esta página: te explica y te pregunta">
-                <CIcon name="sparkle" size={15} /> Profundizar
-              </button>
-              <Link className="iconbtn" to={`/cuaderno/mapa?nota=${note.id}`} aria-label="Ver en el mapa" title="Ver en el mapa">
-                <CIcon name="map" size={18} />
-              </Link>
-              <button className="iconbtn" aria-label="Borrar página" title="Borrar página" onClick={remove}>
-                <CIcon name="trash" size={18} />
-              </button>
-            </>
-          )}
-        </header>
+        <PageHeader
+          note={note}
+          mobile={mobile}
+          saved={saved}
+          onBeforeRemove={() => {
+            clearTimeout(timer.current)
+            pending.current = {}
+          }}
+        />
         <div className="cu-toolwrap">
           <Toolbar editor={editor} />
         </div>
@@ -215,7 +148,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
           />
           <p className="cu-note-meta">
             <span>Creada el {fmtDayLong(created)}</span>
-            {mobile && savedTag}
+            {mobile && <SavedTag saved={saved} />}
             {note.entry_id && <Link to={created === today ? '/cuaderno' : `/cuaderno?dia=${created}`}>nació en tu diario</Link>}
             <label className="cu-area-pick">
               <CIcon name={AREAS.find((a) => a.id === note.area)?.icon ?? 'star'} size={14} />

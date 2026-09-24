@@ -32,6 +32,26 @@ const X: Record<string, ReactNode> = {
       <path d="M3 10h18M10 4v16" />
     </>
   ),
+  textcolor: <path d="M9 15V8a3 3 0 0 1 6 0v7M9 11h6" />,
+  columns: (
+    <>
+      <rect x="3" y="4" width="7.5" height="16" rx="1.5" />
+      <rect x="13.5" y="4" width="7.5" height="16" rx="1.5" />
+    </>
+  ),
+  // ---------- pizarra ----------
+  board: <path d="M8 8h8v8H8zM3 8h2M3 16h2M8 3v2M16 3v2M19 8h2M19 16h2M8 19v2M16 19v2" />,
+  pointer: (
+    <path d="M7.904 17.563a1.2 1.2 0 0 0 2.228.308l2.09-3.093 4.907 4.907a1.067 1.067 0 0 0 1.509 0l1.047-1.047a1.067 1.067 0 0 0 0-1.509l-4.907-4.907 3.113-2.09a1.2 1.2 0 0 0-.309-2.228L4 4z" />
+  ),
+  sticky: <path d="M13 20l7-7M13 20v-6a1 1 0 0 1 1-1h6V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7" />,
+  type: <path d="M4 20h3M14 20h7M6.9 15h6.9M10.2 6.3L16 20M5 20l6-16h2l7 16" />,
+  connect: (
+    <>
+      <circle cx="5.5" cy="18.5" r="2.5" />
+      <path d="M8 16L19 5M13 5h6v6" />
+    </>
+  ),
   undo2: <path d="M9 14l-4-4 4-4M5 10h10a5 5 0 0 1 0 10h-1" />,
   redo: <path d="M15 14l4-4-4-4M19 10H9a5 5 0 0 0 0 10h1" />,
   chat: <path d="M8 9h8M8 13h6M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z" />,

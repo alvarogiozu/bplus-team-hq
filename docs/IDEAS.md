@@ -22,7 +22,12 @@ Anotadas para no perderlas; ninguna entra sin preguntarnos si suma o si es ruido
 ## Rockie Cuaderno (fuera, a propósito)
 Ya entraron en v2: cuadernos con secciones, editor con barra, imágenes, dibujo, tablas, preguntar sobre una
 selección, aprender desde tema/apuntes/YouTube/PDF, conversar (reflexionar/profundizar) y el mapa por cuadernos.
+En v2.2: color de letra, columnas redimensionables, pizarra infinita y Sueltas desplegable.
 
+- Pizarra: elegir varios a la vez (recuadro), formas (rectángulo/círculo), imágenes pegadas, exportar a PNG y que pegar
+  una página cree también la conexión en el mapa.
+- Columnas: arrastrar un bloque al costado de otro para crearlas (como Notion), no solo desde la barra.
+- Color del título grande de la página (hoy se colorean los títulos 1–3 de adentro).
 - **Conector de Claude (MCP)** cuando lo aprueben: la base ya tiene `cuaderno_tokens` y las funciones de service role;
   falta la Edge Function MCP y la pantalla para crear/revocar el token.
 - Audio resumen tipo NotebookLM; quizzes por voz y voz de ida y vuelta ("mañana a las 9 te pregunto por…").
