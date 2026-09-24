@@ -73,13 +73,6 @@ El plan gratuito a veces responde 503 "high demand": se reintenta rotando por un
 típica 2–4 s con `gemini-2.5-flash` sin pensamiento (los 3.x "latest" daban 503 o 14–17 s). `e2e/voz-ia.spec.ts` (con
 `IA=1`) prueba voz y chat contra la IA real.
 
-**Lenguaje visual propio, no el de Structured (24 sep 2026).** La primera versión se parecía demasiado a Structured
-(cápsulas sobre una línea punteada central, hora a la izquierda, aro para completar). Ahora cada bloque es una
-**losa** (tarjeta con franja de color y canto, alto = duración), el ícono es una **gema facetada** (octágono en dos
-tonos, lenguaje geoda de Rockie), se completa con una **casilla cuadrada** y la **veta** corre al costado. Días,
-barra de Rockie, micrófono, botón + y chips pasan de círculos a esquinas cuadradas redondeadas. Las reuniones del HQ
-llevan la franja rayada. La barra de chat y voz sigue abajo: es lo que distingue a la agenda.
-
 **IA saturada = modo básico, no silencio.** El plan gratis de Gemini a veces agota la cuota diaria (429) o Google
 responde 503. La función prueba los modelos, hace una segunda vuelta corta si fue saturación pasajera y responde en
 menos de ~15 s; si falla, el cliente intenta el intérprete local y muestra la propuesta como "modo básico".
