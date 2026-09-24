@@ -27,7 +27,7 @@ test('Rockie entiende, propone y se confirma (modo básico sin clave de IA)', as
   await bar.fill('correr mañana a las 6 de la mañana por 30 minutos')
   await bar.press('Enter')
   const card = page.locator('.rk-card').last()
-  await expect(card).toContainText('Nuevo: «Correr»')
+  await expect(card).toContainText('Nuevo: «Correr»', { timeout: 30_000 })
   await expect(card).toContainText('06:00')
   await card.getByRole('button', { name: /Confirmar/ }).click()
   await expect(page.getByText(/Listo: Nuevo: «Correr»/)).toBeVisible()

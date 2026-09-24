@@ -17,7 +17,7 @@ const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-5'
 // Orden medido el 23 sep 2026 (plan gratis): 2.5-flash sin pensar ~1,3 s; flash-lite ~0,9 s; los 3.x "latest" daban
 // 503 o 14-17 s. Si uno está saturado, sin cuota o tarda, se pasa al siguiente.
 const GEMINI_MODELS = (Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash,gemini-flash-lite-latest,gemini-flash-latest').split(',').map((m) => m.trim())
-const GEMINI_TIMEOUT_MS = 9000
+const GEMINI_TIMEOUT_MS = 7000
 
 /** Pensar poco: para órdenes de agenda la latencia importa más que el razonamiento largo. */
 function geminiThinking(model: string) {
@@ -309,30 +309,48 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx)
   const contents = history.map((t) => ({ role: t.role === 'assistant' ? 'model' : 'user', parts: [{ text: t.text.slice(0, 800) }] }))
   while (contents.length && contents[0].role !== 'user') contents.shift()
   contents.push({ role: 'user', parts: [{ text: prompt }] })
-  // Google a veces responde 503 (saturado), 429 (cuota del modelo) o tarda: se prueba el siguiente modelo
+  // Google a veces responde 503 (saturado), 429 (cuota del modelo) o tarda: se prueba el siguiente
+  // modelo, y si todos fallan, una segunda vuelta tras una pausa corta (los 503 duran segundos).
   let res: Response | null = null
-  for (const model of GEMINI_MODELS) {
-    try {
-      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM }] },
-          contents,
-          tools: [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.input_schema })) }],
-          toolConfig: { functionCallingConfig: { mode: 'ANY' } },
-          generationConfig: { thinkingConfig: geminiThinking(model) },
-        }),
-      })
-    } catch (e) {
-      console.error('gemini timeout', model, String(e).slice(0, 120))
-      continue
+  const trace: string[] = []
+  const t0 = Date.now()
+  const sinCuota = new Set<string>()
+  vueltas: for (let vuelta = 0; vuelta < 2; vuelta++) {
+    if (vuelta > 0) {
+      // Segunda vuelta solo si queda algun modelo con cuota y aun vamos rapido
+      if (sinCuota.size === GEMINI_MODELS.length || Date.now() - t0 > 6000) break
+      await new Promise((r) => setTimeout(r, 700))
     }
-    if (res.ok || (res.status !== 429 && res.status !== 404 && res.status < 500)) break
-    console.error('gemini next', model, res.status, (await res.text()).slice(0, 200))
+    for (const model of GEMINI_MODELS) {
+      if (sinCuota.has(model)) continue
+      if (Date.now() - t0 > 14000) break vueltas
+      try {
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+          signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM }] },
+            contents,
+            tools: [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.input_schema })) }],
+            toolConfig: { functionCallingConfig: { mode: 'ANY' } },
+            generationConfig: { thinkingConfig: geminiThinking(model) },
+          }),
+        })
+      } catch (e) {
+        trace.push(`${model}:timeout`)
+        console.error('gemini timeout', model, String(e).slice(0, 120))
+        res = null
+        continue
+      }
+      if (res.ok || (res.status !== 429 && res.status !== 404 && res.status < 500)) break vueltas
+      trace.push(`${model}:${res.status}`)
+      if (res.status === 429 || res.status === 404) sinCuota.add(model)
+      console.error('gemini next', model, res.status, (await res.text()).slice(0, 200))
+    }
   }
-  if (!res) return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.' }, 502)
+  if (trace.length) console.error('gemini trace', trace.join(' '))
+  if (!res) return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.', trace }, 502)
   if (res.status === 429) return json({ error: 'Rockie está saturado (límite gratuito). Intenta en un minuto.' }, 429)
   if (res.status === 400 || res.status === 401 || res.status === 403) {
     console.error('gemini', res.status, await res.text())
@@ -340,7 +358,7 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx)
   }
   if (!res.ok) {
     console.error('gemini', res.status)
-    return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.' }, 502)
+    return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.', trace }, 502)
   }
   const data = await res.json()
   const parts: { text?: string; functionCall?: { name: string; args?: Record<string, unknown> } }[] = data?.candidates?.[0]?.content?.parts ?? []

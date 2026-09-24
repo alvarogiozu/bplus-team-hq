@@ -97,6 +97,10 @@ export async function askRockie(text: string, history: Turn[], context: unknown,
         proposals: p ? [p] : [],
       }
     }
+    // IA saturada o sin cuota (plan gratis): si es algo simple de crear, lo resuelve el
+    // interprete local para que Rockie nunca se quede mudo; si no, se muestra el error.
+    const p = local()
+    if (p) return { basic: true, say: 'La IA está ocupada, pero esto lo entendí en modo básico:', proposals: [p] }
     return { say: '', proposals: [], error: body.error ?? humanError(error) }
   }
   return data as AgentReply

@@ -135,6 +135,7 @@ export function Timeline(p: Props) {
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ ...SPRING, delay: 0.15 }}
             >
+              <span className="tl-card" />
               <span className="tl-node ghost">
                 <AIcon name={g.icon} size={18} />
               </span>
@@ -273,9 +274,11 @@ function BlockRow(props: {
         {hhmm(b.start)}
         {long && <em style={{ top: height - 22 }}>{hhmm(b.start + b.duration)}</em>}
       </span>
+      {/* La losa: tarjeta con franja de color y canto; su alto es la duracion */}
+      <span className="tl-card" aria-hidden="true" style={{ height: Math.max(52, height - 6) }} onPointerDown={onPointerDown} onClick={props.onOpen} />
+      {/* Gema facetada (no capsula): el icono del bloque */}
       <button
         className="tl-node"
-        style={{ height: anchor ? 48 : Math.max(48, height - 10) }}
         onPointerDown={onPointerDown}
         onClick={props.onOpen}
         aria-label={`${b.title}, ${hhmm(b.start)}`}
@@ -300,8 +303,8 @@ function BlockRow(props: {
           }}
         >
           <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
-            <circle cx="16" cy="16" r="13" className="ring-bg" />
-            <circle cx="16" cy="16" r="13" className="ring-fill" />
+            <rect x="3" y="3" width="26" height="26" rx="8" className="ring-bg" />
+            <rect x="3" y="3" width="26" height="26" rx="8" className="ring-fill" />
             <path d="M10 16.5l4 4 8-9" className="ring-check" />
           </svg>
         </button>
