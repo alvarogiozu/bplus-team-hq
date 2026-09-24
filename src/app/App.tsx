@@ -88,6 +88,8 @@ export function App() {
             <Route path="/ajustes" element={<SettingsPage />} />
           </Route>
         </Route>
+        {/* link público del equipo (hq.rockie.plus/teams): el tablero de hoy */}
+        <Route path="/teams" element={<Navigate to="/hoy" replace />} />
         <Route path="*" element={<Navigate to="/hoy" replace />} />
       </Routes>
     </BrowserRouter>

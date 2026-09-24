@@ -54,13 +54,14 @@ async function readState(s: string): Promise<{ u: string; r: string } | null> {
   }
 }
 
-// Solo se vuelve a la app (local o Vercel), nunca a otro sitio
+// Solo se vuelve a la app (local, Vercel o *.rockie.plus), nunca a otro sitio
 function safeReturn(r: unknown): string | null {
   try {
     const u = new URL(String(r))
     const okHost =
       /^(localhost|127\.0\.0\.1)$/.test(u.hostname) ||
       /^bplus-team-hq(-[a-z0-9-]+)?\.vercel\.app$/.test(u.hostname) ||
+      /^([a-z0-9-]+\.)?rockie\.plus$/.test(u.hostname) ||
       (Deno.env.get('AGENDA_ORIGINS') ?? '').split(',').map((s) => s.trim()).filter(Boolean).includes(u.origin)
     return okHost && u.pathname.startsWith('/agenda') ? u.toString() : null
   } catch {
