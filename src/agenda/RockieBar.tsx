@@ -4,7 +4,7 @@ import { Rockie } from '../components/Rockie'
 import { toast } from '../components/Toasts'
 import { haptic } from '../lib/fx'
 import { useAuth } from '../features/auth/AuthProvider'
-import { applyProposal, askRockie, buildContext, describe, ghostOf, makeLook, summarize, type Proposal, type Turn } from './agent'
+import { applyProposal, askRockie, buildContext, describe, ghostOf, makeLook, summarize, type Card, type Proposal, type Turn } from './agent'
 import { useAgendaActions, useHq, useItems, usePrefs, type Undo } from './data'
 import { openEditor } from './Editor'
 import { AIcon } from './icons'
@@ -12,7 +12,8 @@ import { localPropose } from './localAgent'
 import type { Ghost } from './Timeline'
 import { useVoice } from './voice'
 
-type PropState = { p: Proposal; st: 'pending' | 'done' | 'skip'; undo?: Undo | null }
+// card = cómo se veía al proponer (si no, tras mover diría «15:00 → 15:00»)
+type PropState = { p: Proposal; card: Card; st: 'pending' | 'done' | 'skip'; undo?: Undo | null }
 type Entry =
   | { id: string; who: 'user'; text: string; voice?: boolean }
   | {
@@ -70,7 +71,7 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
         say: reply.say,
         basic: reply.basic,
         error: reply.error,
-        props: acts.map((x) => ({ p: x, st: 'pending' as const })),
+        props: acts.map((x) => ({ p: x, card: describe(x, look), st: 'pending' as const })),
         question: q ? { question: String(q.input.question), options: (q.input.options as string[]) ?? [] } : undefined,
         answer: a ? { text: String(a.input.text), refs: (a.input.refs as string[]) ?? [] } : undefined,
       }
@@ -235,7 +236,7 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
                       )}
                       <motion.div className="rk-cards" initial="hide" animate="show" variants={{ show: { transition: { staggerChildren: 0.07 } } }}>
                         {e.props.map((ps, i) => {
-                          const c = describe(ps.p, look)
+                          const c = ps.card
                           return (
                             <motion.div
                               key={i}

@@ -113,5 +113,5 @@ npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-... AGENT_PROVIDER=claude --pr
 ```
 
 Opcionales: `GEMINI_MODEL` (lista separada por comas; si uno está saturado se prueba el siguiente; por defecto
-`gemini-flash-latest,gemini-3.5-flash,gemini-2.5-flash`) y `ANTHROPIC_MODEL` (`claude-opus-5`). Sin clave, Rockie funciona en **modo básico**
+`gemini-2.5-flash,gemini-flash-lite-latest,gemini-flash-latest`) y `ANTHROPIC_MODEL` (`claude-opus-5`). Sin clave, Rockie funciona en **modo básico**
 (intérprete local: crea ítems con día, hora y duración). Tope: 60 órdenes por hora y persona.

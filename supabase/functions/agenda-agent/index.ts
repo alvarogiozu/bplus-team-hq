@@ -14,8 +14,15 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
 const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-5'
-// si uno está saturado (503), se prueba el siguiente
-const GEMINI_MODELS = (Deno.env.get('GEMINI_MODEL') || 'gemini-flash-latest,gemini-3.5-flash,gemini-2.5-flash').split(',').map((m) => m.trim())
+// Orden medido el 23 sep 2026 (plan gratis): 2.5-flash sin pensar ~1,3 s; flash-lite ~0,9 s; los 3.x "latest" daban
+// 503 o 14-17 s. Si uno está saturado, sin cuota o tarda, se pasa al siguiente.
+const GEMINI_MODELS = (Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash,gemini-flash-lite-latest,gemini-flash-latest').split(',').map((m) => m.trim())
+const GEMINI_TIMEOUT_MS = 9000
+
+/** Pensar poco: para órdenes de agenda la latencia importa más que el razonamiento largo. */
+function geminiThinking(model: string) {
+  return model.startsWith('gemini-2.') ? { thinkingBudget: 0 } : { thinkingLevel: 'low' }
+}
 // Proveedor: AGENT_PROVIDER=gemini|claude. Si no se dice, Gemini cuando hay su clave.
 const PROVIDER = Deno.env.get('AGENT_PROVIDER') || (Deno.env.get('GEMINI_API_KEY') ? 'gemini' : 'claude')
 const LIMIT_PER_HOUR = 60
@@ -302,23 +309,30 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx)
   const contents = history.map((t) => ({ role: t.role === 'assistant' ? 'model' : 'user', parts: [{ text: t.text.slice(0, 800) }] }))
   while (contents.length && contents[0].role !== 'user') contents.shift()
   contents.push({ role: 'user', parts: [{ text: prompt }] })
-  // Google a veces responde 500/503 por saturación: un reintento corto
-  let res!: Response
-  for (let attempt = 0; attempt < GEMINI_MODELS.length + 1; attempt++) {
-    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELS[attempt % GEMINI_MODELS.length]}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
-        contents,
-        tools: [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.input_schema })) }],
-        toolConfig: { functionCallingConfig: { mode: 'ANY' } },
-      }),
-    })
-    if (res.status < 500) break
-    console.error('gemini retry', res.status, (await res.text()).slice(0, 200))
-    await new Promise((r) => setTimeout(r, 400))
+  // Google a veces responde 503 (saturado), 429 (cuota del modelo) o tarda: se prueba el siguiente modelo
+  let res: Response | null = null
+  for (const model of GEMINI_MODELS) {
+    try {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM }] },
+          contents,
+          tools: [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.input_schema })) }],
+          toolConfig: { functionCallingConfig: { mode: 'ANY' } },
+          generationConfig: { thinkingConfig: geminiThinking(model) },
+        }),
+      })
+    } catch (e) {
+      console.error('gemini timeout', model, String(e).slice(0, 120))
+      continue
+    }
+    if (res.ok || (res.status !== 429 && res.status !== 404 && res.status < 500)) break
+    console.error('gemini next', model, res.status, (await res.text()).slice(0, 200))
   }
+  if (!res) return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.' }, 502)
   if (res.status === 429) return json({ error: 'Rockie está saturado (límite gratuito). Intenta en un minuto.' }, 429)
   if (res.status === 400 || res.status === 401 || res.status === 403) {
     console.error('gemini', res.status, await res.text())

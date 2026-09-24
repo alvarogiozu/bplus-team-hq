@@ -70,4 +70,5 @@ servidor. Tope de 60 órdenes/hora por persona (`agenda_agent_bump`).
 **Gemini como proveedor activo (sin créditos de Anthropic).** `AGENT_PROVIDER=gemini` usa la API REST de Gemini con
 las mismas herramientas (`functionDeclarations` + `parametersJsonSchema`, modo `ANY`) y la misma validación de ids.
 El plan gratuito a veces responde 503 "high demand": se reintenta rotando por una lista de modelos. Latencia
-típica 5–12 s.
+típica 2–4 s con `gemini-2.5-flash` sin pensamiento (los 3.x "latest" daban 503 o 14–17 s). `e2e/voz-ia.spec.ts` (con
+`IA=1`) prueba voz y chat contra la IA real.
