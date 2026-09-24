@@ -147,6 +147,48 @@ Tu trabajo es convertir cada orden en PROPUESTAS usando las herramientas. Nunca 
 - Títulos cortos, como los diría la persona, con mayúscula inicial y sin la fecha ni la hora dentro.
 - Antes de las herramientas puedes escribir una frase corta y cálida resumiendo lo que propones.`
 
+// ---------- Modo HQ: tareas del equipo (scope: 'hq') ----------
+const PRIO = { anyOf: [{ type: 'string', enum: ['normal', 'urgent'] }, nul] }
+const TOOLS_HQ = [
+  {
+    name: 'crear_tarea',
+    description:
+      'Crea una tarea del EQUIPO. assignee_id = id de people (null = yo). due AAAA-MM-DD o null. project_id / area_id de projects / areas o null.',
+    strict: true,
+    input_schema: obj({ title: str, assignee_id: optStr, due: optStr, priority: PRIO, project_id: optStr, area_id: optStr }),
+  },
+  {
+    name: 'cambiar_tarea',
+    description:
+      'Cambia una tarea existente: responsable, fecha, prioridad, estado (todo = por hacer, doing = en curso), proyecto, área o título. Solo cambian los campos no null. sin_fecha true le quita la fecha. Nunca la marca como hecha: eso se valida con prueba en la app.',
+    strict: true,
+    input_schema: obj({
+      task_id: str,
+      title: optStr,
+      assignee_id: optStr,
+      due: optStr,
+      sin_fecha: { type: 'boolean' },
+      priority: PRIO,
+      status: { anyOf: [{ type: 'string', enum: ['todo', 'doing'] }, nul] },
+      project_id: optStr,
+      area_id: optStr,
+    }),
+  },
+  ...TOOLS.filter((t) => t.name === 'preguntar' || t.name === 'responder'),
+]
+
+const SYSTEM_HQ = `Eres Rockie, el asistente del HQ de B+ (un gestor de tareas de equipo, anti-Notion: una tarea, un dueño, una fecha). Te hablan en español, muchas veces por voz (puede haber errores de dictado).
+
+Convierte cada orden en PROPUESTAS con las herramientas. Nunca ejecutas nada: la app muestra cada propuesta y la persona confirma.
+
+- Responde siempre con herramientas. Una orden puede ser varias llamadas: "pásale a Andrea todo lo de firmware" es un cambiar_tarea por cada tarea.
+- Usa solo ids del contexto. Personas por nombre o usuario en "people" ("yo" es la persona que habla). Si un nombre calza con varias o ninguna, usa preguntar con opciones concretas.
+- Fechas AAAA-MM-DD en la zona del contexto; "el viernes" es el próximo viernes; "hoy" y "mañana" desde "hoy" del contexto.
+- "urgente" es priority urgent. "Empecé", "estoy en" o "en curso" es status doing.
+- Para preguntas ("¿qué tiene Mariana esta semana?", "¿qué está atrasado?") usa responder con un texto breve y los ids de las tareas en refs.
+- Títulos cortos y claros, como los diría la persona, con mayúscula inicial, sin la fecha ni la persona dentro.
+- Antes de las herramientas puedes escribir una frase corta y cálida.`
+
 type Ctx = {
   items?: { id: string }[]
   events?: { id: string }[]
@@ -155,6 +197,8 @@ type Ctx = {
   people?: { id: string }[]
   spaces?: { id: string }[]
   calendars?: { id: string }[]
+  tasks?: { id: string }[]
+  areas?: { id: string }[]
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -168,6 +212,15 @@ function valid(name: string, input: Record<string, unknown>, ctx: Ctx): boolean 
   const durOk = (v: unknown) => v == null || (typeof v === 'number' && v >= 1 && v <= 720)
   const calOk = (v: unknown) => v == null || has(ctx.calendars, v)
   switch (name) {
+    case 'crear_tarea':
+      return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.due) &&
+        (input.assignee_id == null || has(ctx.people, input.assignee_id)) &&
+        (input.project_id == null || has(ctx.projects, input.project_id)) && (input.area_id == null || has(ctx.areas, input.area_id))
+    case 'cambiar_tarea':
+      return has(ctx.tasks, input.task_id) && dateOk(input.due) &&
+        (input.assignee_id == null || has(ctx.people, input.assignee_id)) &&
+        (input.project_id == null || has(ctx.projects, input.project_id)) && (input.area_id == null || has(ctx.areas, input.area_id)) &&
+        (input.title == null || (typeof input.title === 'string' && input.title.trim() !== ''))
     case 'crear_item':
       return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id)
     case 'mover_item':
@@ -220,7 +273,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Rockie necesita un respiro: llegaste a 60 órdenes esta hora.' }, 429)
   }
 
-  let body: { text?: unknown; context?: Ctx; history?: Turn[] }
+  let body: { text?: unknown; context?: Ctx; history?: Turn[]; scope?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -229,6 +282,7 @@ Deno.serve(async (req) => {
   const text = typeof body.text === 'string' ? body.text.trim().slice(0, 600) : ''
   if (!text) return json({ error: 'No escuché ninguna orden' }, 400)
   const ctx: Ctx = body.context ?? {}
+  const kit: Kit = body.scope === 'hq' ? { tools: TOOLS_HQ as typeof TOOLS, system: SYSTEM_HQ } : { tools: TOOLS, system: SYSTEM }
   const history = (Array.isArray(body.history) ? body.history : [])
     .filter((t) => (t.role === 'user' || t.role === 'assistant') && typeof t.text === 'string' && t.text.trim())
     .slice(-8)
@@ -248,7 +302,7 @@ Deno.serve(async (req) => {
 ${JSON.stringify(ctx)}
 </contexto>
 
-Orden: ${text}`, ctx)
+Orden: ${text}`, ctx, kit)
 
   const client = new Anthropic({ apiKey })
   try {
@@ -259,9 +313,9 @@ Orden: ${text}`, ctx)
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       output_config: { effort: 'low' },
-      tools: TOOLS,
+      tools: kit.tools,
       tool_choice: { type: 'auto' },
-      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+      system: [{ type: 'text', text: kit.system, cache_control: { type: 'ephemeral' } }],
       messages,
     }
     const res = await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
@@ -310,7 +364,9 @@ function pack(say: string, calls: { name: string; args: Record<string, unknown> 
   return json({ say: say.trim(), proposals, dropped })
 }
 
-async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx) {
+type Kit = { tools: typeof TOOLS; system: string }
+
+async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx, kit: Kit) {
   const contents = history.map((t) => ({ role: t.role === 'assistant' ? 'model' : 'user', parts: [{ text: t.text.slice(0, 800) }] }))
   while (contents.length && contents[0].role !== 'user') contents.shift()
   contents.push({ role: 'user', parts: [{ text: prompt }] })
@@ -335,9 +391,9 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx)
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
           signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: SYSTEM }] },
+            systemInstruction: { parts: [{ text: kit.system }] },
             contents,
-            tools: [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.input_schema })) }],
+            tools: [{ functionDeclarations: kit.tools.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.input_schema })) }],
             toolConfig: { functionCallingConfig: { mode: 'ANY' } },
             generationConfig: { thinkingConfig: geminiThinking(model) },
           }),

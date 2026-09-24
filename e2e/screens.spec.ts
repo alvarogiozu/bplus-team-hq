@@ -17,6 +17,7 @@ for (const theme of ['light', 'dark'] as const) {
     await login(page, 'qa.alvaro', theme)
     for (const [name, url] of PAGES) {
       await page.goto(url)
+      await expect(page.locator('h1').first()).toBeVisible()
       await expect(page.locator('.skel')).toHaveCount(0)
       await page.waitForTimeout(400)
       await page.screenshot({ path: `e2e/screens/${info.project.name}-${theme}-${name}.png`, fullPage: false })

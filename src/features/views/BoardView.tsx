@@ -126,7 +126,7 @@ function Column({ status, ids, byId, highlight }: { status: Status; ids: string[
       <div className="colhead">
         <span className="cdot" style={{ background: COL_COLOR[status] }} />
         <span className="cname">{STATUS_LABEL[status]}</span>
-        <span className="ccount">{ids.length}</span>
+        <span key={ids.length} className="ccount pop">{ids.length}</span>
       </div>
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         <div className="cards">

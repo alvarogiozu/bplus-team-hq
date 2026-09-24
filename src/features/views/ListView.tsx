@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
 import { Icon } from '../../components/Icon'
 import { GROUP_LABEL, GROUP_ORDER, defaultDueFor, groupTasks, type GroupKey } from '../../lib/taskGroups'
 import type { Task } from '../../lib/types'
@@ -8,36 +9,55 @@ import { useLookup } from '../tasks/bits'
 import { TaskRow } from './TaskRow'
 
 const CAN_ADD: GroupKey[] = ['today', 'week', 'later', 'nodate']
+const SPRING = { type: 'spring', stiffness: 520, damping: 40, mass: 0.8 } as const
 
+// Lista por grupos de fecha. Cada tarea tiene layoutId: cuando cambia de grupo (le cambias la
+// fecha, la validas) se desliza a su nuevo lugar en vez de desaparecer y aparecer.
 export function ListView({ tasks, projectId }: { tasks: Task[]; projectId?: string }) {
   const { today } = useLookup()
   const groups = groupTasks(tasks, today)
   const [open, setOpen] = useState<Record<string, boolean>>({ done: false })
 
   return (
-    <div>
+    <LayoutGroup>
       {GROUP_ORDER.map((g) => {
         const list = groups[g]
         if (!list.length && !CAN_ADD.includes(g)) return null
         if (!list.length && g !== 'today' && g !== 'nodate') return null
         const expanded = open[g] ?? true
         return (
-          <section className="group" key={g} aria-label={GROUP_LABEL[g]}>
-            <button className={`grouphead ${g}`} aria-expanded={expanded} onClick={() => setOpen({ ...open, [g]: !expanded })}>
+          <motion.section layout="position" transition={SPRING} className="group" key={g} aria-label={GROUP_LABEL[g]}>
+            <button className={`grouphead g-${g}`} aria-expanded={expanded} onClick={() => setOpen({ ...open, [g]: !expanded })}>
               <Icon name="chevron" className="sm chev" />
               {GROUP_LABEL[g]}
-              <span className="count">{list.length}</span>
+              <motion.span key={list.length} className="count" initial={{ scale: 1.35 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 600, damping: 18 }}>
+                {list.length}
+              </motion.span>
             </button>
-            {expanded && (
-              <div className="rows">
-                {list.map((t) => <TaskRow key={t.id} task={t} />)}
-                {CAN_ADD.includes(g) && <InlineAdd group={g} projectId={projectId} />}
-              </div>
-            )}
-          </section>
+            <AnimatePresence initial={false}>
+              {expanded && (
+                <motion.div
+                  className="rows"
+                  layout
+                  transition={SPRING}
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {list.map((t, i) => (
+                      <TaskRow key={t.id} task={t} layoutId={`task-${t.id}`} index={i} />
+                    ))}
+                  </AnimatePresence>
+                  {CAN_ADD.includes(g) && <InlineAdd group={g} projectId={projectId} />}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.section>
         )
       })}
-    </div>
+    </LayoutGroup>
   )
 }
 
@@ -67,13 +87,19 @@ function InlineAdd({ group, projectId }: { group: GroupKey; projectId?: string }
     )
   }
   return (
-    <form className="addrow" onSubmit={submit} onKeyDown={(e) => e.key === 'Escape' && setActive(false)}>
+    <motion.form
+      className="addrow"
+      onSubmit={submit}
+      onKeyDown={(e) => e.key === 'Escape' && setActive(false)}
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
       <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Qué hay que hacer · Enter para crear" aria-label="Título de la tarea nueva" maxLength={200} />
       <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="Responsable">
         {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.profile.display_name}</option>)}
       </select>
       <input type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Fecha límite" />
       <button className="btn sm" disabled={!title.trim()}>Crear</button>
-    </form>
+    </motion.form>
   )
 }

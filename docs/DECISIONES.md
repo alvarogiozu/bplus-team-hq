@@ -88,3 +88,11 @@ un enlace firmado (state con HMAC, vence en 10 min, solo vuelve a /agenda de la 
 que canjea el código y guarda el refresh token en `agenda_google` (sin políticas: solo service_role). Los eventos se
 leen por la función por semana y calendario visible. Se eligió solo lectura (igual que Structured) para no duplicar
 ni pisar eventos en Google.
+
+**Rockie del HQ con voz e IA (24 sep 2026).** Mismo botón que la agenda (mantener = hablar, tocar = dictar) y la
+misma Edge Function (`agenda-agent` con `scope: 'hq'`: herramientas crear_tarea / cambiar_tarea / preguntar /
+responder, validadas contra los ids del contexto). Nunca marca una tarea como hecha: eso sigue siendo validar con
+prueba. Si la IA falla o no tiene cuota, el intérprete local (`quickParse`) crea lo simple.
+
+**Presencia, no chat.** "Conectar con otras personas" en Tareas = ver quién está conectado (Realtime Presence, nada se
+guarda), invitar con el enlace y reasignar desde la fila. Sin comentarios ni menciones: sigue siendo anti-ClickUp.

@@ -13,6 +13,7 @@ import { signOut } from '../features/auth/credentials'
 import { useSpace } from '../features/spaces/SpaceProvider'
 import { useMembers, useXp } from '../features/data/queries'
 import { useRealtime } from '../features/data/realtime'
+import { presenceStore, usePresenceTracker } from '../features/team/presence'
 import { TaskPanel } from '../features/tasks/TaskPanel'
 import { ValidateDialog } from '../features/tasks/ValidateDialog'
 import { NewTaskDialog } from '../features/tasks/NewTaskDialog'
@@ -34,6 +35,8 @@ export function Layout() {
   const { userId, profile } = useMe()
   useRealtime(spaceId)
   const members = useMembers().data ?? []
+  usePresenceTracker()
+  const online = presenceStore.use()
   const xp = xpByUser(useXp().data ?? [])
   const sideKey = `hq.sidebar.${userId}`
   const [collapsed, setCollapsed] = useState(() => lsGet(sideKey) === '1')
@@ -89,9 +92,10 @@ export function Layout() {
         </nav>
         <div className="team hide-collapsed" aria-label="Equipo">
           {members.map((m) => (
-            <span className="tm" key={m.user_id} title={`${m.profile.display_name} · nivel ${levelOf(xp.get(m.user_id) ?? 0)}`}>
+            <span className="tm" key={m.user_id} title={`${m.profile.display_name} · nivel ${levelOf(xp.get(m.user_id) ?? 0)}${online.has(m.user_id) ? ` · en línea (${online.get(m.user_id)?.page})` : ''}`}>
               <Rockie color={m.profile.color} size={30} still />
               <b>{levelOf(xp.get(m.user_id) ?? 0)}</b>
+              {online.has(m.user_id) && <i className="online" aria-label="En línea" />}
             </span>
           ))}
         </div>

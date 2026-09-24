@@ -143,7 +143,7 @@ export default function TeamPage() {
   )
 }
 
-function InviteBox({ isOwner }: { isOwner: boolean }) {
+export function InviteBox({ isOwner }: { isOwner: boolean }) {
   const { spaceId } = useSpace()
   const qc = useQueryClient()
   const inv = useQuery({

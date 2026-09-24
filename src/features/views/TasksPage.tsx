@@ -1,5 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
+import { AnimatePresence, motion } from 'motion/react'
+import { TeamStrip } from '../team/TeamStrip'
+import { ColorsSheet } from './ColorsSheet'
 import { Icon, type IconName } from '../../components/Icon'
 import { useAuth } from '../auth/AuthProvider'
 import { useTasks } from '../data/queries'
@@ -38,6 +41,7 @@ export default function TasksPage() {
   const view: ViewKey = fromUrl && VIEWS.some((v) => v.key === fromUrl) ? fromUrl : (lsGet(viewKey) as ViewKey) || 'lista'
   const [filters, setFilters] = useState<Filters>(() => load(`hq.filters.${userId}`, EMPTY_FILTERS))
   const q = useTasks()
+  const [colorsOpen, setColorsOpen] = useState(false)
 
   useEffect(() => {
     lsSet(viewKey, view)
@@ -70,15 +74,22 @@ export default function TasksPage() {
         <div>
           <h1>Tareas</h1>
           <div className="sub">{shown.filter((t) => t.status !== 'done').length} abiertas</div>
+          <TeamStrip />
         </div>
         <div className="row" style={{ flexWrap: 'wrap' }}>
-          <div className="segmented" role="tablist" aria-label="Vista">
+          <div className="segmented slide" role="tablist" aria-label="Vista">
             {VIEWS.map((v) => (
               <button key={v.key} role="tab" aria-selected={view === v.key} style={{ ['--vc' as string]: v.color }} onClick={() => setView(v.key)}>
-                <Icon name={v.icon} className="sm" /> {v.label}
+                {view === v.key && <motion.span layoutId="seg-ind" className="seg-ind" transition={{ type: 'spring', stiffness: 520, damping: 38 }} />}
+                <span className="seg-lbl">
+                  <Icon name={v.icon} className="sm" /> {v.label}
+                </span>
               </button>
             ))}
           </div>
+          <button className="btn ghost sm hide-mobile" onClick={() => setColorsOpen(true)} title="Colores de áreas, proyectos y tu Rockie">
+            <span className="colordots" aria-hidden="true"><i /><i /><i /></span> Colores
+          </button>
           <button className="btn sm hide-mobile" onClick={() => openNewTask()}>
             <Icon name="plus" className="sm" /> Nueva
           </button>
@@ -91,11 +102,22 @@ export default function TasksPage() {
         <LoadError error={q.error} onRetry={() => q.refetch()} />
       ) : (
         <Suspense fallback={<ListSkeleton />}>
-          {view === 'lista' && <ListView tasks={shown} />}
-          {view === 'tablero' && <BoardView tasks={shown} />}
-          {view === 'calendario' && <WeekView tasks={shown} />}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={view}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+            >
+              {view === 'lista' && <ListView tasks={shown} />}
+              {view === 'tablero' && <BoardView tasks={shown} />}
+              {view === 'calendario' && <WeekView tasks={shown} />}
+            </motion.div>
+          </AnimatePresence>
         </Suspense>
       )}
+      <ColorsSheet open={colorsOpen} onClose={() => setColorsOpen(false)} />
     </div>
   )
 }

@@ -8,8 +8,11 @@ de ajustes para entenderse, está mal.
 - **Tareas** — los mismos datos en 3 vistas fijas (**Lista · Tablero · Calendario**) con una sola barra de filtros.
 - **Proyectos** — el progreso se calcula solo (tareas validadas / tareas del proyecto).
 - **Equipo** — Rockies, XP, niveles, los 10 logros, invitaciones.
-- **Rockie** (barra de abajo, `Ctrl/Cmd + K`) — escribes "subir firmware @Sebastián viernes urgente", te muestra
-  una tarjeta para confirmar y todo se puede deshacer. Hoy es un intérprete local; en la fase 5 será el agente con IA.
+- **Rockie** (barra de abajo, `Ctrl/Cmd + K`, o **mantén el micrófono y habla**) — "tarea para Sebastián el viernes,
+  urgente", "pásale lo del firmware a Andrea", "¿qué está atrasado?". Entiende con IA (la misma Edge Function de la
+  agenda, `scope: hq`), muestra una tarjeta por propuesta y todo se deshace. Sin IA, un intérprete local.
+- **Equipo en vivo** — en Tareas ves quién está conectado (y en qué pantalla), invitas con un enlace y reasignas
+  tocando el avatar de una tarea. **Colores** de áreas, proyectos y tu Rockie en un solo lugar.
 
 Validar es el corazón: **Lo hice +40 XP**, **con prueba (link o foto) +100 XP**, y la primera validación del día
 de cada persona vale doble. El XP lo calcula el servidor (`validate_task`), así que no se puede hacer trampa.
