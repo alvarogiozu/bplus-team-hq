@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { Rockie } from '../components/Rockie'
 import { useMe } from '../features/auth/AuthProvider'
 import { fmtRelative } from '../lib/dates'
 import { burst, celebrateRockie, centerPoint, haptic } from '../lib/fx'
 import { useToday } from './capture'
-import { NONE, areaOf, useCards, useCuadernoActions, useDays, useNotes, type Card } from './data'
+import { rootOf } from './books'
+import { NONE, areaOf, useBooks, useCards, useCuadernoActions, useDays, useNotes, type Card } from './data'
 import { CIcon } from './icons'
 import { dueToday, streakOf } from './leitner'
 import { OsMenu, useIsMobile } from './ui'
@@ -21,6 +22,11 @@ export default function Repaso() {
   const notes = useNotes().data ?? NONE
   const actions = useCuadernoActions()
   const mobile = useIsMobile()
+  const books = useBooks().data ?? NONE
+  // ?cuaderno=… = práctica libre de ese cuaderno: todas sus tarjetas, sin mover el calendario de repaso
+  const [params] = useSearchParams()
+  const practiceOf = params.get('cuaderno')
+  const practiceName = practiceOf === 'sueltas' ? 'Sueltas' : books.find((b) => b.id === practiceOf)?.name
 
   // la cola se fija al empezar: responder no la reordena bajo tus dedos
   const [queue, setQueue] = useState<Card[] | null>(null)
@@ -29,8 +35,18 @@ export default function Repaso() {
   const [score, setScore] = useState(0)
   const [dir, setDir] = useState(1)
   useEffect(() => {
-    if (queue === null && cardsQ.data) setQueue(dueToday(cardsQ.data, today))
-  }, [queue, cardsQ.data, today])
+    if (queue !== null || !cardsQ.data) return
+    if (!practiceOf) return setQueue(dueToday(cardsQ.data, today))
+    if (!notes.length) return
+    const inBook = new Set(notes.filter((n) => (rootOf(books, n.book_id)?.id ?? 'sueltas') === practiceOf).map((n) => n.id))
+    const pool = cardsQ.data.filter((c) => inBook.has(c.note_id))
+    // barajadas, hasta 20
+    for (let k = pool.length - 1; k > 0; k--) {
+      const j = Math.floor(Math.random() * (k + 1))
+      ;[pool[k], pool[j]] = [pool[j], pool[k]]
+    }
+    setQueue(pool.slice(0, 20))
+  }, [queue, cardsQ.data, today, practiceOf, notes, books])
 
   const streak = streakOf(days, today)
   const noteOf = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes])
@@ -46,7 +62,7 @@ export default function Repaso() {
     haptic(remembered ? [8, 20, 8] : 12)
     setDir(remembered ? 1 : -1)
     if (remembered) setScore((s) => s + 1)
-    void actions.reviewCard(card, remembered)
+    void actions.reviewCard(card, remembered, Boolean(practiceOf))
     setShown(false)
     setI((x) => x + 1)
     if (queue && i + 1 >= queue.length) {
@@ -80,9 +96,10 @@ export default function Repaso() {
       <div className="cu-center" data-scroll>
         <header className="cu-head">
           <div className="cu-titles">
-            <h1>Repaso</h1>
+            <h1>{practiceOf ? 'Práctica' : 'Repaso'}</h1>
             <small>
-              {total ? `${Math.min(i + (done ? 0 : 1), total)} de ${total} · hoy` : 'Tu memoria, al día'}
+              {practiceOf && practiceName ? `${practiceName} · ` : ''}
+              {total ? `${Math.min(i + (done ? 0 : 1), total)} de ${total}${practiceOf ? '' : ' · hoy'}` : 'Tu memoria, al día'}
             </small>
           </div>
           <span className="spacer" />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import {
@@ -14,124 +14,152 @@ import { Rockie } from '../components/Rockie'
 import { Sheet } from '../components/Sheet'
 import { useMe } from '../features/auth/AuthProvider'
 import { haptic } from '../lib/fx'
+import { rootOf, spine, type BookColor } from './books'
+import { openDialog } from './bus'
 import { useToday } from './capture'
 import {
+  NONE,
   areaOf,
+  useBooks,
   useCards,
   useLinks,
   useNotes,
   useProjects,
-  type Area,
   type HqProject,
   type Link as NoteLink,
   type Note,
 } from './data'
-import {
-  areaStats,
-  buildArea,
-  crossings,
-  distToSegment,
-  nodeRadius,
-  type AreaStat,
-  type GEdge,
-  type GNode,
-} from './graph'
+import { buildGroup, crossingsBy, distToSegment, nodeRadius, type GEdge, type GNode } from './graph'
 import { CIcon } from './icons'
-import { memoryOf, type Memory } from './leitner'
-import { MEMORY_LABEL } from './Notas'
+import { MEMORY_LABEL, memoryOf, type Memory } from './leitner'
 import { plain } from './text'
 import { OsMenu, useHasPanel, useIsMobile } from './ui'
 
 type Sel = { kind: 'node'; id: string } | { kind: 'edge'; id: string } | null
+type Group = { key: string; name: string; color: BookColor | null; count: number; mem: Record<Memory, number> }
+const LOOSE = 'sueltas'
+const HQ = '__hq' // las conexiones con proyectos del HQ no son una burbuja propia
 
-/** El Mapa: de lo general (áreas) a lo concreto (notas y el porqué de cada conexión). */
+/** El Mapa: de lo general (tus cuadernos) a lo concreto (sus páginas y el porqué de cada conexión). */
 export default function Mapa() {
   const { profile } = useMe()
   const today = useToday(profile.timezone)
   const notesQ = useNotes()
-  const notes = useMemo(() => notesQ.data ?? [], [notesQ.data])
-  const linksData = useLinks().data
-  const links = useMemo(() => linksData ?? [], [linksData])
+  const notes = notesQ.data ?? NONE
+  const links = useLinks().data ?? NONE
   const cardsData = useCards().data
-  const projectsData = useProjects().data
-  const projects = useMemo(() => projectsData ?? [], [projectsData])
+  const projects = useProjects().data ?? NONE
+  const books = useBooks().data ?? NONE
   const [params, setParams] = useSearchParams()
   const focusId = params.get('nota')
-  const [area, setArea] = useState<Area | null>(null)
+  const bookParam = params.get('cuaderno')
+  const [group, setGroup] = useState<string | null>(null)
   const [sel, setSel] = useState<Sel>(null)
   const mobile = useIsMobile()
   const nav = useNavigate()
-  useHasPanel(!mobile && Boolean(area && sel))
+  useHasPanel(!mobile && Boolean(group && sel))
 
   const memOf = useMemo(() => {
     const by = new Map<string, { box: number; due: string }[]>()
     for (const c of cardsData ?? []) by.set(c.note_id, [...(by.get(c.note_id) ?? []), c])
     return (id: string) => memoryOf(by.get(id) ?? [], today)
   }, [cardsData, today])
+  const groupOf = useCallback((n: Note) => rootOf(books, n.book_id)?.id ?? LOOSE, [books])
 
-  // ?nota=… entra directo al área de esa nota, con la nota enfocada
+  // ?cuaderno=… entra a ese cuaderno; ?nota=… entra al cuaderno de esa página, con la página enfocada
+  useEffect(() => {
+    if (bookParam && (bookParam === LOOSE || books.some((b) => b.id === bookParam))) {
+      setGroup(bookParam)
+      setSel(null)
+    }
+  }, [bookParam, books])
   useEffect(() => {
     if (!focusId) return
     const n = notes.find((x) => x.id === focusId)
     if (!n) return
-    setArea(n.area)
+    setGroup(groupOf(n))
     setSel({ kind: 'node', id: n.id })
-  }, [focusId, notes])
+  }, [focusId, notes, groupOf])
 
-  const stats = useMemo(() => areaStats(notes, memOf), [notes, memOf])
-  const cross = useMemo(() => crossings(notes, links), [notes, links])
+  const groups = useMemo(() => {
+    const empty = (): Record<Memory, number> => ({ none: 0, learning: 0, mastered: 0, fading: 0 })
+    const map = new Map<string, Group>()
+    for (const b of books.filter((x) => !x.parent_id).sort((a, c) => a.position - c.position)) {
+      map.set(b.id, { key: b.id, name: b.name, color: b.color, count: 0, mem: empty() })
+    }
+    map.set(LOOSE, { key: LOOSE, name: 'Sueltas', color: null, count: 0, mem: empty() })
+    for (const n of notes) {
+      const g = map.get(groupOf(n))
+      if (!g) continue
+      g.count++
+      g.mem[memOf(n.id)]++
+    }
+    return [...map.values()].filter((g) => g.key !== LOOSE || g.count > 0)
+  }, [books, notes, groupOf, memOf])
+  const cross = useMemo(() => crossingsBy(notes, links, groupOf, HQ), [notes, links, groupOf])
   const graph = useMemo(
-    () => (area ? buildArea(area, notes, links, projects, memOf) : null),
-    [area, notes, links, projects, memOf],
+    () =>
+      group
+        ? buildGroup(
+            (n) => groupOf(n) === group,
+            false,
+            notes,
+            links,
+            projects,
+            memOf,
+            (n) => groups.find((g) => g.key === groupOf(n))?.name ?? '',
+          )
+        : null,
+    [group, notes, links, projects, memOf, groupOf, groups],
   )
 
-  function enter(a: Area) {
+  function enter(key: string) {
     haptic(10)
     setSel(null)
-    setArea(a)
+    setGroup(key)
   }
   function leave() {
     haptic(6)
     setSel(null)
-    setArea(null)
-    if (focusId) {
+    setGroup(null)
+    if (focusId || bookParam) {
       const next = new URLSearchParams(params)
       next.delete('nota')
+      next.delete('cuaderno')
       setParams(next, { replace: true })
     }
   }
 
-  const a = area ? areaOf(area) : null
+  const g = group ? groups.find((x) => x.key === group) : null
   const panel = graph && sel && (
-    <MapPanel
-      sel={sel}
-      graph={graph}
-      notes={notes}
-      links={links}
-      projects={projects}
-      onSelect={setSel}
-      onOpen={(id) => nav(`/cuaderno/nota/${id}`)}
-    />
+    <MapPanel sel={sel} graph={graph} notes={notes} links={links} projects={projects} onSelect={setSel} onOpen={(id) => nav(`/cuaderno/nota/${id}`)} />
   )
 
   return (
     <div className="cu-page">
       <div className="cu-center cu-mapwrap">
-        <header className="cu-head">
-          {a && (
-            <button className="iconbtn" onClick={leave} aria-label="Volver a todas las áreas">
+        <header className="cu-head" style={g?.color ? spine(g.color) : undefined}>
+          {group && (
+            <button className="iconbtn" onClick={leave} aria-label="Volver a todos tus cuadernos">
               <CIcon name="left" size={18} />
             </button>
           )}
+          {g?.color && <span className="cu-map-spine" aria-hidden="true" />}
           <div className="cu-titles">
-            <h1>{a ? a.label : 'Mapa'}</h1>
+            <h1>{g ? g.name : 'Mapa'}</h1>
             <small>
-              {a
-                ? `${stats.get(a.id)?.count ?? 0} notas · toca una nota o una línea`
-                : 'Toca un área para entrar'}
+              {g
+                ? `${g.count} ${g.count === 1 ? 'página' : 'páginas'}${mobile ? '' : ' · toca una página o una línea'}`
+                : 'Tus cuadernos y cómo se conectan. Toca uno para entrar.'}
             </small>
           </div>
           <span className="spacer" />
+          {g && g.key !== LOOSE && (
+            <Link className={mobile ? 'iconbtn' : 'btn sm ghost'} to={`/cuaderno/c/${g.key}`} aria-label="Abrir cuaderno" title="Abrir cuaderno">
+              <CIcon name="notebook" size={mobile ? 18 : 16} />
+              {!mobile && ' Abrir cuaderno'}
+            </Link>
+          )}
           {mobile && <OsMenu />}
         </header>
 
@@ -140,41 +168,39 @@ export default function Mapa() {
             <div className="cu-empty">
               <Rockie color="#2a82ad" size={84} />
               <h2>Tu mapa está por nacer</h2>
-              <p>Cada nota que aceptas aparece aquí, y cada conexión se vuelve una línea con su porqué.</p>
-              <Link to="/cuaderno" className="btn">
-                Contarle algo a Rockie
-              </Link>
+              <p>Cada página es un punto y cada conexión, una línea con su porqué. Empieza contándole algo a Rockie o aprendiendo un tema.</p>
+              <div className="cu-empty-acts">
+                <Link to="/cuaderno" className="btn ghost">
+                  Contarle algo
+                </Link>
+                <button className="btn" onClick={() => openDialog({ kind: 'aprender' })}>
+                  <CIcon name="sparkle" size={16} /> Aprender un tema
+                </button>
+              </div>
             </div>
           ) : (
             <AnimatePresence initial={false}>
-              {graph && area ? (
+              {graph && group ? (
                 <motion.div
-                  key={area}
+                  key={group}
                   className="cu-layer"
                   initial={{ opacity: 0, scale: 0.94 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
                 >
-                  <AreaGraph
-                    nodes={graph.nodes}
-                    edges={graph.edges}
-                    sel={sel}
-                    focusId={focusId}
-                    onSel={setSel}
-                    onOpen={(id) => nav(`/cuaderno/nota/${id}`)}
-                  />
+                  <AreaGraph nodes={graph.nodes} edges={graph.edges} sel={sel} focusId={focusId} onSel={setSel} onOpen={(id) => nav(`/cuaderno/nota/${id}`)} />
                 </motion.div>
               ) : (
                 <motion.div
-                  key="areas"
+                  key="books"
                   className="cu-layer"
                   initial={{ opacity: 0, scale: 1.06 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 1.12 }}
                   transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
                 >
-                  <AreasView stats={stats} cross={cross} onPick={enter} />
+                  <BooksView groups={groups} cross={cross} onPick={enter} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -184,11 +210,7 @@ export default function Mapa() {
       </div>
       {!mobile && panel}
       {mobile && (
-        <Sheet
-          open={Boolean(panel)}
-          onClose={() => setSel(null)}
-          title={sel?.kind === 'edge' ? 'Conexión' : 'Nota'}
-        >
+        <Sheet open={Boolean(panel)} onClose={() => setSel(null)} title={sel?.kind === 'edge' ? 'Conexión' : 'Página'}>
           {panel}
         </Sheet>
       )}
@@ -196,54 +218,52 @@ export default function Mapa() {
   )
 }
 
-// ---------- nivel 1: áreas ----------
-const ORDER: Area[] = ['mente', 'cuerpo', 'alma', 'proyectos', 'libre']
+// ---------- nivel 1: tus cuadernos ----------
 const MEM_ORDER: Memory[] = ['fading', 'learning', 'mastered', 'none']
-const MEM_VAR: Record<Memory, string> = {
-  fading: 'var(--coral)',
-  learning: 'var(--amber)',
-  mastered: 'var(--green)',
-  none: 'var(--ink-faint)',
-}
+const MEM_VAR: Record<Memory, string> = { fading: 'var(--coral)', learning: 'var(--amber)', mastered: 'var(--green)', none: 'var(--ink-faint)' }
 
-function AreasView({
-  stats,
-  cross,
-  onPick,
-}: {
-  stats: Map<Area, AreaStat>
-  cross: Map<string, number>
-  onPick: (a: Area) => void
-}) {
-  // en teléfono, lienzo vertical: el mismo pentágono, más alto que ancho
+function BooksView({ groups, cross, onPick }: { groups: Group[]; cross: Map<string, number>; onPick: (key: string) => void }) {
+  // en teléfono, lienzo vertical; en PC, apaisado
   const compact = useIsMobile()
-  const W = compact ? 420 : 800
-  const H = compact ? 600 : 560
-  const R = compact ? 150 : 190
-  const max = Math.max(1, ...[...stats.values()].map((s) => s.count))
+  const W = compact ? 420 : 820
+  const H = compact ? 620 : 560
+  const n = groups.length
+  const rx = compact ? 140 : n <= 2 ? 180 : 250
+  const ry = compact ? 210 : 175
+  const max = Math.max(1, ...groups.map((g) => g.count))
+  const shrink = n > 8 ? 0.8 : 1
   const pos = new Map(
-    ORDER.map((a, i) => {
-      const ang = -Math.PI / 2 + (i * 2 * Math.PI) / ORDER.length
-      return [
-        a,
-        {
-          x: W / 2 + R * Math.cos(ang),
-          y: H / 2 + (compact ? 44 : 8) + R * (compact ? 1.2 : 0.9) * Math.sin(ang),
-        },
-      ]
+    groups.map((g, i) => {
+      if (n === 1) return [g.key, { x: W / 2, y: H / 2 + 20 }]
+      const ang = -Math.PI / 2 + (i * 2 * Math.PI) / n
+      return [g.key, { x: W / 2 + rx * Math.cos(ang), y: H / 2 + (compact ? 40 : 20) + ry * Math.sin(ang) }]
     }),
   )
-  const radius = (a: Area) => {
-    const n = stats.get(a)?.count ?? 0
-    if (!n) return compact ? 40 : 44
-    return compact ? 44 + 22 * Math.sqrt(n / max) : 44 + 34 * Math.sqrt(n / max)
+  // con uno o dos cuadernos en el teléfono sobra lienzo: burbujas más grandes para que el nombre se lea
+  const base = compact ? (n <= 2 ? 56 : 40) : 42
+  const grow = compact ? (n <= 2 ? 24 : 20) : 30
+  const radius = (g: Group) => (g.count ? base + grow * Math.sqrt(g.count / max) : 36) * shrink
+  // el nombre cabe en la burbuja: hasta dos líneas, cortando por palabras
+  // (serif a 19px ≈ 9.8 unidades por letra; en el teléfono va a 16px ≈ 8.3)
+  const charW = compact ? 8.3 : 9.8
+  const lineH = compact ? 18 : 20
+  const lines = (s: string, r: number) => {
+    const k = Math.max(6, Math.floor((r * 1.8) / charW))
+    const cut = (x: string) => (x.length > k ? x.slice(0, k - 1) + '…' : x)
+    if (s.length <= k) return [s]
+    const words = s.split(/\s+/)
+    let first = ''
+    while (words.length && (first ? first + ' ' + words[0] : words[0]).length <= k) first = first ? first + ' ' + words.shift() : words.shift()!
+    if (!first) return [cut(s)]
+    return words.length ? [first, cut(words.join(' '))] : [first]
   }
   return (
-    <svg className="cu-areas-svg" viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Áreas de tu cuaderno">
-      {[...cross].map(([k, n]) => {
-        const [a, b] = k.split('|') as Area[]
-        const p = pos.get(a)!
-        const q = pos.get(b)!
+    <svg className={`cu-areas-svg${compact ? ' compact' : ''}`} viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Tus cuadernos">
+      {[...cross].map(([k, c]) => {
+        const [a, b] = k.split('|')
+        const p = pos.get(a)
+        const q = pos.get(b)
+        if (!p || !q) return null
         return (
           <motion.line
             key={k}
@@ -252,61 +272,51 @@ function AreasView({
             x2={q.x}
             y2={q.y}
             stroke="var(--ink-faint)"
-            strokeWidth={2 + Math.min(8, n * 1.4)}
+            strokeWidth={2 + Math.min(8, c * 1.4)}
             strokeLinecap="round"
             initial={{ pathLength: 0, opacity: 0 }}
             animate={{ pathLength: 1, opacity: 0.8 }}
             transition={{ duration: 0.35, delay: 0.15 }}
           >
-            <title>{`${n} ${n === 1 ? 'conexión' : 'conexiones'} entre ${areaOf(a).label} y ${areaOf(b).label}`}</title>
+            <title>{`${c} ${c === 1 ? 'conexión' : 'conexiones'} entre ${groups.find((g) => g.key === a)?.name} y ${groups.find((g) => g.key === b)?.name}`}</title>
           </motion.line>
         )
       })}
-      {ORDER.map((a, i) => {
-        const p = pos.get(a)!
-        const r = radius(a)
-        const s = stats.get(a)
-        const info = areaOf(a)
-        const empty = !s?.count
+      {groups.map((g, i) => {
+        const p = pos.get(g.key)!
+        const r = radius(g)
+        const empty = !g.count
         const ring = r + 8
         const C = 2 * Math.PI * ring
         let off = 0
         const onKey = (e: ReactKeyboardEvent) => {
-          if (!empty && (e.key === 'Enter' || e.key === ' ')) {
+          if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
-            onPick(a)
+            onPick(g.key)
           }
         }
         return (
           <motion.g
-            key={a}
+            key={g.key}
             className={`cu-abub${empty ? ' empty' : ''}`}
             role="button"
-            tabIndex={empty ? -1 : 0}
-            aria-label={`${info.label}: ${s?.count ?? 0} notas`}
-            aria-disabled={empty}
-            onClick={() => !empty && onPick(a)}
+            tabIndex={0}
+            aria-label={`${g.name}: ${g.count} páginas`}
+            onClick={() => onPick(g.key)}
             onKeyDown={onKey}
+            style={g.color ? spine(g.color) : undefined}
             initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: empty ? 0.55 : 1 }}
-            whileHover={empty ? undefined : { scale: 1.05 }}
-            whileTap={empty ? undefined : { scale: 0.96 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 24, delay: i * 0.05 }}
+            animate={{ scale: 1, opacity: empty ? 0.6 : 1 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 24, delay: Math.min(i, 10) * 0.05 }}
           >
             {/* canto 2.5D: el grosor de la pieza, del tono de su borde */}
             <circle cx={p.x} cy={p.y + 5} r={r} fill="var(--card-edge)" />
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={r}
-              fill="var(--card)"
-              stroke="var(--card-line)"
-              strokeWidth={2}
-              strokeDasharray={empty ? '6 6' : undefined}
-            />
+            <circle cx={p.x} cy={p.y} r={r} fill="var(--card)" stroke="var(--card-line)" strokeWidth={2} strokeDasharray={empty ? '6 6' : undefined} />
             {!empty &&
               MEM_ORDER.map((m) => {
-                const len = (C * (s!.mem[m] ?? 0)) / s!.count
+                const len = (C * (g.mem[m] ?? 0)) / g.count
                 const el =
                   len > 0 ? (
                     <circle
@@ -326,17 +336,26 @@ function AreasView({
                 off += len
                 return el
               })}
-            <g
-              transform={`translate(${p.x - 12} ${p.y - r * 0.42 - 12})`}
-              style={{ color: 'var(--ink-soft)' }}
-            >
-              <CIcon name={info.icon} size={24} />
+            {/* el lomo del cuaderno, como una pestaña de su color */}
+            <circle cx={p.x} cy={p.y - r * 0.42 + 2.5} r={14} className={g.color ? 'cu-abub-tab-edge' : 'cu-abub-tab-edge loose'} />
+            <circle cx={p.x} cy={p.y - r * 0.42} r={14} className={g.color ? 'cu-abub-tab' : 'cu-abub-tab loose'} />
+            <g transform={`translate(${p.x - 9} ${p.y - r * 0.42 - 9})`} className={g.color ? 'cu-abub-ico' : 'cu-abub-ico loose'}>
+              <CIcon name={g.color ? 'notebook' : 'note'} size={18} />
             </g>
-            <text x={p.x} y={p.y + 8} textAnchor="middle" className="cu-abub-name">
-              {info.label}
-            </text>
-            <text x={p.x} y={p.y + 27} textAnchor="middle" className="cu-abub-count">
-              {empty ? 'vacía' : `${s!.count} ${s!.count === 1 ? 'nota' : 'notas'}`}
+            {(() => {
+              const ls = lines(g.name, r)
+              return (
+                <text x={p.x} y={p.y + (ls.length > 1 ? 4 : 12)} textAnchor="middle" className="cu-abub-name">
+                  {ls.map((l, j) => (
+                    <tspan key={j} x={p.x} dy={j ? lineH : 0}>
+                      {l}
+                    </tspan>
+                  ))}
+                </text>
+              )
+            })()}
+            <text x={p.x} y={p.y + (lines(g.name, r).length > 1 ? 44 : 30)} textAnchor="middle" className="cu-abub-count">
+              {empty ? 'vacío' : `${g.count} ${g.count === 1 ? 'página' : 'páginas'}`}
             </text>
           </motion.g>
         )
@@ -380,6 +399,9 @@ const VARS = [
 type Colors = Record<(typeof VARS)[number], string>
 type Cam = { x: number; y: number; k: number }
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s)
+/** El nombre bajo cada punto (más corto en pantallas angostas). */
+const labelOf = (n: GNode, narrow: boolean) =>
+  clip(n.title, narrow ? 20 : 28) + (n.outside && n.kind === 'note' && n.from ? ` · ${n.from}` : '')
 const clampK = (k: number) => Math.max(0.35, Math.min(2.6, k))
 
 function AreaGraph(p: {
@@ -398,6 +420,8 @@ function AreaGraph(p: {
     cam: { x: 0, y: 0, k: 1 } as Cam,
     target: null as Cam | null,
     fitted: false,
+    refitted: false,
+    touched: false,
     dirty: true,
     nodes: [] as GNode[],
     edges: [] as GEdge[],
@@ -505,14 +529,29 @@ function AreaGraph(p: {
       let x1 = -Infinity
       let y1 = -Infinity
       for (const n of st.nodes) {
-        const r = nodeRadius(n) + 40
-        x0 = Math.min(x0, (n.x ?? 0) - r)
-        y0 = Math.min(y0, (n.y ?? 0) - r)
-        x1 = Math.max(x1, (n.x ?? 0) + r)
-        y1 = Math.max(y1, (n.y ?? 0) + r)
+        x0 = Math.min(x0, n.x ?? 0)
+        y0 = Math.min(y0, n.y ?? 0)
+        x1 = Math.max(x1, n.x ?? 0)
+        y1 = Math.max(y1, n.y ?? 0)
       }
-      const k = clampK(Math.min(1.5, st.w / (x1 - x0), (st.h - 120) / (y1 - y0)))
-      return { k, x: (-(x0 + x1) / 2) * k, y: (-(y0 + y1) / 2) * k - 30 }
+      const mx = (x0 + x1) / 2
+      const my = (y0 + y1) / 2
+      // el zoom más grande en el que cada punto y su nombre caben en pantalla
+      // (los nombres van a tamaño fijo: 12px ≈ 6.6 px por letra, y cuelgan ~24 px bajo el punto)
+      const narrow = st.w < 500
+      const fits = (k: number) =>
+        st.nodes.every((n) => {
+          const r = nodeRadius(n) * k
+          const hw = Math.max(r, labelOf(n, narrow).length * 3.3)
+          return (
+            Math.abs(((n.x ?? 0) - mx) * k) + hw <= st.w / 2 - 12 &&
+            Math.abs(((n.y ?? 0) - my) * k) + r + 24 <= (st.h - 150) / 2
+          )
+        })
+      let k = 1.8
+      while (k > 0.35 && !fits(k)) k *= 0.92
+      k = clampK(k)
+      return { k, x: -mx * k, y: -my * k - 30 }
     }
     const frame = () => {
       raf = 0
@@ -520,6 +559,11 @@ function AreaGraph(p: {
       if (!st.fitted && st.sim && st.sim.alpha() < 0.3 && st.w) {
         st.fitted = true
         st.target = fitTarget()
+      }
+      // la física sigue acomodando después del primer encuadre: al asentarse se reencuadra (si no lo moviste tú)
+      if (st.fitted && !st.refitted && st.sim && st.sim.alpha() < 0.02) {
+        st.refitted = true
+        if (!st.touched) st.target = fitTarget()
       }
       if (st.target) {
         const t = st.target
@@ -650,7 +694,7 @@ function AreaGraph(p: {
       const show = near.has(n.id) || st.hover === n.id || cam.k >= 0.9 || n.deg >= 3 || few
       if (!show) continue
       ctx.globalAlpha = any && !near.has(n.id) ? 0.3 : n.outside ? 0.7 : 1
-      const label = clip(n.title, 28) + (n.outside && n.kind === 'note' ? ` · ${areaOf(n.area).label}` : '')
+      const label = labelOf(n, w < 500)
       const x = sx(n.x)
       const y = sy(n.y) + nodeRadius(n) * cam.k + 8
       ctx.strokeStyle = C.paper
@@ -718,6 +762,7 @@ function AreaGraph(p: {
       const pt = local(e)
       ptrs.set(e.pointerId, pt)
       st.target = null
+      st.touched = true
       if (ptrs.size === 2) {
         const [a, b] = [...ptrs.values()]
         pinch = {
@@ -811,6 +856,7 @@ function AreaGraph(p: {
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
       st.target = null
+      st.touched = true
       const pt = local(e)
       zoomAt(pt.x, pt.y, st.cam.k * Math.exp(-e.deltaY * 0.0015))
     }

@@ -7,11 +7,13 @@ import { useMe } from '../features/auth/AuthProvider'
 import { addDays, dayOfTs, fmtDayLong, fmtTime } from '../lib/dates'
 import { burst, celebrateRockie, haptic, pointOf } from '../lib/fx'
 import { acceptProposal, reopen, type Look } from './agent'
+import { openDialog } from './bus'
 import { useBusy, useCapture, useToday } from './capture'
 import { OsMenu, useHasPanel, useIsMobile } from './ui'
 import {
   NONE,
   areaOf,
+  useBooks,
   useCards,
   useCuadernoActions,
   useDays,
@@ -45,6 +47,7 @@ export default function Hoy() {
   const cards = useCards().data ?? NONE
   const projects = useProjects().data ?? NONE
   const days = useDays().data ?? NONE
+  const books = useBooks().data ?? NONE
   const actions = useCuadernoActions()
   const busy = useBusy()
   const { process } = useCapture()
@@ -54,12 +57,17 @@ export default function Hoy() {
     () => ({
       notes: new Map(notes.map((n) => [n.id, n])),
       projects: new Map(projects.map((p) => [p.id, p])),
+      books,
       today,
     }),
-    [notes, projects, today],
+    [notes, projects, books, today],
   )
   const dayNotes = useMemo(() => notes.filter((n) => dayOfTs(n.created_at, tz) === day), [notes, day, tz])
-  const dayLinks = useMemo(() => links.filter((l) => dayOfTs(l.created_at, tz) === day), [links, day, tz])
+  // las conexiones "Es parte de…" las crea Aprender con su índice: son estructura, no descubrimientos
+  const dayLinks = useMemo(
+    () => links.filter((l) => dayOfTs(l.created_at, tz) === day && !l.reason.startsWith('Es parte de «')),
+    [links, day, tz],
+  )
   const due = useMemo(() => dueToday(cards, today, 99).length, [cards, today])
   const streak = useMemo(() => streakOf(days, today), [days, today])
 
@@ -83,9 +91,14 @@ export default function Hoy() {
   async function accept(e: Entry, i: number, el: HTMLElement) {
     const before = actions.entryNow(e.day, e.id) ?? e
     const firstToday = dayNotes.length === 0
-    const { list, undo, changed } = await acceptProposal(before.proposals, i, { actions, entryId: e.id })
+    const { list, undo, changed, silent } = await acceptProposal(before.proposals, i, {
+      actions,
+      entryId: e.id,
+      entryText: e.text,
+    })
     if (!changed.length) return
     await actions.saveEntryProposals(before, list)
+    if (silent) return // solo abrió Aprender o Conversar: no hay nada que deshacer
     celebrate(el, list, changed, firstToday)
     const p = list[i]
     toast(
@@ -108,7 +121,9 @@ export default function Hoy() {
     const changed: number[] = []
     for (let i = 0; i < cur.proposals.length; i++) {
       if ((cur.proposals[i].st ?? 'pending') !== 'pending') continue
-      const r = await acceptProposal(cur.proposals, i, { actions, entryId: e.id })
+      // abrir un diálogo no entra en "aceptar todo": se elige a propósito
+      if (cur.proposals[i].tool === 'aprender_tema' || cur.proposals[i].tool === 'conversar') continue
+      const r = await acceptProposal(cur.proposals, i, { actions, entryId: e.id, entryText: e.text })
       if (!r.changed.length) continue
       if (r.undo) undos.push(r.undo)
       changed.push(...r.changed)
@@ -242,6 +257,15 @@ export default function Hoy() {
               </motion.button>
             )}
           </AnimatePresence>
+          <button
+            className={mobile ? 'iconbtn' : 'btn sm ghost'}
+            onClick={() => openDialog({ kind: 'conversar', contexto: { tipo: 'libre' } })}
+            aria-label="Conversar con Rockie"
+            title="Conversar con Rockie: pensar algo con calma"
+          >
+            <CIcon name="chat" size={17} />
+            {!mobile && ' Conversar'}
+          </button>
           {mobile && <OsMenu />}
         </header>
 
@@ -296,6 +320,12 @@ export default function Hoy() {
                       onRestore={(i) => setSt(e, i, 'pending')}
                       onRetry={() => void process(e)}
                       onDelete={() => void actions.deleteEntry(e)}
+                      onTalk={() =>
+                        openDialog({
+                          kind: 'conversar',
+                          contexto: { tipo: 'entrada', id: e.id, titulo: e.text.slice(0, 60) },
+                        })
+                      }
                     />
                   </motion.li>
                 ))}
@@ -322,6 +352,7 @@ function EntryCard(p: {
   onRestore: (i: number) => void
   onRetry: () => void
   onDelete: () => void
+  onTalk: () => void
 }) {
   const { e } = p
   const [long, setLong] = useState(e.text.length > 420)
@@ -329,15 +360,17 @@ function EntryCard(p: {
     <article className="cu-entry card">
       <header>
         <span className="cu-entry-when">
-          <CIcon name={e.source === 'voz' ? 'mic' : 'keyboard'} size={14} /> {fmtTime(e.created_at, p.tz)}
+          <CIcon name={e.source === 'voz' ? 'mic' : e.source === 'conversa' ? 'chat' : 'keyboard'} size={14} />{' '}
+          {e.source === 'conversa' ? 'Conversación · ' : ''}
+          {fmtTime(e.created_at, p.tz)}
         </span>
         <span className="spacer" />
-        <button
-          className="cu-x"
-          onClick={p.onDelete}
-          aria-label="Borrar esta entrada del diario"
-          title="Borrar"
-        >
+        {e.source !== 'conversa' && (
+          <button className="cu-x" onClick={p.onTalk} aria-label="Conversar sobre esto con Rockie" title="Conversar sobre esto">
+            <CIcon name="chat" size={15} />
+          </button>
+        )}
+        <button className="cu-x" onClick={p.onDelete} aria-label="Borrar esta entrada del diario" title="Borrar">
           <CIcon name="trash" size={15} />
         </button>
       </header>

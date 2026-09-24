@@ -45,3 +45,10 @@ export function dueToday<T extends { due: string; box: number }>(
     .sort((a, b) => a.due.localeCompare(b.due) || a.box - b.box)
     .slice(0, max)
 }
+
+export const MEMORY_LABEL: Record<Memory, string> = {
+  none: 'Sin tarjetas',
+  learning: 'En repaso',
+  mastered: 'Dominada',
+  fading: 'Se te está olvidando',
+}

@@ -347,6 +347,54 @@ export type Database = {
           },
         ]
       }
+      cuaderno_books: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          parent_id: string | null
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_books_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_books_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cuaderno_cards: {
         Row: {
           a: string
@@ -423,6 +471,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "cuaderno_days_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_drawings: {
+        Row: {
+          created_at: string
+          height: number
+          id: string
+          strokes: Json
+          updated_at: string
+          user_id: string
+          width: number
+        }
+        Insert: {
+          created_at?: string
+          height: number
+          id?: string
+          strokes?: Json
+          updated_at?: string
+          user_id?: string
+          width: number
+        }
+        Update: {
+          created_at?: string
+          height?: number
+          id?: string
+          strokes?: Json
+          updated_at?: string
+          user_id?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_drawings_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -540,11 +626,13 @@ export type Database = {
         Row: {
           area: string
           body: string
+          book_id: string | null
           created_at: string
           embedded_at: string | null
           embedding: string | null
           entry_id: string | null
           id: string
+          position: number
           title: string
           updated_at: string
           user_id: string
@@ -552,11 +640,13 @@ export type Database = {
         Insert: {
           area?: string
           body?: string
+          book_id?: string | null
           created_at?: string
           embedded_at?: string | null
           embedding?: string | null
           entry_id?: string | null
           id?: string
+          position?: number
           title: string
           updated_at?: string
           user_id?: string
@@ -564,16 +654,25 @@ export type Database = {
         Update: {
           area?: string
           body?: string
+          book_id?: string | null
           created_at?: string
           embedded_at?: string | null
           embedding?: string | null
           entry_id?: string | null
           id?: string
+          position?: number
           title?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "cuaderno_notes_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_books"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cuaderno_notes_entry_id_fkey"
             columns: ["entry_id"]
@@ -583,6 +682,44 @@ export type Database = {
           },
           {
             foreignKeyName: "cuaderno_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_tokens: {
+        Row: {
+          created_at: string
+          hint: string
+          id: string
+          last_used_at: string | null
+          name: string
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hint: string
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          token_hash: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          hint?: string
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_tokens_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1185,6 +1322,17 @@ export type Database = {
           title: string
         }[]
       }
+      cuaderno_similar_for: {
+        Args: { k?: number; p_user: string; q: string }
+        Returns: {
+          area: string
+          id: string
+          score: number
+          snippet: string
+          title: string
+        }[]
+      }
+      cuaderno_token_user: { Args: { p_hash: string }; Returns: string }
       demo_fill: { Args: { p_space: string }; Returns: undefined }
       gen_code: { Args: { n?: number }; Returns: string }
       hq_norm: { Args: { x: string }; Returns: string }

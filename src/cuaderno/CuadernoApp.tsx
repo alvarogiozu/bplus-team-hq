@@ -1,36 +1,42 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { AnimatePresence, MotionConfig, motion } from 'motion/react'
+import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router'
+import { AnimatePresence, MotionConfig } from 'motion/react'
 import { Rockie } from '../components/Rockie'
 import { useTheme } from '../app/theme'
 import { useMe } from '../features/auth/AuthProvider'
-import { fmtRelative } from '../lib/dates'
+import { AprenderDialog } from './Aprender'
+import { useDialog } from './bus'
 import { CaptureBar } from './CaptureBar'
 import { useToday } from './capture'
+import { ConversarPanel } from './Conversar'
+import { CuadernoPage, CuadernosPage } from './Cuadernos'
 import { useCards, useOpenEntries } from './data'
 import { dueToday } from './leitner'
 import { CIcon } from './icons'
+import { BookTree } from './Tree'
 import { PanelCtx, useIsMobile } from './ui'
 import Hoy from './Hoy'
-import Notas from './Notas'
 import '../agenda/agenda.css'
 import './cuaderno.css'
 
 // Rockie Cuaderno: el segundo cerebro de Rockie OS, con las mismas cuentas del HQ.
-// Tú cuentas; Rockie propone notas, conexiones y tarjetas; tú confirmas.
+// Tú cuentas, escribes, dibujas y estudias; Rockie propone notas, conexiones y tarjetas; tú confirmas.
 const NotaPage = lazy(() => import('./Nota'))
 const Mapa = lazy(() => import('./Mapa'))
 const Repaso = lazy(() => import('./Repaso'))
+const DrawSheet = lazy(() => import('./Draw').then((m) => ({ default: m.DrawSheet })))
 
 export default function CuadernoApp() {
   return (
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<Hoy />} />
-        <Route path="notas" element={<Notas />} />
+        <Route path="cuadernos" element={<CuadernosPage />} />
+        <Route path="c/:id" element={<CuadernoPage />} />
         <Route path="nota/:id" element={<NotaPage />} />
         <Route path="mapa" element={<Mapa />} />
         <Route path="repaso" element={<Repaso />} />
+        <Route path="notas" element={<Navigate to="/cuaderno/cuadernos" replace />} />
         <Route path="*" element={<Navigate to="/cuaderno" replace />} />
       </Route>
     </Routes>
@@ -39,7 +45,7 @@ export default function CuadernoApp() {
 
 const NAV = [
   { to: '/cuaderno', end: true, label: 'Hoy', icon: 'diary' },
-  { to: '/cuaderno/notas', label: 'Notas', icon: 'note' },
+  { to: '/cuaderno/cuadernos', label: 'Cuadernos', icon: 'notebook' },
   { to: '/cuaderno/mapa', label: 'Mapa', icon: 'map' },
   { to: '/cuaderno/repaso', label: 'Repaso', icon: 'cards' },
 ]
@@ -48,34 +54,43 @@ function Shell() {
   const mobile = useIsMobile()
   const [panel, setPanel] = useState(false)
   const [typing, setTyping] = useState(false)
+  const [summon, setSummon] = useState(false) // Ctrl+K en una página: la barra aparece solo cuando la llamas
   const barRef = useRef<HTMLInputElement>(null)
   const loc = useLocation()
   const { profile } = useMe()
   const today = useToday(profile.timezone)
   const cards = useCards().data
   const due = useMemo(() => dueToday(cards ?? [], today, 99).length, [cards, today])
+  const open = useOpenEntries().data?.length ?? 0
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         if (mobile) setTyping(true)
-        else barRef.current?.focus()
-      }
+        else {
+          setSummon(true)
+          requestAnimationFrame(() => barRef.current?.focus())
+        }
+      } else if (e.key === 'Escape') setSummon(false)
     }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
   }, [mobile])
-  useEffect(() => setTyping(false), [loc.pathname])
+  useEffect(() => {
+    setTyping(false)
+    setSummon(false)
+  }, [loc.pathname])
 
-  // el repaso es una sesión enfocada: sin barra de Rockie encima
-  const focusMode = loc.pathname.startsWith('/cuaderno/repaso')
+  // el repaso y las páginas son para enfocarse: en PC, sin la barra de Rockie encima
+  const quiet = loc.pathname.startsWith('/cuaderno/repaso') || loc.pathname.startsWith('/cuaderno/nota/')
+  const badges: Record<string, number> = { diary: open, cards: due }
 
   return (
     <PanelCtx.Provider value={setPanel}>
       <MotionConfig reducedMotion="user">
         <div className={`cu${mobile ? ' is-mobile' : ''}`}>
-          {!mobile && <Sidebar due={due} today={today} />}
+          {!mobile && <Sidebar badges={badges} />}
           <main className={`cu-main${panel ? ' has-panel' : ''}`}>
             <Suspense
               fallback={
@@ -86,20 +101,33 @@ function Shell() {
             >
               <Outlet />
             </Suspense>
-            {(!focusMode || mobile) && (
-              <CaptureBar ref={barRef} mobile={mobile} typing={typing} onTyping={setTyping} />
-            )}
+            {(!quiet || mobile || summon) && <CaptureBar ref={barRef} mobile={mobile} typing={typing} onTyping={setTyping} />}
           </main>
-          {mobile && <TabBar due={due} />}
+          {mobile && <TabBar badges={badges} />}
+          <DialogHost />
         </div>
       </MotionConfig>
     </PanelCtx.Provider>
   )
 }
 
-function Sidebar({ due, today }: { due: number; today: string }) {
-  const open = useOpenEntries().data ?? []
-  const nav = useNavigate()
+/** Aprender, Conversar y Dibujar viven una sola vez aquí, se abran desde donde se abran. */
+function DialogHost() {
+  const d = useDialog()
+  return (
+    <AnimatePresence>
+      {d?.kind === 'aprender' && <AprenderDialog key="aprender" tema={d.tema} bookId={d.bookId} restore={d.restore} />}
+      {d?.kind === 'conversar' && <ConversarPanel key="conversar" contexto={d.contexto} motivo={d.motivo} />}
+      {d?.kind === 'dibujo' && (
+        <Suspense key="dibujo" fallback={null}>
+          <DrawSheet drawingId={d.drawingId} initial={d.initial as never} onSave={d.onSave} />
+        </Suspense>
+      )}
+    </AnimatePresence>
+  )
+}
+
+function Sidebar({ badges }: { badges: Record<string, number> }) {
   const { theme, toggle } = useTheme()
   return (
     <aside className="cu-side" aria-label="Navegación del cuaderno">
@@ -116,39 +144,16 @@ function Sidebar({ due, today }: { due: number; today: string }) {
           <NavLink key={d.to} to={d.to} end={d.end} className="cu-navlink">
             <CIcon name={d.icon} size={20} />
             <span>{d.label}</span>
-            {d.icon === 'cards' && due > 0 && <b className="cu-badge">{due}</b>}
+            {badges[d.icon] > 0 && (
+              <b className="cu-badge" title={d.icon === 'diary' ? 'Por decidir en tu diario' : 'Tarjetas para hoy'}>
+                {badges[d.icon]}
+              </b>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      <section className="cu-loose" aria-label="Sin procesar">
-        <h2>
-          Sin procesar <small>{open.length || ''}</small>
-        </h2>
-        {open.length === 0 ? (
-          <p className="cu-loose-empty">Todo decidido. Lo que cuentes aparece aquí hasta que lo revises.</p>
-        ) : (
-          <ul>
-            <AnimatePresence initial={false}>
-              {open.slice(0, 6).map((e) => (
-                <motion.li
-                  key={e.id}
-                  layout
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -8 }}
-                >
-                  <button onClick={() => nav(e.day === today ? '/cuaderno' : `/cuaderno?dia=${e.day}`)}>
-                    <span className={`cu-dot ${e.status}`} aria-hidden="true" />
-                    <span className="cu-loose-txt">{e.text}</span>
-                    <small>{fmtRelative(e.day, today)}</small>
-                  </button>
-                </motion.li>
-              ))}
-            </AnimatePresence>
-          </ul>
-        )}
-      </section>
+      <BookTree />
 
       <div className="cu-side-foot">
         <Link className="cu-os" to="/hoy">
@@ -158,22 +163,21 @@ function Sidebar({ due, today }: { due: number; today: string }) {
           <CIcon name="calendar" size={17} /> Mi agenda
         </Link>
         <button className="cu-os" onClick={toggle}>
-          <CIcon name={theme === 'dark' ? 'sun' : 'moon'} size={17} /> Tema{' '}
-          {theme === 'dark' ? 'claro' : 'oscuro'}
+          <CIcon name={theme === 'dark' ? 'sun' : 'moon'} size={17} /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}
         </button>
       </div>
     </aside>
   )
 }
 
-function TabBar({ due }: { due: number }) {
+function TabBar({ badges }: { badges: Record<string, number> }) {
   const left = NAV.slice(0, 2)
   const right = NAV.slice(2)
   const item = (d: (typeof NAV)[number]) => (
     <NavLink key={d.to} to={d.to} end={d.end} className="cu-tab">
       <span className="cu-tab-ico">
         <CIcon name={d.icon} size={22} />
-        {d.icon === 'cards' && due > 0 && <b className="cu-badge">{due}</b>}
+        {badges[d.icon] > 0 && <b className="cu-badge">{badges[d.icon]}</b>}
       </span>
       <span>{d.label}</span>
     </NavLink>

@@ -25,6 +25,10 @@ export function useBusy() {
   )
 }
 
+// Entradas que se deshicieron mientras Rockie las leía: su respuesta ya no se aplica ni se avisa.
+const forgotten = new Set<string>()
+export const forgetEntry = (id: string) => void forgotten.add(id)
+
 /** "Hoy" en la zona de la persona; cambia solo a medianoche. */
 export function useToday(tz: string) {
   const [today, setToday] = useState(() => todayIn(tz))
@@ -47,6 +51,7 @@ export function useCapture() {
       setBusy(e.id, true)
       const r = await processEntry(e, todayIn(tz), tz)
       setBusy(e.id, false)
+      if (forgotten.has(e.id)) return
       if (r.entry) {
         actions.patchEntry(r.entry)
         if (r.entry.proposals.length) haptic(10)
@@ -63,17 +68,19 @@ export function useCapture() {
     [actions, tz],
   )
 
+  /** stay = no llevar a Hoy (p. ej. al guardar una conversación desde una página). */
   const capture = useCallback(
-    async (text: string, source: 'voz' | 'texto') => {
+    async (text: string, source: Entry['source'], opts: { stay?: boolean } = {}) => {
       const t = text.trim()
-      if (!t) return
+      if (!t) return null
       const e = await actions.createEntry(t, source)
-      if (!e) return
+      if (!e) return null
       haptic([6, 18, 6])
       const onToday =
         loc.pathname.replace(/\/$/, '') === '/cuaderno' && !new URLSearchParams(loc.search).get('dia')
-      if (!onToday) nav('/cuaderno')
+      if (!onToday && !opts.stay) nav('/cuaderno')
       void process(e)
+      return e
     },
     [actions, loc, nav, process],
   )

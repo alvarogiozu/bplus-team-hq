@@ -13,6 +13,8 @@ export type GNode = SimulationNodeDatum & {
   mem: Memory
   deg: number
   outside: boolean
+  /** de dónde viene una nota de otro grupo (se muestra junto a su nombre) */
+  from?: string
 }
 export type GEdge = SimulationLinkDatum<GNode> & { id: string; reason: string; a: string; b: string }
 
@@ -39,6 +41,20 @@ export function areaStats(notes: Note[], memOf: (id: string) => Memory) {
   return stats
 }
 
+/** Cuántas conexiones cruzan de un grupo a otro (clave "a|b" ordenada). */
+export function crossingsBy(notes: Note[], links: Link[], groupOf: (n: Note) => string, projectGroup = 'proyectos') {
+  const g = new Map(notes.map((n) => [n.id, groupOf(n)]))
+  const m = new Map<string, number>()
+  for (const l of links) {
+    const a = g.get(l.a_id)
+    const b = l.b_id ? g.get(l.b_id) : l.project_id ? projectGroup : undefined
+    if (!a || !b || a === b) continue
+    const k = [a, b].sort().join('|')
+    m.set(k, (m.get(k) ?? 0) + 1)
+  }
+  return m
+}
+
 /** Cuántas conexiones cruzan de un área a otra (clave "a|b" ordenada). */
 export function crossings(notes: Note[], links: Link[]) {
   const areaOfNote = new Map(notes.map((n) => [n.id, n.area]))
@@ -60,9 +76,25 @@ export function buildArea(
   projects: HqProject[],
   memOf: (id: string) => Memory,
 ) {
+  return buildGroup((n) => n.area === area, area === 'proyectos', notes, links, projects, memOf)
+}
+
+/**
+ * Un grupo del mapa (un cuaderno, Sueltas o un área): sus notas, las de otros grupos que conectan
+ * con ellas (atenuadas, con su origen en groupOf) y los proyectos del HQ enlazados.
+ */
+export function buildGroup(
+  isInside: (n: Note) => boolean,
+  projectsInside: boolean,
+  notes: Note[],
+  links: Link[],
+  projects: HqProject[],
+  memOf: (id: string) => Memory,
+  groupOf?: (n: Note) => string,
+) {
   const deg = degrees(links)
   const byId = new Map(notes.map((n) => [n.id, n]))
-  const inside = new Set(notes.filter((n) => n.area === area).map((n) => n.id))
+  const inside = new Set(notes.filter(isInside).map((n) => n.id))
   const ids = new Set(inside)
   const projIds = new Set<string>()
   for (const l of links) {
@@ -86,6 +118,7 @@ export function buildArea(
       mem: memOf(id),
       deg: deg.get(id) ?? 0,
       outside: !inside.has(id),
+      from: !inside.has(id) && groupOf ? groupOf(n) : undefined,
     })
   }
   for (const p of projects) {
@@ -97,7 +130,7 @@ export function buildArea(
         area: 'proyectos',
         mem: 'none',
         deg: deg.get(p.id) ?? 0,
-        outside: area !== 'proyectos',
+        outside: !projectsInside,
       })
   }
   const present = new Set(nodes.map((n) => n.id))

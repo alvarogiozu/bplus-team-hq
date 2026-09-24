@@ -85,9 +85,10 @@ conexiones con su porqué, tareas a la Agenda) · Nota (Markdown) · Mapa (grafo
 está en `IDEAS.md`.
 
 **Confirmar ES el filtro de ruido.** Lo que cuentas queda tal cual en `cuaderno_entries` (efímero, se puede buscar,
-no entra al grafo). Solo lo que aceptas se vuelve nota, conexión o tarjeta. Sin carpetas, sin etiquetas y sin `[[ ]]`
-manuales: una sola forma de conectar (Rockie propone, tú confirmas). Las propuestas se guardan en la entrada
-(`proposals` jsonb con su estado) para que lo "sin procesar" sobreviva a recargar.
+no entra al grafo). Solo lo que aceptas se vuelve nota, conexión o tarjeta. Sin etiquetas y sin `[[ ]]` manuales:
+una sola forma de conectar (Rockie propone, tú confirmas). Las propuestas se guardan en la entrada
+(`proposals` jsonb con su estado) para que lo "sin procesar" sobreviva a recargar. (v2: organizar sí existe, con
+cuadernos; ver abajo.)
 
 **Áreas fijas e inferidas.** Mente · Cuerpo · Alma (las de B+) + Proyectos + Libre. Rockie la infiere; se corrige con
 un chip, nunca se pregunta en abstracto.
@@ -120,3 +121,64 @@ tokens `--cu-*` en `.cu`, no como números sueltos.
 
 **Privacidad (pendiente de decidir).** En la capa gratuita de la API de Gemini, Google puede usar lo que se envía para
 mejorar sus productos. Para un diario personal conviene Gemini de pago o Claude antes de abrirlo a más personas.
+
+### Cuaderno v2 — "Google Docs + OneNote" (sep 2026)
+
+Lo que cambió respecto de v1 (lo de arriba sigue vigente salvo donde se dice aquí):
+
+**Cuadernos con lomo de color, como OneNote/Obsidian.** `cuaderno_books` (cuaderno → secciones, UNA sola capa;
+un guard en la base lo impide) y `cuaderno_notes.book_id` + `position`. 8 colores con función de lomo (tokens, con
+su canto y su tinta legible). Organizar es opcional: lo que nace del diario queda en **Sueltas**. Una sola forma de
+mover: la ruta de la página (`Cuaderno › Sección ⌄`). Borrar un cuaderno no borra páginas: pasan a Sueltas, con
+Deshacer. En PC, el árbol vive en la barra lateral y se desliza solo (la navegación y los accesos no se tapan).
+
+**Editor tipo Google Docs, guardando Markdown igual.** Barra fija (Texto/Título 1–3, negrita, cursiva, subrayado,
+tachado, resaltado `==x==`, listas, tareas, cita, código, separador, imagen, dibujo, tabla GFM con + fila / + col,
+deshacer). En PC la barra baja a una segunda fila si no cabe (nada se esconde); en el celular se desliza.
+Seleccionar texto abre una burbuja: formato, enlace y **Pregúntale a Rockie** (en el celular dice "Preguntar" y deja
+el subrayado a la barra, para caber en 375 px).
+
+**Imágenes privadas.** Bucket privado `cuaderno` (carpeta = `auth.uid()`), la nota guarda `cuaderno://ruta` y se
+muestra con URL firmada en caché. Pegar o arrastrar una imagen la achica a WebP de 1800 px antes de subirla.
+
+**Dibujo a mano.** `perfect-freehand` (presión), pluma/marcador/borrador, 3 grosores, tintas `--pen-*`, rechazo de
+palma (si hay lápiz, el dedo no raya). Se guardan los trazos (`cuaderno_drawings`, se puede reeditar) y un PNG sobre
+papel claro para la página. Descartar = Deshacer, no "¿seguro?".
+
+**Preguntar sobre una selección (como Gemini en Docs).** Modos: explícamelo simple, un ejemplo, ¿con qué se conecta?,
+hazme una pregunta, o libre. La respuesta NO se escribe sola: "Insertar en la página" (cita "✨ Rockie:" tras el bloque,
+destella un instante; en el celular la hoja se cierra y te lleva ahí) o "Guardar como página conectada" (nota +
+conexiones + tarjetas, con Deshacer).
+
+**Aprender un tema (tipo NotebookLM / Entiendo, pero queda tuyo y editable).** Tema + nivel + fuentes opcionales
+(apuntes, video público de YouTube, PDF ≤ 12 MB). Rockie PROPONE el cuaderno (5–10 páginas, secciones, tarjetas,
+conexiones); tú eliges qué páginas entran y el color antes de crearlo; luego lo ves nacer nodo por nodo. Crea una
+página "Índice · …" como centro. Las fuentes se leen una vez: el PDF se borra del bucket al terminar. Cerrar la
+propuesta no la pierde: el toast trae "Recuperar".
+
+**Conversar con Rockie.** Dos modos con el mismo panel: *reflexionar* (una pregunta por mensaje, refleja y valida,
+trae lo que ya escribiste con su fecha) y *profundizar* una página (tutor: explica corto y pregunta; respuestas
+rápidas a un toque). Protocolo de cuidado en el servidor (Perú: Línea 113 opción 5, SAMU 106, Policía 105) y aviso
+visible solo al reflexionar. Al cerrar, la conversación va a tu diario como entrada `conversa` y Rockie propone qué
+rescatar; el toast trae Deshacer.
+
+**Mapa por cuadernos.** Nivel 1 = un globo por cuaderno (su lomo, su anillo de memoria y cuántas líneas cruzan entre
+cuadernos); nivel 2 = el grafo de ese cuaderno. Las áreas (Mente/Cuerpo/Alma/…) quedan como dato de cada página.
+El encuadre busca el zoom más grande en que cada punto Y su nombre caben (los nombres van a tamaño fijo), y se
+reencuadra cuando la física se asienta si no lo moviste tú.
+
+**Gemini, lo que aprendimos del plan gratuito.** Rotación de modelos (3.5-flash-lite primero; `GEMINI_MODEL` y
+`GEMINI_MODEL_RICH` lo cambian sin redeploy), un reintento solo tras 503, y **presupuesto de tiempo por acción**
+(diario 60 s, preguntar/conversar 50 s, aprender 130 s): Supabase corta la función a los ~150 s y un corte sin cuerpo
+se veía como "IA no disponible". Medido: aprender 9–25 s sin fuentes y ~60 s con un video; en horas pico, 429/503 y
+esperas de más de un minuto. Con facturación activa conviene `GEMINI_MODEL_RICH=gemini-3.5-flash,gemini-3.5-flash-lite`.
+Si Gemini escapa dos veces los saltos de línea ("\n" escritos), el servidor los arregla (solo si el texto no trae
+saltos reales, para no romper ejemplos de código).
+
+**Conector de Claude (MCP): preparado, no activo.** Quedan en la base `cuaderno_tokens` (hash, nunca el token) y
+funciones solo para el service role (`cuaderno_token_user`, `cuaderno_similar_for`), sin interfaz. Se activa cuando
+aprueben el conector; mientras tanto todo va con Gemini.
+
+**Celular (375×812).** Barra inferior de 5 lugares con Rockie al centro; cabeceras compactas (en una página: volver,
+ruta, ✦ Profundizar y ⋯ con mapa/borrar; "Guardado" pasa a la línea de fecha); acciones del cuaderno en dos filas
+parejas; hojas (sheets) para preguntar y aprender; zonas seguras arriba y abajo en dibujo y conversación.

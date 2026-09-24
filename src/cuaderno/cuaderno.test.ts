@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { dueAfter, dueToday, memoryOf, streakOf } from './leitner'
-import { buildArea, crossings, distToSegment } from './graph'
+import { buildArea, buildGroup, crossings, crossingsBy, distToSegment } from './graph'
+import { buildTree, nextColor, pathOf, rootOf, type BookColor } from './books'
+import { touches } from './Draw'
+import { plain } from './text'
 import type { Link, Note } from './data'
 
 const note = (id: string, area: Note['area']): Note => ({
@@ -10,6 +13,8 @@ const note = (id: string, area: Note['area']): Note => ({
   body: '',
   area,
   entry_id: null,
+  book_id: null,
+  position: 0,
   embedded_at: null,
   created_at: '2026-09-25T12:00:00Z',
   updated_at: '2026-09-25T12:00:00Z',
@@ -96,5 +101,70 @@ describe('mapa', () => {
   it('tocar una línea: distancia a un segmento', () => {
     expect(distToSegment(5, 3, 0, 0, 10, 0)).toBeCloseTo(3)
     expect(distToSegment(-4, 3, 0, 0, 10, 0)).toBeCloseTo(5)
+  })
+})
+
+const book = (id: string, name: string, parent_id: string | null = null, position = 0, color: BookColor = 'accent') => ({
+  id,
+  name,
+  parent_id,
+  position,
+  color,
+})
+const page = (id: string, book_id: string | null, position: number) => ({ ...note(id, 'mente'), book_id, position })
+
+describe('cuadernos', () => {
+  const books = [book('fr', 'Francés', null, 1, 'berry'), book('de', 'Alemán', null, 0), book('lec', 'Lecciones', 'fr', 2), book('gra', 'Gramática', 'fr', 1)]
+  const notes = [page('a', 'lec', 2), page('b', 'lec', 1), page('c', 'fr', 5), page('d', null, 9), page('e', 'borrado', 3)]
+
+  it('arma el árbol: cuadernos en orden, sus páginas sueltas y sus secciones', () => {
+    const { tree, unfiled } = buildTree(books, notes)
+    expect(tree.map((t) => t.book.name)).toEqual(['Alemán', 'Francés'])
+    const fr = tree[1]
+    expect(fr.loose.map((n) => n.id)).toEqual(['c'])
+    expect(fr.sections.map((s) => s.book.name)).toEqual(['Gramática', 'Lecciones'])
+    expect(fr.sections[1].pages.map((n) => n.id)).toEqual(['b', 'a'])
+    expect(fr.count).toBe(3)
+    // sin cuaderno o con uno que ya no existe = Sueltas
+    expect(unfiled.map((n) => n.id).sort()).toEqual(['d', 'e'])
+  })
+  it('sabe dónde vive una página', () => {
+    expect(rootOf(books, 'lec')?.name).toBe('Francés')
+    expect(pathOf(books, 'lec')).toBe('Francés › Lecciones')
+    expect(pathOf(books, null)).toBe('Sueltas')
+  })
+  it('el color siguiente no repite uno en uso', () => {
+    expect(nextColor(['berry', 'coral'])).toBe('title')
+  })
+})
+
+describe('mapa por cuadernos', () => {
+  const notes = [page('a', 'fr', 0), page('b', 'fr', 1), page('c', 'de', 0), page('d', null, 0)]
+  const links = [link('l1', 'a', 'b'), link('l2', 'a', 'c'), link('l3', 'd', 'c')]
+  const groupOf = (n: Note) => n.book_id ?? 'sueltas'
+  it('un cuaderno trae sus páginas y, atenuadas, las de otros con su origen', () => {
+    const g = buildGroup((n) => groupOf(n) === 'fr', false, notes, links, [], () => 'none', (n) => (n.book_id === 'de' ? 'Alemán' : 'Sueltas'))
+    const c = g.nodes.find((n) => n.id === 'c')
+    expect(g.nodes.map((n) => n.id).sort()).toEqual(['a', 'b', 'c'])
+    expect(c?.outside).toBe(true)
+    expect(c?.from).toBe('Alemán')
+    expect(g.edges.map((e) => e.id).sort()).toEqual(['l1', 'l2'])
+  })
+  it('cuenta los cruces entre cuadernos', () => {
+    const c = crossingsBy(notes, links, groupOf)
+    expect(c.get('de|fr')).toBe(1)
+    expect(c.get('de|sueltas')).toBe(1)
+  })
+})
+
+describe('dibujo y texto', () => {
+  it('el borrador toca un trazo cerca de sus puntos', () => {
+    const st = { t: 'pen' as const, c: 'tinta' as const, s: 4, p: [10, 10, 0.5, 50, 50, 0.5] }
+    expect(touches(st, 52, 51, 5)).toBe(true)
+    expect(touches(st, 200, 200, 5)).toBe(false)
+  })
+  it('las vistas previas no muestran marcas de Markdown', () => {
+    const md = ['## Título', '- [x] hecho', '- [ ] falta', '**negrita** y ==resalte== y ++subrayado++ en C++'].join(String.fromCharCode(10))
+    expect(plain(md)).toBe('Título ✓ hecho ○ falta negrita y resalte y subrayado en C++')
   })
 })

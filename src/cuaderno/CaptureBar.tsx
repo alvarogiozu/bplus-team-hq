@@ -6,7 +6,8 @@ import { haptic } from '../lib/fx'
 import { Listening, MicButton } from '../agenda/RockieBar'
 import { useVoice } from '../agenda/voice'
 import { useCapture } from './capture'
-import { areaOf, useNotes, type Note } from './data'
+import { pathOf, rootOf, spine, type BookColor } from './books'
+import { useBooks, useNotes, type Note } from './data'
 import { CIcon } from './icons'
 
 const fold = (s: string) =>
@@ -45,7 +46,27 @@ export const CaptureBar = forwardRef<
   const [focused, setFocused] = useState(false)
   const pressAt = useRef(0)
   const voice = useVoice({ onFinal: (t) => void capture(t, 'voz') })
-  const results = useMemo(() => searchNotes(notes ?? [], text), [notes, text])
+  const books = useBooks().data
+  // cuadernos primero (hasta 3), luego páginas
+  const results = useMemo(() => {
+    const t = fold(text.trim())
+    if (t.length < 2) return []
+    const bs = (books ?? [])
+      .filter((b) => fold(b.name).includes(t))
+      .slice(0, 3)
+      .map((b) => {
+        const root = rootOf(books ?? [], b.id)
+        return { id: b.id, title: b.parent_id ? pathOf(books ?? [], b.id) : b.name, sub: 'Cuaderno', to: `/cuaderno/c/${root?.id ?? b.id}`, color: (root?.color ?? b.color) as BookColor | null }
+      })
+    const ns = searchNotes(notes ?? [], text, 6 - bs.length).map((n: Note) => ({
+      id: n.id,
+      title: n.title,
+      sub: pathOf(books ?? [], n.book_id),
+      to: `/cuaderno/nota/${n.id}`,
+      color: null as BookColor | null,
+    }))
+    return [...bs, ...ns]
+  }, [books, notes, text])
   const showResults = (focused || p.typing) && text.trim().length >= 2
 
   useEffect(() => setSel(-1), [text])
@@ -65,11 +86,11 @@ export const CaptureBar = forwardRef<
     p.onTyping(false)
     void capture(t, 'texto')
   }
-  function openNote(n: Note) {
+  function openNote(h: { to: string }) {
     setText('')
     p.onTyping(false)
     haptic(6)
-    nav(`/cuaderno/nota/${n.id}`)
+    nav(h.to)
   }
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'ArrowDown' && results.length) {
@@ -190,14 +211,20 @@ export const CaptureBar = forwardRef<
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => openNote(n)}
               >
-                <CIcon name="note" size={17} />
+                {n.color ? (
+                  <span className="cu-res-book" style={spine(n.color)}>
+                    <CIcon name="notebook" size={15} />
+                  </span>
+                ) : (
+                  <CIcon name="note" size={17} />
+                )}
                 <span>
                   <b>{n.title}</b>
-                  <small>{areaOf(n.area).label}</small>
+                  <small>{n.sub}</small>
                 </span>
               </button>
             ))}
-            {results.length === 0 && <p className="cu-res-empty">Ninguna nota tiene eso todavía.</p>}
+            {results.length === 0 && <p className="cu-res-empty">Nada en tus cuadernos con eso todavía.</p>}
           </motion.div>
         )}
       </AnimatePresence>
