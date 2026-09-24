@@ -44,3 +44,25 @@ eventos tienen `external_provider`/`external_id` para Google Calendar.
 
 **QA contra el proyecto real con usuarios `qa.*`.** No hay Docker para un Supabase local; `scripts/qa.mjs` crea
 y borra usuarios desechables, y `demo_fill()` (solo service role) llena el espacio con fechas relativas a hoy.
+
+## Rockie Agenda
+
+**Mismo repo y mismo Supabase que el HQ.** Una sola sesión para las dos apps, un solo lugar para las migraciones
+(dos repos escribiendo la misma base terminan en números de migración que chocan). La agenda es un chunk aparte
+(`/agenda`, carga diferida) y solo ella trae `motion`.
+
+**Horas en minutos locales.** `agenda_items` guarda `day` + `start_min` en la zona del perfil: la agenda es
+personal y no necesita convertir zonas; las reuniones del HQ (timestamptz) se convierten al mostrarlas.
+
+**Línea elástica en vez de escala fija.** Mapeo minuto↔píxel lineal por tramos (`geometry.ts`, con tests): cada
+bloque tiene un mínimo legible, los huecos largos se comprimen y al arrastrar todo vuelve a escala real.
+
+**Arrastre propio en vez de dnd-kit.** Para la física (inclinación por velocidad, imán a 15 min, vuelo al soltar,
+"tragar" la piedra en un día de la semana) un sistema de pointer events + `motion` da más control. En táctil se
+arrastra manteniendo 230 ms (si no, es scroll).
+
+**Voz = dictado del navegador + Claude que solo propone.** La Edge Function `agenda-agent` usa el SDK oficial,
+`claude-opus-5` con `effort: low` (respuesta rápida para comandos), herramientas estrictas (`strict: true`) con
+`tool_choice: auto` y `fallbacks: "default"` para rechazos. Nunca ejecuta: devuelve propuestas; el cliente las
+aplica con la sesión de la persona (manda la RLS) y guarda cómo deshacerlas. Ids inventados se descartan en el
+servidor. Tope de 60 órdenes/hora por persona (`agenda_agent_bump`).

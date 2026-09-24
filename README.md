@@ -86,3 +86,28 @@ le pasa una temporal; al entrar, se le pide cambiarla.
 
 Vercel (proyecto `bplus-team-hq`), SPA con rewrites a `index.html`; `/agenda.html` redirige a
 `/tareas?vista=calendario`. Las variables `VITE_*` deben existir en el proyecto de Vercel.
+
+## Rockie Agenda (`/agenda`)
+
+La agenda personal del día, con la misma cuenta del HQ. Vive en este mismo repo y en el mismo Supabase
+(tablas `agenda_*`, privadas de cada persona por RLS).
+
+- **Línea del día elástica:** los huecos largos se comprimen y, al arrastrar, se abren a escala real para soltar
+  con precisión de 15 min. Rockie camina por la línea marcando la hora actual.
+- **Inbox:** pensamientos sueltos sin fecha; se arrastran a la línea (o a un día de la semana) cuando toca.
+  Abajo aparecen tus tareas del HQ para reservarles tiempo.
+- **Lo del equipo en tu día:** tus reuniones del HQ, tus tareas que vencen y los proyectos que cierran.
+- **Rockie, por chat o voz:** mantén presionado el micrófono (o `Ctrl/Cmd + K` para escribir). Rockie propone;
+  tú confirmas. Todo se deshace.
+
+### Activar la voz con Claude
+
+El dictado lo hace el navegador (Chrome, Edge, Safari). Para entender órdenes complejas ("mueve todo lo de la
+tarde una hora", "pasa el proyecto Kickstarter una semana"), la Edge Function `agenda-agent` usa Claude:
+
+```bash
+npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref xhtxhmfohtkezhpobbcr
+```
+
+Opcional: `ANTHROPIC_MODEL` (por defecto `claude-opus-5`). Sin la clave, Rockie funciona en **modo básico**
+(intérprete local: crea ítems con día, hora y duración). Tope: 60 órdenes por hora y persona.

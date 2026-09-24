@@ -54,7 +54,43 @@ async function seed() {
   if (fe) throw fe
   const intr = await as(INTRUDER.username)
   await intr.rpc('create_space', { p_name: 'Otro equipo' })
+  await agendaDemo()
   console.log(JSON.stringify({ space: sid, invite: inv.code, login: `${USERS[0].username} / ${PASS}` }))
+}
+
+// Rockie Agenda: un día vivo para qa.alvaro (qa.nuevo queda sin onboarding para probar la bienvenida)
+async function agendaDemo() {
+  await ensureUser({ username: 'qa.nuevo', display_name: 'Nuevo', color: '#b4637a' })
+  const { data: users } = await admin.from('profiles').select('id, username').in('username', ['qa.alvaro'])
+  const uid = users[0].id
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date())
+  const add = (d) => {
+    const x = new Date(`${today}T12:00:00Z`)
+    x.setUTCDate(x.getUTCDate() + d)
+    return x.toISOString().slice(0, 10)
+  }
+  await admin.from('agenda_prefs').upsert({ user_id: uid, wake_min: 7 * 60 + 30, sleep_min: 23 * 60, onboarded_at: new Date().toISOString() })
+  const { data: task } = await admin.from('tasks').select('id, title').eq('assignee_id', uid).neq('status', 'done').limit(1)
+  const rows = [
+    { title: 'Gimnasio', icon: 'gym', color: '#8aa54a', day: today, start_min: 7 * 60 + 45, duration_min: 60, done_at: new Date().toISOString() },
+    { title: 'Estudiar para el examen de circuitos', icon: 'study', color: '#4a6fa5', day: today, start_min: 10 * 60, duration_min: 90, subtasks: [{ id: 'a', t: 'Leyes de Kirchhoff', done: true }, { id: 'b', t: 'Ejercicios 3 a 7', done: false }] },
+    { title: 'Almuerzo con Andrea', icon: 'food', color: '#eaa545', day: today, start_min: 13 * 60, duration_min: 60 },
+    { title: 'Revisar el PR del firmware', icon: 'code', color: '#2e88aa', day: today, start_min: 15 * 60, duration_min: 45 },
+    { title: 'Leer 20 páginas', icon: 'book', color: '#a573a5', day: today, start_min: 21 * 60 + 30, duration_min: 30 },
+    { title: 'Tomar vitaminas', icon: 'pill', color: '#cf7358', day: today, start_min: null, duration_min: 5 },
+    { title: 'Correr en el malecón', icon: 'run', color: '#8aa54a', day: add(1), start_min: 7 * 60, duration_min: 45 },
+    { title: 'Comprar pilas para el prototipo', icon: 'shop', color: '#eaa545', day: null, start_min: null, duration_min: 15, position: 0 },
+    { title: 'Llamar al proveedor de la PCB', icon: 'call', color: '#b4637a', day: null, start_min: null, duration_min: 15, position: 1 },
+    { title: 'Idea: modo foco con Rockie', icon: 'idea', color: '#a573a5', day: null, start_min: null, duration_min: 30, position: 2 },
+  ]
+  const { error } = await admin.from('agenda_items').insert(rows.map((r) => ({ user_id: uid, subtasks: [], position: 0, hq_task_id: null, done_at: null, ...r })))
+  if (error) throw error
+  // el bloque de una tarea del HQ lo crea la propia persona (la RLS verifica que la tarea sea de su equipo)
+  if (task?.[0]) {
+    const me = await as('qa.alvaro')
+    const { error: e2 } = await me.from('agenda_items').insert({ title: task[0].title, icon: 'flag', color: '#2e88aa', day: add(1), start_min: 11 * 60, duration_min: 60, hq_task_id: task[0].id })
+    if (e2) throw e2
+  }
 }
 
 async function rls() {

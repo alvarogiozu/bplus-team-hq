@@ -128,6 +128,142 @@ export type Database = {
           },
         ]
       }
+      agenda_agent_usage: {
+        Row: {
+          count: number
+          hour: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          hour: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          hour?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_agent_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_items: {
+        Row: {
+          color: string
+          created_at: string
+          day: string | null
+          done_at: string | null
+          duration_min: number
+          hq_task_id: string | null
+          icon: string
+          id: string
+          notes: string
+          position: number
+          start_min: number | null
+          subtasks: Json
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          day?: string | null
+          done_at?: string | null
+          duration_min?: number
+          hq_task_id?: string | null
+          icon?: string
+          id?: string
+          notes?: string
+          position?: number
+          start_min?: number | null
+          subtasks?: Json
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          day?: string | null
+          done_at?: string | null
+          duration_min?: number
+          hq_task_id?: string | null
+          icon?: string
+          id?: string
+          notes?: string
+          position?: number
+          start_min?: number | null
+          subtasks?: Json
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_items_hq_task_id_fkey"
+            columns: ["hq_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_prefs: {
+        Row: {
+          created_at: string
+          default_duration: number
+          onboarded_at: string | null
+          presets: number[]
+          sleep_min: number
+          updated_at: string
+          user_id: string
+          wake_min: number
+        }
+        Insert: {
+          created_at?: string
+          default_duration?: number
+          onboarded_at?: string | null
+          presets?: number[]
+          sleep_min?: number
+          updated_at?: string
+          user_id?: string
+          wake_min?: number
+        }
+        Update: {
+          created_at?: string
+          default_duration?: number
+          onboarded_at?: string | null
+          presets?: number[]
+          sleep_min?: number
+          updated_at?: string
+          user_id?: string
+          wake_min?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_prefs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_messages: {
         Row: {
           content: Json
@@ -770,6 +906,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      agenda_agent_bump: { Args: never; Returns: number }
       check_achievements: { Args: { sid: string }; Returns: string[] }
       create_invite: {
         Args: { p_space: string }

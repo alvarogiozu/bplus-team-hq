@@ -11,3 +11,10 @@ Anotadas para no perderlas; ninguna entra sin preguntarnos si suma o si es ruido
 - Subir una prueba después de validar "sin prueba" (hoy: reabrir y volver a validar).
 - Notificaciones push / por email, comentarios en hilo, subtareas, dependencias, campos personalizados,
   automatizaciones, wiki: fuera de alcance por diseño.
+
+## Rockie Agenda (siguientes)
+- Vistas Multi-día, Semana y Mes con la misma línea elástica.
+- Repetir (diario, días de semana, semanal).
+- Transcripción en servidor para navegadores sin dictado (Firefox).
+- Mantener la barra espaciadora para hablar en PC; recordatorios/notificaciones.
+- Racha personal y XP de la agenda (hoy el XP es del equipo).

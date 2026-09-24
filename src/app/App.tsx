@@ -1,4 +1,4 @@
-import { lazy, useRef, type ReactNode } from 'react'
+import { lazy, Suspense, useRef, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router'
 import { Rockie } from '../components/Rockie'
 import { useAuth } from '../features/auth/AuthProvider'
@@ -11,6 +11,7 @@ const TasksPage = lazy(() => import('../features/views/TasksPage'))
 const ProjectsPage = lazy(() => import('../features/projects/ProjectsPage'))
 const TeamPage = lazy(() => import('../features/team/TeamPage'))
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage'))
+const AgendaApp = lazy(() => import('../agenda/AgendaApp'))
 
 function Splash() {
   return (
@@ -59,6 +60,14 @@ export function App() {
         <Route element={<RequireAuth />}>
           <Route path="/cambiar-clave" element={<ChangePasswordPage />} />
           <Route path="/bienvenida" element={<WelcomePage />} />
+          <Route
+            path="/agenda/*"
+            element={
+              <Suspense fallback={<Splash />}>
+                <AgendaApp />
+              </Suspense>
+            }
+          />
           <Route element={<SpaceShell />}>
             <Route index element={<Navigate to="/hoy" replace />} />
             <Route path="/hoy" element={<TodayPage />} />

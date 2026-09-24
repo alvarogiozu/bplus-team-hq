@@ -33,6 +33,8 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const invite = params.get('invitacion')
+  const next = params.get('next') ?? ''
+  const agenda = next.startsWith('/agenda')
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -50,7 +52,11 @@ export function LoginPage() {
   }
 
   return (
-    <AuthShell title="Entra al cuartel" lead="Una tarea, un dueño, una fecha. Todo se valida.">
+    <AuthShell
+      title={agenda ? 'Entra a tu agenda' : 'Entra al cuartel'}
+      lead={agenda ? 'Rockie Agenda: tu día, con tu misma cuenta de B+ HQ.' : 'Una tarea, un dueño, una fecha. Todo se valida.'}
+      color={agenda ? '#cf7358' : undefined}
+    >
       <form onSubmit={submit} noValidate>
         <label className="lbl" htmlFor="u">Usuario</label>
         <input id="u" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} required />
@@ -65,7 +71,7 @@ export function LoginPage() {
         {error && <p className="formerror" role="alert">{error}</p>}
       </form>
       <p className="authfoot">
-        ¿Nuevo en el equipo? <Link to={`/registro${invite ? `?invitacion=${invite}` : ''}`}>Crea tu cuenta</Link>
+        ¿Nuevo? <Link to={`/registro?${new URLSearchParams({ ...(invite ? { invitacion: invite } : {}), ...(next ? { next } : {}) })}`}>Crea tu cuenta</Link>
         <br />
         <span className="hint">¿Olvidaste tu contraseña? El dueño del espacio te la restablece desde Equipo.</span>
       </p>
@@ -135,7 +141,8 @@ export function RegisterPage() {
         await qc.invalidateQueries({ queryKey: ['memberships'] })
         nav('/hoy', { replace: true })
       } else {
-        nav('/bienvenida', { replace: true })
+        const next = params.get('next') ?? ''
+        nav(next.startsWith('/agenda') ? next : '/bienvenida', { replace: true })
       }
     } catch (err) {
       setError(humanError(err))
