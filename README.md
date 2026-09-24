@@ -100,14 +100,18 @@ La agenda personal del día, con la misma cuenta del HQ. Vive en este mismo repo
 - **Rockie, por chat o voz:** mantén presionado el micrófono (o `Ctrl/Cmd + K` para escribir). Rockie propone;
   tú confirmas. Todo se deshace.
 
-### Activar la voz con Claude
+### Activar la voz (Gemini gratis o Claude)
 
 El dictado lo hace el navegador (Chrome, Edge, Safari). Para entender órdenes complejas ("mueve todo lo de la
-tarde una hora", "pasa el proyecto Kickstarter una semana"), la Edge Function `agenda-agent` usa Claude:
+tarde una hora", "pasa el proyecto Kickstarter una semana"), la Edge Function `agenda-agent` usa una IA:
 
 ```bash
-npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref xhtxhmfohtkezhpobbcr
+# Gemini (plan gratuito de Google AI Studio) — es lo que está activo
+npx supabase secrets set GEMINI_API_KEY=... AGENT_PROVIDER=gemini --project-ref xhtxhmfohtkezhpobbcr
+# o Claude
+npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-... AGENT_PROVIDER=claude --project-ref xhtxhmfohtkezhpobbcr
 ```
 
-Opcional: `ANTHROPIC_MODEL` (por defecto `claude-opus-5`). Sin la clave, Rockie funciona en **modo básico**
+Opcionales: `GEMINI_MODEL` (lista separada por comas; si uno está saturado se prueba el siguiente; por defecto
+`gemini-flash-latest,gemini-3.5-flash,gemini-2.5-flash`) y `ANTHROPIC_MODEL` (`claude-opus-5`). Sin clave, Rockie funciona en **modo básico**
 (intérprete local: crea ítems con día, hora y duración). Tope: 60 órdenes por hora y persona.

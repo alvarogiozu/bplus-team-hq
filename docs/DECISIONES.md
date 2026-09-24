@@ -66,3 +66,8 @@ arrastra manteniendo 230 ms (si no, es scroll).
 `tool_choice: auto` y `fallbacks: "default"` para rechazos. Nunca ejecuta: devuelve propuestas; el cliente las
 aplica con la sesión de la persona (manda la RLS) y guarda cómo deshacerlas. Ids inventados se descartan en el
 servidor. Tope de 60 órdenes/hora por persona (`agenda_agent_bump`).
+
+**Gemini como proveedor activo (sin créditos de Anthropic).** `AGENT_PROVIDER=gemini` usa la API REST de Gemini con
+las mismas herramientas (`functionDeclarations` + `parametersJsonSchema`, modo `ANY`) y la misma validación de ids.
+El plan gratuito a veces responde 503 "high demand": se reintenta rotando por una lista de modelos. Latencia
+típica 5–12 s.

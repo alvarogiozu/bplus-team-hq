@@ -14,6 +14,10 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
 
 const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-5'
+// si uno está saturado (503), se prueba el siguiente
+const GEMINI_MODELS = (Deno.env.get('GEMINI_MODEL') || 'gemini-flash-latest,gemini-3.5-flash,gemini-2.5-flash').split(',').map((m) => m.trim())
+// Proveedor: AGENT_PROVIDER=gemini|claude. Si no se dice, Gemini cuando hay su clave.
+const PROVIDER = Deno.env.get('AGENT_PROVIDER') || (Deno.env.get('GEMINI_API_KEY') ? 'gemini' : 'claude')
 const LIMIT_PER_HOUR = 60
 
 export const ICONS = [
@@ -187,7 +191,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
 
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+  const apiKey = Deno.env.get(PROVIDER === 'gemini' ? 'GEMINI_API_KEY' : 'ANTHROPIC_API_KEY')
   if (!apiKey) return json({ error: 'voz-sin-configurar' }, 503)
 
   const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
@@ -227,6 +231,12 @@ Deno.serve(async (req) => {
     role: 'user',
     content: `<contexto>\n${JSON.stringify(ctx)}\n</contexto>\n\nOrden: ${text}`,
   })
+
+  if (PROVIDER === 'gemini') return askGemini(apiKey, history, `<contexto>
+${JSON.stringify(ctx)}
+</contexto>
+
+Orden: ${text}`, ctx)
 
   const client = new Anthropic({ apiKey })
   try {
@@ -273,3 +283,55 @@ Deno.serve(async (req) => {
     return json({ error: 'Algo salió mal en Rockie.' }, 500)
   }
 })
+
+// ---------- Gemini (plan gratuito de Google AI Studio) ----------
+function pack(say: string, calls: { name: string; args: Record<string, unknown> }[], ctx: Ctx) {
+  const proposals: { tool: string; input: Record<string, unknown> }[] = []
+  let dropped = 0
+  for (const c of calls) {
+    if (valid(c.name, c.args, ctx)) proposals.push({ tool: c.name, input: c.args })
+    else dropped++
+  }
+  if (!proposals.length && !say.trim()) {
+    say = dropped ? 'No encontré eso en tu agenda. ¿Me lo dices de otra forma?' : 'No te entendí bien. ¿Me lo repites?'
+  }
+  return json({ say: say.trim(), proposals, dropped })
+}
+
+async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx) {
+  const contents = history.map((t) => ({ role: t.role === 'assistant' ? 'model' : 'user', parts: [{ text: t.text.slice(0, 800) }] }))
+  while (contents.length && contents[0].role !== 'user') contents.shift()
+  contents.push({ role: 'user', parts: [{ text: prompt }] })
+  // Google a veces responde 500/503 por saturación: un reintento corto
+  let res!: Response
+  for (let attempt = 0; attempt < GEMINI_MODELS.length + 1; attempt++) {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELS[attempt % GEMINI_MODELS.length]}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents,
+        tools: [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.input_schema })) }],
+        toolConfig: { functionCallingConfig: { mode: 'ANY' } },
+      }),
+    })
+    if (res.status < 500) break
+    console.error('gemini retry', res.status, (await res.text()).slice(0, 200))
+    await new Promise((r) => setTimeout(r, 400))
+  }
+  if (res.status === 429) return json({ error: 'Rockie está saturado (límite gratuito). Intenta en un minuto.' }, 429)
+  if (res.status === 400 || res.status === 401 || res.status === 403) {
+    console.error('gemini', res.status, await res.text())
+    return json({ error: 'voz-sin-configurar' }, 503)
+  }
+  if (!res.ok) {
+    console.error('gemini', res.status)
+    return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.' }, 502)
+  }
+  const data = await res.json()
+  const parts: { text?: string; functionCall?: { name: string; args?: Record<string, unknown> } }[] = data?.candidates?.[0]?.content?.parts ?? []
+  if (!parts.length) return json({ say: 'Eso no lo puedo hacer. ¿Probamos con otra cosa de tu agenda?', proposals: [] })
+  const say = parts.map((p) => p.text ?? '').join('')
+  const calls = parts.filter((p) => p.functionCall).map((p) => ({ name: p.functionCall!.name, args: p.functionCall!.args ?? {} }))
+  return pack(say, calls, ctx)
+}
