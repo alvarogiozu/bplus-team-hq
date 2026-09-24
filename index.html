@@ -15,6 +15,8 @@
         var t = localStorage.getItem('hq.theme');
         if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         document.documentElement.dataset.theme = t;
+        var a = localStorage.getItem('hq.accent');
+        if (a) { document.documentElement.dataset.accent = '1'; document.documentElement.style.setProperty('--user-accent', a); }
       } catch (e) {}
     </script>
   </head>

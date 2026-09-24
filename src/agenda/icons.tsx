@@ -125,6 +125,8 @@ const P: Record<string, ReactNode> = {
   ),
   send: <path d="M4 12l16-8-6 16-3-7-7-1z" />,
   link: <path d="M10 14a3.5 3.5 0 0 0 5 0l4-4a3.5 3.5 0 0 0-5-5l-.5.5M14 10a3.5 3.5 0 0 0-5 0l-4 4a3.5 3.5 0 0 0 5 5l.5-.5" />,
+  pencil: <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4zM13.5 6.5l4 4" />,
+  external: <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />,
   team: (
     <>
       <circle cx="9" cy="8" r="3.5" />
@@ -142,6 +144,9 @@ export const ITEM_ICONS = [
 ] as const
 
 export const ITEM_COLORS = ['#cf7358', '#b4637a', '#eaa545', '#8aa54a', '#2e88aa', '#a573a5', '#659ca5', '#4a6fa5']
+
+/** Colores de calendario: los de fábrica (Personal, Estudio, Trabajo, Salud) + la paleta de ítems. */
+export const CAL_COLORS = ['#cf7358', '#4a8db3', '#8a6fb3', '#6f9a4a', '#b4637a', '#eaa545', '#659ca5', '#3c5d73']
 
 export function AIcon({ name, size = 20, className = '', strokeWidth = 2 }: { name: string; size?: number; className?: string; strokeWidth?: number }) {
   return (

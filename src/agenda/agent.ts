@@ -21,9 +21,10 @@ export type Look = {
   projects: Map<string, Project>
   tasks: Map<string, Task>
   people: Map<string, { id: string; name: string }>
+  cals: Map<string, { name: string; color: string }>
 }
 
-export function makeLook(p: { today: string; tz: string; prefs: Prefs | null | undefined; items: AgendaItem[]; hq: HqData | undefined }): Look {
+export function makeLook(p: { today: string; tz: string; prefs: Prefs | null | undefined; items: AgendaItem[]; hq: HqData | undefined; cals?: { id: string; name: string; color: string }[] }): Look {
   return {
     today: p.today,
     tz: p.tz,
@@ -33,11 +34,22 @@ export function makeLook(p: { today: string; tz: string; prefs: Prefs | null | u
     projects: new Map((p.hq?.projects ?? []).map((x) => [x.id, x])),
     tasks: new Map((p.hq?.tasks ?? []).map((t) => [t.id, t])),
     people: new Map((p.hq?.people ?? []).map((x) => [x.id, x])),
+    cals: new Map((p.cals ?? []).map((c) => [c.id, c])),
   }
 }
 
 /** Contexto compacto para Rockie: lo suficiente para entender "lo de la tarde" o "la reunión de mañana". */
-export function buildContext(p: { today: string; nowMin: number; tz: string; profile: Profile; prefs: Prefs | null | undefined; items: AgendaItem[]; hq: HqData | undefined }) {
+export function buildContext(p: {
+  today: string
+  nowMin: number
+  tz: string
+  profile: Profile
+  prefs: Prefs | null | undefined
+  items: AgendaItem[]
+  hq: HqData | undefined
+  cals?: { id: string; name: string; hidden: boolean }[]
+  google?: { title: string; start: string; end: string; allDay: boolean; calName: string }[]
+}) {
   const lo = addDays(p.today, -3)
   const hi = addDays(p.today, 14)
   const items = p.items
@@ -50,6 +62,7 @@ export function buildContext(p: { today: string; nowMin: number; tz: string; pro
       start: i.start_min != null ? hhmm(i.start_min) : null,
       dur: i.duration_min,
       done: Boolean(i.done_at),
+      calendar_id: i.calendar_id,
       ...(i.hq_task_id ? { hq_task_id: i.hq_task_id } : {}),
     }))
   const hq = p.hq
@@ -77,6 +90,13 @@ export function buildContext(p: { today: string; nowMin: number; tz: string; pro
     projects: (hq?.projects ?? []).slice(0, 30).map((x) => ({ id: x.id, name: x.name, start: x.start_date, due: x.due_date, space_id: x.space_id })),
     people: (hq?.people ?? []).map((x) => ({ id: x.id, name: x.name, username: x.username })),
     spaces: hq?.spaces ?? [],
+    // Calendarios propios (cada ítem vive en uno) y Google Calendar (solo lectura, para responder)
+    calendars: (p.cals ?? []).map((c) => ({ id: c.id, name: c.name, oculto: c.hidden })),
+    google_events: (p.google ?? []).slice(0, 60).map((g) =>
+      g.allDay
+        ? { title: g.title, day: g.start.slice(0, 10), todo_el_dia: true, calendario: g.calName }
+        : { title: g.title, day: dayOfTs(g.start, p.tz), start: hhmm(tsToMin(g.start, p.tz)), end: hhmm(tsToMin(g.end, p.tz)), calendario: g.calName },
+    ),
   }
 }
 
@@ -97,6 +117,10 @@ export async function askRockie(text: string, history: Turn[], context: unknown,
         proposals: p ? [p] : [],
       }
     }
+    // IA saturada o sin cuota (plan gratis): si es algo simple de crear, lo resuelve el
+    // interprete local para que Rockie nunca se quede mudo; si no, se muestra el error.
+    const p = local()
+    if (p) return { basic: true, say: 'La IA está ocupada, pero esto lo entendí en modo básico:', proposals: [p] }
     return { say: '', proposals: [], error: body.error ?? humanError(error) }
   }
   return data as AgentReply
@@ -113,14 +137,22 @@ export type Card = { icon: string; color: string; title: string; detail: string;
 export function describe(p: Proposal, look: Look): Card {
   const i = p.input
   switch (p.tool) {
-    case 'crear_item':
-      return { icon: str(i.icon) ?? 'task', color: '#cf7358', title: `Nuevo: «${i.title}»`, detail: `${when(str(i.day), str(i.start), look.today)} · ${fmtDur(num(i.duration_min) ?? look.defaultDuration)}` }
+    case 'crear_item': {
+      const cal = str(i.calendar_id) ? look.cals.get(String(i.calendar_id)) : undefined
+      return {
+        icon: str(i.icon) ?? 'task',
+        color: cal?.color ?? '#cf7358',
+        title: `Nuevo: «${i.title}»`,
+        detail: `${when(str(i.day), str(i.start), look.today)} · ${fmtDur(num(i.duration_min) ?? look.defaultDuration)}${cal ? ` · ${cal.name}` : ''}`,
+      }
+    }
     case 'mover_item': {
       const it = look.items.get(String(i.item_id))
       const before = it ? when(it.day, it.start_min != null ? hhmm(it.start_min) : null, look.today) : ''
       const after = i.to_inbox ? 'al Inbox' : when(str(i.day) ?? it?.day ?? null, str(i.start) ?? (it?.start_min != null ? hhmm(it.start_min) : null), look.today)
       const dur = num(i.duration_min)
-      return { icon: it?.icon ?? 'task', color: it?.color ?? '#cf7358', title: `Mover «${it?.title ?? '?'}»`, detail: `${before} → ${after}${dur ? ` · ${fmtDur(dur)}` : ''}` }
+      const cal = str(i.calendar_id) ? look.cals.get(String(i.calendar_id)) : undefined
+      return { icon: it?.icon ?? 'task', color: cal?.color ?? it?.color ?? '#cf7358', title: `Mover «${it?.title ?? '?'}»`, detail: `${before} → ${after}${dur ? ` · ${fmtDur(dur)}` : ''}${cal ? ` · a ${cal.name}` : ''}` }
     }
     case 'completar_item': {
       const it = look.items.get(String(i.item_id))
@@ -204,16 +236,20 @@ export async function applyProposal(p: Proposal, a: Actions, look: Look): Promis
         start_min: str(i.day) ? at(i.start) : null,
         duration_min: num(i.duration_min) ?? look.defaultDuration,
         icon: str(i.icon) ?? 'task',
+        ...(str(i.calendar_id) && look.cals.has(String(i.calendar_id)) ? { calendar_id: String(i.calendar_id) } : {}),
       })
       return r?.undo ?? null
     }
     case 'mover_item': {
       const it = look.items.get(String(i.item_id))
       if (!it) return null
-      if (i.to_inbox) return a.updateItem(it.id, { day: null, start_min: null })
+      const cal = str(i.calendar_id) && look.cals.has(String(i.calendar_id)) ? { calendar_id: String(i.calendar_id) } : {}
+      if (i.to_inbox) return a.updateItem(it.id, { day: null, start_min: null, ...cal })
+      // solo cambiar de calendario: no se toca la hora
+      if (!str(i.day) && !str(i.start) && num(i.duration_min) == null && 'calendar_id' in cal) return a.updateItem(it.id, cal)
       const day = str(i.day) ?? it.day ?? look.today
       const start = at(i.start) ?? it.start_min
-      return a.updateItem(it.id, { day, start_min: start, duration_min: num(i.duration_min) ?? it.duration_min })
+      return a.updateItem(it.id, { day, start_min: start, duration_min: num(i.duration_min) ?? it.duration_min, ...cal })
     }
     case 'completar_item': {
       const it = look.items.get(String(i.item_id))

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
+import { Select } from '../../components/Select'
 import { MemberAvatar, useLookup } from '../tasks/bits'
 import { activeCount, EMPTY_FILTERS, type Filters } from './filters'
 
@@ -49,29 +50,24 @@ export function FilterBar({ value, onChange }: { value: Filters; onChange: (f: F
         >
           Solo mías
         </button>
-        <select value={value.area} onChange={(e) => set({ area: e.target.value })} aria-label="Área">
-          <option value="">Todas las áreas</option>
-          {areas.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-        <select
+        <Select
+          label="Área"
+          size="sm"
+          value={value.area}
+          onChange={(v) => set({ area: v })}
+          options={[{ value: '', label: 'Todas las áreas', visual: <Icon name="board" className="sm" /> }, ...areas.map((a) => ({ value: a.id, label: a.name, color: a.color }))]}
+        />
+        <Select
+          label="Proyecto"
+          size="sm"
           value={value.project}
-          onChange={(e) => set({ project: e.target.value })}
-          aria-label="Proyecto"
-        >
-          <option value="">Todos los proyectos</option>
-          <option value="none">Sin proyecto</option>
-          {projects
-            .filter((p) => !p.archived)
-            .map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-        </select>
+          onChange={(v) => set({ project: v })}
+          options={[
+            { value: '', label: 'Todos los proyectos', visual: <Icon name="projects" className="sm" /> },
+            { value: 'none', label: 'Sin proyecto', visual: <span className="sel-none" /> },
+            ...projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color })),
+          ]}
+        />
         <button
           className="chip plain"
           aria-pressed={value.hideDone}

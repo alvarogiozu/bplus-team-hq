@@ -160,7 +160,16 @@ export function useAgendaActions() {
   const createItem = useCallback(
     async (input: NewItem): Promise<{ item: AgendaItem; undo: Undo } | null> => {
       const top = itemsNow().filter((x) => !x.day).reduce((m, x) => Math.min(m, x.position), 0)
-      const row = { position: top - 1, ...input, subtasks: input.subtasks ?? [] }
+      // Todo vive en un calendario: si no se eligió, el primero visible (Personal)
+      const cals = qc.getQueryData<{ id: string; hidden: boolean; color: string }[]>(['agenda-cals', uid]) ?? []
+      const cal = input.calendar_id !== undefined ? cals.find((c) => c.id === input.calendar_id) : cals.find((c) => !c.hidden) ?? cals[0]
+      const row = {
+        position: top - 1,
+        ...input,
+        calendar_id: input.calendar_id !== undefined ? input.calendar_id : cal?.id ?? null,
+        color: cal?.color ?? input.color,
+        subtasks: input.subtasks ?? [],
+      }
       const { data, error } = await supabase.from('agenda_items').insert(row as TablesInsert<'agenda_items'>).select('*').single()
       if (error) {
         toastError(humanError(error))

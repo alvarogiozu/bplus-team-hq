@@ -7,6 +7,10 @@ const PAGES = [
   ['lista', '/tareas?vista=lista'],
   ['tablero', '/tareas?vista=tablero'],
   ['calendario', '/tareas?vista=calendario'],
+  ['gantt', '/tareas?vista=gantt'],
+  ['panel-equipo', '/tareas?vista=panel'],
+  ['metas', '/metas'],
+  ['metas-empresa', '/metas?vista=empresa'],
   ['proyectos', '/proyectos'],
   ['equipo', '/equipo'],
   ['ajustes', '/ajustes'],
@@ -17,6 +21,7 @@ for (const theme of ['light', 'dark'] as const) {
     await login(page, 'qa.alvaro', theme)
     for (const [name, url] of PAGES) {
       await page.goto(url)
+      await expect(page.locator('h1').first()).toBeVisible()
       await expect(page.locator('.skel')).toHaveCount(0)
       await page.waitForTimeout(400)
       await page.screenshot({ path: `e2e/screens/${info.project.name}-${theme}-${name}.png`, fullPage: false })
@@ -26,6 +31,17 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByText('Ensamblar el prototipo completo').click()
     await page.waitForTimeout(400)
     await page.screenshot({ path: `e2e/screens/${info.project.name}-${theme}-panel.png` })
+    // panel de una meta y meta nueva
+    await page.goto('/metas?vista=empresa')
+    await page.getByRole('button', { name: /Conseguir 500 patrocinadores/ }).click()
+    await expect(page.getByRole('dialog', { name: 'Meta' })).toBeVisible()
+    await page.waitForTimeout(500)
+    await page.screenshot({ path: `e2e/screens/${info.project.name}-${theme}-meta.png` })
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'Nueva meta' }).click()
+    await expect(page.getByRole('dialog', { name: 'Nueva meta' })).toBeVisible()
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: `e2e/screens/${info.project.name}-${theme}-meta-nueva.png` })
   })
 }
 

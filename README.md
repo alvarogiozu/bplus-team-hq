@@ -5,11 +5,26 @@ Nada de campos personalizados, automatizaciones, plantillas ni vistas guardadas:
 de ajustes para entenderse, está mal.
 
 - **Hoy** — lo tuyo atrasado, de hoy y de los próximos 3 días; tus reuniones; qué movió el equipo.
-- **Tareas** — los mismos datos en 3 vistas fijas (**Lista · Tablero · Calendario**) con una sola barra de filtros.
+- **Tareas** — los mismos datos en 5 vistas fijas (**Lista · Tablero · Calendario · Gantt · Panel**) con una sola
+  barra de filtros. En el **Gantt** cada tarea es una barra de su inicio a su fecha: se arrastra para moverla, se
+  estira de las puntas y una tarea sin fecha se agenda tocando el día (todo con deshacer; también con el teclado). El
+  **Panel** es el estado del equipo de un vistazo: resumen en palabras (con IA si se pide), números clave, ritmo de
+  2 semanas, carga por persona, proyectos que no llegan, metas y lo que vence.
 - **Proyectos** — el progreso se calcula solo (tareas validadas / tareas del proyecto).
+- **Metas** (`/metas`) — como las Goals de Asana, en simple: la **misión** arriba, metas de empresa y sub-metas en un
+  **mapa** (pirámide conectada; al pasar sobre una meta se ilumina su camino hasta la misión) y listas **Empresa ·
+  Equipos · Mías**. Cada meta es medible (un número, un %, el avance de un proyecto o el promedio de sus sub-metas),
+  con dueño, equipo y plazo; el estado (a tiempo / en riesgo / atrasada) se calcula comparando avance con plazo.
+  Los avances quedan en un historial con gráfico.
 - **Equipo** — Rockies, XP, niveles, los 10 logros, invitaciones.
-- **Rockie** (barra de abajo, `Ctrl/Cmd + K`) — escribes "subir firmware @Sebastián viernes urgente", te muestra
-  una tarjeta para confirmar y todo se puede deshacer. Hoy es un intérprete local; en la fase 5 será el agente con IA.
+- **Rockie** (barra de abajo, `Ctrl/Cmd + K`, o **mantén el micrófono y habla**) — "tarea para Sebastián el viernes,
+  urgente", "pásale lo del firmware a Andrea", "¿qué está atrasado?". Entiende con IA (la misma Edge Function de la
+  agenda, `scope: hq`), muestra una tarjeta por propuesta y todo se deshace. Sin IA, un intérprete local.
+- **Equipo en vivo** — en Tareas ves quién está conectado (y en qué pantalla), invitas con un enlace y reasignas
+  tocando el avatar de una tarea. **Colores** de áreas, proyectos y tu Rockie en un solo lugar (un círculo por
+  cosa; la paleta se abre al tocarlo). Cada persona puede ponerse un **rol** ("Hardware · PCB").
+- **Tu color principal** — el azul de la app (botones, enlaces y el Rockie del logo) puede ser rosa, plomo, morado…
+  Lo elige cada persona en Ajustes o en Colores y viaja con su perfil.
 
 Validar es el corazón: **Lo hice +40 XP**, **con prueba (link o foto) +100 XP**, y la primera validación del día
 de cada persona vale doble. El XP lo calcula el servidor (`validate_task`), así que no se puede hacer trampa.
@@ -115,3 +130,24 @@ npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-... AGENT_PROVIDER=claude --pr
 Opcionales: `GEMINI_MODEL` (lista separada por comas; si uno está saturado se prueba el siguiente; por defecto
 `gemini-2.5-flash,gemini-flash-lite-latest,gemini-flash-latest`) y `ANTHROPIC_MODEL` (`claude-opus-5`). Sin clave, Rockie funciona en **modo básico**
 (intérprete local: crea ítems con día, hora y duración). Tope: 60 órdenes por hora y persona.
+
+### Calendarios y Google Calendar
+
+Cada actividad vive en un **calendario** (Personal, Estudio, Trabajo, Salud vienen de fábrica; puedes crear más).
+El calendario da el color y su casilla, en el panel de la derecha, lo muestra u oculta. "Del equipo" oculta
+reuniones y tareas del HQ.
+
+**Google Calendar** se conecta en solo lectura (como Structured): tus eventos de Google aparecen en tu día; lo que
+creas en la agenda no se sube a Google. El permiso (refresh token) vive solo en el servidor (`agenda_google`).
+
+Configuración, una sola vez:
+
+1. En Google Cloud, en el cliente OAuth **web** (el mismo del login de B+), agrega como **URI de redirección
+   autorizado**: `https://xhtxhmfohtkezhpobbcr.supabase.co/functions/v1/agenda-google`
+2. Verifica que la **Google Calendar API** esté habilitada en ese proyecto de Google Cloud.
+3. Si la pantalla de consentimiento está en modo *Prueba*, agrega los correos que van a conectar como usuarios de prueba.
+4. Secrets en Supabase (ya cargados): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+
+```bash
+npx supabase functions deploy agenda-google --no-verify-jwt --project-ref xhtxhmfohtkezhpobbcr
+```

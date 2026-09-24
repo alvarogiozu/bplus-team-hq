@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { Icon, type IconName } from '../components/Icon'
 import { Rockie } from '../components/Rockie'
 import { Sheet } from '../components/Sheet'
+import { Select } from '../components/Select'
 import { ListSkeleton } from '../components/States'
 import { lsGet, lsSet } from '../lib/storage'
 import { levelOf, xpByUser } from '../lib/xp'
@@ -13,18 +14,20 @@ import { signOut } from '../features/auth/credentials'
 import { useSpace } from '../features/spaces/SpaceProvider'
 import { useMembers, useXp } from '../features/data/queries'
 import { useRealtime } from '../features/data/realtime'
+import { presenceStore, usePresenceTracker } from '../features/team/presence'
 import { TaskPanel } from '../features/tasks/TaskPanel'
 import { ValidateDialog } from '../features/tasks/ValidateDialog'
 import { NewTaskDialog } from '../features/tasks/NewTaskDialog'
 import { AgentCapture } from '../features/agent/AgentCapture'
 import { openNewTask } from '../features/tasks/dialogs'
-import { useTheme } from './theme'
+import { setAccent, useTheme } from './theme'
 
 type Dest = { to: string; label: string; icon: IconName; color: string }
 const DESKTOP: Dest[] = [
   { to: '/hoy', label: 'Hoy', icon: 'today', color: 'var(--title)' },
   { to: '/tareas', label: 'Tareas', icon: 'tasks', color: 'var(--accent-ink)' },
   { to: '/proyectos', label: 'Proyectos', icon: 'projects', color: 'var(--olive-edge)' },
+  { to: '/metas', label: 'Metas', icon: 'goal', color: 'var(--green-photo)' },
   { to: '/equipo', label: 'Equipo', icon: 'team', color: 'var(--berry)' },
   { to: '/agenda', label: 'Mi agenda', icon: 'calendar', color: 'var(--coral-ink)' },
   { to: '/cuaderno', label: 'Mi cuaderno', icon: 'notebook', color: 'var(--accent-ink)' },
@@ -35,6 +38,10 @@ export function Layout() {
   const { userId, profile } = useMe()
   useRealtime(spaceId)
   const members = useMembers().data ?? []
+  usePresenceTracker()
+  // tu color principal viaja con tu perfil (en otro equipo se ve igual)
+  useEffect(() => setAccent(profile.accent ?? null), [profile.accent])
+  const online = presenceStore.use()
   const xp = xpByUser(useXp().data ?? [])
   const sideKey = `hq.sidebar.${userId}`
   const [collapsed, setCollapsed] = useState(() => lsGet(sideKey) === '1')
@@ -72,13 +79,13 @@ export function Layout() {
     <div className={`shell${collapsed ? ' collapsed' : ''}`}>
       <aside className="side" aria-label="Navegación principal">
         <div className="brand">
-          <Rockie color="#2a82ad" size={34} sleepy={night} reactive />
+          <Rockie color="var(--brand)" size={34} sleepy={night} reactive />
           <div className="logo hide-collapsed">B+<small>HQ · cuartel</small></div>
         </div>
         {memberships.length > 1 && (
-          <select className="spacepick hide-collapsed" value={spaceId} aria-label="Espacio" onChange={(e) => setSpaceId(e.target.value)}>
-            {memberships.map((m) => <option key={m.space_id} value={m.space_id}>{m.name}</option>)}
-          </select>
+          <div className="hide-collapsed">
+            <Select label="Espacio" size="sm" value={spaceId} onChange={setSpaceId} options={memberships.map((m) => ({ value: m.space_id, label: m.name, visual: <Icon name="team" className="sm" /> }))} />
+          </div>
         )}
         <nav className="stack" style={{ gap: 4 }}>
           {DESKTOP.map((d) => (
@@ -90,9 +97,10 @@ export function Layout() {
         </nav>
         <div className="team hide-collapsed" aria-label="Equipo">
           {members.map((m) => (
-            <span className="tm" key={m.user_id} title={`${m.profile.display_name} · nivel ${levelOf(xp.get(m.user_id) ?? 0)}`}>
+            <span className="tm" key={m.user_id} title={`${m.profile.display_name} · nivel ${levelOf(xp.get(m.user_id) ?? 0)}${online.has(m.user_id) ? ` · en línea (${online.get(m.user_id)?.page})` : ''}`}>
               <Rockie color={m.profile.color} size={30} still />
               <b>{levelOf(xp.get(m.user_id) ?? 0)}</b>
+              {online.has(m.user_id) && <i className="online" aria-label="En línea" />}
             </span>
           ))}
         </div>
@@ -117,7 +125,7 @@ export function Layout() {
 
       <div className="main">
         <header className="topbar">
-          <Rockie color="#2a82ad" size={30} sleepy={night} reactive />
+          <Rockie color="var(--brand)" size={30} sleepy={night} reactive />
           <span className="logo">B+</span>
           <span className="sp">{memberships.find((m) => m.space_id === spaceId)?.name !== 'B+' ? memberships.find((m) => m.space_id === spaceId)?.name : 'HQ'}</span>
           <span className="spacer" />
@@ -142,7 +150,7 @@ export function Layout() {
             <Icon name="tasks" />Tareas
           </NavLink>
           <button className="rockiebtn" aria-label="Pídele algo a Rockie" onClick={() => setAgentOpen(true)}>
-            <Rockie color="#4a8db3" size={44} reactive />
+            <Rockie color="var(--brand)" size={44} reactive />
           </button>
           <NavLink to="/tareas?vista=calendario" className={() => (loc.search.includes('calendario') ? 'active' : '')} style={{ ['--nc' as string]: 'var(--coral-ink)' }}>
             <Icon name="calendar" />Calendario
@@ -189,6 +197,7 @@ function ProfileMenu({ at, onClose }: { at: { x: number; y: number }; onClose: (
   }
   return createPortal(
     <div ref={ref} className="menu" role="menu" style={{ left: Math.max(8, pos.x), top: Math.max(8, pos.y) }}>
+      <button role="menuitem" className="mobile-flex" onClick={() => go('/metas')}><Icon name="goal" /> Metas</button>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/equipo')}><Icon name="team" /> Equipo</button>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/ajustes')}><Icon name="settings" /> Ajustes</button>
       <button role="menuitem" onClick={() => go('/agenda')}><Icon name="calendar" /> Mi agenda (Rockie Agenda)</button>

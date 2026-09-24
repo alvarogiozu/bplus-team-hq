@@ -16,6 +16,8 @@ export const keys = {
   achievements: (sid: string) => ['achievements', sid] as const,
   activity: (sid: string) => ['activity', sid] as const,
   events: (sid: string) => ['events', sid] as const,
+  goals: (sid: string) => ['goals', sid] as const,
+  checkins: (sid: string) => ['goal_checkins', sid] as const,
 }
 
 function must<T>(r: { data: T | null; error: unknown }): T {

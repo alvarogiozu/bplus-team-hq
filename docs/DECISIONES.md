@@ -73,6 +73,50 @@ El plan gratuito a veces responde 503 "high demand": se reintenta rotando por un
 típica 2–4 s con `gemini-2.5-flash` sin pensamiento (los 3.x "latest" daban 503 o 14–17 s). `e2e/voz-ia.spec.ts` (con
 `IA=1`) prueba voz y chat contra la IA real.
 
+**IA saturada = modo básico, no silencio.** El plan gratis de Gemini a veces agota la cuota diaria (429) o Google
+responde 503. La función prueba los modelos, hace una segunda vuelta corta si fue saturación pasajera y responde en
+menos de ~15 s; si falla, el cliente intenta el intérprete local y muestra la propuesta como "modo básico".
+
+**Calendarios, no "áreas" (24 sep 2026).** Como Google Calendar pero mínimo: nombre, color y una casilla para
+mostrar u ocultar. Cada actividad vive en uno; el color sale del calendario (cambiarlo recolorea todo). La primera
+vez se crean Personal, Estudio, Trabajo y Salud (`agenda_seed_calendars`) y lo ya agendado pasa a Personal. Borrar
+un calendario nunca borra actividades: pasan a otro. Pantalla: Inbox a la izquierda, el día al centro, calendarios
+(mes + calendarios + equipo + Google) a la derecha; bajo 1280 px el panel se abre con un botón.
+
+**Google Calendar en solo lectura, con OAuth por redirección.** El navegador pide a la Edge Function `agenda-google`
+un enlace firmado (state con HMAC, vence en 10 min, solo vuelve a /agenda de la app), Google redirige a la función,
+que canjea el código y guarda el refresh token en `agenda_google` (sin políticas: solo service_role). Los eventos se
+leen por la función por semana y calendario visible. Se eligió solo lectura (igual que Structured) para no duplicar
+ni pisar eventos en Google.
+
+**Rockie del HQ con voz e IA (24 sep 2026).** Mismo botón que la agenda (mantener = hablar, tocar = dictar) y la
+misma Edge Function (`agenda-agent` con `scope: 'hq'`: herramientas crear_tarea / cambiar_tarea / preguntar /
+responder, validadas contra los ids del contexto). Nunca marca una tarea como hecha: eso sigue siendo validar con
+prueba. Si la IA falla o no tiene cuota, el intérprete local (`quickParse`) crea lo simple.
+
+**Presencia, no chat.** "Conectar con otras personas" en Tareas = ver quién está conectado (Realtime Presence, nada se
+guarda), invitar con el enlace y reasignar desde la fila. Sin comentarios ni menciones: sigue siendo anti-ClickUp.
+
+**Selectores propios en vez de `<select>` (24 sep 2026).** `components/Select.tsx` (pastilla o campo con canto, lista
+flotante en portal que nunca queda recortada, búsqueda si hay más de 8 opciones, teclado completo) y
+`team/PersonPicker.tsx` (Rockie de cada persona, rol y si está en línea). Los colores se eligen con un solo círculo
+(`ColorPick`) en vez de filas de muestras.
+
+**Color principal por persona.** `profiles.accent` (null = el azul de B+). Se aplica con `:root[data-accent]` y
+`--user-accent`: accent, brand, barra y el Rockie del logo salen de ese color con `color-mix`. Se guarda también en
+localStorage para que no parpadee al cargar; el perfil manda.
+
+**Gantt y Panel como vistas de Tareas, no pantallas nuevas.** Usan las mismas tareas filtradas: filtrar un proyecto
+convierte el Panel en el panel de ese proyecto. El resumen del Panel se arma al instante sin IA; la IA solo corre si se
+toca "Resumen con IA" (no gasta cuota al entrar) y se guarda en la sesión.
+
+**Metas (Asana Goals, sin su burocracia).** Tablas `goals` (árbol por `parent_id`, sin ciclos: lo impide un trigger) y
+`goal_checkins` (historial). Cuatro formas de medir: número, porcentaje, proyecto (tareas hechas / total) y
+sub-metas (promedio). El ritmo (`lib/pace.ts`) compara avance con plazo transcurrido: a 10 puntos o menos de lo
+esperado = a tiempo; hasta 30 = en riesgo; más = atrasada; plazo vencido sin terminar = atrasada. Se puede fijar el
+estado a mano. La misión vive en `spaces.mission` y es la cima del mapa. Sin pesos por sub-meta ni OKRs por
+trimestre: si hace falta explicarlo, sobra.
+
 ## Rockie Cuaderno
 
 **El segundo cerebro de Rockie OS, en el mismo repo y el mismo Supabase.** HQ = proyectos, Agenda = tiempo,

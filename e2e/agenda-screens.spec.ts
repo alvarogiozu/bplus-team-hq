@@ -22,7 +22,7 @@ for (const theme of ['light', 'dark'] as const) {
     if (!(await bar.isVisible())) await page.getByRole('button', { name: 'Escribirle a Rockie' }).click()
     await bar.fill('almorzar pasado mañana a la 1 por 1 hora')
     await bar.press('Enter')
-    await expect(page.locator('.rk-card').last()).toBeVisible()
+    await expect(page.locator('.rk-card').last()).toBeVisible({ timeout: 30_000 })
     await page.waitForTimeout(500)
     await shot('rockie')
   })

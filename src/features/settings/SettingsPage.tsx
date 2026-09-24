@@ -3,6 +3,8 @@ import { Link } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Sheet } from '../../components/Sheet'
+import { AccentPicker } from '../../components/AccentPicker'
+import { ColorPick, Select } from '../../components/Select'
 import { toast, toastError } from '../../components/Toasts'
 import { PALETTE, TIMEZONES } from '../../lib/colors'
 import { todayIn } from '../../lib/dates'
@@ -74,12 +76,7 @@ export default function SettingsPage() {
         <div className="arealist">
           {areas.map((a) => (
             <div className="arow" key={a.id}>
-              <button
-                className="cdot"
-                style={{ background: a.color }}
-                aria-label={`Cambiar color de ${a.name}`}
-                onClick={() => saveArea(a.id, { color: PALETTE[(PALETTE.indexOf(a.color) + 1) % PALETTE.length] })}
-              />
+              <ColorPick value={a.color} onChange={(c) => saveArea(a.id, { color: c })} palette={PALETTE} label={`Color de ${a.name}`} size={28} />
               <input defaultValue={a.name} aria-label={`Nombre del área ${a.name}`} onBlur={(e) => e.target.value.trim() && e.target.value !== a.name && saveArea(a.id, { name: e.target.value.trim() })} />
             </div>
           ))}
@@ -90,9 +87,17 @@ export default function SettingsPage() {
         <div className="sectionh"><h2>Tu cuenta</h2></div>
         <p className="hint">Usuario: <b>@{profile.username}</b></p>
         <label className="lbl" htmlFor="s-tz">Zona horaria</label>
-        <select id="s-tz" value={profile.timezone} onChange={(e) => setTimezone(e.target.value)}>
-          {Array.from(new Set([profile.timezone, ...TIMEZONES])).map((tz) => <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>)}
-        </select>
+        <Select
+          id="s-tz"
+          label="Zona horaria"
+          variant="field"
+          searchable
+          value={profile.timezone}
+          onChange={setTimezone}
+          options={Array.from(new Set([profile.timezone, ...TIMEZONES])).map((tz) => ({ value: tz, label: tz.replace(/_/g, ' ') }))}
+        />
+        <label className="lbl">Tu color principal</label>
+        <AccentPicker />
         <div className="row" style={{ flexWrap: 'wrap', marginTop: 16 }}>
           <button className="btn ghost sm" onClick={toggle}><Icon name={theme === 'dark' ? 'sun' : 'moon'} className="sm" /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}</button>
           <Link className="btn ghost sm" to="/cambiar-clave"><Icon name="key" className="sm" /> Cambiar contraseña</Link>

@@ -17,7 +17,7 @@ const MODEL = Deno.env.get('ANTHROPIC_MODEL') || 'claude-opus-5'
 // Orden medido el 23 sep 2026 (plan gratis): 2.5-flash sin pensar ~1,3 s; flash-lite ~0,9 s; los 3.x "latest" daban
 // 503 o 14-17 s. Si uno está saturado, sin cuota o tarda, se pasa al siguiente.
 const GEMINI_MODELS = (Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash,gemini-flash-lite-latest,gemini-flash-latest').split(',').map((m) => m.trim())
-const GEMINI_TIMEOUT_MS = 9000
+const GEMINI_TIMEOUT_MS = 7000
 
 /** Pensar poco: para órdenes de agenda la latencia importa más que el razonamiento largo. */
 function geminiThinking(model: string) {
@@ -48,7 +48,7 @@ const TOOLS = [
   {
     name: 'crear_item',
     description:
-      'Crea algo en la agenda PERSONAL (gimnasio, estudiar, almorzar, una tarea propia). day null = va al Inbox sin fecha. start null con day = todo el día.',
+      'Crea algo en la agenda PERSONAL (gimnasio, estudiar, almorzar, una tarea propia). day null = va al Inbox sin fecha. start null con day = todo el día. calendar_id = id de uno de "calendars" (null = el de por defecto).',
     strict: true,
     input_schema: obj({
       title: str,
@@ -56,14 +56,15 @@ const TOOLS = [
       start: { ...optStr, description: 'HH:mm 24 h o null' },
       duration_min: optInt,
       icon: { anyOf: [{ type: 'string', enum: ICONS }, nul] },
+      calendar_id: { ...optStr, description: 'id de calendars o null' },
     }),
   },
   {
     name: 'mover_item',
     description:
-      'Mueve o cambia un ítem PERSONAL existente. Solo cambian los campos no null. to_inbox true lo saca del calendario y lo devuelve al Inbox.',
+      'Mueve o cambia un ítem PERSONAL existente. Solo cambian los campos no null. to_inbox true lo saca del día y lo devuelve al Inbox. calendar_id lo pasa a otro calendario (Personal, Estudio...).',
     strict: true,
-    input_schema: obj({ item_id: str, day: optStr, start: optStr, duration_min: optInt, to_inbox: { type: 'boolean' } }),
+    input_schema: obj({ item_id: str, day: optStr, start: optStr, duration_min: optInt, to_inbox: { type: 'boolean' }, calendar_id: optStr }),
   },
   {
     name: 'completar_item',
@@ -140,9 +141,53 @@ Tu trabajo es convertir cada orden en PROPUESTAS usando las herramientas. Nunca 
 - Fechas AAAA-MM-DD y horas HH:mm en 24 h, en la zona horaria del contexto. Las fechas relativas ("mañana", "el jueves", "la otra semana") se calculan desde "hoy" del contexto; un día de la semana sin más es el próximo que viene (si es hoy, es hoy solo si dicen "hoy" o "este").
 - Lo personal (gimnasio, estudiar, comer, una tarea propia) va a la agenda personal. Una reunión con gente del equipo es crear_reunion. Mover reuniones o proyectos afecta a todo el equipo: hazlo solo si lo piden claramente.
 - Sin duración: usa la duración por defecto del contexto. Sin día ni hora: va al Inbox (day null).
+- Cada ítem personal vive en un calendario ("calendars": Personal, Estudio, Trabajo, Salud...). Si dicen "en estudio" o "de trabajo", usa ese calendar_id; si no lo dicen, null.
+- "google_events" son eventos de Google Calendar: solo lectura. Úsalos para responder o para no chocar horarios, pero nunca los muevas ni los borres.
 - Para preguntas usa responder con un texto breve y natural.
 - Títulos cortos, como los diría la persona, con mayúscula inicial y sin la fecha ni la hora dentro.
 - Antes de las herramientas puedes escribir una frase corta y cálida resumiendo lo que propones.`
+
+// ---------- Modo HQ: tareas del equipo (scope: 'hq') ----------
+const PRIO = { anyOf: [{ type: 'string', enum: ['normal', 'urgent'] }, nul] }
+const TOOLS_HQ = [
+  {
+    name: 'crear_tarea',
+    description:
+      'Crea una tarea del EQUIPO. assignee_id = id de people (null = yo). due AAAA-MM-DD o null. project_id / area_id de projects / areas o null.',
+    strict: true,
+    input_schema: obj({ title: str, assignee_id: optStr, due: optStr, priority: PRIO, project_id: optStr, area_id: optStr }),
+  },
+  {
+    name: 'cambiar_tarea',
+    description:
+      'Cambia una tarea existente: responsable, fecha, prioridad, estado (todo = por hacer, doing = en curso), proyecto, área o título. Solo cambian los campos no null. sin_fecha true le quita la fecha. Nunca la marca como hecha: eso se valida con prueba en la app.',
+    strict: true,
+    input_schema: obj({
+      task_id: str,
+      title: optStr,
+      assignee_id: optStr,
+      due: optStr,
+      sin_fecha: { type: 'boolean' },
+      priority: PRIO,
+      status: { anyOf: [{ type: 'string', enum: ['todo', 'doing'] }, nul] },
+      project_id: optStr,
+      area_id: optStr,
+    }),
+  },
+  ...TOOLS.filter((t) => t.name === 'preguntar' || t.name === 'responder'),
+]
+
+const SYSTEM_HQ = `Eres Rockie, el asistente del HQ de B+ (un gestor de tareas de equipo, anti-Notion: una tarea, un dueño, una fecha). Te hablan en español, muchas veces por voz (puede haber errores de dictado).
+
+Convierte cada orden en PROPUESTAS con las herramientas. Nunca ejecutas nada: la app muestra cada propuesta y la persona confirma.
+
+- Responde siempre con herramientas. Una orden puede ser varias llamadas: "pásale a Andrea todo lo de firmware" es un cambiar_tarea por cada tarea.
+- Usa solo ids del contexto. Personas por nombre o usuario en "people" ("yo" es la persona que habla). Si un nombre calza con varias o ninguna, usa preguntar con opciones concretas.
+- Fechas AAAA-MM-DD en la zona del contexto; "el viernes" es el próximo viernes; "hoy" y "mañana" desde "hoy" del contexto.
+- "urgente" es priority urgent. "Empecé", "estoy en" o "en curso" es status doing.
+- Para preguntas ("¿qué tiene Mariana esta semana?", "¿qué está atrasado?") usa responder con un texto breve y los ids de las tareas en refs.
+- Títulos cortos y claros, como los diría la persona, con mayúscula inicial, sin la fecha ni la persona dentro.
+- Antes de las herramientas puedes escribir una frase corta y cálida.`
 
 type Ctx = {
   items?: { id: string }[]
@@ -151,6 +196,9 @@ type Ctx = {
   hq_tasks?: { id: string }[]
   people?: { id: string }[]
   spaces?: { id: string }[]
+  calendars?: { id: string }[]
+  tasks?: { id: string }[]
+  areas?: { id: string }[]
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -162,11 +210,21 @@ function valid(name: string, input: Record<string, unknown>, ctx: Ctx): boolean 
   const dateOk = (v: unknown) => v == null || (typeof v === 'string' && DATE.test(v))
   const timeOk = (v: unknown) => v == null || (typeof v === 'string' && TIME.test(v))
   const durOk = (v: unknown) => v == null || (typeof v === 'number' && v >= 1 && v <= 720)
+  const calOk = (v: unknown) => v == null || has(ctx.calendars, v)
   switch (name) {
+    case 'crear_tarea':
+      return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.due) &&
+        (input.assignee_id == null || has(ctx.people, input.assignee_id)) &&
+        (input.project_id == null || has(ctx.projects, input.project_id)) && (input.area_id == null || has(ctx.areas, input.area_id))
+    case 'cambiar_tarea':
+      return has(ctx.tasks, input.task_id) && dateOk(input.due) &&
+        (input.assignee_id == null || has(ctx.people, input.assignee_id)) &&
+        (input.project_id == null || has(ctx.projects, input.project_id)) && (input.area_id == null || has(ctx.areas, input.area_id)) &&
+        (input.title == null || (typeof input.title === 'string' && input.title.trim() !== ''))
     case 'crear_item':
-      return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min)
+      return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id)
     case 'mover_item':
-      return has(ctx.items, input.item_id) && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min)
+      return has(ctx.items, input.item_id) && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id)
     case 'completar_item':
     case 'borrar_item':
       return has(ctx.items, input.item_id)
@@ -215,7 +273,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Rockie necesita un respiro: llegaste a 60 órdenes esta hora.' }, 429)
   }
 
-  let body: { text?: unknown; context?: Ctx; history?: Turn[] }
+  let body: { text?: unknown; context?: Ctx; history?: Turn[]; scope?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -224,6 +282,7 @@ Deno.serve(async (req) => {
   const text = typeof body.text === 'string' ? body.text.trim().slice(0, 600) : ''
   if (!text) return json({ error: 'No escuché ninguna orden' }, 400)
   const ctx: Ctx = body.context ?? {}
+  const kit: Kit = body.scope === 'hq' ? { tools: TOOLS_HQ as typeof TOOLS, system: SYSTEM_HQ } : { tools: TOOLS, system: SYSTEM }
   const history = (Array.isArray(body.history) ? body.history : [])
     .filter((t) => (t.role === 'user' || t.role === 'assistant') && typeof t.text === 'string' && t.text.trim())
     .slice(-8)
@@ -243,7 +302,7 @@ Deno.serve(async (req) => {
 ${JSON.stringify(ctx)}
 </contexto>
 
-Orden: ${text}`, ctx)
+Orden: ${text}`, ctx, kit)
 
   const client = new Anthropic({ apiKey })
   try {
@@ -254,9 +313,9 @@ Orden: ${text}`, ctx)
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       output_config: { effort: 'low' },
-      tools: TOOLS,
+      tools: kit.tools,
       tool_choice: { type: 'auto' },
-      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+      system: [{ type: 'text', text: kit.system, cache_control: { type: 'ephemeral' } }],
       messages,
     }
     const res = await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
@@ -305,34 +364,54 @@ function pack(say: string, calls: { name: string; args: Record<string, unknown> 
   return json({ say: say.trim(), proposals, dropped })
 }
 
-async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx) {
+type Kit = { tools: typeof TOOLS; system: string }
+
+async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx, kit: Kit) {
   const contents = history.map((t) => ({ role: t.role === 'assistant' ? 'model' : 'user', parts: [{ text: t.text.slice(0, 800) }] }))
   while (contents.length && contents[0].role !== 'user') contents.shift()
   contents.push({ role: 'user', parts: [{ text: prompt }] })
-  // Google a veces responde 503 (saturado), 429 (cuota del modelo) o tarda: se prueba el siguiente modelo
+  // Google a veces responde 503 (saturado), 429 (cuota del modelo) o tarda: se prueba el siguiente
+  // modelo, y si todos fallan, una segunda vuelta tras una pausa corta (los 503 duran segundos).
   let res: Response | null = null
-  for (const model of GEMINI_MODELS) {
-    try {
-      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM }] },
-          contents,
-          tools: [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.input_schema })) }],
-          toolConfig: { functionCallingConfig: { mode: 'ANY' } },
-          generationConfig: { thinkingConfig: geminiThinking(model) },
-        }),
-      })
-    } catch (e) {
-      console.error('gemini timeout', model, String(e).slice(0, 120))
-      continue
+  const trace: string[] = []
+  const t0 = Date.now()
+  const sinCuota = new Set<string>()
+  vueltas: for (let vuelta = 0; vuelta < 2; vuelta++) {
+    if (vuelta > 0) {
+      // Segunda vuelta solo si queda algun modelo con cuota y aun vamos rapido
+      if (sinCuota.size === GEMINI_MODELS.length || Date.now() - t0 > 6000) break
+      await new Promise((r) => setTimeout(r, 700))
     }
-    if (res.ok || (res.status !== 429 && res.status !== 404 && res.status < 500)) break
-    console.error('gemini next', model, res.status, (await res.text()).slice(0, 200))
+    for (const model of GEMINI_MODELS) {
+      if (sinCuota.has(model)) continue
+      if (Date.now() - t0 > 14000) break vueltas
+      try {
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+          signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: kit.system }] },
+            contents,
+            tools: [{ functionDeclarations: kit.tools.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.input_schema })) }],
+            toolConfig: { functionCallingConfig: { mode: 'ANY' } },
+            generationConfig: { thinkingConfig: geminiThinking(model) },
+          }),
+        })
+      } catch (e) {
+        trace.push(`${model}:timeout`)
+        console.error('gemini timeout', model, String(e).slice(0, 120))
+        res = null
+        continue
+      }
+      if (res.ok || (res.status !== 429 && res.status !== 404 && res.status < 500)) break vueltas
+      trace.push(`${model}:${res.status}`)
+      if (res.status === 429 || res.status === 404) sinCuota.add(model)
+      console.error('gemini next', model, res.status, (await res.text()).slice(0, 200))
+    }
   }
-  if (!res) return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.' }, 502)
+  if (trace.length) console.error('gemini trace', trace.join(' '))
+  if (!res) return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.', trace }, 502)
   if (res.status === 429) return json({ error: 'Rockie está saturado (límite gratuito). Intenta en un minuto.' }, 429)
   if (res.status === 400 || res.status === 401 || res.status === 403) {
     console.error('gemini', res.status, await res.text())
@@ -340,7 +419,7 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx)
   }
   if (!res.ok) {
     console.error('gemini', res.status)
-    return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.' }, 502)
+    return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.', trace }, 502)
   }
   const data = await res.json()
   const parts: { text?: string; functionCall?: { name: string; args?: Record<string, unknown> } }[] = data?.candidates?.[0]?.content?.parts ?? []
