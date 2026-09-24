@@ -9,7 +9,7 @@ import { haptic } from '../../lib/fx'
 import { supabase } from '../../lib/supabase'
 import { useVoice } from '../../agenda/voice'
 import { useAuth } from '../auth/AuthProvider'
-import { useTasks } from '../data/queries'
+import { useMembers, useTasks } from '../data/queries'
 import { removeTask } from '../data/realtime'
 import { useSpace } from '../spaces/SpaceProvider'
 import { useTaskActions } from '../tasks/actions'
@@ -31,7 +31,9 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
   const { spaceId } = useSpace()
   const qc = useQueryClient()
   const { members, memberById, projects, areas, projectById, areaById, today } = useLookup()
-  const tasksData = useTasks().data
+  const tasksQ = useTasks()
+  const membersQ = useMembers()
+  const tasksData = tasksQ.data
   const tasks = useMemo(() => tasksData ?? [], [tasksData])
   const actions = useTaskActions()
   const [text, setText] = useState('')
@@ -43,7 +45,6 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
   const [params, setParams] = useSearchParams()
   const pressAt = useRef(0)
 
-  const people = useMemo(() => members.map((m) => ({ id: m.user_id, name: m.profile.display_name, username: m.profile.username })), [members])
   const look: HqLook = useMemo(
     () => ({ today, userId: userId ?? '', memberById, taskById: new Map(tasks.map((t) => [t.id, t])), projectById, areaById }),
     [today, userId, memberById, tasks, projectById, areaById],
@@ -58,11 +59,16 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
     setReply(null)
     setHeard(byVoice ? t : null)
     setThinking(true)
-    const ctx = buildHqContext({ today, tz: profile?.timezone ?? 'America/Lima', userId, members, tasks, projects, areas })
+    // con la página recién cargada, esperar tareas y equipo: sin eso Rockie no sabe de qué le hablas
+    const list = tasksQ.data ?? (await tasksQ.refetch()).data ?? []
+    const team = membersQ.data ?? (await membersQ.refetch()).data ?? members
+    const ctx = buildHqContext({ today, tz: profile?.timezone ?? 'America/Lima', userId, members: team, tasks: list, projects, areas })
+    // las propuestas se revisan contra lo recién cargado (no contra el render en que se tocó Enter)
+    const now: HqLook = { ...look, taskById: new Map(list.map((x) => [x.id, x])), memberById: new Map(team.map((m) => [m.user_id, m])) }
     let r = await askHq(t, turns, ctx)
     // IA sin configurar, sin cuota o caída: el intérprete local resuelve lo simple
     if (r.error) {
-      const local = localHq(t, look, tasks, people)
+      const local = localHq(t, now, list, team.map((m) => ({ id: m.user_id, name: m.profile.display_name, username: m.profile.username })))
       r = local.proposals.length ? { ...local, say: local.say || 'La IA está ocupada; esto lo entendí en modo básico:' } : { ...local, error: r.error }
     }
     setThinking(false)
@@ -72,10 +78,10 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
     for (const p of r.proposals) {
       if (p.tool === 'responder') answer = { text: String(p.input.text ?? ''), refs: (p.input.refs as string[] | undefined) ?? [] }
       else if (p.tool === 'preguntar') question = { q: String(p.input.question ?? ''), options: (p.input.options as string[] | undefined) ?? [] }
-      else if (describeHq(p, look)) cards.push({ p, st: 'pending' })
+      else if (describeHq(p, now)) cards.push({ p, st: 'pending' })
     }
     setReply({ say: r.say, cards, answer, question, basic: r.basic, error: r.proposals.length ? undefined : r.error })
-    setTurns((x) => [...x, { role: 'user' as const, text: t }, { role: 'assistant' as const, text: summarizeHq(r.say, r.proposals, look) }].slice(-8))
+    setTurns((x) => [...x, { role: 'user' as const, text: t }, { role: 'assistant' as const, text: summarizeHq(r.say, r.proposals, now) }].slice(-8))
     if (cards.length) haptic(10)
   }
 

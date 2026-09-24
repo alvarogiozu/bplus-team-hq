@@ -4,11 +4,13 @@ import { useAuth } from '../auth/AuthProvider'
 import { useTaskActions } from './actions'
 import { closeNewTask, newTaskStore } from './dialogs'
 import { useLookup } from './bits'
+import { Select } from '../../components/Select'
+import { PersonPicker } from '../team/PersonPicker'
 
 export function NewTaskDialog() {
   const state = newTaskStore.use()
   const { userId } = useAuth()
-  const { members, areas, projects } = useLookup()
+  const { areas, projects } = useLookup()
   const { create } = useTaskActions()
   const [title, setTitle] = useState('')
   const [assignee, setAssignee] = useState('')
@@ -69,9 +71,7 @@ export function NewTaskDialog() {
         <div className="grid2">
           <div>
             <label className="lbl" htmlFor="nt-a">Responsable</label>
-            <select id="nt-a" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-              {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.profile.display_name}</option>)}
-            </select>
+            <PersonPicker id="nt-a" value={assignee} onChange={(v) => setAssignee(v ?? '')} />
           </div>
           <div>
             <label className="lbl" htmlFor="nt-d">Fecha límite</label>
@@ -79,17 +79,25 @@ export function NewTaskDialog() {
           </div>
           <div>
             <label className="lbl" htmlFor="nt-ar">Área</label>
-            <select id="nt-ar" value={area} onChange={(e) => setArea(e.target.value)}>
-              <option value="">Sin área</option>
-              {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+            <Select
+              id="nt-ar"
+              label="Área"
+              variant="field"
+              value={area}
+              onChange={setArea}
+              options={[{ value: '', label: 'Sin área', visual: <span className="sel-none" /> }, ...areas.map((a) => ({ value: a.id, label: a.name, color: a.color }))]}
+            />
           </div>
           <div>
             <label className="lbl" htmlFor="nt-p">Proyecto</label>
-            <select id="nt-p" value={project} onChange={(e) => setProject(e.target.value)}>
-              <option value="">Sin proyecto</option>
-              {projects.filter((p) => !p.archived).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <Select
+              id="nt-p"
+              label="Proyecto"
+              variant="field"
+              value={project}
+              onChange={setProject}
+              options={[{ value: '', label: 'Sin proyecto', visual: <span className="sel-none" /> }, ...projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
+            />
           </div>
         </div>
         <label className="checkline">

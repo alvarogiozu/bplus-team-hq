@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useTaskActions } from '../tasks/actions'
 import { useLookup } from '../tasks/bits'
 import { TaskRow } from './TaskRow'
+import { PersonPicker } from '../team/PersonPicker'
 
 const CAN_ADD: GroupKey[] = ['today', 'week', 'later', 'nodate']
 const SPRING = { type: 'spring', stiffness: 520, damping: 40, mass: 0.8 } as const
@@ -63,7 +64,7 @@ export function ListView({ tasks, projectId }: { tasks: Task[]; projectId?: stri
 
 // "Añadir tarea" en línea: Enter crea, Tab pasa al siguiente campo.
 function InlineAdd({ group, projectId }: { group: GroupKey; projectId?: string }) {
-  const { members, today } = useLookup()
+  const { today } = useLookup()
   const { userId } = useAuth()
   const { create } = useTaskActions()
   const [active, setActive] = useState(false)
@@ -95,9 +96,7 @@ function InlineAdd({ group, projectId }: { group: GroupKey; projectId?: string }
       animate={{ opacity: 1, y: 0 }}
     >
       <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Qué hay que hacer · Enter para crear" aria-label="Título de la tarea nueva" maxLength={200} />
-      <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="Responsable">
-        {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.profile.display_name}</option>)}
-      </select>
+      <PersonPicker value={who} onChange={(v) => setWho(v ?? '')} variant="pill" size="sm" />
       <input type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Fecha límite" />
       <button className="btn sm" disabled={!title.trim()}>Crear</button>
     </motion.form>

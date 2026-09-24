@@ -96,3 +96,23 @@ prueba. Si la IA falla o no tiene cuota, el intérprete local (`quickParse`) cre
 
 **Presencia, no chat.** "Conectar con otras personas" en Tareas = ver quién está conectado (Realtime Presence, nada se
 guarda), invitar con el enlace y reasignar desde la fila. Sin comentarios ni menciones: sigue siendo anti-ClickUp.
+
+**Selectores propios en vez de `<select>` (24 sep 2026).** `components/Select.tsx` (pastilla o campo con canto, lista
+flotante en portal que nunca queda recortada, búsqueda si hay más de 8 opciones, teclado completo) y
+`team/PersonPicker.tsx` (Rockie de cada persona, rol y si está en línea). Los colores se eligen con un solo círculo
+(`ColorPick`) en vez de filas de muestras.
+
+**Color principal por persona.** `profiles.accent` (null = el azul de B+). Se aplica con `:root[data-accent]` y
+`--user-accent`: accent, brand, barra y el Rockie del logo salen de ese color con `color-mix`. Se guarda también en
+localStorage para que no parpadee al cargar; el perfil manda.
+
+**Gantt y Panel como vistas de Tareas, no pantallas nuevas.** Usan las mismas tareas filtradas: filtrar un proyecto
+convierte el Panel en el panel de ese proyecto. El resumen del Panel se arma al instante sin IA; la IA solo corre si se
+toca "Resumen con IA" (no gasta cuota al entrar) y se guarda en la sesión.
+
+**Metas (Asana Goals, sin su burocracia).** Tablas `goals` (árbol por `parent_id`, sin ciclos: lo impide un trigger) y
+`goal_checkins` (historial). Cuatro formas de medir: número, porcentaje, proyecto (tareas hechas / total) y
+sub-metas (promedio). El ritmo (`lib/pace.ts`) compara avance con plazo transcurrido: a 10 puntos o menos de lo
+esperado = a tiempo; hasta 30 = en riesgo; más = atrasada; plazo vencido sin terminar = atrasada. Se puede fijar el
+estado a mano. La misión vive en `spaces.mission` y es la cima del mapa. Sin pesos por sub-meta ni OKRs por
+trimestre: si hace falta explicarlo, sobra.

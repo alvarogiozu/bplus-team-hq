@@ -33,12 +33,12 @@ export function Rockie({ color = '#2a82ad', size = 44, sleepy, listening, reacti
       aria-label={title}
       aria-hidden={title ? undefined : true}
     >
-      <path d="M22 3 C33 3 40 11 40 22 C40 34 33 41 22 41 C11 41 4 34 4 22 C4 11 11 3 22 3 Z" fill={color} />
+      <path d="M22 3 C33 3 40 11 40 22 C40 34 33 41 22 41 C11 41 4 34 4 22 C4 11 11 3 22 3 Z" style={{ fill: color }} />
       {sleepy ? (
         <>
           <path d="M13 21 q3 2.6 6 0" stroke="#fdfbf7" strokeWidth="2.6" fill="none" strokeLinecap="round" />
           <path d="M25 21 q3 2.6 6 0" stroke="#fdfbf7" strokeWidth="2.6" fill="none" strokeLinecap="round" />
-          <text x="34" y="10" fontSize="8" fontWeight="700" fill={color}>
+          <text x="34" y="10" fontSize="8" fontWeight="700" style={{ fill: color }}>
             z z
           </text>
         </>

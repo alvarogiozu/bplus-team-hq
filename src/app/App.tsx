@@ -9,6 +9,7 @@ import { Layout } from './Layout'
 
 const TasksPage = lazy(() => import('../features/views/TasksPage'))
 const ProjectsPage = lazy(() => import('../features/projects/ProjectsPage'))
+const GoalsPage = lazy(() => import('../features/goals/GoalsPage'))
 const TeamPage = lazy(() => import('../features/team/TeamPage'))
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage'))
 const AgendaApp = lazy(() => import('../agenda/AgendaApp'))
@@ -16,7 +17,7 @@ const AgendaApp = lazy(() => import('../agenda/AgendaApp'))
 function Splash() {
   return (
     <div className="splash" aria-busy="true" aria-label="Cargando">
-      <Rockie color="#2a82ad" size={72} />
+      <Rockie color="var(--brand)" size={72} />
     </div>
   )
 }
@@ -73,6 +74,7 @@ export function App() {
             <Route path="/hoy" element={<TodayPage />} />
             <Route path="/tareas" element={<TasksPage />} />
             <Route path="/proyectos" element={<ProjectsPage />} />
+            <Route path="/metas" element={<GoalsPage />} />
             <Route path="/equipo" element={<TeamPage />} />
             <Route path="/ajustes" element={<SettingsPage />} />
           </Route>

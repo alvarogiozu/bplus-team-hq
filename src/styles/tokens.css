@@ -55,3 +55,20 @@
   --line: #3b3852; --card-line: #44405e; --card-edge: #171522; --edge-soft: rgba(0, 0, 0, 0.42);
   --overlay: rgba(0, 0, 0, 0.55);
 }
+
+/* Color principal personal (theme.ts pone --user-accent y data-accent en <html>) */
+:root[data-accent] {
+  --accent: var(--user-accent);
+  --accent-edge: color-mix(in srgb, var(--user-accent) 74%, #000);
+  --accent-ink: color-mix(in srgb, var(--user-accent) 78%, #000);
+  --accent-soft: color-mix(in srgb, var(--user-accent) 14%, #fff);
+  --brand: var(--user-accent);
+  --brand-logo: color-mix(in srgb, var(--user-accent) 85%, #fff);
+  --navbar-blue: color-mix(in srgb, var(--user-accent) 62%, #1f2233);
+  --navbar-blue-edge: color-mix(in srgb, var(--user-accent) 46%, #10111c);
+}
+:root[data-accent][data-theme='dark'] {
+  --accent: color-mix(in srgb, var(--user-accent) 88%, #fff);
+  --accent-soft: color-mix(in srgb, var(--user-accent) 26%, transparent);
+  --accent-ink: color-mix(in srgb, var(--user-accent) 52%, #fff);
+}

@@ -15,14 +15,19 @@ import { lsGet, lsSet } from '../../lib/storage'
 
 const BoardView = lazy(() => import('./BoardView').then((m) => ({ default: m.BoardView })))
 const WeekView = lazy(() => import('./WeekView').then((m) => ({ default: m.WeekView })))
+const GanttView = lazy(() => import('./GanttView').then((m) => ({ default: m.GanttView })))
+const DashboardView = lazy(() => import('./DashboardView').then((m) => ({ default: m.DashboardView })))
 
-// Tres vistas fijas de los mismos datos, con los mismos filtros. Cambiar de vista no pide configurar nada.
-export type ViewKey = 'lista' | 'tablero' | 'calendario'
+// Vistas fijas de los mismos datos, con los mismos filtros. Cambiar de vista no pide configurar nada.
+export type ViewKey = 'lista' | 'tablero' | 'calendario' | 'gantt' | 'panel'
 const VIEWS: { key: ViewKey; label: string; icon: IconName; color: string }[] = [
   { key: 'lista', label: 'Lista', icon: 'tasks', color: 'var(--accent-ink)' },
   { key: 'tablero', label: 'Tablero', icon: 'board', color: 'var(--amber-ink)' },
   { key: 'calendario', label: 'Calendario', icon: 'calendar', color: 'var(--coral-ink)' },
+  { key: 'gantt', label: 'Gantt', icon: 'gantt', color: 'var(--green-photo)' },
+  { key: 'panel', label: 'Panel', icon: 'panel', color: 'var(--berry)' },
 ]
+const WIDE: ViewKey[] = ['tablero', 'gantt', 'panel']
 
 function load<T>(k: string, fallback: T): T {
   try {
@@ -69,7 +74,7 @@ export default function TasksPage() {
   }
 
   return (
-    <div className={view === 'tablero' ? 'content wide' : 'content'}>
+    <div className={WIDE.includes(view) ? 'content wide' : 'content'}>
       <header className="pagehead">
         <div>
           <h1>Tareas</h1>
@@ -82,7 +87,7 @@ export default function TasksPage() {
               <button key={v.key} role="tab" aria-selected={view === v.key} style={{ ['--vc' as string]: v.color }} onClick={() => setView(v.key)}>
                 {view === v.key && <motion.span layoutId="seg-ind" className="seg-ind" transition={{ type: 'spring', stiffness: 520, damping: 38 }} />}
                 <span className="seg-lbl">
-                  <Icon name={v.icon} className="sm" /> {v.label}
+                  <Icon name={v.icon} className="sm" /> <span className="seg-txt">{v.label}</span>
                 </span>
               </button>
             ))}
@@ -113,6 +118,8 @@ export default function TasksPage() {
               {view === 'lista' && <ListView tasks={shown} />}
               {view === 'tablero' && <BoardView tasks={shown} />}
               {view === 'calendario' && <WeekView tasks={shown} />}
+              {view === 'gantt' && <GanttView tasks={shown} />}
+              {view === 'panel' && <DashboardView tasks={shown} filtered={shown.length !== (q.data ?? []).length} />}
             </motion.div>
           </AnimatePresence>
         </Suspense>

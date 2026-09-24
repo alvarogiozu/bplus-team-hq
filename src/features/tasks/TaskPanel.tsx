@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Sheet } from '../../components/Sheet'
@@ -10,8 +10,10 @@ import { pointOf } from '../../lib/fx'
 import { useActivity, useTasks } from '../data/queries'
 import { useTaskActions } from './actions'
 import { openValidate } from './dialogs'
-import { Linkify, MemberAvatar, useLookup } from './bits'
+import { Linkify, useLookup } from './bits'
 import { proofUrl } from './proofUpload'
+import { Select } from '../../components/Select'
+import { PersonPicker } from '../team/PersonPicker'
 
 // Panel de tarea compartido por todas las vistas. La URL manda: ?tarea=<id>
 export function TaskPanel() {
@@ -32,7 +34,7 @@ export function TaskPanel() {
 }
 
 function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
-  const { members, areas, projects, memberById, today } = useLookup()
+  const { areas, projects, memberById, today } = useLookup()
   const { update, remove, duplicate, move } = useTaskActions()
   const activity = (useActivity().data ?? []).filter((a) => a.entity_id === task.id).slice(0, 8)
   const [title, setTitle] = useState(task.title)
@@ -95,31 +97,36 @@ function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
 
       <div className="props">
         <span>Estado</span>
-        <select value={task.status} onChange={(e) => setStatus(e.target.value as Status, e.target)}>
-          {(['todo', 'doing', 'done'] as Status[]).map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
-        </select>
+        <StatusSelect status={task.status} onChange={(s, el) => setStatus(s, el)} />
         <span>Responsable</span>
-        <div className="row">
-          <MemberAvatar member={memberById.get(task.assignee_id ?? '')} size={28} />
-          <select value={task.assignee_id ?? ''} onChange={(e) => update(task.id, { assignee_id: e.target.value || null })}>
-            {members.map((m) => <option key={m.user_id} value={m.user_id}>{m.profile.display_name}</option>)}
-          </select>
-        </div>
+        <PersonPicker value={task.assignee_id} onChange={(v) => update(task.id, { assignee_id: v })} allowNone />
         <span>Área</span>
-        <select value={task.area_id ?? ''} onChange={(e) => update(task.id, { area_id: e.target.value || null })}>
-          <option value="">Sin área</option>
-          {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
+        <Select
+          label="Área"
+          variant="field"
+          value={task.area_id ?? ''}
+          onChange={(v) => update(task.id, { area_id: v || null })}
+          options={[{ value: '', label: 'Sin área', visual: <span className="sel-none" /> }, ...areas.map((a) => ({ value: a.id, label: a.name, color: a.color }))]}
+        />
         <span>Proyecto</span>
-        <select value={task.project_id ?? ''} onChange={(e) => update(task.id, { project_id: e.target.value || null })}>
-          <option value="">Sin proyecto</option>
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <Select
+          label="Proyecto"
+          variant="field"
+          value={task.project_id ?? ''}
+          onChange={(v) => update(task.id, { project_id: v || null })}
+          options={[{ value: '', label: 'Sin proyecto', visual: <span className="sel-none" /> }, ...projects.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
+        />
         <span>Prioridad</span>
-        <select value={task.priority} onChange={(e) => update(task.id, { priority: e.target.value })}>
-          <option value="normal">Normal</option>
-          <option value="urgent">Urgente</option>
-        </select>
+        <Select
+          label="Prioridad"
+          variant="field"
+          value={task.priority}
+          onChange={(v) => update(task.id, { priority: v })}
+          options={[
+            { value: 'normal', label: 'Normal', color: 'var(--ink-faint)' },
+            { value: 'urgent', label: 'Urgente', color: 'var(--coral)' },
+          ]}
+        />
         <span>Inicio</span>
         <input type="date" value={task.start_date ?? ''} max={task.due_date ?? undefined} onChange={(e) => update(task.id, { start_date: e.target.value || null })} />
         <span>Fecha límite</span>
@@ -201,5 +208,23 @@ function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
         </button>
       </div>
     </>
+  )
+}
+
+const STATUS_COLOR: Record<Status, string> = { todo: 'var(--ink-faint)', doing: 'var(--amber)', done: 'var(--green-photo)' }
+
+/** Estado con el selector de B+. Elegir "Hecho" sigue pasando por validar (el ancla del festejo es el propio campo). */
+function StatusSelect({ status, onChange }: { status: Status; onChange: (s: Status, el: HTMLElement) => void }) {
+  const box = useRef<HTMLSpanElement>(null)
+  return (
+    <span className="statusel" ref={box}>
+      <Select
+        label="Estado"
+        variant="field"
+        value={status}
+        onChange={(v) => onChange(v as Status, box.current ?? document.body)}
+        options={(['todo', 'doing', 'done'] as Status[]).map((s) => ({ value: s, label: STATUS_LABEL[s], color: STATUS_COLOR[s] }))}
+      />
+    </span>
   )
 }

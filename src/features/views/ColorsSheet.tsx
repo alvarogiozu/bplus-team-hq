@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
 import { useQueryClient } from '@tanstack/react-query'
+import { AccentPicker } from '../../components/AccentPicker'
 import { Rockie } from '../../components/Rockie'
+import { ColorPick } from '../../components/Select'
 import { Sheet } from '../../components/Sheet'
 import { toastError } from '../../components/Toasts'
 import { PALETTE } from '../../lib/colors'
@@ -10,8 +12,8 @@ import { useAuth } from '../auth/AuthProvider'
 import { keys, useAreas, useProjects } from '../data/queries'
 import { useSpace } from '../spaces/SpaceProvider'
 
-// Colores en un solo lugar: la franja de cada área (se ve en cada tarea), el color de cada
-// proyecto y el de tu Rockie. Se aplica al instante (y en vivo para todo el equipo).
+// Colores en un solo lugar, sin ruido: tu color principal arriba y, por cada área, proyecto
+// o tu Rockie, UN círculo con su color actual; al tocarlo se despliega la paleta.
 export function ColorsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { spaceId } = useSpace()
   const { userId, profile } = useAuth()
@@ -35,20 +37,26 @@ export function ColorsSheet({ open, onClose }: { open: boolean; onClose: () => v
     const { error } = await supabase.from('profiles').update({ color }).eq('id', userId!)
     if (error) return toastError(humanError(error))
     qc.invalidateQueries({ queryKey: keys.members(spaceId) })
-    qc.invalidateQueries({ queryKey: ['profile'] })
+    qc.invalidateQueries({ queryKey: ['profile', userId] })
   }
 
   return (
     <Sheet open={open} onClose={onClose} title="Colores">
       <div className="colorsec">
-        <div className="colorsec-head">
-          <Rockie color={mine} size={40} />
-          <div>
-            <b>Tu Rockie</b>
-            <div className="hint">Así te ve el equipo en cada tarea tuya.</div>
-          </div>
+        <div className="colorsec-title">Tu color principal</div>
+        <p className="hint" style={{ margin: '0 0 10px' }}>Botones, enlaces y tu Rockie del logo. Solo lo ves tú.</p>
+        <AccentPicker />
+      </div>
+
+      <div className="colorsec">
+        <div className="colorrow">
+          <Rockie color={mine} size={30} />
+          <span className="colorrow-name">
+            Tu Rockie
+            <small>Así te ve el equipo en cada tarea tuya</small>
+          </span>
+          <ColorPick value={mine} onChange={(c) => void paintMe(c)} palette={PALETTE} label="Color de tu Rockie" />
         </div>
-        <Swatches value={mine} onPick={paintMe} label="Color de tu Rockie" />
       </div>
 
       {areas.length > 0 && (
@@ -58,7 +66,7 @@ export function ColorsSheet({ open, onClose }: { open: boolean; onClose: () => v
             <div className="colorrow" key={a.id}>
               <motion.span className="colorrow-band" animate={{ backgroundColor: a.color }} transition={{ duration: 0.25 }} />
               <span className="colorrow-name">{a.name}</span>
-              <Swatches value={a.color} onPick={(c) => void paint('areas', a.id, c)} label={`Color de ${a.name}`} compact />
+              <ColorPick value={a.color} onChange={(c) => void paint('areas', a.id, c)} palette={PALETTE} label={`Color de ${a.name}`} />
             </div>
           ))}
         </div>
@@ -71,33 +79,11 @@ export function ColorsSheet({ open, onClose }: { open: boolean; onClose: () => v
             <div className="colorrow" key={p.id}>
               <motion.span className="colorrow-band" animate={{ backgroundColor: p.color }} transition={{ duration: 0.25 }} />
               <span className="colorrow-name">{p.name}</span>
-              <Swatches value={p.color} onPick={(c) => void paint('projects', p.id, c)} label={`Color de ${p.name}`} compact />
+              <ColorPick value={p.color} onChange={(c) => void paint('projects', p.id, c)} palette={PALETTE} label={`Color de ${p.name}`} />
             </div>
           ))}
         </div>
       )}
     </Sheet>
-  )
-}
-
-function Swatches({ value, onPick, label, compact = false }: { value: string; onPick: (c: string) => void; label: string; compact?: boolean }) {
-  return (
-    <div className={`swatches${compact ? ' compact' : ''}`} role="radiogroup" aria-label={label}>
-      {PALETTE.map((c) => (
-        <motion.button
-          key={c}
-          type="button"
-          role="radio"
-          aria-checked={c === value}
-          className="sw"
-          style={{ background: c }}
-          aria-label={`Color ${c}`}
-          onClick={() => onPick(c)}
-          whileTap={{ scale: 0.85 }}
-          animate={{ scale: c === value ? 1.12 : 1 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-        />
-      ))}
-    </div>
   )
 }

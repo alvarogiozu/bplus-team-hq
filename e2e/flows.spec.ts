@@ -29,7 +29,8 @@ test('dos personas ven el mismo tablero y los cambios llegan en vivo', async ({ 
   await m.goto('/tareas?vista=lista')
   await m.getByText(card).click()
   const t0 = Date.now()
-  await m.getByRole('dialog').getByRole('combobox').first().selectOption('doing')
+  await m.getByRole('dialog').getByRole('combobox', { name: 'Estado' }).click()
+  await m.getByRole('option', { name: 'En curso' }).click()
   await expect(doing.getByText(card)).toBeVisible({ timeout: 5000 })
   const ms = Date.now() - t0
   console.log(`realtime: ${ms} ms`)

@@ -5,14 +5,26 @@ Nada de campos personalizados, automatizaciones, plantillas ni vistas guardadas:
 de ajustes para entenderse, está mal.
 
 - **Hoy** — lo tuyo atrasado, de hoy y de los próximos 3 días; tus reuniones; qué movió el equipo.
-- **Tareas** — los mismos datos en 3 vistas fijas (**Lista · Tablero · Calendario**) con una sola barra de filtros.
+- **Tareas** — los mismos datos en 5 vistas fijas (**Lista · Tablero · Calendario · Gantt · Panel**) con una sola
+  barra de filtros. En el **Gantt** cada tarea es una barra de su inicio a su fecha: se arrastra para moverla, se
+  estira de las puntas y una tarea sin fecha se agenda tocando el día (todo con deshacer; también con el teclado). El
+  **Panel** es el estado del equipo de un vistazo: resumen en palabras (con IA si se pide), números clave, ritmo de
+  2 semanas, carga por persona, proyectos que no llegan, metas y lo que vence.
 - **Proyectos** — el progreso se calcula solo (tareas validadas / tareas del proyecto).
+- **Metas** (`/metas`) — como las Goals de Asana, en simple: la **misión** arriba, metas de empresa y sub-metas en un
+  **mapa** (pirámide conectada; al pasar sobre una meta se ilumina su camino hasta la misión) y listas **Empresa ·
+  Equipos · Mías**. Cada meta es medible (un número, un %, el avance de un proyecto o el promedio de sus sub-metas),
+  con dueño, equipo y plazo; el estado (a tiempo / en riesgo / atrasada) se calcula comparando avance con plazo.
+  Los avances quedan en un historial con gráfico.
 - **Equipo** — Rockies, XP, niveles, los 10 logros, invitaciones.
 - **Rockie** (barra de abajo, `Ctrl/Cmd + K`, o **mantén el micrófono y habla**) — "tarea para Sebastián el viernes,
   urgente", "pásale lo del firmware a Andrea", "¿qué está atrasado?". Entiende con IA (la misma Edge Function de la
   agenda, `scope: hq`), muestra una tarjeta por propuesta y todo se deshace. Sin IA, un intérprete local.
 - **Equipo en vivo** — en Tareas ves quién está conectado (y en qué pantalla), invitas con un enlace y reasignas
-  tocando el avatar de una tarea. **Colores** de áreas, proyectos y tu Rockie en un solo lugar.
+  tocando el avatar de una tarea. **Colores** de áreas, proyectos y tu Rockie en un solo lugar (un círculo por
+  cosa; la paleta se abre al tocarlo). Cada persona puede ponerse un **rol** ("Hardware · PCB").
+- **Tu color principal** — el azul de la app (botones, enlaces y el Rockie del logo) puede ser rosa, plomo, morado…
+  Lo elige cada persona en Ajustes o en Colores y viaja con su perfil.
 
 Validar es el corazón: **Lo hice +40 XP**, **con prueba (link o foto) +100 XP**, y la primera validación del día
 de cada persona vale doble. El XP lo calcula el servidor (`validate_task`), así que no se puede hacer trampa.

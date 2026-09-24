@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
 import { Sheet } from '../../components/Sheet'
+import { Floating, Select } from '../../components/Select'
 import { ListSkeleton } from '../../components/States'
 import { toast, toastError } from '../../components/Toasts'
 import { PALETTE } from '../../lib/colors'
@@ -12,7 +13,8 @@ import { ACHIEVEMENTS, levelProgress, xpByUser } from '../../lib/xp'
 import type { Member } from '../../lib/types'
 import { useMe } from '../auth/AuthProvider'
 import { useSpace } from '../spaces/SpaceProvider'
-import { keys, useAchievements, useMembers, useXp } from '../data/queries'
+import { keys, useAchievements, useAreas, useMembers, useXp } from '../data/queries'
+import { presenceStore } from './presence'
 
 export default function TeamPage() {
   const { spaceId, isOwner } = useSpace()
@@ -25,6 +27,7 @@ export default function TeamPage() {
   const [tempPw, setTempPw] = useState<{ name: string; password: string } | null>(null)
   const qc = useQueryClient()
   const night = isNight(hourIn(profile.timezone))
+  const online = presenceStore.use()
 
   const byUser = xpByUser(xp)
   const members = membersQ.data ?? []
@@ -86,7 +89,8 @@ export default function TeamPage() {
                   <Rockie color={m.profile.color} size={64} sleepy={night} />
                 </div>
                 <h3>{m.profile.display_name}{me ? ' · tú' : ''}</h3>
-                <div className="mrole">{m.role_title || (m.role === 'owner' ? 'Dueño del espacio' : 'Miembro')}</div>
+                <RoleTag member={m} editable={me || isOwner} />
+                {online.has(m.user_id) && <span className="mlive"><i /> En línea · {online.get(m.user_id)?.page}</span>}
                 <p className="job">{m.job_description}</p>
                 <div className="xp">{total} <small>XP</small></div>
                 <span className="lvlpill">Nivel {lp.level} · {lp.rank}</span>
@@ -96,15 +100,16 @@ export default function TeamPage() {
                   {me && <button className="btn ghost sm" onClick={() => setEditing(m)}><Icon name="edit" className="sm" /> Mi perfil</button>}
                   {isOwner && !me && (
                     <>
-                      <select
-                        aria-label={`Rol de ${m.profile.display_name}`}
+                      <Select
+                        label={`Permiso de ${m.profile.display_name}`}
+                        size="sm"
                         value={m.role}
-                        onChange={(e) => setRole(m, e.target.value as 'owner' | 'member')}
-                        style={{ width: 'auto', minHeight: 36, padding: '4px 10px', fontSize: 'var(--t-xs)' }}
-                      >
-                        <option value="member">Miembro</option>
-                        <option value="owner">Dueño</option>
-                      </select>
+                        onChange={(v) => void setRole(m, v as 'owner' | 'member')}
+                        options={[
+                          { value: 'member', label: 'Miembro', sub: 'Crea y valida tareas' },
+                          { value: 'owner', label: 'Dueño', sub: 'Además invita, quita y cambia permisos' },
+                        ]}
+                      />
                       <button className="btn ghost sm" onClick={() => resetPassword(m)} title="Restablecer contraseña"><Icon name="key" className="sm" /></button>
                       <button className="btn danger sm" onClick={() => removeMember(m)} aria-label={`Quitar a ${m.profile.display_name}`}><Icon name="close" className="sm" /></button>
                     </>
@@ -219,5 +224,72 @@ function ProfileSheet({ member, onClose }: { member: Member; onClose: () => void
         {PALETTE.map((c) => <button key={c} type="button" className="sw" style={{ background: c }} aria-pressed={c === color} aria-label={`Color ${c}`} onClick={() => setColor(c)} />)}
       </div>
     </Sheet>
+  )
+}
+
+const ROLE_SUGGESTIONS = ['Gestión', 'Diseño', 'Hardware', 'Software', 'Marketing', 'Ventas', 'Finanzas', 'Operaciones']
+
+/** El rol de cada persona (su "sombrero" en el equipo). Lo edita ella misma o el dueño. */
+function RoleTag({ member, editable }: { member: Member; editable: boolean }) {
+  const { spaceId } = useSpace()
+  const qc = useQueryClient()
+  const areas = useAreas().data ?? []
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(member.role_title)
+  const btn = useRef<HTMLButtonElement>(null)
+  const label = member.role_title || (member.role === 'owner' ? 'Dueño del espacio' : 'Sin rol todavía')
+  const suggestions = Array.from(new Set([...areas.map((a) => a.name), ...ROLE_SUGGESTIONS])).slice(0, 12)
+
+  async function save(v: string) {
+    const clean = v.trim().slice(0, 40)
+    setOpen(false)
+    if (clean === member.role_title) return
+    const { error } = await supabase.from('space_members').update({ role_title: clean }).eq('id', member.id)
+    if (error) return toastError(humanError(error))
+    qc.invalidateQueries({ queryKey: keys.members(spaceId) })
+    toast(clean ? `Rol de ${member.profile.display_name}: ${clean}` : 'Rol quitado', { kind: 'ok', icon: 'check' })
+  }
+
+  if (!editable) return <div className="mrole"><span className="roletag">{label}</span></div>
+  return (
+    <div className="mrole">
+      <button
+        ref={btn}
+        type="button"
+        className={`roletag edit${member.role_title ? '' : ' empty'}`}
+        onClick={() => {
+          setDraft(member.role_title)
+          setOpen(!open)
+        }}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Rol de ${member.profile.display_name}: ${label}. Cambiar`}
+      >
+        {label} <Icon name="edit" className="sm" />
+      </button>
+      <Floating anchor={btn.current} open={open} onClose={() => setOpen(false)} minWidth={280}>
+        <form
+          className="rolepop"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void save(draft)
+          }}
+        >
+          <label className="lbl" style={{ marginTop: 0 }}>Rol de {member.profile.display_name}</label>
+          <input autoFocus value={draft} maxLength={40} onChange={(e) => setDraft(e.target.value)} placeholder="Ej: Hardware · PCB" />
+          <div className="choice">
+            {suggestions.map((r) => (
+              <button key={r} type="button" className={`chip${draft === r ? ' on' : ''}`} onClick={() => void save(r)}>
+                {r}
+              </button>
+            ))}
+          </div>
+          <div className="row" style={{ justifyContent: 'flex-end', marginTop: 10 }}>
+            {member.role_title && <button type="button" className="btn ghost sm" onClick={() => void save('')}>Quitar rol</button>}
+            <button className="btn sm">Guardar</button>
+          </div>
+        </form>
+      </Floating>
+    </div>
   )
 }
