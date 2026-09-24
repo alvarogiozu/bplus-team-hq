@@ -12,6 +12,7 @@ const ProjectsPage = lazy(() => import('../features/projects/ProjectsPage'))
 const TeamPage = lazy(() => import('../features/team/TeamPage'))
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage'))
 const AgendaApp = lazy(() => import('../agenda/AgendaApp'))
+const CuadernoApp = lazy(() => import('../cuaderno/CuadernoApp'))
 
 function Splash() {
   return (
@@ -65,6 +66,14 @@ export function App() {
             element={
               <Suspense fallback={<Splash />}>
                 <AgendaApp />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/cuaderno/*"
+            element={
+              <Suspense fallback={<Splash />}>
+                <CuadernoApp />
               </Suspense>
             }
           />

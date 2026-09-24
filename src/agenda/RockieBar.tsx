@@ -342,7 +342,7 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
   },
 )
 
-function MicButton(p: { big: boolean; listening: boolean; level: MotionValue<number>; disabled: boolean; onDown: () => void; onUp: () => void }) {
+export function MicButton(p: { big: boolean; listening: boolean; level: MotionValue<number>; disabled: boolean; onDown: () => void; onUp: () => void }) {
   const ring = useTransform(p.level, [0, 1], [1, 1.7])
   return (
     <motion.button
@@ -371,7 +371,7 @@ function MicButton(p: { big: boolean; listening: boolean; level: MotionValue<num
   )
 }
 
-function Listening({ text, level }: { text: string; level: MotionValue<number> }) {
+export function Listening({ text, level }: { text: string; level: MotionValue<number> }) {
   const r1 = useTransform(level, [0, 1], [1, 1.55])
   const r2 = useTransform(level, [0, 1], [1, 2.1])
   return (

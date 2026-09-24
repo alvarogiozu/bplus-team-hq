@@ -72,3 +72,51 @@ las mismas herramientas (`functionDeclarations` + `parametersJsonSchema`, modo `
 El plan gratuito a veces responde 503 "high demand": se reintenta rotando por una lista de modelos. Latencia
 típica 2–4 s con `gemini-2.5-flash` sin pensamiento (los 3.x "latest" daban 503 o 14–17 s). `e2e/voz-ia.spec.ts` (con
 `IA=1`) prueba voz y chat contra la IA real.
+
+## Rockie Cuaderno
+
+**El segundo cerebro de Rockie OS, en el mismo repo y el mismo Supabase.** HQ = proyectos, Agenda = tiempo,
+Cuaderno = lo que piensas, vives y aprendes. Una sola sesión para las tres; el Cuaderno es un chunk aparte
+(`/cuaderno`, carga diferida; la nota y el mapa son sub-chunks) con su propia pantalla completa y su botón en el HQ.
+Todo es privado de cada persona: la RLS filtra por `user_id`, no por espacio, así que el equipo nunca ve tus notas.
+
+**Alcance v1 = 5 funciones.** Capturar (voz o texto al diario de hoy) · Rockie procesa (propone notas, ampliar,
+conexiones con su porqué, tareas a la Agenda) · Nota (Markdown) · Mapa (grafo) · Repaso (tarjetas). Todo lo demás
+está en `IDEAS.md`.
+
+**Confirmar ES el filtro de ruido.** Lo que cuentas queda tal cual en `cuaderno_entries` (efímero, se puede buscar,
+no entra al grafo). Solo lo que aceptas se vuelve nota, conexión o tarjeta. Sin carpetas, sin etiquetas y sin `[[ ]]`
+manuales: una sola forma de conectar (Rockie propone, tú confirmas). Las propuestas se guardan en la entrada
+(`proposals` jsonb con su estado) para que lo "sin procesar" sobreviva a recargar.
+
+**Áreas fijas e inferidas.** Mente · Cuerpo · Alma (las de B+) + Proyectos + Libre. Rockie la infiere; se corrige con
+un chip, nunca se pregunta en abstracto.
+
+**"Parecidas" con pgvector, no con otra base.** `cuaderno_notes.embedding vector(768)` con Gemini
+`gemini-embedding-001` (normalizado) e índice HNSW. `cuaderno_similar()` es `security invoker`: la Edge Function la
+llama con la sesión de la persona. Umbral 0,55 para que el parecido de palabras no cuele como conexión.
+`embedded_at` y `updated_at` salen del mismo `now()`, así "cambió desde el último embedding" es una comparación.
+
+**El agente comparte el cerebro con Agenda.** `supabase/functions/_shared/rockie-llm.ts` (Gemini gratis con rotación
+de modelos / Claude, herramientas estrictas, timeout 12 s por modelo) lo usa `cuaderno-agent`; `agenda-agent` puede
+migrar ahí. Mismo contrato: solo propone, ids inventados se descartan en el servidor, mismo tope de 60 pedidos/hora
+(`agenda_agent_bump`). La respuesta trae `t` (ms de contexto y de modelo) para medir latencia: 1–3 s típicos.
+
+**Editor = TipTap guardando Markdown.** StarterKit recortado (títulos 2–3, listas, checklist, cita, negrita), sin
+barra de herramientas: los atajos de Markdown bastan. Se guarda Markdown (`@tiptap/markdown`) para que las notas sean
+portables (exportables a Obsidian). Autoguardado a los 700 ms; la huella de significado se recalcula 4 s después.
+
+**Mapa sin librerías de grafos.** Nivel 1 = SVG con las 5 áreas, su anillo de memoria y las líneas que cruzan áreas.
+Nivel 2 = canvas + `d3-force` (física, arrastrar notas, pellizcar, rueda) y foco: tocar una nota o una línea abre el
+panel con el porqué. El canvas solo dibuja cuando algo cambia (no hay rAF permanente: quieto no gasta batería).
+Los colores del mapa tienen función, no tipo: verde dominada · ámbar en repaso · coral se te olvida · sin tarjetas.
+
+**Repaso Leitner de 5 cajas (1·3·7·16·35 días).** Dos botones ("no me acordé" / "me acordé"), sin notas del 1 al 5.
+La cola se fija al empezar la sesión (máx. 10). La racha sale de `cuaderno_days`.
+
+**Tokens del HQ tal cual.** Se usa `styles/tokens.css` del HQ sin cambios (cuerpo 16, display 40, barra 232,
+`--ink-muted #8a859c`). Las medidas propias del cuaderno (panel 320, lectura 720, barra de Rockie) viven como
+tokens `--cu-*` en `.cu`, no como números sueltos.
+
+**Privacidad (pendiente de decidir).** En la capa gratuita de la API de Gemini, Google puede usar lo que se envía para
+mejorar sus productos. Para un diario personal conviene Gemini de pago o Claude antes de abrirlo a más personas.

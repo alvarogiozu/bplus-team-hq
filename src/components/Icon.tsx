@@ -27,6 +27,12 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   projects: <path d="M5 21V4a1 1 0 0 1 1-1h12l-3 4 3 4H6" />,
+  notebook: (
+    <>
+      <path d="M5 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" />
+      <path d="M9 3v18M12.5 8h3M12.5 12h3" />
+    </>
+  ),
   team: (
     <>
       <circle cx="9" cy="8" r="3.5" />

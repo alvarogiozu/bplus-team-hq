@@ -27,6 +27,7 @@ const DESKTOP: Dest[] = [
   { to: '/proyectos', label: 'Proyectos', icon: 'projects', color: 'var(--olive-edge)' },
   { to: '/equipo', label: 'Equipo', icon: 'team', color: 'var(--berry)' },
   { to: '/agenda', label: 'Mi agenda', icon: 'calendar', color: 'var(--coral-ink)' },
+  { to: '/cuaderno', label: 'Mi cuaderno', icon: 'notebook', color: 'var(--accent-ink)' },
 ]
 
 export function Layout() {
@@ -191,6 +192,7 @@ function ProfileMenu({ at, onClose }: { at: { x: number; y: number }; onClose: (
       <button role="menuitem" className="mobile-flex" onClick={() => go('/equipo')}><Icon name="team" /> Equipo</button>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/ajustes')}><Icon name="settings" /> Ajustes</button>
       <button role="menuitem" onClick={() => go('/agenda')}><Icon name="calendar" /> Mi agenda (Rockie Agenda)</button>
+      <button role="menuitem" onClick={() => go('/cuaderno')}><Icon name="notebook" /> Mi cuaderno (Rockie Cuaderno)</button>
       <button role="menuitem" onClick={() => { toggle(); onClose() }}>
         <Icon name={theme === 'dark' ? 'sun' : 'moon'} /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}
       </button>
