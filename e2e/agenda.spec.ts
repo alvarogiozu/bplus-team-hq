@@ -35,10 +35,39 @@ test('Rockie entiende, propone y se confirma (modo básico sin clave de IA)', as
 
 test('crear desde un hueco abre el editor con la hora y guarda', async ({ page }) => {
   await loginAgenda(page)
-  await page.getByRole('button', { name: 'Nuevo' }).click()
+  await page.getByRole('button', { name: 'Nuevo', exact: true }).click()
   const panel = page.getByRole('dialog', { name: 'Nuevo' })
   await expect(panel).toBeVisible()
   await panel.getByLabel('Título').fill('Llamar a mamá')
   await panel.getByRole('button', { name: 'Crear' }).click()
   await expect(page.locator('.tl').getByText('Llamar a mamá')).toBeVisible()
+})
+
+test('calendarios: ocultar uno saca sus actividades y el editor las cambia de calendario', async ({ page }) => {
+  await loginAgenda(page)
+  const panel = page.getByRole('complementary', { name: 'Calendarios' })
+  const personal = panel.getByRole('button', { name: 'Personal', exact: true })
+  await expect(personal).toBeVisible()
+  const tl = page.locator('.tl')
+  await expect(tl.getByText('Almuerzo con Andrea')).toBeVisible()
+
+  await personal.click()
+  await expect(tl.getByText('Almuerzo con Andrea')).toHaveCount(0)
+  await personal.click()
+  await expect(tl.getByText('Almuerzo con Andrea')).toBeVisible()
+
+  // pasarlo a Estudio: toma su color y queda ahí aunque Personal se oculte
+  await tl.getByText('Almuerzo con Andrea').click()
+  const dlg = page.getByRole('dialog')
+  await dlg.getByRole('radio', { name: 'Estudio' }).click()
+  await dlg.getByRole('button', { name: 'Guardar' }).click()
+  await personal.click()
+  await expect(tl.getByText('Almuerzo con Andrea')).toBeVisible()
+  await personal.click()
+
+  // crear un calendario nuevo desde el panel
+  await panel.getByRole('button', { name: 'Nuevo calendario' }).click()
+  await panel.getByLabel('Nombre del calendario').fill('Universidad')
+  await panel.getByRole('button', { name: 'Crear' }).click()
+  await expect(panel.getByRole('button', { name: 'Universidad', exact: true })).toBeVisible()
 })

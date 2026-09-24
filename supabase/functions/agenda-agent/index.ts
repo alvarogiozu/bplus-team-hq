@@ -48,7 +48,7 @@ const TOOLS = [
   {
     name: 'crear_item',
     description:
-      'Crea algo en la agenda PERSONAL (gimnasio, estudiar, almorzar, una tarea propia). day null = va al Inbox sin fecha. start null con day = todo el día.',
+      'Crea algo en la agenda PERSONAL (gimnasio, estudiar, almorzar, una tarea propia). day null = va al Inbox sin fecha. start null con day = todo el día. calendar_id = id de uno de "calendars" (null = el de por defecto).',
     strict: true,
     input_schema: obj({
       title: str,
@@ -56,14 +56,15 @@ const TOOLS = [
       start: { ...optStr, description: 'HH:mm 24 h o null' },
       duration_min: optInt,
       icon: { anyOf: [{ type: 'string', enum: ICONS }, nul] },
+      calendar_id: { ...optStr, description: 'id de calendars o null' },
     }),
   },
   {
     name: 'mover_item',
     description:
-      'Mueve o cambia un ítem PERSONAL existente. Solo cambian los campos no null. to_inbox true lo saca del calendario y lo devuelve al Inbox.',
+      'Mueve o cambia un ítem PERSONAL existente. Solo cambian los campos no null. to_inbox true lo saca del día y lo devuelve al Inbox. calendar_id lo pasa a otro calendario (Personal, Estudio...).',
     strict: true,
-    input_schema: obj({ item_id: str, day: optStr, start: optStr, duration_min: optInt, to_inbox: { type: 'boolean' } }),
+    input_schema: obj({ item_id: str, day: optStr, start: optStr, duration_min: optInt, to_inbox: { type: 'boolean' }, calendar_id: optStr }),
   },
   {
     name: 'completar_item',
@@ -140,6 +141,8 @@ Tu trabajo es convertir cada orden en PROPUESTAS usando las herramientas. Nunca 
 - Fechas AAAA-MM-DD y horas HH:mm en 24 h, en la zona horaria del contexto. Las fechas relativas ("mañana", "el jueves", "la otra semana") se calculan desde "hoy" del contexto; un día de la semana sin más es el próximo que viene (si es hoy, es hoy solo si dicen "hoy" o "este").
 - Lo personal (gimnasio, estudiar, comer, una tarea propia) va a la agenda personal. Una reunión con gente del equipo es crear_reunion. Mover reuniones o proyectos afecta a todo el equipo: hazlo solo si lo piden claramente.
 - Sin duración: usa la duración por defecto del contexto. Sin día ni hora: va al Inbox (day null).
+- Cada ítem personal vive en un calendario ("calendars": Personal, Estudio, Trabajo, Salud...). Si dicen "en estudio" o "de trabajo", usa ese calendar_id; si no lo dicen, null.
+- "google_events" son eventos de Google Calendar: solo lectura. Úsalos para responder o para no chocar horarios, pero nunca los muevas ni los borres.
 - Para preguntas usa responder con un texto breve y natural.
 - Títulos cortos, como los diría la persona, con mayúscula inicial y sin la fecha ni la hora dentro.
 - Antes de las herramientas puedes escribir una frase corta y cálida resumiendo lo que propones.`
@@ -151,6 +154,7 @@ type Ctx = {
   hq_tasks?: { id: string }[]
   people?: { id: string }[]
   spaces?: { id: string }[]
+  calendars?: { id: string }[]
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -162,11 +166,12 @@ function valid(name: string, input: Record<string, unknown>, ctx: Ctx): boolean 
   const dateOk = (v: unknown) => v == null || (typeof v === 'string' && DATE.test(v))
   const timeOk = (v: unknown) => v == null || (typeof v === 'string' && TIME.test(v))
   const durOk = (v: unknown) => v == null || (typeof v === 'number' && v >= 1 && v <= 720)
+  const calOk = (v: unknown) => v == null || has(ctx.calendars, v)
   switch (name) {
     case 'crear_item':
-      return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min)
+      return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id)
     case 'mover_item':
-      return has(ctx.items, input.item_id) && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min)
+      return has(ctx.items, input.item_id) && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id)
     case 'completar_item':
     case 'borrar_item':
       return has(ctx.items, input.item_id)

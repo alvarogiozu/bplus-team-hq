@@ -115,3 +115,24 @@ npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-... AGENT_PROVIDER=claude --pr
 Opcionales: `GEMINI_MODEL` (lista separada por comas; si uno está saturado se prueba el siguiente; por defecto
 `gemini-2.5-flash,gemini-flash-lite-latest,gemini-flash-latest`) y `ANTHROPIC_MODEL` (`claude-opus-5`). Sin clave, Rockie funciona en **modo básico**
 (intérprete local: crea ítems con día, hora y duración). Tope: 60 órdenes por hora y persona.
+
+### Calendarios y Google Calendar
+
+Cada actividad vive en un **calendario** (Personal, Estudio, Trabajo, Salud vienen de fábrica; puedes crear más).
+El calendario da el color y su casilla, en el panel de la derecha, lo muestra u oculta. "Del equipo" oculta
+reuniones y tareas del HQ.
+
+**Google Calendar** se conecta en solo lectura (como Structured): tus eventos de Google aparecen en tu día; lo que
+creas en la agenda no se sube a Google. El permiso (refresh token) vive solo en el servidor (`agenda_google`).
+
+Configuración, una sola vez:
+
+1. En Google Cloud, en el cliente OAuth **web** (el mismo del login de B+), agrega como **URI de redirección
+   autorizado**: `https://xhtxhmfohtkezhpobbcr.supabase.co/functions/v1/agenda-google`
+2. Verifica que la **Google Calendar API** esté habilitada en ese proyecto de Google Cloud.
+3. Si la pantalla de consentimiento está en modo *Prueba*, agrega los correos que van a conectar como usuarios de prueba.
+4. Secrets en Supabase (ya cargados): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+
+```bash
+npx supabase functions deploy agenda-google --no-verify-jwt --project-ref xhtxhmfohtkezhpobbcr
+```

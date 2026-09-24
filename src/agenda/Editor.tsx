@@ -14,6 +14,7 @@ import { TEAM_COLOR } from './blocks'
 import { akeys, useAgendaActions, useHq, useItems, usePrefs, type Subtask } from './data'
 import { AIcon } from './icons'
 import { DatePop, StylePop, TimePop } from './Popovers'
+import { useCalendarMap } from './calendars'
 import { fmtDur, hhmm, tsToMin } from './time'
 
 export type Draft = {
@@ -25,6 +26,7 @@ export type Draft = {
   icon: string
   notes: string
   subtasks: Subtask[]
+  calendar_id?: string | null
 }
 export type EditorState = { mode: 'new'; draft: Draft } | { mode: 'edit'; id: string } | { mode: 'event'; id: string } | { mode: 'task'; id: string } | null
 
@@ -113,7 +115,7 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
   const hq = useHq().data
   const { createItem, updateItem, deleteItem } = useAgendaActions()
   const init: Draft = item
-    ? { title: item.title, day: item.day, start: item.start_min, duration: item.duration_min, color: item.color, icon: item.icon, notes: item.notes, subtasks: item.subtasks }
+    ? { title: item.title, day: item.day, start: item.start_min, duration: item.duration_min, color: item.color, icon: item.icon, notes: item.notes, subtasks: item.subtasks, calendar_id: item.calendar_id }
     : draft!
   const [f, setF] = useState<Draft>(init)
   const [pop, setPop] = useState<'time' | 'date' | 'style' | null>(null)
@@ -122,6 +124,10 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
   const task = item?.hq_task_id ? hq?.tasks.find((t) => t.id === item.hq_task_id) : undefined
   const set = (p: Partial<Draft>) => setF((x) => ({ ...x, ...p }))
   const presets = prefs?.presets?.length ? prefs.presets : [15, 30, 45, 60, 90]
+  // El color lo da el calendario (como Google Calendar); sin calendario, el propio
+  const { list: cals, byId: calById } = useCalendarMap()
+  const cal = f.calendar_id ? calById.get(f.calendar_id) : undefined
+  const color = cal?.color ?? f.color
 
   useEffect(() => {
     if (!item) setTimeout(() => titleRef.current?.focus(), 250)
@@ -139,7 +145,7 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
   async function save() {
     const title = f.title.trim()
     if (!title) return titleRef.current?.focus()
-    const row = { title, day: f.day, start_min: f.day ? f.start : null, duration_min: f.duration, color: f.color, icon: f.icon, notes: f.notes, subtasks: f.subtasks }
+    const row = { title, day: f.day, start_min: f.day ? f.start : null, duration_min: f.duration, color, icon: f.icon, notes: f.notes, subtasks: f.subtasks, calendar_id: f.calendar_id ?? null }
     if (item) await updateItem(item.id, row)
     else await createItem(row)
     close()
@@ -159,7 +165,7 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
 
   const subDone = f.subtasks.filter((s) => s.done).length
   return (
-    <Panel color={f.color} label={item ? 'Editar' : 'Nuevo'}>
+    <Panel color={color} label={item ? 'Editar' : 'Nuevo'}>
       {(startDrag) => (
         <>
           <header className="ag-ph" onPointerDown={startDrag}>
@@ -168,7 +174,7 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
               <motion.button
                 className="ag-ph-pill"
                 onClick={() => setPop(pop === 'style' ? null : 'style')}
-                aria-label="Cambiar color e ícono"
+                aria-label={cal ? 'Cambiar ícono' : 'Cambiar color e ícono'}
                 whileTap={{ scale: 0.92 }}
                 layout
               >
@@ -177,7 +183,7 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
                   <AIcon name="palette" size={13} />
                 </span>
               </motion.button>
-              <StylePop open={pop === 'style'} onClose={() => setPop(null)} color={f.color} icon={f.icon} onChange={(color, icon) => set({ color, icon })} />
+              <StylePop open={pop === 'style'} onClose={() => setPop(null)} color={color} icon={f.icon} iconOnly={Boolean(cal)} onChange={(c, icon) => set({ color: c, icon })} />
             </div>
             <div className="ag-ph-main">
               <small>{timeLabel}</small>
@@ -257,6 +263,25 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
                 <TimePop open={pop === 'time'} onClose={() => setPop(null)} start={f.start} duration={f.duration} presets={presets} tz={tz} onChange={(start, duration) => set({ start, duration })} />
               )}
             </div>
+
+            {cals.length > 0 && (
+              <div className="ag-card">
+                <div className="ag-calpick" role="radiogroup" aria-label="Calendario">
+                  {cals.map((c) => (
+                    <button
+                      key={c.id}
+                      role="radio"
+                      aria-checked={c.id === f.calendar_id}
+                      className={`ag-chip ag-calchip${c.id === f.calendar_id ? ' on' : ''}`}
+                      style={{ ['--c' as string]: c.color } as CSSProperties}
+                      onClick={() => set({ calendar_id: c.id, color: c.color })}
+                    >
+                      <i aria-hidden="true" /> {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="ag-card">
               <ul className="ag-subs">

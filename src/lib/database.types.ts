@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       achievements_unlocked: {
@@ -154,8 +129,79 @@ export type Database = {
           },
         ]
       }
+      agenda_calendars: {
+        Row: {
+          color: string
+          created_at: string
+          hidden: boolean
+          icon: string
+          id: string
+          name: string
+          position: number
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          hidden?: boolean
+          icon?: string
+          id?: string
+          name: string
+          position?: number
+          user_id?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          hidden?: boolean
+          icon?: string
+          id?: string
+          name?: string
+          position?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_calendars_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_google: {
+        Row: {
+          connected_at: string
+          email: string | null
+          refresh_token: string
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string
+          email?: string | null
+          refresh_token: string
+          user_id: string
+        }
+        Update: {
+          connected_at?: string
+          email?: string | null
+          refresh_token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_google_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agenda_items: {
         Row: {
+          calendar_id: string | null
           color: string
           created_at: string
           day: string | null
@@ -173,6 +219,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          calendar_id?: string | null
           color?: string
           created_at?: string
           day?: string | null
@@ -190,6 +237,7 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          calendar_id?: string | null
           color?: string
           created_at?: string
           day?: string | null
@@ -207,6 +255,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "agenda_items_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_calendars"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agenda_items_hq_task_id_fkey"
             columns: ["hq_task_id"]
@@ -227,6 +282,8 @@ export type Database = {
         Row: {
           created_at: string
           default_duration: number
+          google_hidden: string[]
+          hide_team: boolean
           onboarded_at: string | null
           presets: number[]
           sleep_min: number
@@ -237,6 +294,8 @@ export type Database = {
         Insert: {
           created_at?: string
           default_duration?: number
+          google_hidden?: string[]
+          hide_team?: boolean
           onboarded_at?: string | null
           presets?: number[]
           sleep_min?: number
@@ -247,6 +306,8 @@ export type Database = {
         Update: {
           created_at?: string
           default_duration?: number
+          google_hidden?: string[]
+          hide_team?: boolean
           onboarded_at?: string | null
           presets?: number[]
           sleep_min?: number
@@ -343,6 +404,386 @@ export type Database = {
             columns: ["space_id"]
             isOneToOne: false
             referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_books: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          parent_id: string | null
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_books_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_books_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_cards: {
+        Row: {
+          a: string
+          box: number
+          created_at: string
+          due: string
+          id: string
+          note_id: string
+          q: string
+          reviewed_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          a: string
+          box?: number
+          created_at?: string
+          due: string
+          id?: string
+          note_id: string
+          q: string
+          reviewed_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          a?: string
+          box?: number
+          created_at?: string
+          due?: string
+          id?: string
+          note_id?: string
+          q?: string
+          reviewed_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_cards_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_cards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_days: {
+        Row: {
+          day: string
+          remembered: number
+          reviewed: number
+          user_id: string
+        }
+        Insert: {
+          day: string
+          remembered?: number
+          reviewed?: number
+          user_id?: string
+        }
+        Update: {
+          day?: string
+          remembered?: number
+          reviewed?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_days_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_drawings: {
+        Row: {
+          created_at: string
+          height: number
+          id: string
+          strokes: Json
+          updated_at: string
+          user_id: string
+          width: number
+        }
+        Insert: {
+          created_at?: string
+          height: number
+          id?: string
+          strokes?: Json
+          updated_at?: string
+          user_id?: string
+          width: number
+        }
+        Update: {
+          created_at?: string
+          height?: number
+          id?: string
+          strokes?: Json
+          updated_at?: string
+          user_id?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_drawings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_entries: {
+        Row: {
+          created_at: string
+          day: string
+          id: string
+          proposals: Json
+          say: string
+          source: string
+          status: string
+          text: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day: string
+          id?: string
+          proposals?: Json
+          say?: string
+          source?: string
+          status?: string
+          text: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          id?: string
+          proposals?: Json
+          say?: string
+          source?: string
+          status?: string
+          text?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_links: {
+        Row: {
+          a_id: string
+          b_id: string | null
+          created_at: string
+          id: string
+          project_id: string | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          a_id: string
+          b_id?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          reason: string
+          user_id?: string
+        }
+        Update: {
+          a_id?: string
+          b_id?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          reason?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_links_a_id_fkey"
+            columns: ["a_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_links_b_id_fkey"
+            columns: ["b_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_links_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_links_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_notes: {
+        Row: {
+          area: string
+          body: string
+          book_id: string | null
+          created_at: string
+          embedded_at: string | null
+          embedding: string | null
+          entry_id: string | null
+          id: string
+          position: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          area?: string
+          body?: string
+          book_id?: string | null
+          created_at?: string
+          embedded_at?: string | null
+          embedding?: string | null
+          entry_id?: string | null
+          id?: string
+          position?: number
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          area?: string
+          body?: string
+          book_id?: string | null
+          created_at?: string
+          embedded_at?: string | null
+          embedding?: string | null
+          entry_id?: string | null
+          id?: string
+          position?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_notes_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_notes_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_tokens: {
+        Row: {
+          created_at: string
+          hint: string
+          id: string
+          last_used_at: string | null
+          name: string
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hint: string
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          token_hash: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          hint?: string
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -907,6 +1348,7 @@ export type Database = {
     }
     Functions: {
       agenda_agent_bump: { Args: never; Returns: number }
+      agenda_seed_calendars: { Args: never; Returns: undefined }
       check_achievements: { Args: { sid: string }; Returns: string[] }
       create_invite: {
         Args: { p_space: string }
@@ -928,6 +1370,31 @@ export type Database = {
         }
       }
       create_space: { Args: { p_name?: string }; Returns: string }
+      cuaderno_set_embedding: {
+        Args: { emb: string; note: string }
+        Returns: undefined
+      }
+      cuaderno_similar: {
+        Args: { exclude?: string[]; k?: number; q: string }
+        Returns: {
+          area: string
+          id: string
+          score: number
+          snippet: string
+          title: string
+        }[]
+      }
+      cuaderno_similar_for: {
+        Args: { k?: number; p_user: string; q: string }
+        Returns: {
+          area: string
+          id: string
+          score: number
+          snippet: string
+          title: string
+        }[]
+      }
+      cuaderno_token_user: { Args: { p_hash: string }; Returns: string }
       demo_fill: { Args: { p_space: string }; Returns: undefined }
       gen_code: { Args: { n?: number }; Returns: string }
       hq_norm: { Args: { x: string }; Returns: string }
@@ -1078,9 +1545,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

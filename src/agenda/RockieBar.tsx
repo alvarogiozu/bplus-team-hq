@@ -5,6 +5,7 @@ import { toast } from '../components/Toasts'
 import { haptic } from '../lib/fx'
 import { useAuth } from '../features/auth/AuthProvider'
 import { applyProposal, askRockie, buildContext, describe, ghostOf, makeLook, summarize, type Card, type Proposal, type Turn } from './agent'
+import { useCalendarMap, type GEvent } from './calendars'
 import { useAgendaActions, useHq, useItems, usePrefs, type Undo } from './data'
 import { openEditor } from './Editor'
 import { AIcon } from './icons'
@@ -29,7 +30,7 @@ type Entry =
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
-export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: string; nowMin: number; mobile: boolean; onGhosts: (g: Ghost[]) => void; onFocusDay: (d: string) => void; onNew: () => void }>(
+export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: string; nowMin: number; mobile: boolean; onGhosts: (g: Ghost[]) => void; onFocusDay: (d: string) => void; onNew: () => void; google?: GEvent[] }>(
   function RockieBar(p, inputRef) {
     const { profile } = useAuth()
     const itemsData = useItems().data
@@ -38,7 +39,8 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
     const prefs = usePrefs().data
     const actions = useAgendaActions()
     const tz = profile?.timezone ?? 'America/Lima'
-    const look = useMemo(() => makeLook({ today: p.today, tz, prefs, items, hq }), [p.today, tz, prefs, items, hq])
+    const { list: cals } = useCalendarMap()
+    const look = useMemo(() => makeLook({ today: p.today, tz, prefs, items, hq, cals }), [p.today, tz, prefs, items, hq, cals])
 
     const [text, setText] = useState('')
     const [thread, setThread] = useState<Entry[]>([])
@@ -58,7 +60,7 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
       setOpen(true)
       setThinking(true)
       setThread((x) => [...x, { id: uid(), who: 'user' as const, text: t, voice: byVoice }].slice(-24))
-      const ctx = buildContext({ today: p.today, nowMin: p.nowMin, tz, profile, prefs, items, hq })
+      const ctx = buildContext({ today: p.today, nowMin: p.nowMin, tz, profile, prefs, items, hq, cals, google: p.google })
       const people = (hq?.people ?? []).map((x) => ({ id: x.id, name: x.name, username: x.username }))
       const reply = await askRockie(t, turns, ctx, () => localPropose(t, { today: p.today, defaultDuration: prefs?.default_duration ?? 15, people }))
       setThinking(false)

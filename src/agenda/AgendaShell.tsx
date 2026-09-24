@@ -7,6 +7,8 @@ import { addDays, fmtDay, MONTH_NAMES, todayIn } from '../lib/dates'
 import { burst, celebrateRockie, haptic } from '../lib/fx'
 import { useMe } from '../features/auth/AuthProvider'
 import { anchorsOf, dayContent, dotsFor, type Block } from './blocks'
+import { CalendarsPanel } from './CalendarsPanel'
+import { useCalendarMap, useCalendarsRealtime, useGoogleCalendars, useGoogleEvents, useGoogleReturn, useGoogleStatus } from './calendars'
 import { useAgendaActions, useAgendaRealtime, useHq, useItems, usePrefs } from './data'
 import { DayStrip } from './DayStrip'
 import { useDrag, useDraggable, type DragPayload } from './drag'
@@ -28,6 +30,17 @@ function useClock(tz: string) {
     return () => clearInterval(id)
   }, [tz])
   return t
+}
+
+function useMedia(q: string) {
+  const [m, setM] = useState(() => matchMedia(q).matches)
+  useEffect(() => {
+    const mq = matchMedia(q)
+    const on = () => setM(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [q])
+  return m
 }
 
 function useIsMobile() {
@@ -67,7 +80,19 @@ export function AgendaShell() {
   const prefs = usePrefs().data
   const actions = useAgendaActions()
   useAgendaRealtime()
+  useCalendarsRealtime()
   const mobile = useIsMobile()
+  // Panel de calendarios fijo a la derecha solo si hay ancho; si no, se abre con un botón
+  const wide = useMedia('(min-width: 1280px)')
+  const [calsOpen, setCalsOpen] = useState(false)
+  const { byId: calById, fallback: calDefault } = useCalendarMap()
+  const gstatus = useGoogleStatus().data
+  const gcals = useGoogleCalendars(Boolean(gstatus?.connected)).data
+  const gIds = useMemo(() => {
+    const hidden = new Set(prefs?.google_hidden ?? [])
+    return (gcals ?? []).filter((g) => !hidden.has(g.id)).map((g) => g.id)
+  }, [gcals, prefs?.google_hidden])
+  useGoogleReturn(() => setCalsOpen(!wide))
   const [ghosts, setGhosts] = useState<Ghost[]>([])
   const [inboxOpen, setInboxOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -125,16 +150,18 @@ export function AgendaShell() {
     return () => removeEventListener('keydown', onKey)
   }, [day, today, setDay])
 
-  const { blocks, allDay, wake, sleep } = useMemo(() => dayContent({ day, items, hq, prefs, tz }), [day, items, hq, prefs, tz])
+  const gEvents = useGoogleEvents(day, tz, gIds).data
+  const view = useMemo(() => ({ cals: calById, google: gIds.length ? gEvents ?? [] : [] }), [calById, gEvents, gIds.length])
+  const { blocks, allDay, wake, sleep } = useMemo(() => dayContent({ day, items, hq, prefs, tz, view }), [day, items, hq, prefs, tz, view])
   const inboxItems = useMemo(() => items.filter((i) => !i.day && !i.done_at).sort((a, b) => a.position - b.position), [items])
   const teamTasks = useMemo(() => {
     const blocked = new Set(items.filter((i) => i.hq_task_id && i.day && i.day >= today).map((i) => i.hq_task_id))
     const soon = addDays(today, 7)
     return (hq?.tasks ?? []).filter((t) => !blocked.has(t.id) && (!t.due_date || t.due_date <= soon)).sort((a, b) => (a.due_date ?? '9').localeCompare(b.due_date ?? '9'))
   }, [hq, items, today])
-  const dots = useCallback((d: string) => dotsFor(d, items, hq, tz), [items, hq, tz])
+  const dots = useCallback((d: string) => dotsFor(d, items, hq, tz, { ...view, hideTeam: Boolean(prefs?.hide_team) }), [items, hq, tz, view, prefs?.hide_team])
   const slot = (dur: number, d = day) =>
-    nextFreeSlot(d === day ? blocks : dayContent({ day: d, items, hq, prefs, tz }).blocks, { isToday: d === today, nowMin, wake, sleep, dur })
+    nextFreeSlot(d === day ? blocks : dayContent({ day: d, items, hq, prefs, tz, view }).blocks, { isToday: d === today, nowMin, wake, sleep, dur })
 
   // ---------- soltar ----------
   async function dropAt(p: DragPayload, min: number, d = day) {
@@ -169,6 +196,10 @@ export function AgendaShell() {
   }
   function open(b: Block) {
     if (b.kind === 'anchor') return setSettingsOpen(true)
+    if (b.kind === 'gcal') {
+      if (b.gcal?.link) window.open(b.gcal.link, '_blank', 'noopener')
+      return
+    }
     if (b.kind === 'event') return openEditor({ mode: 'event', id: b.id })
     openEditor({ mode: 'edit', id: b.id })
   }
@@ -177,10 +208,11 @@ export function AgendaShell() {
     day: d,
     start,
     duration: prefs?.default_duration ?? 15,
-    color: '#cf7358',
+    color: calDefault?.color ?? '#cf7358',
     icon: 'task',
     notes: '',
     subtasks: [],
+    calendar_id: calDefault?.id ?? null,
   })
   const newHere = () => openEditor({ mode: 'new', draft: newDraft(slot(prefs?.default_duration ?? 15)) })
 
@@ -206,7 +238,7 @@ export function AgendaShell() {
   )
 
   return (
-    <div className="ag">
+    <div className={`ag${wide ? ' with-cals' : ''}`}>
       {!mobile && (
         <aside className="ag-inbox" aria-label="Inbox">
           <div className="ag-inbox-head">
@@ -269,6 +301,11 @@ export function AgendaShell() {
               <AIcon name="team" size={16} /> B+ HQ
             </Link>
           )}
+          {!wide && (
+            <button className="ag-iconbtn" onClick={() => setCalsOpen(true)} aria-label="Calendarios" title="Calendarios">
+              <AIcon name="calendar" size={19} />
+            </button>
+          )}
           <button className="ag-iconbtn" onClick={() => setSettingsOpen(true)} aria-label="Ajustes de la agenda">
             <AIcon name="settings" size={19} />
           </button>
@@ -330,7 +367,7 @@ export function AgendaShell() {
           </div>
         </motion.div>
 
-        <RockieBar ref={barRef} day={day} today={today} nowMin={nowMin} mobile={mobile} onGhosts={setGhosts} onFocusDay={setDay} onNew={newHere} />
+        <RockieBar ref={barRef} day={day} today={today} nowMin={nowMin} mobile={mobile} onGhosts={setGhosts} onFocusDay={setDay} onNew={newHere} google={view.google} />
 
         {!mobile && (
           <motion.button className="ag-fab" onClick={newHere} aria-label="Nuevo" whileHover={{ scale: 1.06, rotate: 90 }} whileTap={{ scale: 0.92 }} transition={{ type: 'spring', stiffness: 400, damping: 16 }}>
@@ -339,10 +376,21 @@ export function AgendaShell() {
         )}
       </main>
 
+      {wide && (
+        <aside className="ag-cals" aria-label="Calendarios">
+          <CalendarsPanel day={day} today={today} onPick={(d) => { setDay(d); if (!wide) setCalsOpen(false) }} hasTeam={(hq?.spaces.length ?? 0) > 0} />
+        </aside>
+      )}
+
       <EditorHost />
       {mobile && (
         <Sheet open={inboxOpen} onClose={() => setInboxOpen(false)} title="Inbox">
           {inbox}
+        </Sheet>
+      )}
+      {!wide && (
+        <Sheet open={calsOpen} onClose={() => setCalsOpen(false)} title="Calendarios">
+          <CalendarsPanel day={day} today={today} onPick={(d) => { setDay(d); if (!wide) setCalsOpen(false) }} hasTeam={(hq?.spaces.length ?? 0) > 0} />
         </Sheet>
       )}
       <AgendaSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} anchors={anchorsOf(prefs)} />
@@ -362,11 +410,13 @@ function AllDayChip({ a }: { a: ReturnType<typeof dayContent>['allDay'][number] 
     <motion.button
       layout
       className={`ag-adchip ${a.kind}${a.done ? ' done' : ''}`}
+      title={a.kind === 'gcal' ? `Google · ${a.gcal?.calName ?? ''}` : undefined}
       style={{ ['--c' as string]: a.color, opacity: isDragging ? 0.3 : 1 } as CSSProperties}
       onPointerDown={onPointerDown}
       onClick={() => {
         if (a.item) openEditor({ mode: 'edit', id: a.item.id })
         else if (a.task) openEditor({ mode: 'task', id: a.task.id })
+        else if (a.gcal?.link) window.open(a.gcal.link, '_blank', 'noopener')
       }}
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}

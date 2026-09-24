@@ -76,3 +76,15 @@ típica 2–4 s con `gemini-2.5-flash` sin pensamiento (los 3.x "latest" daban 5
 **IA saturada = modo básico, no silencio.** El plan gratis de Gemini a veces agota la cuota diaria (429) o Google
 responde 503. La función prueba los modelos, hace una segunda vuelta corta si fue saturación pasajera y responde en
 menos de ~15 s; si falla, el cliente intenta el intérprete local y muestra la propuesta como "modo básico".
+
+**Calendarios, no "áreas" (24 sep 2026).** Como Google Calendar pero mínimo: nombre, color y una casilla para
+mostrar u ocultar. Cada actividad vive en uno; el color sale del calendario (cambiarlo recolorea todo). La primera
+vez se crean Personal, Estudio, Trabajo y Salud (`agenda_seed_calendars`) y lo ya agendado pasa a Personal. Borrar
+un calendario nunca borra actividades: pasan a otro. Pantalla: Inbox a la izquierda, el día al centro, calendarios
+(mes + calendarios + equipo + Google) a la derecha; bajo 1280 px el panel se abre con un botón.
+
+**Google Calendar en solo lectura, con OAuth por redirección.** El navegador pide a la Edge Function `agenda-google`
+un enlace firmado (state con HMAC, vence en 10 min, solo vuelve a /agenda de la app), Google redirige a la función,
+que canjea el código y guarda el refresh token en `agenda_google` (sin políticas: solo service_role). Los eventos se
+leen por la función por semana y calendario visible. Se eligió solo lectura (igual que Structured) para no duplicar
+ni pisar eventos en Google.

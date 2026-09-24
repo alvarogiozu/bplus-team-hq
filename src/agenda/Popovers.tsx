@@ -190,14 +190,15 @@ export function DatePop(p: { open: boolean; onClose: () => void; day: string | n
   )
 }
 
-export function StylePop(p: { open: boolean; onClose: () => void; color: string; icon: string; onChange: (color: string, icon: string) => void }) {
+/** Con iconOnly (el ítem vive en un calendario) el color lo da el calendario: solo se elige el ícono. */
+export function StylePop(p: { open: boolean; onClose: () => void; color: string; icon: string; iconOnly?: boolean; onChange: (color: string, icon: string) => void }) {
   return (
-    <Pop open={p.open} onClose={p.onClose} title="Color e ícono">
-      <div className="ag-swatches">
+    <Pop open={p.open} onClose={p.onClose} title={p.iconOnly ? 'Ícono' : 'Color e ícono'}>
+      {!p.iconOnly && <div className="ag-swatches">
         {ITEM_COLORS.map((c) => (
           <button key={c} className="ag-sw" style={{ background: c }} aria-pressed={c === p.color} aria-label={`Color ${c}`} onClick={() => p.onChange(c, p.icon)} />
         ))}
-      </div>
+      </div>}
       <div className="ag-icons">
         {ITEM_ICONS.map((i) => (
           <button key={i} className={`ag-icon${i === p.icon ? ' on' : ''}`} style={{ ['--c' as string]: p.color }} aria-pressed={i === p.icon} aria-label={i} onClick={() => p.onChange(p.color, i)}>

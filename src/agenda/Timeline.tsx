@@ -251,7 +251,7 @@ function BlockRow(props: {
 }) {
   const { b, top, height, lane, index, past, landed } = props
   const payload: DragPayload | null =
-    b.kind === 'anchor' ? null : { kind: b.kind === 'event' ? 'event' : 'item', id: b.id, title: b.title, color: b.color, icon: b.icon, duration: b.duration, from: 'timeline' }
+    b.kind === 'anchor' || b.kind === 'gcal' ? null : { kind: b.kind === 'event' ? 'event' : 'item', id: b.id, title: b.title, color: b.color, icon: b.icon, duration: b.duration, from: 'timeline' }
   const { onPointerDown, isDragging } = useDraggable(payload)
   const anchor = b.kind === 'anchor'
   const long = b.duration >= 30
@@ -259,7 +259,7 @@ function BlockRow(props: {
 
   return (
     <motion.div
-      className={`tl-block${anchor ? ' anchor' : ''}${b.done ? ' done' : ''}${past && !b.done ? ' past' : ''}${isDragging ? ' lifted' : ''}${b.kind === 'event' ? ' event' : ''}`}
+      className={`tl-block${anchor ? ' anchor' : ''}${b.done ? ' done' : ''}${past && !b.done ? ' past' : ''}${isDragging ? ' lifted' : ''}${b.kind === 'event' || b.kind === 'gcal' ? ' event' : ''}${b.kind === 'gcal' ? ' gcal' : ''}`}
       style={style}
       initial={{ opacity: 0, y: top - 16, height }}
       animate={
@@ -289,7 +289,7 @@ function BlockRow(props: {
         </small>
         <b>{b.title}</b>
       </button>
-      {!anchor && b.kind !== 'event' && (
+      {b.kind === 'item' && (
         <button
           className={`tl-ring${b.done ? ' on' : ''}`}
           data-nodrag
@@ -300,8 +300,8 @@ function BlockRow(props: {
           }}
         >
           <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
-            <circle cx="16" cy="16" r="13" className="ring-bg" />
-            <circle cx="16" cy="16" r="13" className="ring-fill" />
+            <rect x="3" y="3" width="26" height="26" rx="8" className="ring-bg" />
+            <rect x="3" y="3" width="26" height="26" rx="8" className="ring-fill" />
             <path d="M10 16.5l4 4 8-9" className="ring-check" />
           </svg>
         </button>
