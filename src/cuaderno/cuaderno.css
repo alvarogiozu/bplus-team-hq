@@ -1802,25 +1802,25 @@ textarea.cu-input { resize: none; }
 .cu-bubble-chip { min-height: calc(var(--s8) + var(--s1)); display: inline-flex; align-items: center; gap: var(--s1); padding: 0 var(--s3); border-radius: var(--r-pill); background: var(--paper-alt); font-size: var(--t-xs); font-weight: 700; color: var(--ink); white-space: nowrap; }
 .cu-bubble .cu-narrow-only { display: none; }
 
-/* ---------- columnas (como Notion): cada una se ve como una zona y el borde entre ellas se arrastra ---------- */
-.cu-prose .cu-cols { display: flex; gap: var(--s5); margin: var(--s4) 0; }
-.cu-prose .cu-col { position: relative; flex: 50 1 0%; min-width: 0; padding: var(--s3) var(--s4); border-radius: var(--r-md); border: 1.5px dashed color-mix(in srgb, var(--ink-muted) 45%, var(--card-line)); background: color-mix(in srgb, var(--paper-alt) 55%, transparent); transition: border-color 0.15s, background 0.15s, box-shadow 0.15s; }
-/* la columna donde estás escribiendo se levanta un poco */
-.cu-prose.ProseMirror-focused .cu-col.is-active { border-style: solid; border-color: color-mix(in srgb, var(--accent) 55%, var(--card-line)); background: var(--card); box-shadow: 0 3px 0 var(--card-edge); }
+/* ---------- columnas (como Notion): sin cajas, solo una raya entre ellas que se arrastra ---------- */
+.cu-prose .cu-cols { display: flex; gap: var(--s6); margin: var(--s4) 0; }
+.cu-prose .cu-col { position: relative; flex: 50 1 0%; min-width: 0; }
 .cu-prose .cu-col-body > :first-child { margin-top: 0; }
 .cu-prose .cu-col-body > :last-child { margin-bottom: 0; }
-/* el tirador vive en el espacio entre columnas: una raya con una manija, siempre a la vista */
-.cu-prose .cu-col-grip { position: absolute; top: 0; bottom: 0; right: calc(var(--s5) / -2 - var(--s2) - 1.5px); width: var(--s4); cursor: col-resize; touch-action: none; z-index: 1; }
-.cu-prose .cu-col-grip::after { content: ''; position: absolute; top: var(--s2); bottom: var(--s2); left: 50%; width: 2px; margin-left: -1px; border-radius: 2px; background: var(--card-line); transition: background 0.15s; }
-.cu-prose .cu-col-grip::before { content: ''; position: absolute; z-index: 1; top: 50%; left: 50%; width: var(--s2); height: var(--s8); margin: calc(var(--s8) / -2) 0 0 calc(var(--s2) / -2); border-radius: var(--r-pill); border: 1.5px solid var(--card-line); background: var(--card); box-shadow: 0 2px 0 var(--card-edge); transition: background 0.15s, border-color 0.15s; }
+/* la raya divisoria vive en el espacio entre columnas; al pasar el mouse aparece su manija */
+.cu-prose .cu-col-grip { position: absolute; top: 0; bottom: 0; right: calc(var(--s6) / -2 - var(--s2)); width: var(--s4); cursor: col-resize; touch-action: none; z-index: 1; }
+.cu-prose .cu-col-grip::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1.5px; margin-left: -0.75px; border-radius: 2px; background: var(--card-line); transition: background 0.15s; }
+.cu-prose .cu-col-grip::before { content: ''; position: absolute; z-index: 1; top: 50%; left: 50%; width: var(--s2); height: var(--s8); margin: calc(var(--s8) / -2) 0 0 calc(var(--s2) / -2); border-radius: var(--r-pill); background: var(--accent); opacity: 0; transition: opacity 0.15s; }
 .cu-prose .cu-col-grip:hover::after, .cu-prose .cu-col.resizing .cu-col-grip::after { background: var(--accent); }
-.cu-prose .cu-col-grip:hover::before, .cu-prose .cu-col.resizing .cu-col-grip::before { border-color: var(--accent); background: var(--accent); }
+.cu-prose .cu-col-grip:hover::before, .cu-prose .cu-col.resizing .cu-col-grip::before { opacity: 1; }
 .cu-prose .cu-col:last-child > .cu-col-grip { display: none; }
 /* en pantallas angostas las columnas se apilan (y vuelven a su ancho al haber espacio) */
 @media (max-width: 600px) {
   .cu-prose .cu-cols { flex-direction: column; gap: var(--s4); }
   .cu-prose .cu-col { flex-grow: 0 !important; }
   .cu-prose .cu-col-grip { display: none; }
+  /* apiladas: la misma raya, ahora acostada */
+  .cu-prose .cu-col + .cu-col { padding-top: var(--s4); border-top: 1.5px solid var(--card-line); }
 }
 
 /* ---------- pizarra infinita ---------- */

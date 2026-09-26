@@ -448,26 +448,6 @@ export const Column = Node.create({
   },
   markdownTokenizer: colSpec.markdownTokenizer,
   renderMarkdown: (node, h) => colSpec.renderMarkdown({ ...node, attrs: { width: round1(Number(node.attrs?.width) || 50) } }, h),
-  // la columna donde está el cursor lleva `is-active` (se levanta un poco: sabes dónde escribes)
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: new PluginKey('cuActiveColumn'),
-        props: {
-          decorations: (state) => {
-            const { $from } = state.selection
-            for (let d = $from.depth; d > 0; d--) {
-              const n = $from.node(d)
-              if (n.type.name !== 'column') continue
-              const pos = $from.before(d)
-              return DecorationSet.create(state.doc, [Decoration.node(pos, pos + n.nodeSize, { class: 'is-active' })])
-            }
-            return null
-          },
-        },
-      }),
-    ]
-  },
   // el borde entre columnas se arrastra para cambiar el ancho (como Notion)
   addNodeView() {
     return ({ node, getPos, editor }) => {
