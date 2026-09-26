@@ -6,7 +6,7 @@ import { addDays, todayIn } from '../lib/dates'
 import { toast, toastError } from '../components/Toasts'
 import { useAuth } from '../features/auth/AuthProvider'
 import { dueAfter } from './leitner'
-import type { BookColor } from './books'
+import { descendantsOf, type BookColor, type BookKind } from './books'
 
 // ---------- tipos ----------
 export type Area = 'cuerpo' | 'mente' | 'alma' | 'proyectos' | 'libre'
@@ -49,13 +49,13 @@ export type Entry = Omit<Tables<'cuaderno_entries'>, 'proposals' | 'source' | 's
 }
 /** Una página se escribe (Markdown) o es una pizarra infinita (su escena vive en cuaderno_boards). */
 export type NoteKind = 'pagina' | 'pizarra'
-export type Note = Omit<Tables<'cuaderno_notes'>, 'embedding' | 'area' | 'kind'> & { area: Area; kind: NoteKind }
+export type Note = Omit<Tables<'cuaderno_notes'>, 'embedding' | 'area' | 'kind' | 'color'> & { area: Area; kind: NoteKind; color: BookColor | null }
 export type Link = Tables<'cuaderno_links'>
 export type Card = Tables<'cuaderno_cards'>
 export type DayLog = Tables<'cuaderno_days'>
 export type HqProject = { id: string; name: string; color: string; space_id: string }
-/** Un cuaderno (parent_id null) o una de sus secciones. */
-export type Book = Omit<Tables<'cuaderno_books'>, 'color'> & { color: BookColor }
+/** Una carpeta o un cuaderno (color null = hereda el de quien lo contiene). */
+export type Book = Omit<Tables<'cuaderno_books'>, 'color' | 'kind'> & { color: BookColor | null; kind: BookKind }
 export type Undo = () => Promise<void>
 /** Lista vacía estable (no cambia en cada render mientras carga). */
 export const NONE: never[] = []
@@ -70,7 +70,7 @@ export const AREAS: { id: Area; label: string; icon: string; hint: string }[] = 
 export const areaOf = (id: string) => AREAS.find((a) => a.id === id) ?? AREAS[4]
 
 // sin la columna embedding: pesa y el cliente no la usa
-const NOTE_COLS = 'id, user_id, title, body, area, kind, entry_id, book_id, position, embedded_at, created_at, updated_at'
+const NOTE_COLS = 'id, user_id, title, body, area, kind, color, icon, entry_id, book_id, position, embedded_at, created_at, updated_at'
 
 export const ckeys = {
   notes: (u: string | null) => ['cu-notes', u] as const,
@@ -182,7 +182,7 @@ export function useOpenEntries() {
   })
 }
 
-/** Cuadernos y secciones, en su orden. */
+/** Carpetas, cuadernos y secciones, en su orden. */
 export function useBooks() {
   const uid = useUid()
   return useQuery({
@@ -375,7 +375,7 @@ export function useCuadernoActions() {
   )
 
   const updateNote = useCallback(
-    async (id: string, patch: { title?: string; body?: string; area?: Area }): Promise<Undo | null> => {
+    async (id: string, patch: { title?: string; body?: string; area?: Area; color?: BookColor | null; icon?: string | null }): Promise<Undo | null> => {
       const prev = notesNow().find((n) => n.id === id)
       if (prev) upsertIn(qc, ckeys.notes(uid), { ...prev, ...patch })
       const { data, error } = await supabase
@@ -486,20 +486,25 @@ export function useCuadernoActions() {
     [qc, uid, notesNow],
   )
 
-  // ----- cuadernos y secciones -----
+  // ----- carpetas, cuadernos y secciones -----
   const booksNow = useCallback(() => qc.getQueryData<Book[]>(ckeys.books(uid)) ?? [], [qc, uid])
 
   const createBook = useCallback(
     async (input: {
       name: string
-      color: BookColor
+      kind: BookKind
+      /** null = hereda el color de quien lo contiene */
+      color: BookColor | null
       parent_id?: string | null
+      icon?: string | null
     }): Promise<{ book: Book; undo: Undo } | null> => {
       const { data, error } = await supabase
         .from('cuaderno_books')
         .insert({
           name: input.name.slice(0, 80),
+          kind: input.kind,
           color: input.color,
+          icon: input.icon ?? null,
           parent_id: input.parent_id ?? null,
           position: Date.now() / 1000,
         })
@@ -522,23 +527,31 @@ export function useCuadernoActions() {
     [qc, uid],
   )
 
+  /** Renombrar, cambiar color o ícono, o moverlo a otra carpeta (parent_id). Devuelve si se guardó. */
   const updateBook = useCallback(
-    async (id: string, patch: { name?: string; color?: BookColor }) => {
+    async (
+      id: string,
+      patch: { name?: string; color?: BookColor | null; icon?: string | null; parent_id?: string | null; position?: number },
+    ) => {
       const prev = booksNow().find((b) => b.id === id)
       if (prev) upsertIn(qc, ckeys.books(uid), { ...prev, ...patch })
       const { error } = await supabase.from('cuaderno_books').update(patch).eq('id', id)
       if (error) {
         if (prev) upsertIn(qc, ckeys.books(uid), prev)
         toastError(humanError(error))
+        return false
       }
+      return true
     },
     [qc, uid, booksNow],
   )
 
-  /** Borra el cuaderno (o sección); sus páginas NO se borran: pasan a Sueltas. Deshacer lo devuelve todo. */
+  /** Borra la carpeta o cuaderno con todo lo de adentro; las páginas NO se borran: pasan a Sueltas. Deshacer lo devuelve todo. */
   const deleteBook = useCallback(
     async (book: Book) => {
-      const gone = booksNow().filter((b) => b.id === book.id || b.parent_id === book.id)
+      const all = booksNow()
+      const inner = descendantsOf(all, book.id)
+      const gone = all.filter((b) => b.id === book.id || inner.has(b.id))
       const goneIds = new Set(gone.map((b) => b.id))
       const moved = notesNow().filter((n) => n.book_id && goneIds.has(n.book_id))
       qc.setQueryData<Book[]>(ckeys.books(uid), (old) => old?.filter((b) => !goneIds.has(b.id)))
@@ -558,9 +571,10 @@ export function useCuadernoActions() {
         action: {
           label: 'Deshacer',
           onClick: async () => {
-            // primero el cuaderno, después sus secciones
+            // de afuera hacia adentro: cada uno necesita que exista quien lo contiene
+            const depth = (b: Book): number => (b.parent_id && gone.some((g) => g.id === b.parent_id) ? 1 + depth(gone.find((g) => g.id === b.parent_id)!) : 0)
             const rows = [...gone]
-              .sort((a, b) => (a.parent_id ? 1 : 0) - (b.parent_id ? 1 : 0))
+              .sort((a, b) => depth(a) - depth(b))
               .map(({ user_id: _u, created_at: _c, updated_at: _up, ...r }) => r)
             for (const r of rows) await supabase.from('cuaderno_books').insert(r)
             for (const n of moved) await supabase.from('cuaderno_notes').update({ book_id: n.book_id }).eq('id', n.id)
@@ -666,6 +680,21 @@ export function useCuadernoActions() {
           },
         },
       })
+    },
+    [qc, uid],
+  )
+
+  /** Cambiar el porqué de una conexión. */
+  const updateLink = useCallback(
+    async (link: Link, reason: string) => {
+      const r = reason.trim().slice(0, 300)
+      if (!r || r === link.reason) return
+      upsertIn(qc, ckeys.links(uid), { ...link, reason: r })
+      const { error } = await supabase.from('cuaderno_links').update({ reason: r }).eq('id', link.id)
+      if (error) {
+        upsertIn(qc, ckeys.links(uid), link)
+        toastError(humanError(error))
+      }
     },
     [qc, uid],
   )
@@ -805,6 +834,7 @@ export function useCuadernoActions() {
     loadBoard,
     saveBoard,
     createLink,
+    updateLink,
     deleteLink,
     createCards,
     deleteCard,

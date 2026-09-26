@@ -12,11 +12,16 @@ import { acceptProposal, embedNotes, reopen, reviewNote, type Look, type Reply }
 import { AskCard } from './Ask'
 import { useToday } from './capture'
 import { NONE, AREAS, useBooks, useCards, useCuadernoActions, useLinks, useNotes, useProjects, type Note } from './data'
+import { ConnectPicker } from './Conectar'
+import { DictationBar } from './Dictado'
+import type { WikiKeys } from './extensions'
+import { dictationSupported } from './dictation'
 import { SelectionMenu, Toolbar, useNoteEditor, type AskRequest } from './Editor'
 import { CIcon } from './icons'
 import { MEMORY_LABEL, memoryOf } from './leitner'
 import { PageHeader, SavedTag } from './PageHeader'
 import { ProposalList } from './Proposals'
+import { WikiSuggest } from './WikiSuggest'
 import { useHasPanel, useIsMobile } from './ui'
 
 // la pizarra (trazos, notas adhesivas, flechas) solo se descarga si abres una
@@ -37,8 +42,8 @@ export default function NotaPage() {
           <div className="cu-empty">
             <Rockie color="#2a82ad" size={72} sleepy />
             <h2>Esta página ya no existe</h2>
-            <Link to="/cuaderno/cuadernos" className="btn">
-              Ver mis cuadernos
+            <Link to="/cuaderno/carpetas" className="btn">
+              Ver mis carpetas
             </Link>
           </div>
         </div>
@@ -61,6 +66,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
   const [title, setTitle] = useState(note.title)
   const [saved, setSaved] = useState<'ok' | 'saving'>('ok')
   const [ask, setAsk] = useState<AskRequest | null>(null)
+  const [dictating, setDictating] = useState(false)
   const pending = useRef<{ title?: string; body?: string }>({})
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const embedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -87,7 +93,22 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
   }
   useEffect(() => () => void flush.current(), [])
 
-  const editor = useNoteEditor({ noteId: note.id, body: note.body, onChange: (md) => queue({ body: md }) })
+  const nav = useNavigate()
+  const wikiKeys = useRef<WikiKeys['current']>(null)
+  const editor = useNoteEditor({
+    noteId: note.id,
+    body: note.body,
+    onChange: (md) => queue({ body: md }),
+    onOpenNote: (id) => nav(`/cuaderno/nota/${id}`),
+    wikiKeys,
+  })
+
+  // una pizarra metida en la página se abre desde su vista previa
+  useEffect(() => {
+    const on = (e: Event) => nav(`/cuaderno/nota/${(e as CustomEvent<string>).detail}`)
+    addEventListener('cu:open-note', on)
+    return () => removeEventListener('cu:open-note', on)
+  }, [nav])
 
   useEffect(() => {
     if (params.get('nueva') && titleRef.current) {
@@ -109,6 +130,15 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
   const created = dayOfTs(note.created_at, profile.timezone)
 
   const panel = <NotePanel note={note} today={today} ask={ask} editor={editor} onCloseAsk={() => setAsk(null)} />
+  const dictate = () => {
+    if (dictating) return
+    if (!dictationSupported()) {
+      toast('Este navegador no dicta: usa Chrome, Edge o Safari', { kind: 'err' })
+      return
+    }
+    setAsk(null)
+    setDictating(true)
+  }
 
   return (
     <div className="cu-page">
@@ -123,7 +153,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
           }}
         />
         <div className="cu-toolwrap">
-          <Toolbar editor={editor} />
+          <Toolbar editor={editor} onDictate={dictate} dictating={dictating} note={note} />
         </div>
 
         <article className="cu-read cu-note">
@@ -170,9 +200,13 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
           </p>
           <EditorContent editor={editor} />
           <SelectionMenu editor={editor} onAsk={(r) => setAsk(r)} />
+          <WikiSuggest editor={editor} note={note} keys={wikiKeys} />
           <div className="cu-end" />
           {mobile && panel}
         </article>
+        <AnimatePresence>
+          {dictating && editor && <DictationBar key="dictado" editor={editor} note={note} mobile={mobile} onClose={() => setDictating(false)} />}
+        </AnimatePresence>
       </div>
       {!mobile && panel}
       {mobile && (
@@ -202,6 +236,8 @@ function NotePanel(p: { note: Note; today: string; ask: AskRequest | null; edito
   )
   const [reply, setReply] = useState<Reply | null>(null)
   const [asking, setAsking] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const linked = useMemo(() => new Set(links.flatMap((l) => [l.a_id, l.b_id ?? ''])), [links])
   const mem = memoryOf(cards, today)
 
   async function review() {
@@ -247,8 +283,14 @@ function NotePanel(p: { note: Note; today: string; ask: AskRequest | null; edito
       <section className="cu-psec">
         <h2>
           <CIcon name="link" size={16} /> Conexiones <small>{links.length || ''}</small>
+          <button className="cu-linkbtn cu-psec-act" onClick={() => setAdding(!adding)} aria-expanded={adding}>
+            <CIcon name={adding ? 'close' : 'plus'} size={14} /> {adding ? 'Cerrar' : 'Conectar'}
+          </button>
         </h2>
-        {links.length === 0 && !reply && <p className="cu-muted">Esta página aún no conecta con nada. Pídele a Rockie que busque.</p>}
+        {adding && <ConnectPicker note={note} exclude={linked} onDone={() => setAdding(false)} />}
+        {links.length === 0 && !reply && !adding && (
+          <p className="cu-muted">Esta página aún no conecta con nada. Conéctala tú (o escribe [[ en la página) o pídele a Rockie que busque.</p>
+        )}
         <ul className="cu-linklist">
           <AnimatePresence initial={false}>
             {links.map((l) => {

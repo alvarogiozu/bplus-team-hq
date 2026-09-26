@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { rootOf, spine } from './books'
+import { haptic } from '../lib/fx'
+import { chainOf, colorOf, noteColorOf, spine, type BookColor } from './books'
 import { openDialog } from './bus'
 import { NONE, useBooks, useCuadernoActions, type Note } from './data'
-import { CIcon } from './icons'
+import { CIcon, ItemIcon } from './icons'
+import { ColorPick, IconPick } from './pickers'
 import { BookPicker, Popover } from './ui'
 
-// La cabecera de una página (escrita o pizarra): volver, la ruta "Cuaderno › Sección ⌄" que mueve,
-// si ya se guardó, Profundizar con Rockie, el mapa y borrar. En el celular, lo secundario va al ⋯.
+// La cabecera de una página (escrita o pizarra): volver, la ruta "Carpeta › Cuaderno ⌄" que mueve,
+// su ícono y color, si ya se guardó, Profundizar con Rockie, el mapa y borrar. En el celular, lo secundario va al ⋯.
 
 export function SavedTag({ saved }: { saved: 'ok' | 'saving' }) {
   return (
@@ -24,32 +26,56 @@ export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'savi
   const books = useBooks().data ?? NONE
   const [moveAt, setMoveAt] = useState<HTMLElement | null>(null)
   const [moreAt, setMoreAt] = useState<HTMLElement | null>(null)
-  const root = rootOf(books, note.book_id)
-  const section = note.book_id && root && root.id !== note.book_id ? books.find((b) => b.id === note.book_id) : null
+  const [lookAt, setLookAt] = useState<HTMLElement | null>(null)
+  const chain = chainOf(books, note.book_id)
+  // muy adentro: "Carpeta › … › Sección"; en el celular, solo donde está
+  const crumb = mobile ? chain.slice(-1) : chain.length > 2 ? [chain[0], null, chain[chain.length - 1]] : chain
+  const color = noteColorOf(books, note)
+  const kindIcon = note.kind === 'pizarra' ? 'board' : 'note'
   const deepen = () => openDialog({ kind: 'conversar', contexto: { tipo: 'nota', id: note.id, titulo: note.title } })
   const remove = () => {
     p.onBeforeRemove?.()
     void actions.deleteNote(note)
-    nav(root ? `/cuaderno/c/${root.id}` : '/cuaderno/cuadernos', { replace: true })
+    nav(note.book_id && chain.length ? `/cuaderno/c/${note.book_id}` : '/cuaderno/carpetas', { replace: true })
   }
   const what = note.kind === 'pizarra' ? 'pizarra' : 'página'
+  const setColor = (c: BookColor | null) => {
+    haptic(6)
+    void actions.updateNote(note.id, { color: c })
+  }
+  const setIcon = (icon: string | null) => {
+    haptic(6)
+    void actions.updateNote(note.id, { icon })
+  }
 
   return (
     <header className={`cu-head cu-dochead${p.className ? ` ${p.className}` : ''}`}>
       <button className="iconbtn" onClick={() => nav(-1)} aria-label="Volver">
         <CIcon name="left" size={18} />
       </button>
-      <button className="cu-crumb" style={root ? spine(root.color) : undefined} onClick={(e) => setMoveAt(e.currentTarget)} aria-haspopup="menu" title="Mover a otro cuaderno">
-        <i aria-hidden="true" className={root ? '' : 'loose'} />
-        <span>{root ? root.name : 'Sueltas'}</span>
-        {section && (
-          <>
-            <em aria-hidden="true">›</em>
-            <span>{section.name}</span>
-          </>
+      <button className="cu-crumb" style={color ? spine(color) : undefined} onClick={(e) => setMoveAt(e.currentTarget)} aria-haspopup="menu" title="Mover a otra carpeta o cuaderno">
+        <i aria-hidden="true" className={chain.length ? '' : 'loose'} />
+        {chain.length ? (
+          crumb.map((b, i) => (
+            <Fragment key={b?.id ?? 'dots'}>
+              {i > 0 && <em aria-hidden="true">›</em>}
+              <span>{b ? b.name : '…'}</span>
+            </Fragment>
+          ))
+        ) : (
+          <span>Sueltas</span>
         )}
         <CIcon name="down" size={14} />
       </button>
+      <button className="iconbtn cu-lookbtn" style={color ? spine(color) : undefined} onClick={(e) => setLookAt(e.currentTarget)} aria-label={`Ícono y color de la ${what}`} title="Ícono y color">
+        <ItemIcon value={note.icon} fallback={kindIcon} size={18} />
+      </button>
+      <Popover anchor={lookAt} open={Boolean(lookAt)} onClose={() => setLookAt(null)} label="Ícono y color">
+        <p className="cu-pop-title">Color</p>
+        <ColorPick value={note.color} inherited={colorOf(books, note.book_id)} onPick={setColor} />
+        <p className="cu-pop-title">Ícono</p>
+        <IconPick value={note.icon} fallback={kindIcon} onPick={setIcon} />
+      </Popover>
       <Popover anchor={moveAt} open={Boolean(moveAt)} onClose={() => setMoveAt(null)} label="Mover a">
         <p className="cu-pop-title">Mover a…</p>
         <BookPicker

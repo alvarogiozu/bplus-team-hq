@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
@@ -10,10 +11,16 @@ import { TableKit } from '@tiptap/extension-table'
 import { Markdown } from '@tiptap/markdown'
 import { useAuth } from '../features/auth/AuthProvider'
 import { haptic } from '../lib/fx'
+import { BoardEmbed } from './BoardEmbed'
 import { openDialog } from './bus'
+import { NONE, useCuadernoActions, useNotes, type Note } from './data'
 import {
   Column,
   Columns,
+  DictationRange,
+  NOTE_HREF,
+  ObsidianTasks,
+  WikiLinks,
   TEXT_COLORS,
   TextColorMark,
   addColumn,
@@ -23,8 +30,9 @@ import {
   removeColumn,
   unwrapColumns,
   type TextColor,
+  type WikiKeys,
 } from './extensions'
-import { isStored, resolveSrc, shrinkImage, srcOf, upload } from './files'
+import { BOARD_SRC, isBoardSrc, isStored, resolveSrc, shrinkImage, srcOf, upload } from './files'
 import { CIcon } from './icons'
 import { Popover } from './ui'
 
@@ -36,10 +44,10 @@ import { Popover } from './ui'
 export type AskMode = 'explicar' | 'ejemplo' | 'conectar' | 'pregunta' | 'libre'
 export type AskRequest = { text: string; to: number; modo: AskMode; pregunta?: string }
 
-/** Imagen que entiende "cuaderno://…" (archivos privados) y distingue los dibujos. */
+/** Imagen que entiende "cuaderno://…" (archivos privados), distingue los dibujos y muestra las pizarras metidas en la página. */
 const CuImage = Image.extend({
   addNodeView() {
-    return ({ node }) => {
+    return ({ node, getPos, editor }) => {
       const fig = document.createElement('figure')
       fig.className = 'cu-fig'
       const img = document.createElement('img')
@@ -50,8 +58,35 @@ const CuImage = Image.extend({
       edit.textContent = 'Editar dibujo'
       fig.append(img, edit)
       let current = ''
+      let board: { root: Root; holder: HTMLElement } | null = null
+      const removeSelf = () => {
+        const pos = getPos()
+        const n = pos == null ? null : editor.state.doc.nodeAt(pos)
+        if (pos != null && n) editor.chain().focus().deleteRange({ from: pos, to: pos + n.nodeSize }).run()
+      }
       const set = (n: typeof node) => {
         const src = String(n.attrs.src ?? '')
+        if (isBoardSrc(src)) {
+          // una pizarra dentro de la página: su vista previa, que se abre con un toque
+          fig.classList.add('is-board')
+          img.hidden = true
+          edit.hidden = true
+          if (!board) {
+            const holder = document.createElement('div')
+            fig.append(holder)
+            board = { root: createRoot(holder), holder }
+          }
+          current = src
+          board.root.render(
+            <BoardEmbed
+              id={src.slice(BOARD_SRC.length)}
+              title={String(n.attrs.alt ?? 'Pizarra')}
+              onOpen={(id) => window.dispatchEvent(new CustomEvent('cu:open-note', { detail: id }))}
+              onRemove={removeSelf}
+            />,
+          )
+          return
+        }
         const title = String(n.attrs.title ?? '')
         img.alt = String(n.attrs.alt ?? '')
         const drawing = title.startsWith('dibujo:') ? title.slice(7) : ''
@@ -73,9 +108,17 @@ const CuImage = Image.extend({
       return {
         dom: fig,
         update: (n) => {
-          if (n.type.name !== 'image') return false
+          if (n.type.name !== 'image' || isBoardSrc(String(n.attrs.src ?? '')) !== Boolean(board)) return false
           set(n)
           return true
+        },
+        // lo de adentro de la pizarra (botones) es suyo: el editor no lo toca
+        stopEvent: (e) => Boolean(board && e.target instanceof Node && board.holder.contains(e.target) && e.type !== 'dragstart'),
+        ignoreMutation: (m) => Boolean(board && m.type !== 'selection' && board.holder.contains(m.target)),
+        destroy: () => {
+          const b = board
+          board = null
+          if (b) setTimeout(() => b.root.unmount())
         },
       }
     }
@@ -97,12 +140,24 @@ async function insertImages(editor: Editor, uid: string, files: File[], at?: num
   return true
 }
 
-export function useNoteEditor(p: { noteId: string; body: string; onChange: (md: string) => void }) {
+export function useNoteEditor(p: {
+  noteId: string
+  body: string
+  onChange: (md: string) => void
+  /** clic en un enlace a otra página ([[…]]) */
+  onOpenNote?: (id: string) => void
+  /** las teclas de la lista de [[ (la maneja WikiSuggest) */
+  wikiKeys?: WikiKeys
+}) {
   const { userId } = useAuth()
   const uidRef = useRef(userId)
   uidRef.current = userId
   const onChange = useRef(p.onChange)
   onChange.current = p.onChange
+  const onOpenNote = useRef(p.onOpenNote)
+  onOpenNote.current = p.onOpenNote
+  const wikiKeys = useRef(p.wikiKeys)
+  wikiKeys.current = p.wikiKeys
   const lastMd = useRef(p.body)
 
   const editor = useEditor(
@@ -110,10 +165,14 @@ export function useNoteEditor(p: { noteId: string; body: string; onChange: (md: 
       extensions: [
         StarterKit.configure({
           heading: { levels: [1, 2, 3] },
-          link: { openOnClick: false, autolink: true, defaultProtocol: 'https' },
+          // cuaderno:// = enlaces a tus propias páginas ([[…]])
+          link: { openOnClick: false, autolink: true, defaultProtocol: 'https', protocols: ['cuaderno'] },
         }),
         TaskList,
         TaskItem.configure({ nested: true }),
+        ObsidianTasks,
+        DictationRange,
+        WikiLinks.configure({ onKey: (key) => wikiKeys.current?.current?.(key) ?? false }),
         Highlight,
         TextColorMark,
         CuImage.configure({ inline: false }),
@@ -132,11 +191,26 @@ export function useNoteEditor(p: { noteId: string; body: string; onChange: (md: 
       contentType: 'markdown',
       onUpdate: ({ editor: ed }) => {
         const md = ed.getMarkdown()
+        // al abrir, el editor puede sumar un párrafo vacío al final (o espacios): eso no es un cambio
+        const same = md.trimEnd() === lastMd.current.trimEnd()
         lastMd.current = md
-        onChange.current(md)
+        if (!same) onChange.current(md)
       },
       editorProps: {
         attributes: { class: 'cu-prose', 'aria-label': 'Contenido de la página', spellcheck: 'true' },
+        // al escribir (o dictar) cerca de un borde, que no quede bajo la barra de arriba ni la de abajo
+        scrollThreshold: { top: 110, bottom: 180, left: 0, right: 0 },
+        scrollMargin: { top: 120, bottom: 200, left: 0, right: 0 },
+        handleDOMEvents: {
+          // un enlace a otra de tus páginas se abre con un clic (como en Obsidian)
+          click: (_view, event) => {
+            const a = (event.target as HTMLElement | null)?.closest?.(`a[href^="${NOTE_HREF}"]`)
+            if (!a || !onOpenNote.current) return false
+            event.preventDefault()
+            onOpenNote.current(a.getAttribute('href')!.slice(NOTE_HREF.length))
+            return true
+          },
+        },
         handlePaste: (_view, event) => {
           const files = Array.from(event.clipboardData?.files ?? [])
           if (!files.some((f) => f.type.startsWith('image/')) || !uidRef.current || !editorRef.current) return false
@@ -209,7 +283,7 @@ function Btn(p: { icon: string; label: string; on?: boolean; disabled?: boolean;
   )
 }
 
-export function Toolbar({ editor }: { editor: Editor | null }) {
+export function Toolbar({ editor, onDictate, dictating, note }: { editor: Editor | null; onDictate?: () => void; dictating?: boolean; note?: Note }) {
   const { userId } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const s = useEditorState({
@@ -244,6 +318,8 @@ export function Toolbar({ editor }: { editor: Editor | null }) {
         : null,
   })
   const [colorAt, setColorAt] = useState<HTMLElement | null>(null)
+  const [mdAt, setMdAt] = useState<HTMLElement | null>(null)
+  const [boardAt, setBoardAt] = useState<HTMLElement | null>(null)
   if (!editor || !s) return <div className="cu-toolbar" aria-hidden="true" />
   const c = () => editor.chain().focus()
   const setBlock = (v: string) => {
@@ -257,6 +333,20 @@ export function Toolbar({ editor }: { editor: Editor | null }) {
     })
   return (
     <div className="cu-toolbar" role="toolbar" aria-label="Formato">
+      {onDictate && (
+        <button
+          type="button"
+          className={`cu-tb cu-tb-mic${dictating ? ' on' : ''}`}
+          aria-label="Dictar"
+          aria-pressed={dictating}
+          title="Dictar: lo que dices se escribe aquí y Rockie puede ordenarlo"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onDictate}
+        >
+          <CIcon name="mic" size={18} />
+          <span>Dictar</span>
+        </button>
+      )}
       <select className="cu-tb-select" value={s.block} onChange={(e) => setBlock(e.target.value)} aria-label="Estilo de párrafo">
         <option value="p">Texto</option>
         <option value="h1">Título 1</option>
@@ -288,13 +378,29 @@ export function Toolbar({ editor }: { editor: Editor | null }) {
       <span className="cu-tb-sep" />
       <Btn icon="list" label="Lista" on={s.bullet} onClick={() => c().toggleBulletList().run()} />
       <Btn icon="listnum" label="Lista numerada" on={s.ordered} onClick={() => c().toggleOrderedList().run()} />
-      <Btn icon="checklist" label="Pendientes" on={s.task} onClick={() => c().toggleTaskList().run()} />
+      <Btn icon="checkbox" label="Casillas (o escribe - [ ] · Ctrl+Enter marca)" on={s.task} onClick={() => c().toggleTaskList().run()} />
       <Btn icon="quote" label="Cita" on={s.quote} onClick={() => c().toggleBlockquote().run()} />
       <Btn icon="codeb" label="Código" on={s.code} onClick={() => c().toggleCodeBlock().run()} />
       <Btn icon="divider" label="Separador" onClick={() => c().setHorizontalRule().run()} />
       <span className="cu-tb-sep" />
       <Btn icon="image" label="Imagen" onClick={() => fileRef.current?.click()} />
-      <Btn icon="pen" label="Dibujar" onClick={draw} />
+      <Btn icon="pen" label="Dibujar (la hoja crece hacia abajo)" onClick={draw} />
+      {note && (
+        <button
+          type="button"
+          className={`cu-tb${boardAt ? ' on' : ''}`}
+          aria-label="Pizarra infinita en la página"
+          title="Meter una pizarra infinita en la página"
+          aria-haspopup="menu"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => setBoardAt(boardAt ? null : e.currentTarget)}
+        >
+          <CIcon name="board" size={18} />
+        </button>
+      )}
+      <Popover anchor={boardAt} open={Boolean(boardAt)} onClose={() => setBoardAt(null)} label="Pizarra en la página">
+        {note && <BoardPick editor={editor} note={note} onDone={() => setBoardAt(null)} />}
+      </Popover>
       <Btn icon="table" label="Tabla" on={s.table} onClick={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
       <Btn icon="columns" label="Columnas (arrastra el borde entre ellas para cambiar el ancho)" on={s.cols} onClick={() => insertColumns(editor, 2)} />
       {s.cols && (
@@ -332,6 +438,20 @@ export function Toolbar({ editor }: { editor: Editor | null }) {
       <span className="cu-tb-sep" />
       <Btn icon="undo2" label="Deshacer (Ctrl+Z)" disabled={!s.canUndo} onClick={() => c().undo().run()} />
       <Btn icon="redo" label="Rehacer (Ctrl+Y)" disabled={!s.canRedo} onClick={() => c().redo().run()} />
+      <button
+        type="button"
+        className={`cu-tb${mdAt ? ' on' : ''}`}
+        aria-label="Atajos de Markdown"
+        title="Atajos de Markdown (como en Obsidian)"
+        aria-haspopup="dialog"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => setMdAt(mdAt ? null : e.currentTarget)}
+      >
+        <CIcon name="markdown" size={18} />
+      </button>
+      <Popover anchor={mdAt} open={Boolean(mdAt)} onClose={() => setMdAt(null)} label="Atajos de Markdown">
+        <MarkdownHelp />
+      </Popover>
       <input
         ref={fileRef}
         type="file"
@@ -375,6 +495,101 @@ function TextColorPicker({ editor, current, onDone }: { editor: Editor; current:
           A
         </button>
       ))}
+    </div>
+  )
+}
+
+// ---------- pizarra dentro de la página ----------
+/** Una pizarra nueva aquí, o una que ya tienes: queda metida en la página (y conectada con ella). */
+function BoardPick({ editor, note, onDone }: { editor: Editor; note: Note; onDone: () => void }) {
+  const actions = useCuadernoActions()
+  const notes = useNotes().data ?? NONE
+  const boards = notes.filter((n) => n.kind === 'pizarra' && n.id !== note.id).slice(0, 12)
+  const put = (b: { id: string; title: string }) => {
+    editor
+      .chain()
+      .focus()
+      .insertContent([{ type: 'image', attrs: { src: `${BOARD_SRC}${b.id}`, alt: b.title } }, { type: 'paragraph' }])
+      .run()
+    void actions.createLink({ a_id: note.id, b_id: b.id, project_id: null, reason: 'Pizarra dentro de la página' })
+    haptic([6, 18, 6])
+    onDone()
+  }
+  const create = async () => {
+    const res = await actions.createNote({ title: `Pizarra · ${note.title}`.slice(0, 160), kind: 'pizarra', book_id: note.book_id, area: note.area })
+    if (res) put(res.note)
+  }
+  return (
+    <>
+      <p className="cu-pop-title">Pizarra infinita en la página</p>
+      <button role="menuitem" className="cu-pop-item" onClick={() => void create()}>
+        <CIcon name="plus" size={16} /> Nueva pizarra aquí
+      </button>
+      {boards.length > 0 && (
+        <>
+          <hr />
+          <p className="cu-pop-title">O una que ya tienes</p>
+          {boards.map((b) => (
+            <button key={b.id} role="menuitem" className="cu-pop-item" onClick={() => put(b)}>
+              <CIcon name="board" size={16} /> {b.title}
+            </button>
+          ))}
+        </>
+      )}
+    </>
+  )
+}
+
+// ---------- atajos de Markdown ----------
+const MD_KEYS: [string, string][] = [
+  ['# ', 'Título 1'],
+  ['## ', 'Título 2'],
+  ['### ', 'Título 3'],
+  ['- ', 'Viñeta'],
+  ['1. ', 'Lista numerada'],
+  ['- [ ] ', 'Casilla'],
+  ['- [x] ', 'Casilla marcada'],
+  ['> ', 'Cita'],
+  ['```', 'Bloque de código'],
+  ['---', 'Separador'],
+  ['**texto**', 'Negrita'],
+  ['*texto*', 'Cursiva'],
+  ['~~texto~~', 'Tachado'],
+  ['==texto==', 'Resaltado'],
+  ['`código`', 'Código'],
+]
+const KEYS: [string, string][] = [
+  ['Ctrl + Enter', 'Marca o desmarca la casilla'],
+  ['Tab / Shift + Tab', 'Mete o saca un nivel en una lista'],
+  ['Shift + Enter', 'Salto de línea sin párrafo nuevo'],
+]
+
+/** Lo que se puede escribir para dar formato sin tocar la barra (lo mismo que en Obsidian). */
+function MarkdownHelp() {
+  return (
+    <div className="cu-mdhelp">
+      <p className="cu-pop-title">Escribe y se convierte</p>
+      <dl>
+        {MD_KEYS.map(([k, v]) => (
+          <div key={k}>
+            <dt>
+              <code>{k.replace(/ $/, '␣')}</code>
+            </dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="cu-pop-title">Teclas</p>
+      <dl>
+        {KEYS.map(([k, v]) => (
+          <div key={k}>
+            <dt>
+              <kbd>{k}</kbd>
+            </dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   )
 }

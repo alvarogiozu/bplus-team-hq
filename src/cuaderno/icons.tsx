@@ -12,6 +12,28 @@ const X: Record<string, ReactNode> = {
   list: <path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01" />,
   listnum: <path d="M11 6h9M11 12h9M12 18h8M4 16a2 2 0 1 1 4 0c0 .6-.5 1-1 1.5L4 20h4M6 10V4L4 6" />,
   checklist: <path d="M9.615 20H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8M14 19l2 2 4-4M9 8h4M9 12h2" />,
+  checkbox: <path d="M9 11l3 3 8-8M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" />,
+  // ---------- carpetas e íconos para elegir ----------
+  folder: <path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2" />,
+  folderplus: <path d="M12 19H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4l3 3h7a2 2 0 0 1 2 2v3.5M16 19h6M19 16v6" />,
+  flask: <path d="M9 3h6M10 9h4M10 3v6L6 18a2 2 0 0 0 1.7 3h8.6a2 2 0 0 0 1.7-3l-4-9V3" />,
+  math: <path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM8 7h8v3H8zM8 14v.01M12 14v.01M16 14v.01M8 17v.01M12 17v.01M16 17v.01" />,
+  translate: <path d="M4 5h7M9 3v2c0 4.418-2.239 8-5 8M5 9c0 2.144 2.952 3.908 6.7 4M12 20l4-9 4 9M19.1 18h-6.2" />,
+  brain: (
+    <path d="M15.5 13a3.5 3.5 0 0 0-3.5 3.5v1a3.5 3.5 0 0 0 7 0v-1.8M8.5 13a3.5 3.5 0 0 1 3.5 3.5v1a3.5 3.5 0 0 1-7 0v-1.8M17.5 16a3.5 3.5 0 0 0 0-7H17M19 9.3V6.5a3.5 3.5 0 0 0-7 0M6.5 16a3.5 3.5 0 0 1 0-7H7M5 9.3V6.5a3.5 3.5 0 0 1 7 0v10" />
+  ),
+  leaf: <path d="M5 21c.5-4.5 2.5-8 7-10M9 18c6.218 0 10.5-3.288 11-12V4h-4.014c-9 0-11.986 4-12 9 0 1 0 3 2 5h3z" />,
+  atom: (
+    <path d="M12 12v.01M19.071 4.929c-1.562-1.562-6 .337-9.9 4.243-3.905 3.905-5.804 8.337-4.242 9.9 1.562 1.561 6-.338 9.9-4.244 3.905-3.905 5.804-8.337 4.242-9.9M4.929 4.929c-1.562 1.562.337 6 4.243 9.9 3.905 3.905 8.337 5.804 9.9 4.242 1.561-1.562-.338-6-4.244-9.9-3.905-3.905-8.337-5.804-9.9-4.242" />
+  ),
+  rocket: <path d="M4 13a8 8 0 0 1 7 7 6 6 0 0 0 3-5 9 9 0 0 0 6-8 3 3 0 0 0-3-3 9 9 0 0 0-8 6 6 6 0 0 0-5 3M7 14a6 6 0 0 0-3 6 6 6 0 0 0 6-3M14 9a1 1 0 1 0 2 0 1 1 0 1 0-2 0" />,
+  money: <path d="M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0M14.8 9A2 2 0 0 0 13 8h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1-1.8-1M12 7v10" />,
+  camera: <path d="M5 7h1a2 2 0 0 0 2-2 1 1 0 0 1 1-1h6a1 1 0 0 1 1 1 2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2M9 13a3 3 0 1 0 6 0 3 3 0 0 0-6 0" />,
+  trophy: <path d="M8 21h8M12 17v4M7 4h10M17 4v8a5 5 0 0 1-10 0V4M3 7a2 2 0 1 0 4 0 2 2 0 0 0-4 0M17 7a2 2 0 1 0 4 0 2 2 0 0 0-4 0" />,
+  chart: <path d="M3 3v18h18M7 15l4-4 4 4 5-6" />,
+  school: <path d="M22 9L12 5 2 9l10 4 10-4v6M6 10.6V16a6 3 0 0 0 12 0v-5.4" />,
+  graph: <path d="M6 6a2 2 0 1 0 0 .01M18 6a2 2 0 1 0 0 .01M12 18a2 2 0 1 0 0 .01M7.5 7.5l3.5 8.5M16.5 7.5L13 16M8 6h8" />,
+  markdown: <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM7 15V9l2 2 2-2v6M14 13l2 2 2-2M16 15V9" />,
   quote: (
     <path d="M10 11H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6c0 2.667-1.333 4.333-4 5M19 11h-4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6c0 2.667-1.333 4.333-4 5" />
   ),
@@ -135,6 +157,26 @@ const X: Record<string, ReactNode> = {
       <path d="M4 10h16M10 10v10" />
     </>
   ),
+}
+
+/** Íconos que puedes ponerle a una carpeta, cuaderno o página (además de un emoji). */
+export const ICON_CHOICES = [
+  'folder', 'notebook', 'section', 'note', 'book', 'study', 'school', 'idea', 'brain', 'flask', 'atom', 'math',
+  'translate', 'globe', 'code', 'design', 'palette', 'music', 'camera', 'heart', 'star', 'flag', 'target', 'trophy',
+  'rocket', 'leaf', 'run', 'gym', 'food', 'coffee', 'travel', 'home', 'work', 'money', 'chart', 'team', 'calendar', 'sparkle',
+]
+export const EMOJI_CHOICES = ['📚', '🧠', '🧪', '🧮', '🌍', '🎨', '🎵', '💡', '⭐', '🚀', '🌱', '🏃', '💼', '💰', '❤️', '🔥', '✏️', '📐', '🩺', '⚖️', '🧬', '🏛️', '💻', '🗣️']
+
+/** El ícono elegido: uno de la lista o un emoji; si no hay, el de su tipo. */
+export function ItemIcon({ value, fallback, size = 18, className = '' }: { value?: string | null; fallback: string; size?: number; className?: string }) {
+  const v = value?.trim()
+  if (v && !/^[a-z0-9]+$/.test(v))
+    return (
+      <span className={`cu-emoji ${className}`} style={{ fontSize: Math.round(size * 0.92), width: size, height: size }} aria-hidden="true">
+        {v}
+      </span>
+    )
+  return <CIcon name={v || fallback} size={size} className={className} />
 }
 
 export function CIcon({

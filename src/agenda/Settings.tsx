@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Sheet } from '../components/Sheet'
-import { useTheme } from '../app/theme'
+import { AccentPicker } from '../components/AccentPicker'
+import { ThemeChoice } from '../components/ThemeChoice'
 import { useMe } from '../features/auth/AuthProvider'
 import { signOut } from '../features/auth/credentials'
 import { useAgendaActions, usePrefs } from './data'
@@ -14,7 +15,6 @@ export function AgendaSettings({ open, onClose, anchors }: { open: boolean; onCl
   const { profile } = useMe()
   const prefs = usePrefs().data
   const { savePrefs } = useAgendaActions()
-  const { theme, toggle } = useTheme()
   const [add, setAdd] = useState('')
   const presets = prefs?.presets?.length ? prefs.presets : [15, 30, 45, 60, 90]
 
@@ -91,14 +91,22 @@ export function AgendaSettings({ open, onClose, anchors }: { open: boolean; onCl
       </section>
 
       <section className="ag-set">
+        <b className="ag-card-t">Apariencia</b>
+        <p className="hint" style={{ margin: '0 0 10px' }}>
+          El mismo tema y color en el HQ, la Agenda y el Cuaderno.
+        </p>
+        <ThemeChoice />
+        <div style={{ marginTop: 12 }}>
+          <AccentPicker />
+        </div>
+      </section>
+
+      <section className="ag-set">
         <b className="ag-card-t">Cuenta</b>
         <p className="hint" style={{ margin: '0 0 10px' }}>
           @{profile.username} · mismas credenciales que el HQ
         </p>
         <div className="ag-set-btns">
-          <button className="btn ghost sm" onClick={toggle}>
-            <AIcon name={theme === 'dark' ? 'sun' : 'moon'} size={16} /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}
-          </button>
           <Link className="btn ghost sm" to="/cambiar-clave">
             Cambiar contraseña
           </Link>

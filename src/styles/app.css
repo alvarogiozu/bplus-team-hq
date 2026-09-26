@@ -1157,3 +1157,6 @@ button.mission:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ca
 .handoff-app { padding: 2px 10px; border-radius: 999px; background: var(--hc); color: var(--on-color); font-size: var(--t-3xs); font-weight: 800; }
 .handoff-area { padding: 2px 10px; border-radius: 999px; border: 1.5px solid color-mix(in oklab, var(--hc) 45%, var(--card-line)); color: color-mix(in oklab, var(--hc) 80%, var(--ink)); font-size: var(--t-3xs); font-weight: 800; }
 @media (prefers-reduced-motion: reduce) { .handsfree.on, .rk-hands.on { animation: none; } }
+
+/* tema claro / oscuro / automático (compartido por HQ, Agenda y Cuaderno) */
+.theme-choice { max-width: 100%; flex-wrap: wrap; }

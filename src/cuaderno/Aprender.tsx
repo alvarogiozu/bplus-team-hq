@@ -8,13 +8,13 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { burst, celebrateRockie, centerPoint, haptic } from '../lib/fx'
 import { embedNotes, learn, type Plan } from './agent'
 import { closeDialog, openDialog, type LearnDraft } from './bus'
-import { BOOK_COLORS, COLOR_ORDER, nextColor, spine, type BookColor } from './books'
-import { useBooks, useCuadernoActions, type Book, type Undo } from './data'
+import { BOOK_COLORS, COLOR_ORDER, MAX_DEPTH, buildTree, chainOf, colorOf, flatten, nextColor, spine, type BookColor } from './books'
+import { NONE, useBooks, useCuadernoActions, type Book, type Undo } from './data'
 import { upload } from './files'
 import { CIcon } from './icons'
 
-// "Aprender un tema": Rockie arma un cuaderno de estudio (como NotebookLM, pero queda tuyo y editable).
-// 1) pides el tema (y fuentes)  2) Rockie PROPONE el cuaderno  3) tú lo revisas  4) lo ves nacer, nodo por nodo.
+// "Aprender un tema": Rockie arma una carpeta de estudio (como NotebookLM, pero queda tuya y editable).
+// 1) pides el tema (y fuentes)  2) Rockie PROPONE la carpeta  3) tú lo revisas  4) lo ves nacer, nodo por nodo.
 
 type Nivel = 'cero' | 'algo' | 'avanzado'
 type Stage = 'form' | 'thinking' | 'preview' | 'building' | 'done'
@@ -36,9 +36,11 @@ const YT = /^https?:\/\/(www\.|m\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.b
 export function AprenderDialog(p: { tema?: string; bookId?: string | null; restore?: LearnDraft }) {
   const { userId } = useAuth()
   const actions = useCuadernoActions()
-  const books = useBooks().data ?? []
+  const books = useBooks().data ?? NONE
   const nav = useNavigate()
   const tops = books.filter((b) => !b.parent_id)
+  // dónde se puede sumar: cualquier carpeta o cuaderno, en el orden del árbol
+  const places = useMemo(() => flatten(buildTree(books, []).tree), [books])
   const r0 = p.restore
   const [stage, setStage] = useState<Stage>(r0 ? 'preview' : 'form')
   const [tema, setTema] = useState(r0?.tema ?? p.tema ?? '')
@@ -109,7 +111,7 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
     if (!alive.current || mine !== run.current) return
     if (!r.plan) {
       // tras una espera larga el toast se pierde: el porqué queda también en el formulario
-      const msg = r.error ?? 'Rockie no pudo armar el cuaderno.'
+      const msg = r.error ?? 'Rockie no pudo armar tu carpeta de estudio.'
       toastError(msg)
       setFailed(msg)
       setStage('form')
@@ -118,7 +120,7 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
     setPlan(r.plan)
     setKeep(new Set(r.plan.paginas.map((x) => x.key)))
     setName(r.plan.nombre)
-    setColor(target === 'nuevo' ? (r.plan.color ?? nextColor(tops.map((b) => b.color))) : (books.find((b) => b.id === target)?.color ?? r.plan.color))
+    setColor(target === 'nuevo' ? (r.plan.color ?? nextColor(tops.map((b) => b.color))) : (colorOf(books, target) ?? r.plan.color))
     setStage('preview')
     haptic([8, 20, 8])
   }
@@ -132,20 +134,22 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
     setBuilt(0)
     const undos: Undo[] = []
     const ids: string[] = []
-    // 1) el cuaderno (o el existente) y sus secciones
+    // 1) la carpeta nueva (o donde se suma) y un cuaderno por cada parte del tema
     let root: Book | undefined = target === 'nuevo' ? undefined : books.find((b) => b.id === target)
     if (!root) {
-      const res = await actions.createBook({ name: name.trim() || plan.nombre, color })
+      const res = await actions.createBook({ name: name.trim() || plan.nombre, kind: 'carpeta', color })
       if (!res) return setStage('preview')
       root = res.book
       undos.push(res.undo)
     }
+    // si ya está en el último nivel, las páginas van directo ahí
+    const room = target === 'nuevo' || chainOf(books, root.id).length < MAX_DEPTH
     const sectionOf = new Map<string, string>()
-    for (const sec of [...new Set(pages.map((x) => x.seccion).filter(Boolean) as string[])]) {
+    for (const sec of room ? [...new Set(pages.map((x) => x.seccion).filter(Boolean) as string[])] : []) {
       const existing = books.find((b) => b.parent_id === root!.id && b.name.toLowerCase() === sec.toLowerCase())
       if (existing) sectionOf.set(sec, existing.id)
       else {
-        const res = await actions.createBook({ name: sec, color: root.color, parent_id: root.id })
+        const res = await actions.createBook({ name: sec, kind: 'cuaderno', color: null, parent_id: root.id })
         if (res) {
           sectionOf.set(sec, res.book.id)
           undos.push(res.undo)
@@ -156,7 +160,7 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
     const base = Date.now() / 1000
     const hub = await actions.createNote({
       title: target === 'nuevo' ? `Índice · ${root.name}` : `Índice · ${tema.trim() || plan.nombre}`,
-      body: plan.resumen || `Tu cuaderno de ${root.name}.`,
+      body: plan.resumen || `Todo sobre ${root.name}.`,
       area: 'mente',
       book_id: root.id,
       position: base,
@@ -220,7 +224,7 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
         label: 'Deshacer',
         onClick: async () => {
           for (const u of undos.reverse()) await u()
-          nav('/cuaderno/cuadernos')
+          nav('/cuaderno/carpetas')
         },
       },
     })
@@ -251,7 +255,7 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
           <span className="cu-modal-ico">
             <CIcon name="sparkle" size={18} />
           </span>
-          <h2>{stage === 'preview' ? 'Tu cuaderno, antes de crearlo' : stage === 'building' ? 'Armando tu cuaderno' : stage === 'done' ? '¡Listo!' : 'Aprender un tema'}</h2>
+          <h2>{stage === 'preview' ? 'Tu carpeta de estudio, antes de crearla' : stage === 'building' ? 'Armando tu carpeta' : stage === 'done' ? '¡Listo!' : 'Aprender un tema'}</h2>
           <span className="spacer" />
           {stage !== 'building' && (
             <button className="cu-x" onClick={close} aria-label="Cerrar">
@@ -291,10 +295,10 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
                   ))}
                 </div>
                 <select className="cu-select" value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Dónde se crea">
-                  <option value="nuevo">En un cuaderno nuevo</option>
-                  {tops.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      Sumar a «{b.name}»
+                  <option value="nuevo">En una carpeta nueva</option>
+                  {places.map((t) => (
+                    <option key={t.book.id} value={t.book.id}>
+                      {'  '.repeat(t.depth - 1)}Sumar a «{t.book.name}»
                     </option>
                   ))}
                 </select>
@@ -329,7 +333,7 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
                         </button>
                       )}
                     </label>
-                    <p className="cu-muted">Rockie lee las fuentes una vez para armar tu cuaderno y no las guarda.</p>
+                    <p className="cu-muted">Rockie lee las fuentes una vez para armar tu carpeta y no las guarda.</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -340,7 +344,7 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
                 </p>
               )}
               <div className="cu-modal-foot">
-                <span className="cu-muted">Rockie te propone el cuaderno; tú lo revisas antes de crearlo.</span>
+                <span className="cu-muted">Rockie te propone la carpeta con sus cuadernos; tú la revisas antes de crearla.</span>
                 <button className="btn" onClick={() => void ask()} disabled={!canAsk}>
                   <CIcon name="sparkle" size={16} /> Armar mi cuaderno
                 </button>
@@ -383,8 +387,8 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
               {target === 'nuevo' ? (
                 <div className="cu-plan-book" style={spine(color)}>
                   <span className="cu-plan-spine" aria-hidden="true" />
-                  <input className="cu-plan-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} aria-label="Nombre del cuaderno" />
-                  <div className="cu-swatches" role="radiogroup" aria-label="Color del cuaderno">
+                  <input className="cu-plan-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} aria-label="Nombre de la carpeta" />
+                  <div className="cu-swatches" role="radiogroup" aria-label="Color de la carpeta">
                     {COLOR_ORDER.map((c) => (
                       <button key={c} role="radio" aria-checked={color === c} className={`cu-swatch${color === c ? ' on' : ''}`} style={{ ['--sw' as string]: BOOK_COLORS[c].fill }} onClick={() => setColor(c)} aria-label={BOOK_COLORS[c].label} title={BOOK_COLORS[c].label} />
                     ))}
@@ -454,7 +458,7 @@ export function AprenderDialog(p: { tema?: string; bookId?: string | null; resto
                 result && (
                   <>
                     <p className="cu-build-done">
-                      Tu cuaderno tiene <b>{result.pages}</b> páginas y <b>{result.cards}</b> tarjetas para repasar.
+                      Quedaron <b>{result.pages}</b> páginas y <b>{result.cards}</b> tarjetas para repasar.
                     </p>
                     <div className="cu-modal-foot center">
                       <button

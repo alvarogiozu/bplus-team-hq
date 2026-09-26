@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { dueAfter, dueToday, memoryOf, streakOf } from './leitner'
-import { buildArea, buildGroup, crossings, crossingsBy, distToSegment } from './graph'
-import { buildTree, nextColor, pathOf, rootOf, type BookColor } from './books'
+import { buildGlobal, distToSegment, neighbors } from './graph'
+import { buildTree, canNest, colorOf, flatten, heightOf, iconOf, kindLabel, nextColor, pathOf, rootOf, type BookColor, type BookKind } from './books'
 import { touches } from './Draw'
-import { plain } from './text'
+import { countWords, joinSpoken, plain, spoken } from './text'
 import { asScene, edgePoint, sceneText, strokeTouches } from './board'
-import type { Link, Note } from './data'
+import type { Book, Link, Note } from './data'
 
 const note = (id: string, area: Note['area']): Note => ({
   id,
@@ -76,88 +76,119 @@ describe('repaso (Leitner)', () => {
   })
 })
 
-describe('mapa', () => {
-  const notes = [note('m1', 'mente'), note('m2', 'mente'), note('c1', 'cuerpo'), note('a1', 'alma')]
-  const links = [
-    link('l1', 'm1', 'm2'),
-    link('l2', 'm1', 'c1'),
-    link('l3', 'a1', 'c1'),
-    link('l4', 'm2', null, 'p1'),
-  ]
-  const projects = [{ id: 'p1', name: 'App', color: '#000000', space_id: 's' }]
-
-  it('un área trae sus notas, las vecinas de otras áreas (atenuadas) y sus proyectos', () => {
-    const g = buildArea('mente', notes, links, projects, () => 'none')
-    const byId = new Map(g.nodes.map((n) => [n.id, n]))
-    expect([...byId.keys()].sort()).toEqual(['c1', 'm1', 'm2', 'p1'])
-    expect(byId.get('c1')?.outside).toBe(true)
-    expect(byId.get('m1')?.outside).toBe(false)
-    expect(byId.get('p1')?.kind).toBe('project')
-    // la conexión alma↔cuerpo no toca "mente": no se dibuja aquí
-    expect(g.edges.map((e) => e.id).sort()).toEqual(['l1', 'l2', 'l4'])
-  })
-  it('cuenta las conexiones que cruzan áreas', () => {
-    const c = crossings(notes, links)
-    expect(c.get('cuerpo|mente')).toBe(1)
-    expect(c.get('alma|cuerpo')).toBe(1)
-    expect(c.get('mente|proyectos')).toBe(1)
-  })
-  it('tocar una línea: distancia a un segmento', () => {
-    expect(distToSegment(5, 3, 0, 0, 10, 0)).toBeCloseTo(3)
-    expect(distToSegment(-4, 3, 0, 0, 10, 0)).toBeCloseTo(5)
-  })
-})
-
-const book = (id: string, name: string, parent_id: string | null = null, position = 0, color: BookColor = 'accent') => ({
+const book = (id: string, name: string, parent_id: string | null = null, position = 0, color: BookColor | null = null, kind: BookKind = parent_id ? 'cuaderno' : 'carpeta') => ({
   id,
   name,
   parent_id,
   position,
   color,
+  kind,
+  icon: null as string | null,
 })
 const page = (id: string, book_id: string | null, position: number) => ({ ...note(id, 'mente'), book_id, position })
 
-describe('cuadernos', () => {
-  const books = [book('fr', 'Francés', null, 1, 'berry'), book('de', 'Alemán', null, 0), book('lec', 'Lecciones', 'fr', 2), book('gra', 'Gramática', 'fr', 1)]
-  const notes = [page('a', 'lec', 2), page('b', 'lec', 1), page('c', 'fr', 5), page('d', null, 9), page('e', 'borrado', 3)]
+describe('carpetas', () => {
+  const books = [
+    book('fr', 'Francés', null, 1, 'berry'),
+    book('de', 'Alemán', null, 0, 'amber'),
+    book('lec', 'Lecciones', 'fr', 2),
+    book('gra', 'Gramática', 'fr', 1, 'green'),
+    book('ver', 'Verbos', 'lec', 0),
+    book('uni', 'Universidad', 'fr', 3, null, 'carpeta'),
+  ]
+  const notes = [page('a', 'lec', 2), page('b', 'lec', 1), page('c', 'fr', 5), page('d', null, 9), page('e', 'borrado', 3), page('f', 'ver', 0)]
 
-  it('arma el árbol: cuadernos en orden, sus páginas sueltas y sus secciones', () => {
-    const { tree, unfiled } = buildTree(books, notes)
+  it('arma el árbol completo: en orden, con páginas en cada nivel', () => {
+    const { tree, unfiled, byId } = buildTree(books, notes)
     expect(tree.map((t) => t.book.name)).toEqual(['Alemán', 'Francés'])
     const fr = tree[1]
-    expect(fr.loose.map((n) => n.id)).toEqual(['c'])
-    expect(fr.sections.map((s) => s.book.name)).toEqual(['Gramática', 'Lecciones'])
-    expect(fr.sections[1].pages.map((n) => n.id)).toEqual(['b', 'a'])
-    expect(fr.count).toBe(3)
-    // sin cuaderno o con uno que ya no existe = Sueltas
+    expect(fr.pages.map((n) => n.id)).toEqual(['c'])
+    expect(fr.kids.map((k) => k.book.name)).toEqual(['Gramática', 'Lecciones', 'Universidad'])
+    expect(byId.get('lec')?.pages.map((n) => n.id)).toEqual(['b', 'a'])
+    expect(byId.get('ver')?.depth).toBe(3)
+    expect(fr.count).toBe(4)
+    expect(flatten(tree).map((t) => t.book.id)).toEqual(['de', 'fr', 'gra', 'lec', 'ver', 'uni'])
+    // sin carpeta o con una que ya no existe = Sueltas
     expect(unfiled.map((n) => n.id).sort()).toEqual(['d', 'e'])
   })
-  it('sabe dónde vive una página', () => {
-    expect(rootOf(books, 'lec')?.name).toBe('Francés')
-    expect(pathOf(books, 'lec')).toBe('Francés › Lecciones')
+  it('el color se hereda salvo que tenga el suyo', () => {
+    const { byId } = buildTree(books, notes)
+    expect(byId.get('lec')?.color).toBe('berry')
+    expect(byId.get('ver')?.color).toBe('berry')
+    expect(byId.get('gra')?.color).toBe('green')
+    expect(colorOf(books, 'ver')).toBe('berry')
+    expect(colorOf(books, null)).toBe(null)
+  })
+  it('sabe dónde vive algo y cómo se llama', () => {
+    expect(rootOf(books, 'ver')?.name).toBe('Francés')
+    expect(pathOf(books, 'ver')).toBe('Francés › Lecciones › Verbos')
     expect(pathOf(books, null)).toBe('Sueltas')
+    const by = (id: string) => books.find((b) => b.id === id)!
+    expect(kindLabel(books, by('fr'))).toBe('Carpeta')
+    expect(kindLabel(books, by('uni'))).toBe('Subcarpeta')
+    expect(kindLabel(books, by('lec'))).toBe('Cuaderno')
+    expect(kindLabel(books, by('ver'))).toBe('Sección')
+    expect(iconOf(books, by('uni'))).toBe('folder')
+    expect(iconOf(books, by('ver'))).toBe('section')
+  })
+  it('respeta las reglas del árbol (como la base de datos)', () => {
+    const by = (id: string) => books.find((b) => b.id === id)!
+    expect(heightOf(books, 'fr')).toBe(2)
+    // una carpeta no va dentro de un cuaderno
+    expect(canNest(books, { kind: 'carpeta' }, 'lec')).toBe(false)
+    expect(canNest(books, { kind: 'carpeta' }, 'uni')).toBe(true)
+    // nada dentro de sí mismo ni de lo que tiene adentro
+    expect(canNest(books, by('fr'), 'ver')).toBe(false)
+    expect(canNest(books, by('lec'), 'lec')).toBe(false)
+    // como mucho 4 niveles: Francés › Lecciones › Verbos › (una más) sí; una quinta no
+    expect(canNest(books, { kind: 'cuaderno' }, 'ver')).toBe(true)
+    expect(canNest(books, by('lec'), 'uni')).toBe(true)
+    expect(canNest(books, by('de'), 'ver')).toBe(false)
+    expect(canNest(books, by('lec'), null)).toBe(true)
   })
   it('el color siguiente no repite uno en uso', () => {
     expect(nextColor(['berry', 'coral'])).toBe('title')
   })
 })
 
-describe('mapa por cuadernos', () => {
-  const notes = [page('a', 'fr', 0), page('b', 'fr', 1), page('c', 'de', 0), page('d', null, 0)]
-  const links = [link('l1', 'a', 'b'), link('l2', 'a', 'c'), link('l3', 'd', 'c')]
-  const groupOf = (n: Note) => n.book_id ?? 'sueltas'
-  it('un cuaderno trae sus páginas y, atenuadas, las de otros con su origen', () => {
-    const g = buildGroup((n) => groupOf(n) === 'fr', false, notes, links, [], () => 'none', (n) => (n.book_id === 'de' ? 'Alemán' : 'Sueltas'))
-    const c = g.nodes.find((n) => n.id === 'c')
-    expect(g.nodes.map((n) => n.id).sort()).toEqual(['a', 'b', 'c'])
-    expect(c?.outside).toBe(true)
-    expect(c?.from).toBe('Alemán')
-    expect(g.edges.map((e) => e.id).sort()).toEqual(['l1', 'l2'])
+describe('mapa: grafo con núcleos', () => {
+  const books = [book('fr', 'Francés', null, 0, 'berry'), book('lec', 'Lecciones', 'fr', 0), book('vac', 'Vacía', 'fr', 1)] as unknown as Book[]
+  const notes = [page('a', 'lec', 0), page('b', 'lec', 1), page('c', null, 0), page('d', 'fr', 2)]
+  const links = [link('l1', 'a', 'c'), link('l2', 'b', null, 'p1')]
+  const projects = [{ id: 'p1', name: 'App', color: '#000000', space_id: 's' }]
+  const all = { hubs: true, projects: true, orphans: true }
+
+  it('cada núcleo se une a lo que contiene y las páginas se unen entre sí', () => {
+    const g = buildGlobal({ books, notes, links, projects, memOf: () => 'none', opts: all })
+    expect(g.nodes.map((n) => n.id).sort()).toEqual(['a', 'b', 'c', 'd', 'fr', 'lec', 'p1', 'vac'])
+    expect(
+      g.edges
+        .filter((e) => e.kind === 'tree')
+        .map((e) => `${e.a}>${e.b}`)
+        .sort(),
+    ).toEqual(['fr>d', 'fr>lec', 'fr>vac', 'lec>a', 'lec>b'])
+    expect(g.edges.filter((e) => e.kind === 'link').map((e) => e.id).sort()).toEqual(['l1', 'l2'])
+    const by = new Map(g.nodes.map((n) => [n.id, n]))
+    expect(by.get('a')?.color).toBe('berry') // heredado de su carpeta
+    expect(by.get('c')?.color).toBe(null) // suelta
+    expect(by.get('fr')?.size).toBe(3)
+    expect(by.get('a')?.parent).toBe('lec')
   })
-  it('cuenta los cruces entre cuadernos', () => {
-    const c = crossingsBy(notes, links, groupOf)
-    expect(c.get('de|fr')).toBe(1)
-    expect(c.get('de|sueltas')).toBe(1)
+  it('"solo conectadas" deja fuera lo suelto y los núcleos vacíos', () => {
+    const g = buildGlobal({ books, notes, links, projects, memOf: () => 'none', opts: { hubs: true, projects: false, orphans: false } })
+    expect(g.nodes.map((n) => n.id).sort()).toEqual(['a', 'b', 'c', 'fr', 'lec'])
+    expect(g.edges.filter((e) => e.kind === 'link').map((e) => e.id)).toEqual(['l1'])
+  })
+  it('sin núcleos es el grafo de Obsidian: solo páginas y conexiones', () => {
+    const g = buildGlobal({ books, notes, links, projects, memOf: () => 'none', opts: { ...all, hubs: false } })
+    expect(g.nodes.some((n) => n.kind === 'hub')).toBe(false)
+    expect(g.edges.every((e) => e.kind === 'link')).toBe(true)
+  })
+  it('vecinos y tocar una línea', () => {
+    const g = buildGlobal({ books, notes, links, projects, memOf: () => 'none', opts: all })
+    expect([...neighbors('a', g.edges)].sort()).toEqual(['a', 'c', 'lec'])
+    expect(distToSegment(5, 3, 0, 0, 10, 0)).toBeCloseTo(3)
+    expect(distToSegment(-4, 3, 0, 0, 10, 0)).toBeCloseTo(5)
   })
 })
 
@@ -206,5 +237,37 @@ describe('colores, columnas y pizarra', () => {
     expect(sceneText(s, (id) => (id === 'n1' ? 'La mitocondria' : '?'))).toBe(
       ['- Núcleo: guarda el ADN', '- Página: La mitocondria', '- «Núcleo: guarda el ADN» → «La mitocondria»'].join(NL),
     )
+  })
+})
+
+describe('dictado', () => {
+  it('convierte la puntuación dicha', () => {
+    expect(spoken('hola cómo estás coma todo bien punto')).toEqual(['hola cómo estás, todo bien.'])
+    expect(spoken('punto')).toEqual(['.'])
+    expect(spoken('primero esto punto y seguido luego aquello')).toEqual(['primero esto. Luego aquello'])
+    expect(spoken('la lista dos puntos')).toEqual(['la lista:'])
+  })
+  it('respeta coma y punto cuando son palabras', () => {
+    expect(spoken('llegamos a un punto')).toEqual(['llegamos a un punto'])
+    expect(spoken('el punto de vista cambia')).toEqual(['el punto de vista cambia'])
+    expect(spoken('entró en coma ayer')).toEqual(['entró en coma ayer'])
+    expect(spoken('quiero que coma bien')).toEqual(['quiero que coma bien'])
+    expect(spoken('une los dos puntos')).toEqual(['une los dos puntos'])
+  })
+  it('abre párrafos nuevos', () => {
+    expect(spoken('fin del tema punto y aparte ahora otro')).toEqual(['fin del tema.', 'Ahora otro'])
+    expect(spoken('punto y aparte')).toEqual(['.', ''])
+    expect(spoken('nuevo párrafo')).toEqual(['', ''])
+    expect(spoken('uno nueva línea dos nueva línea tres')).toEqual(['uno', 'Dos', 'Tres'])
+  })
+  it('pega cada frase con espacio y mayúscula donde toca', () => {
+    expect(joinSpoken('', 'hola')).toBe('Hola')
+    expect(joinSpoken('Hola.', 'qué tal')).toBe(' Qué tal')
+    expect(joinSpoken('Hoy fui', 'al mercado')).toBe(' al mercado')
+    expect(joinSpoken('Hoy fui', '.')).toBe('.')
+    expect(joinSpoken('Hoy fui', ', luego')).toBe(', luego')
+    expect(joinSpoken('Hoy ', 'fui')).toBe('fui')
+    expect(joinSpoken('', '¿qué pasó?')).toBe('¿Qué pasó?')
+    expect(countWords('  una  dos tres ')).toBe(3)
   })
 })

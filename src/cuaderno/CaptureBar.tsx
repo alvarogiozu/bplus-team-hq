@@ -6,9 +6,9 @@ import { haptic } from '../lib/fx'
 import { Listening, MicButton } from '../agenda/RockieBar'
 import { useVoice } from '../agenda/voice'
 import { useCapture } from './capture'
-import { pathOf, rootOf, spine, type BookColor } from './books'
+import { colorOf, iconOf, kindLabel, noteColorOf, pathOf, spine, type BookColor } from './books'
 import { useBooks, useNotes, type Note } from './data'
-import { CIcon } from './icons'
+import { CIcon, ItemIcon } from './icons'
 
 const fold = (s: string) =>
   s
@@ -47,23 +47,30 @@ export const CaptureBar = forwardRef<
   const pressAt = useRef(0)
   const voice = useVoice({ onFinal: (t) => void capture(t, 'voz') })
   const books = useBooks().data
-  // cuadernos primero (hasta 3), luego páginas
+  // carpetas y cuadernos primero (hasta 3), luego páginas
   const results = useMemo(() => {
     const t = fold(text.trim())
     if (t.length < 2) return []
     const bs = (books ?? [])
       .filter((b) => fold(b.name).includes(t))
       .slice(0, 3)
-      .map((b) => {
-        const root = rootOf(books ?? [], b.id)
-        return { id: b.id, title: b.parent_id ? pathOf(books ?? [], b.id) : b.name, sub: 'Cuaderno', to: `/cuaderno/c/${root?.id ?? b.id}`, color: (root?.color ?? b.color) as BookColor | null }
-      })
+      .map((b) => ({
+        id: b.id,
+        title: b.parent_id ? pathOf(books ?? [], b.id) : b.name,
+        sub: kindLabel(books ?? [], b),
+        to: `/cuaderno/c/${b.id}`,
+        color: colorOf(books ?? [], b.id) as BookColor | null,
+        icon: b.icon ?? iconOf(books ?? [], b),
+        book: true,
+      }))
     const ns = searchNotes(notes ?? [], text, 6 - bs.length).map((n: Note) => ({
       id: n.id,
       title: n.title,
       sub: pathOf(books ?? [], n.book_id),
       to: `/cuaderno/nota/${n.id}`,
-      color: null as BookColor | null,
+      color: noteColorOf(books ?? [], n) as BookColor | null,
+      icon: n.icon ?? (n.kind === 'pizarra' ? 'board' : 'note'),
+      book: false,
     }))
     return [...bs, ...ns]
   }, [books, notes, text])
@@ -211,20 +218,16 @@ export const CaptureBar = forwardRef<
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => openNote(n)}
               >
-                {n.color ? (
-                  <span className="cu-res-book" style={spine(n.color)}>
-                    <CIcon name="notebook" size={15} />
-                  </span>
-                ) : (
-                  <CIcon name="note" size={17} />
-                )}
+                <span className={n.book ? 'cu-res-book' : 'cu-res-note'} style={n.color ? spine(n.color) : undefined}>
+                  <ItemIcon value={n.icon} fallback="note" size={15} />
+                </span>
                 <span>
                   <b>{n.title}</b>
                   <small>{n.sub}</small>
                 </span>
               </button>
             ))}
-            {results.length === 0 && <p className="cu-res-empty">Nada en tus cuadernos con eso todavía.</p>}
+            {results.length === 0 && <p className="cu-res-empty">Nada en tus carpetas con eso todavía.</p>}
           </motion.div>
         )}
       </AnimatePresence>

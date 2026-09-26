@@ -14,7 +14,7 @@ import { useMe } from '../auth/AuthProvider'
 import { signOut } from '../auth/credentials'
 import { useSpace } from '../spaces/SpaceProvider'
 import { keys, useAreas, useSpaceRow } from '../data/queries'
-import { useTheme } from '../../app/theme'
+import { ThemeChoice } from '../../components/ThemeChoice'
 
 // Ajustes mínimos. Si algo necesita un menú para entenderse, está mal.
 export default function SettingsPage() {
@@ -23,7 +23,6 @@ export default function SettingsPage() {
   const qc = useQueryClient()
   const space = useSpaceRow().data
   const areas = useAreas().data ?? []
-  const { theme, toggle } = useTheme()
   const [name, setName] = useState('')
   const [tagline, setTagline] = useState('')
   const [about, setAbout] = useState('')
@@ -98,8 +97,9 @@ export default function SettingsPage() {
         />
         <label className="lbl">Tu color principal</label>
         <AccentPicker />
+        <label className="lbl">Tema (el mismo en HQ, Agenda y Cuaderno)</label>
+        <ThemeChoice />
         <div className="row" style={{ flexWrap: 'wrap', marginTop: 16 }}>
-          <button className="btn ghost sm" onClick={toggle}><Icon name={theme === 'dark' ? 'sun' : 'moon'} className="sm" /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}</button>
           <Link className="btn ghost sm" to="/cambiar-clave"><Icon name="key" className="sm" /> Cambiar contraseña</Link>
           <button className="btn danger sm" onClick={() => signOut()}><Icon name="logout" className="sm" /> Cerrar sesión</button>
         </div>

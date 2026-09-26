@@ -36,7 +36,7 @@ import {
   type Paper,
   type Scene,
 } from './board'
-import { rootOf, spine } from './books'
+import { noteColorOf, pathOf, spine } from './books'
 import { distToSegment } from './graph'
 import { NONE, useBooks, useCuadernoActions, useNotes, type Book, type Note } from './data'
 import { CIcon } from './icons'
@@ -826,7 +826,7 @@ export default function Pizarra({ note, mobile }: { note: Note; mobile: boolean 
                   <CIcon name={t.icon} size={19} />
                 </button>
               ))}
-              <button className="cu-tool" onClick={(e) => setPageAt(pageAt ? null : e.currentTarget)} title="Pegar una página de tus cuadernos" aria-label="Pegar una página de tus cuadernos" aria-haspopup="menu">
+              <button className="cu-tool" onClick={(e) => setPageAt(pageAt ? null : e.currentTarget)} title="Pegar una de tus páginas" aria-label="Pegar una de tus páginas" aria-haspopup="menu">
                 <CIcon name="note" size={19} />
               </button>
             </div>
@@ -1059,12 +1059,12 @@ const ItemView = memo(function ItemView(p: {
     )
   else {
     const n = p.page
-    const root = n ? rootOf(p.books, n.book_id) : null
+    const color = n ? noteColorOf(p.books, n) : null
     body = (
-      <div className="cu-bpage" style={root ? spine(root.color) : undefined}>
+      <div className="cu-bpage" style={color ? spine(color) : undefined}>
         <span className="cu-bpage-spine" aria-hidden="true" />
         <div>
-          <small>{n ? (root ? root.name : 'Sueltas') : 'Ya no existe'}</small>
+          <small>{n ? pathOf(p.books, n.book_id) : 'Ya no existe'}</small>
           <b>{n?.title ?? 'Página borrada'}</b>
           {n && <p>{plain(n.body).slice(0, 160)}</p>}
         </div>

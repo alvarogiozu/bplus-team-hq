@@ -1,19 +1,51 @@
 import { useSyncExternalStore } from 'react'
-import { lsSet } from '../lib/storage'
+import { lsGet, lsSet } from '../lib/storage'
 
-// Claro / oscuro. index.html fija el tema antes de pintar (sin parpadeo).
+// Claro / oscuro / automático (el del equipo), el mismo para todo Rockie OS: HQ, Agenda y Cuaderno.
+// index.html fija el tema antes de pintar (sin parpadeo); aquí se aplica al instante,
+// también en las otras pestañas abiertas, y en "automático" sigue al sistema en vivo.
 type Theme = 'light' | 'dark'
+export type ThemeMode = Theme | 'auto'
 const subs = new Set<() => void>()
+const emit = () => subs.forEach((f) => f())
+const system = (): Theme => (typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
 
 function current(): Theme {
   return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
 }
 
-export function setTheme(t: Theme) {
+export function themeMode(): ThemeMode {
+  const v = lsGet('hq.theme')
+  return v === 'dark' || v === 'light' ? v : 'auto'
+}
+
+function apply(t: Theme) {
   document.documentElement.dataset.theme = t
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'dark' ? '#232136' : '#f0ebe5')
+  emit()
+}
+
+export function setTheme(t: Theme) {
   lsSet('hq.theme', t)
-  subs.forEach((f) => f())
+  apply(t)
+}
+
+export function setThemeMode(m: ThemeMode) {
+  if (m === 'auto') {
+    lsSet('hq.theme', '')
+    apply(system())
+  } else setTheme(m)
+}
+
+if (typeof window !== 'undefined') {
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (themeMode() === 'auto') apply(system())
+  })
+  // otra pestaña cambió el tema o el color: esta también
+  addEventListener('storage', (e) => {
+    if (e.key === 'hq.theme') apply(themeMode() === 'auto' ? system() : (themeMode() as Theme))
+    if (e.key === 'hq.accent') setAccent(e.newValue || null, false)
+  })
 }
 
 export function useTheme() {
@@ -24,7 +56,15 @@ export function useTheme() {
     },
     current,
   )
-  return { theme, toggle: () => setTheme(theme === 'dark' ? 'light' : 'dark') }
+  // el modo se lee de lo guardado (cambia junto con el tema: mismo aviso)
+  const mode = useSyncExternalStore(
+    (cb) => {
+      subs.add(cb)
+      return () => subs.delete(cb)
+    },
+    themeMode,
+  )
+  return { theme, mode, setMode: setThemeMode, toggle: () => setTheme(theme === 'dark' ? 'light' : 'dark') }
 }
 
 // ---------- Color principal personal (el "azul" de la app) ----------
@@ -43,17 +83,16 @@ export const ACCENTS: { name: string; hex: string | null }[] = [
 ]
 const accentSubs = new Set<() => void>()
 
-export function setAccent(hex: string | null) {
+export function setAccent(hex: string | null, save = true) {
   const root = document.documentElement
   if (hex) {
     root.dataset.accent = '1'
     root.style.setProperty('--user-accent', hex)
-    lsSet('hq.accent', hex)
   } else {
     delete root.dataset.accent
     root.style.removeProperty('--user-accent')
-    lsSet('hq.accent', '')
   }
+  if (save) lsSet('hq.accent', hex ?? '')
   accentSubs.forEach((f) => f())
 }
 
