@@ -31,4 +31,7 @@ test('Logros: crear y entregar a mano; uno ligado a una meta se desbloquea solo'
   await panel.getByRole('button', { name: 'Registrar' }).click()
   await expect(page.getByText('¡Logro del equipo! «Medio camino: 250 patrocinadores»')).toBeVisible()
   await expect(panel.locator('.gsubs', { hasText: 'Medio camino' })).toContainText('Logrado')
+  // deja la meta como estaba (las otras pruebas cuentan con 180)
+  await page.getByRole('button', { name: 'Deshacer' }).first().click()
+  await expect(panel.getByText('180 de 500 patrocinadores')).toBeVisible()
 })

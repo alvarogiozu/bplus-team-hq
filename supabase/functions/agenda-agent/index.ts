@@ -130,6 +130,17 @@ const TOOLS = [
     strict: true,
     input_schema: obj({ text: str, refs: { type: 'array', items: str } }),
   },
+  {
+    name: 'otra_app',
+    description:
+      'El pedido es de OTRA app de Rockie: "habitos" (algo que quiere repetir o volver costumbre), "cuaderno" (anotar una idea, un apunte o algo que aprendió), "equipo" (una tarea del equipo en el HQ) o "agenda" (algo personal con día u hora). pedido = lo que hay que hacer allá, claro y corto. area = el área de la vida.',
+    strict: true,
+    input_schema: obj({
+      app: { type: 'string', enum: ['agenda', 'equipo', 'habitos', 'cuaderno'] },
+      pedido: str,
+      area: { type: 'string', enum: ['cuerpo', 'mente', 'alma', 'trabajo'] },
+    }),
+  },
 ]
 
 const SYSTEM = `Eres Rockie, el asistente de Rockie Agenda (de B+). La persona te habla en español, muchas veces por voz (puede haber errores de dictado), para organizar su día y el de su equipo.
@@ -140,6 +151,8 @@ Tu trabajo es convertir cada orden en PROPUESTAS usando las herramientas. Nunca 
 - Usa solo ids que existan en el contexto. Si una referencia calza con varias cosas o con ninguna, usa preguntar con opciones concretas en vez de adivinar.
 - Fechas AAAA-MM-DD y horas HH:mm en 24 h, en la zona horaria del contexto. Las fechas relativas ("mañana", "el jueves", "la otra semana") se calculan desde "hoy" del contexto; un día de la semana sin más es el próximo que viene (si es hoy, es hoy solo si dicen "hoy" o "este").
 - Lo personal (gimnasio, estudiar, comer, una tarea propia) va a la agenda personal. Una reunión con gente del equipo es crear_reunion. Mover reuniones o proyectos afecta a todo el equipo: hazlo solo si lo piden claramente.
+- Personas que NO están en "people" (pareja, familia, amigos, clientes): no preguntes por ellas ni las busques en el equipo. Es un plan personal: crear_item con su nombre en el título ("Cita con Sofía"). crear_reunion es solo con gente de "people"; pregunta únicamente si un nombre calza con VARIAS personas de "people".
+- Si el pedido es de otra app usa otra_app: algo que quiere repetir o volver hábito (correr todos los días, leer 20 páginas diarias) es "habitos"; anotar una idea, un apunte o algo que aprendió es "cuaderno"; crear o asignar una tarea al equipo es "equipo". area: cuerpo (salud, ejercicio, comida, sueño), mente (estudio, lectura, aprender, crear), alma (pareja, familia, amigos, descanso, espiritualidad) o trabajo.
 - Sin duración: usa la duración por defecto del contexto. Sin día ni hora: va al Inbox (day null).
 - Cada ítem personal vive en un calendario ("calendars": Personal, Estudio, Trabajo, Salud...). Si dicen "en estudio" o "de trabajo", usa ese calendar_id; si no lo dicen, null.
 - "google_events" son eventos de Google Calendar: solo lectura. Úsalos para responder o para no chocar horarios, pero nunca los muevas ni los borres.
@@ -174,7 +187,7 @@ const TOOLS_HQ = [
       area_id: optStr,
     }),
   },
-  ...TOOLS.filter((t) => t.name === 'preguntar' || t.name === 'responder'),
+  ...TOOLS.filter((t) => t.name === 'preguntar' || t.name === 'responder' || t.name === 'otra_app'),
 ]
 
 const SYSTEM_HQ = `Eres Rockie, el asistente del HQ de B+ (un gestor de tareas de equipo, anti-Notion: una tarea, un dueño, una fecha). Te hablan en español, muchas veces por voz (puede haber errores de dictado).
@@ -187,6 +200,7 @@ Convierte cada orden en PROPUESTAS con las herramientas. Nunca ejecutas nada: la
 - "urgente" es priority urgent. "Empecé", "estoy en" o "en curso" es status doing.
 - Para preguntas ("¿qué tiene Mariana esta semana?", "¿qué está atrasado?") usa responder con un texto breve y los ids de las tareas en refs.
 - Títulos cortos y claros, como los diría la persona, con mayúscula inicial, sin la fecha ni la persona dentro.
+- Lo personal no es una tarea del equipo: una cita, el gimnasio o estudiar a una hora es otra_app "agenda"; algo que quiere repetir o volver hábito es "habitos"; una idea o apunte personal es "cuaderno". Personas que no están en "people" (pareja, familia, amigos) no son del equipo: no preguntes por ellas. area: cuerpo (salud, ejercicio, comida, sueño), mente (estudio, lectura, aprender, apuntes, ideas), alma (pareja, familia, amigos, descanso) o trabajo (solo tareas del equipo o del empleo).
 - Antes de las herramientas puedes escribir una frase corta y cálida.`
 
 type Ctx = {
@@ -245,6 +259,8 @@ function valid(name: string, input: Record<string, unknown>, ctx: Ctx): boolean 
       return typeof input.question === 'string' && Array.isArray(input.options)
     case 'responder':
       return typeof input.text === 'string'
+    case 'otra_app':
+      return ['agenda', 'equipo', 'habitos', 'cuaderno'].includes(String(input.app)) && typeof input.pedido === 'string' && input.pedido.trim().length > 0
     default:
       return false
   }

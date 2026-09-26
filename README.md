@@ -21,7 +21,10 @@ de ajustes para entenderse, está mal.
   Docs, Figma o YouTube entra como enlace reconocido. Cupo por equipo (1 GB en el plan gratis, 50 MB por archivo).
 - **Equipo** — Rockies, XP, niveles, roles, invitaciones y **logros**: los 10 de siempre, las metas logradas y los
   propios del equipo (nombre, ícono y color; se desbloquean solos cuando una meta llega a su marca, o se entregan a mano).
-- **Rockie** (barra de abajo, `Ctrl/Cmd + K`, o **mantén el micrófono y habla**) — "tarea para Sebastián el viernes,
+- **Rockie** (barra de abajo, `Ctrl/Cmd + K`, o **toca el micrófono y habla**; tócalo otra vez para enviar, o mantenlo
+  presionado; **manos libres** = conversación seguida: «sí» confirma, «no» descarta, «listo» termina). Es **un solo chat**
+  en Agenda, HQ y Cuaderno, y lo que es de otra app lo deriva (una cita va a la Agenda, un hábito a B+, un apunte al
+  Cuaderno) marcando el área de la vida (cuerpo, mente, alma, trabajo). — "tarea para Sebastián el viernes,
   urgente", "pásale lo del firmware a Andrea", "¿qué está atrasado?". Entiende con IA (la misma Edge Function de la
   agenda, `scope: hq`), muestra una tarjeta por propuesta y todo se deshace. Sin IA, un intérprete local.
 - **Equipo en vivo** — en Tareas ves quién está conectado (y en qué pantalla), invitas con un enlace y reasignas

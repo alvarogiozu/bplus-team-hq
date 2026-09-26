@@ -43,7 +43,7 @@ export default function ProjectsPage() {
           {(q.data ?? []).some((p) => p.archived) && (
             <button className="chip plain" aria-pressed={showArchived} onClick={() => setShowArchived(!showArchived)}>Archivados</button>
           )}
-          <button className="btn sm" onClick={() => setOpenId('new')}><Icon name="plus" className="sm" /> Nuevo proyecto</button>
+          <button className="btn sm hide-mobile" onClick={() => setOpenId('new')}><Icon name="plus" className="sm" /> Nuevo proyecto</button>
         </div>
       </header>
       {q.isLoading ? (

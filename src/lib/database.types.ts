@@ -1459,6 +1459,41 @@ export type Database = {
           },
         ]
       }
+      rockie_turns: {
+        Row: {
+          app: string
+          created_at: string
+          id: string
+          role: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          app: string
+          created_at?: string
+          id?: string
+          role: string
+          text: string
+          user_id?: string
+        }
+        Update: {
+          app?: string
+          created_at?: string
+          id?: string
+          role?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rockie_turns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       space_members: {
         Row: {
           created_at: string

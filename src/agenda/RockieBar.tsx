@@ -1,17 +1,19 @@
 import { forwardRef, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { AnimatePresence, motion, useTransform, type MotionValue } from 'motion/react'
+import { useSearchParams } from 'react-router'
 import { Rockie } from '../components/Rockie'
 import { toast } from '../components/Toasts'
 import { haptic } from '../lib/fx'
 import { useAuth } from '../features/auth/AuthProvider'
-import { applyProposal, askRockie, buildContext, describe, ghostOf, makeLook, summarize, type Card, type Proposal, type Turn } from './agent'
+import { applyProposal, askRockie, buildContext, describe, ghostOf, makeLook, summarize, type Card, type Proposal } from './agent'
+import { APP_META, HandoffCard, RecentChat, useRockieChat, type ChatApp, type LifeArea } from '../features/agent/chat'
 import { useCalendarMap, type GEvent } from './calendars'
 import { useAgendaActions, useHq, useItems, usePrefs, type Undo } from './data'
 import { openEditor } from './Editor'
 import { AIcon } from './icons'
 import { localPropose } from './localAgent'
 import type { Ghost } from './Timeline'
-import { useVoice } from './voice'
+import { listenHint, useHandsFree, useMicPress, useVoice, type VoiceMode } from './voice'
 
 // card = cómo se veía al proponer (si no, tras mover diría «15:00 → 15:00»)
 type PropState = { p: Proposal; card: Card; st: 'pending' | 'done' | 'skip'; undo?: Undo | null }
@@ -24,6 +26,7 @@ type Entry =
       basic?: boolean
       error?: string
       props: PropState[]
+      handoffs: { app: ChatApp; pedido: string; area?: LifeArea | null }[]
       question?: { question: string; options: string[] }
       answer?: { text: string; refs: string[] }
     }
@@ -44,29 +47,62 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
 
     const [text, setText] = useState('')
     const [thread, setThread] = useState<Entry[]>([])
-    const [turns, setTurns] = useState<Turn[]>([])
+    const chat = useRockieChat('agenda')
     const [open, setOpen] = useState(false)
     const [thinking, setThinking] = useState(false)
     const [typing, setTyping] = useState(false) // móvil: muestra el campo de texto
     const scrollRef = useRef<HTMLDivElement>(null)
-    const pressAt = useRef(0)
+    const [params, setParams] = useSearchParams()
 
     const voice = useVoice({ onFinal: (t) => void send(t, true) })
+    const hands = useHandsFree(voice, thinking)
+    const press = useMicPress(voice, () => haptic(12))
+    const threadRef = useRef(thread)
+    threadRef.current = thread
+
+    // un pedido que llega desde otra app (?rockie=...) se envía solo al entrar
+    const sentFromUrl = useRef(false)
+    useEffect(() => {
+      const incoming = params.get('rockie')
+      if (!incoming || sentFromUrl.current || !profile) return
+      sentFromUrl.current = true
+      const next = new URLSearchParams(params)
+      next.delete('rockie')
+      setParams(next, { replace: true })
+      void send(incoming)
+    }, [profile]) // eslint-disable-line react-hooks/exhaustive-deps
 
     async function send(raw: string, byVoice = false) {
       const t = raw.trim()
       if (!t || !profile) return
+      // manos libres: «listo» termina, «sí» confirma lo pendiente, «no» lo descarta
+      const cmd = hands.command(t)
+      const last = [...threadRef.current].reverse().find((e) => e.who === 'rockie') as Extract<Entry, { who: 'rockie' }> | undefined
+      const hasPending = Boolean(last?.props.some((x) => x.st === 'pending'))
+      if (cmd === 'end') {
+        hands.off()
+        toast('Manos libres en pausa')
+        return
+      }
+      if (cmd === 'yes' && last && hasPending) return void confirmAll(last)
+      if (cmd === 'no' && last && hasPending) {
+        setThread((x) => x.map((e) => (e.id === last.id && e.who === 'rockie' ? { ...e, props: e.props.map((ps) => (ps.st === 'pending' ? { ...ps, st: 'skip' as const } : ps)) } : e)))
+        return
+      }
       setText('')
       setOpen(true)
       setThinking(true)
       setThread((x) => [...x, { id: uid(), who: 'user' as const, text: t, voice: byVoice }].slice(-24))
       const ctx = buildContext({ today: p.today, nowMin: p.nowMin, tz, profile, prefs, items, hq, cals, google: p.google })
       const people = (hq?.people ?? []).map((x) => ({ id: x.id, name: x.name, username: x.username }))
-      const reply = await askRockie(t, turns, ctx, () => localPropose(t, { today: p.today, defaultDuration: prefs?.default_duration ?? 15, people }))
+      const reply = await askRockie(t, chat.history(), ctx, () => localPropose(t, { today: p.today, defaultDuration: prefs?.default_duration ?? 15, people }))
       setThinking(false)
       const q = reply.proposals.find((x) => x.tool === 'preguntar')
       const a = reply.proposals.find((x) => x.tool === 'responder')
-      const acts = reply.proposals.filter((x) => x.tool !== 'preguntar' && x.tool !== 'responder')
+      const acts = reply.proposals.filter((x) => x.tool !== 'preguntar' && x.tool !== 'responder' && x.tool !== 'otra_app')
+      const handoffs = reply.proposals
+        .filter((x) => x.tool === 'otra_app' && x.input.app !== 'agenda')
+        .map((x) => ({ app: x.input.app as ChatApp, pedido: String(x.input.pedido ?? t), area: (x.input.area as LifeArea | undefined) ?? null }))
       const entry: Entry = {
         id: uid(),
         who: 'rockie',
@@ -74,11 +110,16 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
         basic: reply.basic,
         error: reply.error,
         props: acts.map((x) => ({ p: x, card: describe(x, look), st: 'pending' as const })),
+        handoffs,
         question: q ? { question: String(q.input.question), options: (q.input.options as string[]) ?? [] } : undefined,
         answer: a ? { text: String(a.input.text), refs: (a.input.refs as string[]) ?? [] } : undefined,
       }
       setThread((x) => [...x, entry].slice(-24))
-      setTurns((x) => [...x, { role: 'user' as const, text: t }, { role: 'assistant' as const, text: summarize(reply.say || entry.answer?.text || entry.question?.question || '', acts, look) }].slice(-8))
+      const moved = handoffs.map((h) => `para ${APP_META[h.app].label}: ${h.pedido}`).join(' · ')
+      void chat.append([
+        { role: 'user', text: t },
+        { role: 'assistant', text: [summarize(reply.say || entry.answer?.text || entry.question?.question || '', acts, look), moved].filter(Boolean).join(' · ') || '…' },
+      ])
       if (acts.length) haptic(10)
     }
 
@@ -160,26 +201,32 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
         listening={voice.listening}
         level={voice.level}
         disabled={!voice.supported}
-        onDown={() => {
-          if (voice.listening) return voice.stop()
-          pressAt.current = Date.now()
-          haptic(12)
-          voice.start({ autoStop: true })
-        }}
-        onUp={() => {
-          if (voice.listening && Date.now() - pressAt.current > 380) voice.stop()
-        }}
+        onDown={press.onDown}
+        onUp={press.onUp}
       />
+    )
+    const handsBtn = (
+      <button
+        type="button"
+        className={`rk-hands${hands.on ? ' on' : ''}`}
+        aria-pressed={hands.on}
+        aria-label={hands.on ? 'Apagar manos libres' : 'Manos libres: conversar sin tocar'}
+        title={hands.on ? 'Manos libres activado (di «listo» para terminar)' : 'Manos libres: habla, Rockie responde y vuelve a escucharte'}
+        disabled={!voice.supported}
+        onClick={hands.toggle}
+      >
+        <AIcon name="repeat" size={17} />
+      </button>
     )
 
     return (
       <div className={`rk${p.mobile ? ' mobile' : ''}`}>
         <AnimatePresence>
-          {voice.listening && <Listening key="listen" text={voice.text} level={voice.level} />}
+          {voice.listening && <Listening key="listen" text={voice.text} level={voice.level} mode={voice.mode} />}
         </AnimatePresence>
 
         <AnimatePresence>
-          {open && (thread.length > 0 || thinking) && !voice.listening && (
+          {open && (thread.length > 0 || thinking || chat.turns.length > 0) && !voice.listening && (
             <motion.div
               key="thread"
               className="rk-thread"
@@ -200,6 +247,7 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
                 </button>
               </div>
               <div className="rk-scroll" ref={scrollRef}>
+                {thread.length === 0 && !thinking && <RecentChat turns={chat.turns} current="agenda" max={6} />}
                 {thread.map((e) =>
                   e.who === 'user' ? (
                     <motion.div key={e.id} className="rk-me" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
@@ -236,6 +284,9 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
                           </div>
                         </>
                       )}
+                      {e.handoffs.map((h, i) => (
+                        <HandoffCard key={i} app={h.app} pedido={h.pedido} area={h.area} />
+                      ))}
                       <motion.div className="rk-cards" initial="hide" animate="show" variants={{ show: { transition: { staggerChildren: 0.07 } } }}>
                         {e.props.map((ps, i) => {
                           const c = ps.card
@@ -321,19 +372,21 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
                 <AIcon name="keyboard" size={22} />
               </button>
               {mic}
+              {handsBtn}
               <button className="rk-side" onClick={p.onNew} aria-label="Nuevo">
                 <AIcon name="plus" size={24} />
               </button>
             </div>
           </>
         ) : (
-          <form className="rk-bar" onSubmit={submit} onFocus={() => thread.length && setOpen(true)}>
+          <form className="rk-bar" onSubmit={submit} onFocus={() => (thread.length || chat.turns.length) && setOpen(true)}>
             <Rockie color="#3c5d73" size={30} reactive />
             <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} placeholder="Pídele algo a Rockie… «mueve el gym a las 7»" aria-label="Pídele algo a Rockie" />
             <span className="kbd" aria-hidden="true">
               Ctrl K
             </span>
             {mic}
+            {handsBtn}
             <button className="rk-send" aria-label="Enviar" disabled={!text.trim()}>
               <AIcon name="send" size={18} />
             </button>
@@ -350,9 +403,9 @@ export function MicButton(p: { big: boolean; listening: boolean; level: MotionVa
     <motion.button
       type="button"
       className={`rk-mic${p.big ? ' big' : ''}${p.listening ? ' on' : ''}`}
-      aria-label={p.listening ? 'Dejar de escuchar' : 'Hablarle a Rockie (mantén presionado)'}
+      aria-label={p.listening ? 'Terminar y enviar' : 'Hablarle a Rockie'}
       aria-pressed={p.listening}
-      title={p.disabled ? 'Tu navegador no dicta: usa Chrome, Edge o Safari' : 'Mantén presionado para hablar · toca para dictar'}
+      title={p.disabled ? 'Tu navegador no dicta: usa Chrome, Edge o Safari' : 'Toca para hablar y otra vez para enviar · o mantén presionado'}
       disabled={p.disabled}
       onPointerDown={(e) => {
         e.preventDefault()
@@ -368,12 +421,12 @@ export function MicButton(p: { big: boolean; listening: boolean; level: MotionVa
       whileTap={{ scale: 0.92 }}
     >
       {p.listening && <motion.span className="rk-mic-ring" style={{ scale: ring }} />}
-      {p.big ? <Rockie color="#4a8db3" size={46} listening={p.listening} reactive /> : <AIcon name="mic" size={19} />}
+      {p.big ? <Rockie color="var(--brand)" size={46} listening={p.listening} reactive /> : <AIcon name="mic" size={19} />}
     </motion.button>
   )
 }
 
-export function Listening({ text, level }: { text: string; level: MotionValue<number> }) {
+export function Listening({ text, level, mode = 'hold' }: { text: string; level: MotionValue<number>; mode?: VoiceMode }) {
   const r1 = useTransform(level, [0, 1], [1, 1.55])
   const r2 = useTransform(level, [0, 1], [1, 2.1])
   return (
@@ -389,7 +442,7 @@ export function Listening({ text, level }: { text: string; level: MotionValue<nu
       <div className="rk-orb">
         <motion.span className="rk-orb-ring" style={{ scale: r2 }} />
         <motion.span className="rk-orb-ring r1" style={{ scale: r1 }} />
-        <Rockie color="#4a8db3" size={66} listening />
+        <Rockie color="var(--brand)" size={66} listening />
       </div>
       <div className="rk-wave" aria-hidden="true">
         {[0, 1, 2, 3, 4, 5, 6].map((i) => (
@@ -397,7 +450,7 @@ export function Listening({ text, level }: { text: string; level: MotionValue<nu
         ))}
       </div>
       <p className="rk-live">{text || 'Te escucho…'}</p>
-      <small>Suelta para enviar · Esc para cancelar</small>
+      <small>{listenHint(mode)}</small>
     </motion.div>
   )
 }

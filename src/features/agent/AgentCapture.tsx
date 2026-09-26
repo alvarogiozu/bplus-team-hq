@@ -7,21 +7,25 @@ import { Rockie } from '../../components/Rockie'
 import { toast } from '../../components/Toasts'
 import { haptic } from '../../lib/fx'
 import { supabase } from '../../lib/supabase'
-import { useVoice } from '../../agenda/voice'
+import { listenHint, useHandsFree, useMicPress, useVoice } from '../../agenda/voice'
 import { useAuth } from '../auth/AuthProvider'
 import { useMembers, useTasks } from '../data/queries'
 import { removeTask } from '../data/realtime'
 import { useSpace } from '../spaces/SpaceProvider'
 import { useTaskActions } from '../tasks/actions'
 import { MemberAvatar, useLookup } from '../tasks/bits'
-import { applyHq, askHq, buildHqContext, describeHq, localHq, summarizeHq, type HqLook, type HqProposal, type HqTurn } from './hqAgent'
+import { applyHq, askHq, buildHqContext, describeHq, localHq, summarizeHq, type HqLook, type HqProposal } from './hqAgent'
+import { APP_META, HandoffCard, RecentChat, useRockieChat, type ChatApp, type LifeArea } from './chat'
 
 // La barra de Rockie del HQ: se le escribe o se le HABLA (mismo botón que Rockie Agenda:
-// mantener para hablar, tocar para dictar). Rockie entiende con IA y responde con tarjetas;
-// nada se aplica sin tu confirmación y todo se deshace. Sin IA, un intérprete local.
+// tocar = habla hasta que vuelves a tocar; mantener = habla mientras presionas; manos libres =
+// conversación seguida). Rockie entiende con IA y responde con tarjetas; nada se aplica sin tu
+// confirmación y todo se deshace. La conversación es la misma de la Agenda y el Cuaderno, y lo
+// que es de otra app se deriva allá. Sin IA, un intérprete local.
 
 type Card = { p: HqProposal; st: 'pending' | 'done' | 'skip' | 'undone'; undo?: (() => Promise<void>) | null }
-type Reply = { say: string; cards: Card[]; answer?: { text: string; refs: string[] }; question?: { q: string; options: string[] }; basic?: boolean; error?: string }
+type Handoff = { app: ChatApp; pedido: string; area?: LifeArea | null }
+type Reply = { say: string; cards: Card[]; handoffs: Handoff[]; answer?: { text: string; refs: string[] }; question?: { q: string; options: string[] }; basic?: boolean; error?: string }
 
 export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; autoFocus?: boolean; inline?: boolean }>(function AgentCapture(
   { onDone, autoFocus, inline },
@@ -41,9 +45,8 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
   const [thinking, setThinking] = useState(false)
   const [heard, setHeard] = useState<string | null>(null)
   const [focused, setFocused] = useState(false)
-  const [turns, setTurns] = useState<HqTurn[]>([])
   const [params, setParams] = useSearchParams()
-  const pressAt = useRef(0)
+  const chat = useRockieChat('equipo')
 
   const look: HqLook = useMemo(
     () => ({ today, userId: userId ?? '', memberById, taskById: new Map(tasks.map((t) => [t.id, t])), projectById, areaById }),
@@ -51,10 +54,39 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
   )
 
   const voice = useVoice({ onFinal: (t) => void send(t, true) })
+  const hands = useHandsFree(voice, thinking)
+  const press = useMicPress(voice, () => haptic(12))
+  const replyRef = useRef(reply)
+  replyRef.current = reply
+
+  // un pedido que llega desde otra app (?rockie=...) se envía solo al entrar
+  const sentFromUrl = useRef(false)
+  useEffect(() => {
+    const incoming = params.get('rockie')
+    if (!incoming || sentFromUrl.current) return
+    sentFromUrl.current = true
+    const next = new URLSearchParams(params)
+    next.delete('rockie')
+    setParams(next, { replace: true })
+    void send(incoming)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function send(raw: string, byVoice = false) {
     const t = raw.trim()
     if (!t || !userId) return
+    // manos libres: «listo» termina, «sí» confirma lo pendiente, «no» lo descarta
+    const cmd = hands.command(t)
+    const hasPending = Boolean(replyRef.current?.cards.some((c) => c.st === 'pending'))
+    if (cmd === 'end') {
+      hands.off()
+      toast('Manos libres en pausa')
+      return
+    }
+    if (cmd === 'yes' && hasPending) return void confirmAll()
+    if (cmd === 'no' && hasPending) {
+      setReply((r) => (r ? { ...r, cards: r.cards.map((c) => (c.st === 'pending' ? { ...c, st: 'skip' } : c)) } : r))
+      return
+    }
     setText('')
     setReply(null)
     setHeard(byVoice ? t : null)
@@ -65,7 +97,7 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
     const ctx = buildHqContext({ today, tz: profile?.timezone ?? 'America/Lima', userId, members: team, tasks: list, projects, areas })
     // las propuestas se revisan contra lo recién cargado (no contra el render en que se tocó Enter)
     const now: HqLook = { ...look, taskById: new Map(list.map((x) => [x.id, x])), memberById: new Map(team.map((m) => [m.user_id, m])) }
-    let r = await askHq(t, turns, ctx)
+    let r = await askHq(t, chat.history(), ctx)
     // IA sin configurar, sin cuota o caída: el intérprete local resuelve lo simple
     if (r.error) {
       const local = localHq(t, now, list, team.map((m) => ({ id: m.user_id, name: m.profile.display_name, username: m.profile.username })))
@@ -73,15 +105,21 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
     }
     setThinking(false)
     const cards: Card[] = []
+    const handoffs: Handoff[] = []
     let answer: Reply['answer']
     let question: Reply['question']
     for (const p of r.proposals) {
       if (p.tool === 'responder') answer = { text: String(p.input.text ?? ''), refs: (p.input.refs as string[] | undefined) ?? [] }
       else if (p.tool === 'preguntar') question = { q: String(p.input.question ?? ''), options: (p.input.options as string[] | undefined) ?? [] }
+      else if (p.tool === 'otra_app' && p.input.app !== 'equipo') handoffs.push({ app: p.input.app as ChatApp, pedido: String(p.input.pedido ?? t), area: (p.input.area as LifeArea | undefined) ?? null })
       else if (describeHq(p, now)) cards.push({ p, st: 'pending' })
     }
-    setReply({ say: r.say, cards, answer, question, basic: r.basic, error: r.proposals.length ? undefined : r.error })
-    setTurns((x) => [...x, { role: 'user' as const, text: t }, { role: 'assistant' as const, text: summarizeHq(r.say, r.proposals, now) }].slice(-8))
+    setReply({ say: r.say, cards, handoffs, answer, question, basic: r.basic, error: r.proposals.length ? undefined : r.error })
+    const moved = handoffs.map((h) => `para ${APP_META[h.app].label}: ${h.pedido}`).join(' · ')
+    void chat.append([
+      { role: 'user', text: t },
+      { role: 'assistant', text: [summarizeHq(r.say, r.proposals.filter((p) => p.tool !== 'otra_app'), now), moved].filter((x) => x && x !== '…').join(' · ') || '…' },
+    ])
     if (cards.length) haptic(10)
   }
 
@@ -121,8 +159,8 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
     setText('')
     setReply(null)
     setHeard(null)
-    setTurns([])
     voice.cancel()
+    hands.off()
     onDone?.()
   }
   function openTask(id: string) {
@@ -137,7 +175,7 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
 
   const pending = reply?.cards.filter((c) => c.st === 'pending').length ?? 0
   // Todo resuelto (y nada que leer): el panel se despide solo
-  const allSettled = Boolean(reply && reply.cards.length > 0 && pending === 0 && !reply.answer && !reply.question)
+  const allSettled = Boolean(reply && reply.cards.length > 0 && pending === 0 && !reply.answer && !reply.question && !reply.handoffs.length)
   useEffect(() => {
     if (!allSettled) return
     const t = setTimeout(() => {
@@ -163,7 +201,7 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
             transition={{ type: 'spring', stiffness: 520, damping: 36 }}
           >
             {voice.listening ? (
-              <Listening text={voice.text} level={voice.level} />
+              <Listening text={voice.text} level={voice.level} hint={listenHint(voice.mode)} />
             ) : voice.error ? (
               <p className="agenthint" style={{ margin: 0 }}>{voice.error}</p>
             ) : thinking ? (
@@ -172,9 +210,12 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
                 <span className="agentdots" aria-label="Rockie está pensando"><i /><i /><i /></span>
               </div>
             ) : !reply ? (
-              <p className="agenthint" style={{ margin: 0 }}>
-                Escríbele o <b>mantén el micrófono y habla</b>: <code>tarea para Sebastián el viernes, urgente</code>, <code>pásale lo del firmware a Andrea</code>, <code>¿qué está atrasado?</code>
-              </p>
+              <>
+                <p className="agenthint" style={{ margin: 0 }}>
+                  Escríbele o <b>toca el micrófono y habla</b> (tócalo otra vez para enviar): <code>tarea para Sebastián el viernes, urgente</code>, <code>pásale lo del firmware a Andrea</code>, <code>¿qué está atrasado?</code>
+                </p>
+                <RecentChat turns={chat.turns} current="equipo" />
+              </>
             ) : (
               <div className="agentreply">
                 {heard && <p className="agentheard">«{heard}»</p>}
@@ -208,6 +249,9 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
                     </div>
                   </div>
                 )}
+                {reply.handoffs.map((h, i) => (
+                  <HandoffCard key={i} app={h.app} pedido={h.pedido} area={h.area} />
+                ))}
                 <motion.div className="agentcards" initial="hide" animate="show" variants={{ show: { transition: { staggerChildren: 0.06 } } }}>
                   {reply.cards.map((c, i) => {
                     const d = describeHq(c.p, look)
@@ -272,20 +316,18 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
           readOnly={voice.listening}
         />
         <span className="kbd desktop-only" aria-hidden="true">Ctrl K</span>
-        <MicButton
-          listening={voice.listening}
-          level={voice.level}
+        <MicButton listening={voice.listening} level={voice.level} disabled={!voice.supported} onDown={press.onDown} onUp={press.onUp} />
+        <button
+          type="button"
+          className={`iconbtn flat handsfree${hands.on ? ' on' : ''}`}
+          aria-pressed={hands.on}
+          aria-label={hands.on ? 'Apagar manos libres' : 'Manos libres: conversar sin tocar'}
+          title={hands.on ? 'Manos libres activado (di «listo» para terminar)' : 'Manos libres: habla, Rockie responde y vuelve a escucharte'}
           disabled={!voice.supported}
-          onDown={() => {
-            if (voice.listening) return voice.stop()
-            pressAt.current = Date.now()
-            haptic(12)
-            voice.start({ autoStop: true })
-          }}
-          onUp={() => {
-            if (voice.listening && Date.now() - pressAt.current > 380) voice.stop()
-          }}
-        />
+          onClick={hands.toggle}
+        >
+          <Icon name="loop" />
+        </button>
         <button className="iconbtn flat" aria-label="Enviar" disabled={!text.trim() || thinking}>
           <Icon name="send" />
         </button>
@@ -294,17 +336,17 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
   )
 })
 
-// Mismo botón de voz que Rockie Agenda: mantener = hablar y soltar para enviar; tocar = dicta
-// hasta que haces una pausa. El anillo late con el volumen de tu voz.
+// Mismo botón de voz que Rockie Agenda: tocar = habla hasta que vuelves a tocar; mantener =
+// habla mientras presionas. El anillo late con el volumen de tu voz.
 function MicButton(p: { listening: boolean; level: MotionValue<number>; disabled: boolean; onDown: () => void; onUp: () => void }) {
   const ring = useTransform(p.level, [0, 1], [1, 1.75])
   return (
     <motion.button
       type="button"
       className={`agmic${p.listening ? ' on' : ''}`}
-      aria-label={p.listening ? 'Dejar de escuchar' : 'Hablarle a Rockie (mantén presionado)'}
+      aria-label={p.listening ? 'Terminar y enviar' : 'Hablarle a Rockie'}
       aria-pressed={p.listening}
-      title={p.disabled ? 'Tu navegador no dicta: usa Chrome, Edge o Safari' : 'Mantén presionado para hablar · toca para dictar'}
+      title={p.disabled ? 'Tu navegador no dicta: usa Chrome, Edge o Safari' : 'Toca para hablar y otra vez para enviar · o mantén presionado'}
       disabled={p.disabled}
       onPointerDown={(e) => {
         e.preventDefault()
@@ -328,7 +370,7 @@ function MicButton(p: { listening: boolean; level: MotionValue<number>; disabled
   )
 }
 
-function Listening({ text, level }: { text: string; level: MotionValue<number> }) {
+function Listening({ text, level, hint }: { text: string; level: MotionValue<number>; hint: string }) {
   const bars = [0.55, 0.85, 1, 0.7, 0.45]
   return (
     <div className="agentlisten">
@@ -340,6 +382,7 @@ function Listening({ text, level }: { text: string; level: MotionValue<number> }
       <div style={{ minWidth: 0 }}>
         <b>Te escucho…</b>
         <p className="agentheard" style={{ margin: 0 }}>{text || 'Di algo como «tarea para Andrea el lunes».'}</p>
+        <small className="agentlisten-hint">{hint}</small>
       </div>
     </div>
   )

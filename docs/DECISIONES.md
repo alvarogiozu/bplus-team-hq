@@ -278,3 +278,15 @@ cambiar de vista.
 desbloqueo lo dispara el primer cliente que ve la meta en su marca, vía `unlock_team_achievement` (idempotente,
 anota actividad); cada sesión celebra cuando la lista trae un logro recién desbloqueado, sea de quien sea. Las metas
 logradas aparecen solas como logros. Los 10 logros fijos siguen calculándose en el servidor al validar.
+
+**Voz: tocar no se corta (26 sep 2026).** `agenda/voice.ts` tiene modos: mantener (termina al soltar), tocar (termina al
+volver a tocar; solo un seguro de 45 s de silencio), manos libres (termina con una pausa de 1,8 s y vuelve a escuchar
+después de cada respuesta) y el viejo `autoStop` (3,5 s, lo usa el Cuaderno). Si el navegador corta el dictado por su
+cuenta, se reabre solo sin enviar. Las órdenes de manos libres usan `(?=\s|$)` y no `\b` (en JS `\b` no reconoce
+letras con tilde: «sí»).
+
+**Un solo chat y derivar a otra app.** `rockie_turns` (personal, poda a 200) guarda la conversación de Agenda, HQ y
+Cuaderno; cada barra manda las últimas 8 frases como contexto (marcando de qué app vienen). La herramienta `otra_app`
+(app + pedido + área de la vida) deriva: a la Agenda o a Tareas con `?rockie=<pedido>` (la barra de allá lo envía
+sola), al Cuaderno como entrada del día (`createEntry`) y a Hábitos abriendo B+ con el pedido copiado (B+ todavía no
+recibe pedidos por enlace). Personas fuera del equipo ya no generan preguntas: van en el título.

@@ -83,6 +83,7 @@ const P: Record<string, ReactNode> = {
       <path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10" />
     </>
   ),
+  repeat: <path d="M4 12a8 8 0 0 1 13.7-5.6L20 9M20 4v5h-5M20 12a8 8 0 0 1-13.7 5.6L4 15M4 20v-5h5" />,
   palette: (
     <>
       <path d="M12 3a9 9 0 0 0 0 18c1.5 0 2-1 2-2 0-1.5-1-2 0-3s2-.5 3-.5A4 4 0 0 0 21 11c0-4.5-4-8-9-8z" />
