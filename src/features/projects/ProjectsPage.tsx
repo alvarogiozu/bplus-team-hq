@@ -15,6 +15,7 @@ import { useSpace } from '../spaces/SpaceProvider'
 import { keys, useProjects, useSpaceRow, useTasks } from '../data/queries'
 import { openNewTask } from '../tasks/dialogs'
 import { MemberAvatar, useLookup } from '../tasks/bits'
+import { ProjectMaterials } from '../materials/ProjectMaterials'
 import { TaskRow } from '../views/TaskRow'
 
 // Proyectos (antes "Hitos"): el % ya no se mueve a mano, sale de las tareas validadas.
@@ -258,6 +259,7 @@ function ProjectSheet({ id, onClose }: { id: string | 'new' | null; onClose: () 
             <button className="btn ghost sm" onClick={() => openNewTask({ project_id: project.id })}><Icon name="plus" className="sm" /> Tarea</button>
           </div>
           {sorted.length ? <div className="rows">{sorted.map((t) => <TaskRow key={t.id} task={t} />)}</div> : <p className="hint">Sin tareas. Añade la primera.</p>}
+          <ProjectMaterials projectId={project.id} />
         </>
       )}
     </Sheet>

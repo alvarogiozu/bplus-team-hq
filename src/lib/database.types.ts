@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       achievements_unlocked: {
@@ -471,9 +446,11 @@ export type Database = {
       }
       cuaderno_books: {
         Row: {
-          color: string
+          color: string | null
           created_at: string
+          icon: string | null
           id: string
+          kind: string
           name: string
           parent_id: string | null
           position: number
@@ -481,9 +458,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          color?: string
+          color?: string | null
           created_at?: string
+          icon?: string | null
           id?: string
+          kind?: string
           name: string
           parent_id?: string | null
           position?: number
@@ -491,9 +470,11 @@ export type Database = {
           user_id?: string
         }
         Update: {
-          color?: string
+          color?: string | null
           created_at?: string
+          icon?: string | null
           id?: string
+          kind?: string
           name?: string
           parent_id?: string | null
           position?: number
@@ -749,10 +730,12 @@ export type Database = {
           area: string
           body: string
           book_id: string | null
+          color: string | null
           created_at: string
           embedded_at: string | null
           embedding: string | null
           entry_id: string | null
+          icon: string | null
           id: string
           kind: string
           position: number
@@ -764,10 +747,12 @@ export type Database = {
           area?: string
           body?: string
           book_id?: string | null
+          color?: string | null
           created_at?: string
           embedded_at?: string | null
           embedding?: string | null
           entry_id?: string | null
+          icon?: string | null
           id?: string
           kind?: string
           position?: number
@@ -779,10 +764,12 @@ export type Database = {
           area?: string
           body?: string
           book_id?: string | null
+          color?: string | null
           created_at?: string
           embedded_at?: string | null
           embedding?: string | null
           entry_id?: string | null
+          icon?: string | null
           id?: string
           kind?: string
           position?: number
@@ -1225,6 +1212,164 @@ export type Database = {
           },
         ]
       }
+      material_folders: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          position: number
+          project_id: string | null
+          space_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          position?: number
+          project_id?: string | null
+          space_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          position?: number
+          project_id?: string | null
+          space_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_folders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "material_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_folders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_folders_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materials: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          folder_id: string | null
+          id: string
+          kind: string
+          mime: string
+          name: string
+          note: string
+          project_id: string | null
+          size_bytes: number
+          space_id: string
+          storage_path: string | null
+          task_id: string | null
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          folder_id?: string | null
+          id?: string
+          kind: string
+          mime?: string
+          name: string
+          note?: string
+          project_id?: string | null
+          size_bytes?: number
+          space_id: string
+          storage_path?: string | null
+          task_id?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          folder_id?: string | null
+          id?: string
+          kind?: string
+          mime?: string
+          name?: string
+          note?: string
+          project_id?: string | null
+          size_bytes?: number
+          space_id?: string
+          storage_path?: string | null
+          task_id?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materials_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "material_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           accent: string | null
@@ -1371,6 +1516,7 @@ export type Database = {
           links: Json
           mission: string
           name: string
+          storage_limit_bytes: number
           tagline: string
           updated_at: string
         }
@@ -1382,6 +1528,7 @@ export type Database = {
           links?: Json
           mission?: string
           name?: string
+          storage_limit_bytes?: number
           tagline?: string
           updated_at?: string
         }
@@ -1393,6 +1540,7 @@ export type Database = {
           links?: Json
           mission?: string
           name?: string
+          storage_limit_bytes?: number
           tagline?: string
           updated_at?: string
         }
@@ -1638,6 +1786,7 @@ export type Database = {
       is_member_text: { Args: { sid: string }; Returns: boolean }
       is_owner: { Args: { sid: string }; Returns: boolean }
       join_space: { Args: { p_code: string }; Returns: string }
+      materials_room_left: { Args: { sid_text: string }; Returns: boolean }
       shares_space: { Args: { uid: string }; Returns: boolean }
       team_streak: { Args: { sid: string }; Returns: number }
       user_today: { Args: { uid?: string }; Returns: string }
@@ -1779,9 +1928,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

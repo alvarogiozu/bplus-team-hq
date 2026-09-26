@@ -28,6 +28,7 @@ const DESKTOP: Dest[] = [
   { to: '/tareas', label: 'Tareas', icon: 'tasks', color: 'var(--accent-ink)' },
   { to: '/proyectos', label: 'Proyectos', icon: 'projects', color: 'var(--olive-edge)' },
   { to: '/metas', label: 'Metas', icon: 'goal', color: 'var(--green-photo)' },
+  { to: '/materiales', label: 'Materiales', icon: 'folder', color: 'var(--amber-ink)' },
   { to: '/equipo', label: 'Equipo', icon: 'team', color: 'var(--berry)' },
   { to: '/agenda', label: 'Mi agenda', icon: 'calendar', color: 'var(--coral-ink)' },
   { to: '/cuaderno', label: 'Mi cuaderno', icon: 'notebook', color: 'var(--accent-ink)' },
@@ -198,6 +199,7 @@ function ProfileMenu({ at, onClose }: { at: { x: number; y: number }; onClose: (
   return createPortal(
     <div ref={ref} className="menu" role="menu" style={{ left: Math.max(8, pos.x), top: Math.max(8, pos.y) }}>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/metas')}><Icon name="goal" /> Metas</button>
+      <button role="menuitem" className="mobile-flex" onClick={() => go('/materiales')}><Icon name="folder" /> Materiales</button>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/equipo')}><Icon name="team" /> Equipo</button>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/ajustes')}><Icon name="settings" /> Ajustes</button>
       <button role="menuitem" onClick={() => go('/agenda')}><Icon name="calendar" /> Mi agenda (Rockie Agenda)</button>

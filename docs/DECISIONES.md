@@ -261,3 +261,14 @@ Con lápiz, el dedo mueve en vez de rayar.
 **Migraciones: ojo con los números.** La sesión del HQ/Agenda usó `20260928120000` en paralelo; la de pizarras quedó
 como `20260929200000`. Para aplicarla hubo que tener en la carpeta local las migraciones que el remoto ya tenía (se
 copiaron solo para el `db push` y no se commitearon).
+
+**Materiales dentro del HQ + enlaces (26 sep 2026).** Se eligió guardar los archivos en Supabase Storage (bucket
+privado `materiales`, ruta `<space_id>/<uuid>/<nombre>`) y traer Drive/Docs/Figma como enlaces, en vez de "conectar
+Drive": leer carpetas enteras de Drive exige scopes restringidos de Google y una auditoría de seguridad paga. Cupo por
+espacio en `spaces.storage_limit_bytes` (1 GB gratis; solo service_role lo cambia, pensado para un plan de pago). El
+tamaño y el tipo los pone la base leyendo `storage.objects` (trigger `materials_guard`), no el navegador; la política
+del bucket rechaza subidas cuando ya no queda cupo. Borrar una carpeta borra sus subcarpetas, filas y archivos.
+
+**Un solo ancho.** Todas las páginas del HQ usan `.content` hasta 1440 px: en laptops ocupan la pantalla y en monitores
+grandes se frenan centradas. Se descartó "lista centrada, tablero a pantalla completa" porque la cabecera saltaba al
+cambiar de vista.

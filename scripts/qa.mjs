@@ -55,6 +55,7 @@ async function seed() {
   const intr = await as(INTRUDER.username)
   await intr.rpc('create_space', { p_name: 'Otro equipo' })
   await goalsDemo(sid)
+  await materialsDemo(sid)
   await agendaDemo()
   console.log(JSON.stringify({ space: sid, invite: inv.code, login: `${USERS[0].username} / ${PASS}` }))
 }
@@ -88,6 +89,29 @@ async function goalsDemo(sid) {
   const days = [[-20, 60], [-10, 120], [-2, 180]]
   for (const [d, v] of days) {
     const { error } = await admin.from('goal_checkins').insert({ goal_id: backers, space_id: sid, author_id: id('qa.mariana'), value: v, note: v === 180 ? 'Llegó la nota en el blog de hardware' : '', created_at: `${add(d)}T15:00:00Z` })
+    if (error) throw error
+  }
+}
+
+// Materiales: carpetas de colores (una ligada a un proyecto) con enlaces
+async function materialsDemo(sid) {
+  const { data: proj } = await admin.from('projects').select('id').eq('space_id', sid).limit(1)
+  const { data: owner } = await admin.from('profiles').select('id').eq('username', 'qa.alvaro').single()
+  const folder = async (name, color, project_id = null) => {
+    const { data, error } = await admin.from('material_folders').insert({ space_id: sid, name, color, project_id, created_by: owner.id }).select('id').single()
+    if (error) throw error
+    return data.id
+  }
+  const diseno = await folder('Diseño de la carcasa', '#b4637a', proj?.[0]?.id ?? null)
+  await folder('Firmware', '#2a82ad')
+  await folder('Kickstarter', '#eaa545')
+  const links = [
+    { name: 'Carcasa v2 en Figma', url: 'https://www.figma.com/file/demo/carcasa-v2', folder_id: diseno },
+    { name: 'Guion del video', url: 'https://docs.google.com/document/d/demo', folder_id: null },
+    { name: 'Referencia: unboxing', url: 'https://www.youtube.com/watch?v=demo', folder_id: null },
+  ]
+  for (const l of links) {
+    const { error } = await admin.from('materials').insert({ space_id: sid, kind: 'link', created_by: owner.id, ...l })
     if (error) throw error
   }
 }
@@ -142,6 +166,12 @@ async function rls() {
   const goalRead = await intr.from('goals').select('id').eq('space_id', sid)
   const goalIns = await intr.from('goals').insert({ space_id: sid, title: 'meta intrusa' }).select('id')
   const ciRead = await intr.from('goal_checkins').select('id').eq('space_id', sid)
+  const matRead = await intr.from('materials').select('id').eq('space_id', sid)
+  const matUpload = await intr.storage.from('materiales').upload(`${sid}/intruso/hola.txt`, new Blob(['hola'], { type: 'text/plain' }))
+  const ownUpload = await owner.storage.from('materiales').upload(`${sid}/qa-rls/hola.txt`, new Blob(['hola'], { type: 'text/plain' }), { upsert: true })
+  const fakeSize = ownUpload.error ? { error: ownUpload.error } : await owner.from('materials').insert({ space_id: sid, kind: 'file', name: 'hola.txt', storage_path: `${sid}/qa-rls/hola.txt`, size_bytes: 1 }).select('size_bytes').single()
+  if (!ownUpload.error) await owner.storage.from('materiales').remove([`${sid}/qa-rls/hola.txt`])
+  if (!fakeSize.error) await owner.from('materials').delete().eq('storage_path', `${sid}/qa-rls/hola.txt`)
   const xpWrite = await owner.from('xp_log').insert({ space_id: sid, user_id: (await owner.auth.getUser()).data.user.id, mode: 'proof', points: 9999, day: '2026-01-01' })
   const result = {
     owner_sees_tasks: ownTasks.length,
@@ -155,12 +185,17 @@ async function rls() {
     intruder_reads_goals: goalRead.data?.length ?? 0,
     intruder_goal_insert_blocked: Boolean(goalIns.error),
     intruder_reads_checkins: ciRead.data?.length ?? 0,
+    intruder_reads_materials: matRead.data?.length ?? 0,
+    intruder_upload_blocked: Boolean(matUpload.error),
+    member_upload_ok: !ownUpload.error,
+    size_measured_by_db: fakeSize.data?.size_bytes ?? null,
   }
   console.log(JSON.stringify(result, null, 2))
   const ok =
     result.owner_sees_tasks > 0 && result.intruder_reads === 0 && result.intruder_updates === 0 && result.intruder_insert_blocked &&
     result.intruder_validate_blocked && result.intruder_reads_xp === 0 && result.intruder_sees_profiles.every((u) => u === 'qa.intruso') &&
-    result.member_cannot_write_xp && result.intruder_reads_goals === 0 && result.intruder_goal_insert_blocked && result.intruder_reads_checkins === 0
+    result.member_cannot_write_xp && result.intruder_reads_goals === 0 && result.intruder_goal_insert_blocked && result.intruder_reads_checkins === 0 &&
+    result.intruder_reads_materials === 0 && result.intruder_upload_blocked && result.member_upload_ok && result.size_measured_by_db === 4
   console.log(ok ? 'RLS OK' : 'RLS FALLA')
   process.exit(ok ? 0 : 1)
 }

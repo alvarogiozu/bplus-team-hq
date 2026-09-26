@@ -14,6 +14,8 @@ const note = (id: string, area: Note['area']): Note => ({
   body: '',
   area,
   kind: 'pagina',
+  color: null,
+  icon: null,
   entry_id: null,
   book_id: null,
   position: 0,

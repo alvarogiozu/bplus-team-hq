@@ -11,6 +11,7 @@ const PAGES = [
   ['panel-equipo', '/tareas?vista=panel'],
   ['metas', '/metas'],
   ['metas-equipo', '/metas?vista=equipo'],
+  ['materiales', '/materiales'],
   ['proyectos', '/proyectos'],
   ['equipo', '/equipo'],
   ['ajustes', '/ajustes'],

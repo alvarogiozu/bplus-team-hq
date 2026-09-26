@@ -10,6 +10,7 @@ import { Layout } from './Layout'
 const TasksPage = lazy(() => import('../features/views/TasksPage'))
 const ProjectsPage = lazy(() => import('../features/projects/ProjectsPage'))
 const GoalsPage = lazy(() => import('../features/goals/GoalsPage'))
+const MaterialsPage = lazy(() => import('../features/materials/MaterialsPage'))
 const TeamPage = lazy(() => import('../features/team/TeamPage'))
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage'))
 const AgendaApp = lazy(() => import('../agenda/AgendaApp'))
@@ -84,6 +85,7 @@ export function App() {
             <Route path="/tareas" element={<TasksPage />} />
             <Route path="/proyectos" element={<ProjectsPage />} />
             <Route path="/metas" element={<GoalsPage />} />
+            <Route path="/materiales" element={<MaterialsPage />} />
             <Route path="/equipo" element={<TeamPage />} />
             <Route path="/ajustes" element={<SettingsPage />} />
           </Route>

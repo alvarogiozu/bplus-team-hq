@@ -16,6 +16,9 @@ de ajustes para entenderse, está mal.
   Áreas · Mías**. Cada meta es medible (un número, un %, el avance de un proyecto o el promedio de sus sub-metas),
   con dueño, equipo y plazo; el estado (a tiempo / en riesgo / atrasada) se calcula comparando avance con plazo.
   Los avances quedan en un historial con gráfico.
+- **Materiales** (`/materiales`) — archivos y enlaces del equipo en carpetas de colores (se pueden ligar a un
+  proyecto). Se sube arrastrando desde la computadora, se mueve arrastrando una tarjeta a una carpeta, y lo de Drive,
+  Docs, Figma o YouTube entra como enlace reconocido. Cupo por equipo (1 GB en el plan gratis, 50 MB por archivo).
 - **Equipo** — Rockies, XP, niveles, los 10 logros, invitaciones.
 - **Rockie** (barra de abajo, `Ctrl/Cmd + K`, o **mantén el micrófono y habla**) — "tarea para Sebastián el viernes,
   urgente", "pásale lo del firmware a Andrea", "¿qué está atrasado?". Entiende con IA (la misma Edge Function de la

@@ -18,6 +18,8 @@ export const keys = {
   events: (sid: string) => ['events', sid] as const,
   goals: (sid: string) => ['goals', sid] as const,
   checkins: (sid: string) => ['goal_checkins', sid] as const,
+  folders: (sid: string) => ['material_folders', sid] as const,
+  materials: (sid: string) => ['materials', sid] as const,
 }
 
 function must<T>(r: { data: T | null; error: unknown }): T {
