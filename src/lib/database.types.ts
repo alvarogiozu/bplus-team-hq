@@ -611,6 +611,7 @@ export type Database = {
           created_at: string
           height: number
           id: string
+          paper: string
           strokes: Json
           updated_at: string
           user_id: string
@@ -620,6 +621,7 @@ export type Database = {
           created_at?: string
           height: number
           id?: string
+          paper?: string
           strokes?: Json
           updated_at?: string
           user_id?: string
@@ -629,6 +631,7 @@ export type Database = {
           created_at?: string
           height?: number
           id?: string
+          paper?: string
           strokes?: Json
           updated_at?: string
           user_id?: string

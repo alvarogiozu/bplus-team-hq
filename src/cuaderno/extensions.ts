@@ -1,4 +1,5 @@
 import { Extension, InputRule, Mark, Node, createBlockMarkdownSpec, mergeAttributes, type Editor, type JSONContent } from '@tiptap/core'
+import { Highlight } from '@tiptap/extension-highlight'
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
@@ -328,19 +329,75 @@ export const TextColorMark = Mark.create({
 })
 
 /**
- * Pinta lo seleccionado; sin selección, pinta el bloque entero donde está el cursor
- * (como el color de bloque de Notion: un título se colorea con un toque). En un bloque
- * vacío, lo que escribas sale de ese color. `null` = volver al color normal.
+ * Pone (o quita, con `null`) una marca en lo seleccionado; sin selección, en el bloque entero donde
+ * está el cursor (como el color de bloque de Notion: un título se colorea con un toque). En un bloque
+ * vacío, lo que escribas sale con esa marca.
  */
-export function applyTextColor(editor: Editor, color: TextColor | null) {
+function markBlockOrSelection(editor: Editor, mark: string, attrs: Record<string, unknown> | null) {
   const { empty, from, $from } = editor.state.selection
   const wholeBlock = empty && $from.parent.isTextblock && $from.parent.content.size > 0
   let chain = editor.chain().focus()
   if (wholeBlock) chain = chain.setTextSelection({ from: $from.start(), to: $from.end() })
-  chain = color ? chain.setMark('textColor', { color }) : chain.unsetMark('textColor')
+  chain = attrs ? chain.setMark(mark, attrs) : chain.unsetMark(mark)
   if (wholeBlock) chain = chain.setTextSelection(from)
   chain.run()
 }
+
+/** Color de letra: `null` = volver al color normal. */
+export const applyTextColor = (editor: Editor, color: TextColor | null) => markBlockOrSelection(editor, 'textColor', color ? { color } : null)
+
+// ---------- resaltado con colores ----------
+// El amarillo es el ==texto== de Obsidian; los demás van como <mark data-color="…"> (también es Markdown).
+export type MarkColor = 'green' | 'blue' | 'pink' | 'orange'
+/** `null` = el amarillo de siempre */
+export const MARK_COLORS: { id: MarkColor | null; label: string }[] = [
+  { id: null, label: 'Amarillo' },
+  { id: 'green', label: 'Verde' },
+  { id: 'blue', label: 'Celeste' },
+  { id: 'pink', label: 'Rosa' },
+  { id: 'orange', label: 'Naranja' },
+]
+export const isMarkColor = (v: unknown): v is MarkColor => MARK_COLORS.some((c) => c.id !== null && c.id === v)
+
+export const HighlightMark = Highlight.extend({
+  addAttributes() {
+    return {
+      color: {
+        default: null,
+        parseHTML: (el) => {
+          const c = el.getAttribute('data-color')
+          return isMarkColor(c) ? c : null
+        },
+        renderHTML: (a) => (isMarkColor(a.color) ? { 'data-color': a.color } : {}),
+      },
+    }
+  },
+  markdownTokenizer: {
+    name: 'highlight',
+    level: 'inline',
+    start: (src) => {
+      const a = src.indexOf('==')
+      const b = src.indexOf('<mark data-color=')
+      return a < 0 ? b : b < 0 ? a : Math.min(a, b)
+    },
+    tokenize(src, _tokens, lexer) {
+      const m = /^<mark data-color="([a-z]+)">([\s\S]*?)<\/mark>/.exec(src)
+      if (m && isMarkColor(m[1])) return { type: 'highlight', raw: m[0], color: m[1], tokens: lexer.inlineTokens(m[2]) }
+      const d = /^==([^=]+)==/.exec(src)
+      if (d) return { type: 'highlight', raw: d[0], tokens: lexer.inlineTokens(d[1].trim()) }
+    },
+  },
+  parseMarkdown: (token, h) => ({ mark: 'highlight', content: h.parseInline(token.tokens ?? []), attrs: { color: isMarkColor(token.color) ? token.color : null } }),
+  renderMarkdown: (node, h) => {
+    const inner = h.renderChildren(node.content ?? [])
+    const c = node.attrs?.color
+    return isMarkColor(c) ? `<mark data-color="${c}">${inner}</mark>` : `==${inner}==`
+  },
+})
+
+/** Resaltado: `null` = amarillo; `false` = quitarlo. Sin selección, resalta el bloque entero. */
+export const applyHighlight = (editor: Editor, color: MarkColor | null | false) =>
+  markBlockOrSelection(editor, 'highlight', color === false ? null : { color })
 
 // ---------- columnas ----------
 const round1 = (v: number) => Math.round(v * 10) / 10
@@ -391,6 +448,26 @@ export const Column = Node.create({
   },
   markdownTokenizer: colSpec.markdownTokenizer,
   renderMarkdown: (node, h) => colSpec.renderMarkdown({ ...node, attrs: { width: round1(Number(node.attrs?.width) || 50) } }, h),
+  // la columna donde está el cursor lleva `is-active` (se levanta un poco: sabes dónde escribes)
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('cuActiveColumn'),
+        props: {
+          decorations: (state) => {
+            const { $from } = state.selection
+            for (let d = $from.depth; d > 0; d--) {
+              const n = $from.node(d)
+              if (n.type.name !== 'column') continue
+              const pos = $from.before(d)
+              return DecorationSet.create(state.doc, [Decoration.node(pos, pos + n.nodeSize, { class: 'is-active' })])
+            }
+            return null
+          },
+        },
+      }),
+    ]
+  },
   // el borde entre columnas se arrastra para cambiar el ancho (como Notion)
   addNodeView() {
     return ({ node, getPos, editor }) => {

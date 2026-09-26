@@ -6,7 +6,7 @@ export const BOARD_SRC = 'cuaderno://pizarra/'
 export function plain(md: string, opts: { lines?: boolean } = {}) {
   const out = md
     .replace(/^:::.*$/gm, '') // bordes de columnas (:::columns, :::column {…}, :::)
-    .replace(/<span data-color="[a-z]+">|<\/span>/g, '') // color de letra
+    .replace(/<(span|mark) data-color="[a-z]+">|<\/(span|mark)>/g, '') // color de letra y resaltado de color
     .replace(/^\s*[-*]\s+\[x\]\s+/gim, '✓ ')
     .replace(/^\s*[-*]\s+\[ \]\s+/gm, '○ ')
     .replace(/^\s*[-*+]\s+/gm, '• ')
@@ -73,6 +73,14 @@ export function joinSpoken(before: string, piece: string) {
 export const countWords = (t: string) => (t.trim() ? t.trim().split(/\s+/).length : 0)
 
 // ---------- subnotas ----------
+/** Un buen nombre para una subnota hecha con lo seleccionado: su primera frase, sin pasarse de largo. */
+export function subnoteName(text: string) {
+  const first = text.trim().split(/\n|(?<=[.!?])\s/)[0].trim().replace(/[.:;,]+$/, '')
+  if (first.length <= 70) return first
+  const cut = first.slice(0, 70)
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), 40)).trim()}…`
+}
+
 /**
  * Una página → sus puntos, cortando por títulos (el nivel más alto que se repite: #, ## o ###).
  * Lo de antes del primer título queda como introducción. Los bloques de código no se cortan.

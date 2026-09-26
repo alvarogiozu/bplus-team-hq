@@ -689,11 +689,12 @@ export function useCuadernoActions() {
 
   // ----- dibujos (los trazos, para volver a editarlos) -----
   const saveDrawing = useCallback(
-    async (input: { id?: string; width: number; height: number; strokes: unknown[] }) => {
+    async (input: { id?: string; width: number; height: number; strokes: unknown[]; paper: 'claro' | 'oscuro' }) => {
       const row = {
         width: input.width,
         height: input.height,
         strokes: input.strokes as TablesInsert<'cuaderno_drawings'>['strokes'],
+        paper: input.paper,
       }
       const res = input.id
         ? await supabase.from('cuaderno_drawings').update(row).eq('id', input.id).select('id').single()

@@ -18,8 +18,8 @@ export type Dialog =
   | {
       kind: 'dibujo'
       drawingId?: string
-      /** trazos sin guardar (al deshacer "Descartar") */
-      initial?: unknown[]
+      /** la hoja sin guardar, tal cual (al deshacer "Descartar") */
+      initial?: { strokes: unknown[]; w: number; h: number; paper: 'claro' | 'oscuro' }
       onSave: (r: { src: string; drawingId: string }) => void
     }
   | { kind: 'ajustes' }

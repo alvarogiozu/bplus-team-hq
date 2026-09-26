@@ -16,7 +16,7 @@ import { ConnectPicker } from './Conectar'
 import { DictationBar } from './Dictado'
 import type { WikiKeys } from './extensions'
 import { dictationSupported } from './dictation'
-import { SelectionMenu, Toolbar, useNoteEditor, type AskRequest } from './Editor'
+import { SelectionMenu, Toolbar, replaceWithNoteLink, useNoteEditor, type AskRequest, type Extracted } from './Editor'
 import { CIcon } from './icons'
 import { MEMORY_LABEL, memoryOf } from './leitner'
 import { PageHeader, SavedTag } from './PageHeader'
@@ -130,6 +130,17 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
     el.style.height = `${el.scrollHeight}px`
   }, [title])
 
+  // lo seleccionado pasa a ser una subnota de esta página; aquí queda un enlace a ella
+  const extract = async (sel: Extracted) => {
+    const res = await actions.createNote({ title: sel.title, body: sel.md, book_id: note.book_id, area: note.area, parent_note_id: note.id })
+    if (!res || !editor) return
+    const linked = replaceWithNoteLink(editor, sel, res.note)
+    haptic([6, 18, 6])
+    toast(linked ? `Nueva subnota: «${res.note.title}» (aquí quedó el enlace)` : `Nueva subnota: «${res.note.title}»`, {
+      action: { label: 'Abrir', onClick: () => nav(`/cuaderno/nota/${res.note.id}`) },
+    })
+  }
+
   const created = dayOfTs(note.created_at, profile.timezone)
 
   const panel = <NotePanel note={note} today={today} ask={ask} editor={editor} onCloseAsk={() => setAsk(null)} />
@@ -207,7 +218,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
             </label>
           </p>
           <EditorContent editor={editor} />
-          <SelectionMenu editor={editor} onAsk={(r) => setAsk(r)} />
+          <SelectionMenu editor={editor} onAsk={(r) => setAsk(r)} onExtract={(sel) => void extract(sel)} />
           <WikiSuggest editor={editor} note={note} keys={wikiKeys} />
           <div className="cu-end" />
           {mobile && panel}

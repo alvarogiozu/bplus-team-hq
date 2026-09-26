@@ -355,3 +355,31 @@ tema no borra sus subnotas: quedan como páginas del cuaderno (Deshacer las vuel
   cuando es un subtema conceptual (una vivencia o un ejemplo se conecta, no se cuelga).
 - Bóveda: la subnota va en la carpeta de su tema (`Física/Termodinámica/Entropía.md`) con `padre: [[Termodinámica]]`;
   al traer de la carpeta, un .md en la carpeta de un tema (o con `padre`) nace como su subnota.
+
+### Cuaderno v3.2 — hoja oscura, línea para crecer, más ancho y color vs. resaltado (oct 2026)
+
+**Hoja de dibujo clara u oscura.** Un botón del color del papel (sol = clara, luna = oscura) la cambia; cada dibujo
+recuerda su hoja (`cuaderno_drawings.paper`, migración 20261002200000) y la elegida queda para los dibujos nuevos
+(Ajustes > Páginas y dibujos: Clara / Oscura / Como el tema; por defecto, la del tema de la app). En la oscura la tinta
+principal pasa a ser clara y los colores se aclaran para contrastar (tokens `--pen-night-*`); el resaltador aclara en
+vez de multiplicar para no tapar la tinta. El PNG sale con el papel elegido.
+
+**La línea punteada para crecer siempre está.** Queda a ~96 px (en pantalla) del final de la hoja, con "Cruza esta línea
+y la hoja crece"; se enciende mientras un trazo la cruza y, al soltarlo, la hoja crece más o menos una pantalla y la
+línea baja con ella. Antes de la línea nunca crece (antes crecía cerca del final aunque no hubiera línea a la vista, y
+los cortes de página confundían). La hoja usa todo el ancho (hasta 1400 px) y nace del alto de la pantalla, así que al
+crecer el ancho no cambia: nada salta ni se achica.
+
+**Más ancho para las páginas.** Amplio (960 px) por defecto; en Ajustes: Cómodo (720) / Amplio / Todo el ancho. La barra
+de formato y la de dictado siguen ese ancho.
+
+**Columnas que se ven.** Cada columna es una zona con borde punteado y fondo suave; la que tiene el cursor se levanta un
+poco; entre columnas hay siempre una raya con manija para arrastrar el ancho.
+
+**Color de letra y resaltado, separados.** Dos botones que se distinguen: una "A" con la raya de su color (pinta la letra)
+y un marcador con la raya del resaltado (pinta el fondo); cada uno abre su paleta con título. El resaltado tiene
+colores: el amarillo sigue siendo `==texto==` (Obsidian) y los demás van como `<mark data-color="…">` (también
+Markdown). Sin selección, pintan el bloque entero.
+- Al seleccionar también: tachado, quitar formato (sin tocar los enlaces) y **Llevar a una subnota**: lo seleccionado
+  pasa a ser una subnota de la página (si empieza con un título, ese es su nombre; si no, su primera frase) y en su lugar
+  queda un enlace a ella. En el celular la burbuja cabe en 360 px (B · I · A · marcador · ⋯ · Preguntar) y lo demás va en ⋯.

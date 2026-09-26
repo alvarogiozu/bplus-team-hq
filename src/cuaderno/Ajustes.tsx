@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { AccentPicker } from '../components/AccentPicker'
+import { Icon } from '../components/Icon'
 import { Sheet } from '../components/Sheet'
 import { ThemeChoice } from '../components/ThemeChoice'
 import { useAuth, useMe } from '../features/auth/AuthProvider'
@@ -10,6 +11,7 @@ import { haptic } from '../lib/fx'
 import { NONE, useBooks, useCuadernoActions, useLinks, useNotes, useProjects } from './data'
 import { DICT_LANGS, dictLang, dictationSupported, setDictLang } from './dictation'
 import { CIcon } from './icons'
+import { PAGE_WIDTHS, setPageWidth, setPaperChoice, usePageWidth, usePaperChoice, type Paper } from './prefs'
 import {
   canWrite,
   connectFolder,
@@ -35,6 +37,8 @@ export function CuadernoSettings({ open, onClose }: { open: boolean; onClose: ()
         <ThemeChoice />
         <AccentPicker />
       </section>
+
+      <PagesSection />
 
       <section className="cu-set">
         <h3>Dictado</h3>
@@ -80,6 +84,44 @@ export function CuadernoSettings({ open, onClose }: { open: boolean; onClose: ()
         </div>
       </section>
     </Sheet>
+  )
+}
+
+const PAPER_OPTS: { id: Paper | ''; label: string; icon: string }[] = [
+  { id: 'claro', label: 'Clara', icon: 'sun' },
+  { id: 'oscuro', label: 'Oscura', icon: 'moon' },
+  { id: '', label: 'Como el tema', icon: 'monitor' },
+]
+
+/** Cuánto ancho usan tus páginas y con qué hoja empiezan los dibujos (se guarda en este equipo). */
+function PagesSection() {
+  const width = usePageWidth()
+  const paper = usePaperChoice()
+  return (
+    <section className="cu-set">
+      <h3>Páginas y dibujos</h3>
+      <div className="cu-set-row">
+        <span>Ancho de las páginas</span>
+        <div className="segmented" role="radiogroup" aria-label="Ancho de las páginas">
+          {PAGE_WIDTHS.map((o) => (
+            <button key={o.id} type="button" role="radio" aria-checked={width === o.id} aria-pressed={width === o.id} onClick={() => setPageWidth(o.id)}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="cu-set-row">
+        <span>Hoja para dibujar</span>
+        <div className="segmented" role="radiogroup" aria-label="Hoja para dibujar">
+          {PAPER_OPTS.map((o) => (
+            <button key={o.id || 'tema'} type="button" role="radio" aria-checked={paper === o.id} aria-pressed={paper === o.id} onClick={() => setPaperChoice(o.id)}>
+              <Icon name={o.icon} className="sm" /> {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="cu-muted">Cada dibujo recuerda su hoja; dentro de la hoja de dibujo la cambias con el sol y la luna.</p>
+    </section>
   )
 }
 

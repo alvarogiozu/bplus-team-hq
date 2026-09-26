@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { dueAfter, dueToday, memoryOf, streakOf } from './leitner'
 import { buildGlobal, distToSegment, neighbors } from './graph'
 import { buildTree, canNest, colorOf, flatten, heightOf, iconOf, kindLabel, nextColor, pathOf, rootOf, withSubnotes, type BookColor, type BookKind } from './books'
-import { touches } from './Draw'
-import { countWords, joinSpoken, plain, splitByHeadings, spoken } from './text'
+import { MarkdownManager } from '@tiptap/markdown'
+import StarterKit from '@tiptap/starter-kit'
+import { crosses, growLine, touches } from './Draw'
+import { HighlightMark, TextColorMark } from './extensions'
+import { countWords, joinSpoken, plain, splitByHeadings, spoken, subnoteName } from './text'
 import { asScene, edgePoint, sceneText, strokeTouches } from './board'
 import type { Book, Link, Note } from './data'
 
@@ -317,5 +320,45 @@ describe('subnotas', () => {
     expect(r.partes[0].cuerpo).toContain('## no es título')
     expect(r.partes[1].cuerpo).toContain('### detalle')
     expect(splitByHeadings(['solo texto', '## uno'].join('\n')).partes).toEqual([])
+  })
+  it('una subnota hecha con lo seleccionado se llama como su primera frase', () => {
+    expect(subnoteName('La entropía mide el desorden. Siempre crece en un sistema aislado.')).toBe('La entropía mide el desorden')
+    expect(subnoteName(['Ciclo de Carnot:', 'cuatro etapas'].join('\n'))).toBe('Ciclo de Carnot')
+    const long = subnoteName('Una frase larguísima sin puntos que habla de la termodinámica de los agujeros negros y su radiación')
+    expect(long.length).toBeLessThanOrEqual(71)
+    expect(long.endsWith('…')).toBe(true)
+  })
+})
+
+describe('resaltado con colores y hoja de dibujo', () => {
+  const md = new MarkdownManager({ extensions: [StarterKit, HighlightMark, TextColorMark] })
+  const round = (s: string) => md.serialize(md.parse(s)).trim()
+  it('el amarillo es ==texto== (Obsidian) y los demás colores <mark data-color>', () => {
+    const src = 'Hola ==mundo== y <mark data-color="green">vida</mark> con <span data-color="coral">letra</span>'
+    expect(JSON.stringify(md.parse(src))).toContain('"color":"green"')
+    expect(round(src)).toBe(src)
+    // con negrita adentro: se reordena, pero no se pierde nada al guardar (y queda estable)
+    const bold = round('<mark data-color="green">**vida**</mark>')
+    const marks = JSON.stringify(md.parse(bold))
+    expect(marks).toContain('"type":"bold"')
+    expect(marks).toContain('"color":"green"')
+    expect(round(bold)).toBe(bold)
+  })
+  it('un color de resaltado que no existe no se inventa', () => {
+    expect(JSON.stringify(md.parse('<mark data-color="negro">x</mark>'))).not.toContain('"color":"negro"')
+  })
+  it('las vistas previas limpian el resaltado de color', () => {
+    expect(plain('Mira <mark data-color="blue">esto</mark> ==y esto==')).toBe('Mira esto y esto')
+  })
+  it('la línea para crecer queda siempre cerca del final de la hoja', () => {
+    expect(growLine(1000, 1)).toBe(904)
+    expect(growLine(1000, 0.5)).toBe(808)
+    expect(growLine(200, 1)).toBe(140) // en una hoja corta, nunca más arriba que su 70 %
+  })
+  it('la hoja crece solo si el trazo cruza la línea', () => {
+    const at = (y: number) => ({ t: 'pen' as const, c: 'tinta' as const, s: 6, p: [10, 100, 0.5, 20, y, 0.5] })
+    expect(crosses(at(890), 904)).toBe(false)
+    expect(crosses(at(902), 904)).toBe(true) // su borde ya toca la línea
+    expect(crosses(at(950), 904)).toBe(true)
   })
 })
