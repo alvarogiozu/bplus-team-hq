@@ -241,6 +241,8 @@ async function doSync(uid: string, dir: Dir, d: VaultData, actions: Actions): Pr
   const known = new Set(Object.keys(prev.files).map((p) => p.toLowerCase()))
   for (const p of pathOf.values()) known.add(p.toLowerCase())
   const dirToBook = new Map([...dirOf].map(([id, p]) => [p.toLowerCase(), id]))
+  // la carpeta de un tema ("Física/Termodinámica/") guarda sus subnotas
+  const dirToTopic = new Map([...pathOf].map(([id, p]) => [p.replace(/\.(md|canvas)$/, '').toLowerCase(), id]))
   const fresh = (await listMarkdown(dir)).filter((p) => !known.has(p.toLowerCase()))
   for (const path of fresh.slice(0, 200)) {
     const file = await readFile(dir, path)
@@ -249,9 +251,13 @@ async function doSync(uid: string, dir: Dir, d: VaultData, actions: Actions): Pr
     // un archivo que ya es de una página (lo movieron de carpeta): no se duplica
     if (meta.id && notes.has(meta.id)) continue
     const { dirs, name } = split(path)
-    const bookId = await bookFor(dirs, books, dirToBook, actions)
+    // subnota: por su ficha (padre: [[Tema]]) o por estar en la carpeta de su tema
+    const padre = /^\[\[([^\]|#]+)/.exec(meta.padre ?? '')?.[1]
+    const topicId = (padre && byName.get(padre.trim().toLowerCase())) || dirToTopic.get(dirs.join('/').toLowerCase())
+    const topic = topicId ? notes.get(topicId) : undefined
+    const bookId = topic ? topic.book_id : await bookFor(dirs, books, dirToBook, actions)
     const title = safeName(name.replace(/\.md$/i, ''))
-    const c = await actions.createNote({ title, body: bodyFromVault(body, byName, attachSrc), area: 'mente', book_id: bookId })
+    const c = await actions.createNote({ title, body: bodyFromVault(body, byName, attachSrc), area: 'mente', book_id: bookId, parent_note_id: topic?.id ?? null })
     if (!c) continue
     res.imported++
     notes.set(c.note.id, c.note)

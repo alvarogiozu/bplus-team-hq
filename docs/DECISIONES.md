@@ -337,3 +337,21 @@ pizarras como `.canvas` (JSON Canvas: notas, textos, páginas como archivos y fl
 automático marcaba "editado"). Los menús anidados ("Mover a…", "Cambiar ícono") se cerraban con el menú de afuera: ahora
 son propios. En `sticky`, el navegador descuenta el relleno del contenedor: la barra de dictado lo compensa. La cabecera
 de la página se acomoda en dos líneas cuando la columna es angosta.
+
+### Cuaderno v3.1 — subnotas (oct 2026)
+
+**Una página se divide en subnotas.** Un tema grande (Termodinámica) se parte en sus puntos (Ley cero, Primera ley…),
+que a su vez pueden dividirse (máx. 4 niveles). `cuaderno_notes.parent_note_id`; la base impide ciclos y otro dueño, y
+una subnota vive en el cuaderno de su tema (al crearla o cambiarle de tema; si el tema se mueve, lo siguen). Borrar el
+tema no borra sus subnotas: quedan como páginas del cuaderno (Deshacer las vuelve a colgar).
+- Dónde se ve: debajo de su tema en las listas y en el árbol (se despliegan), "↰ Tema" arriba de la subnota, sección
+  **Subnotas** en el panel de la página, ramas en el Mapa (el tema pesa más en el grafo; en Carpetas se abre como rama).
+- Cómo se hacen: "+ Subnota", **Dividir por sus títulos** (sin IA: corta por el nivel de título que se repite; no corta
+  bloques de código), **Dividir con Rockie** (acción `dividir`: reparte lo que ya está, sin inventar) — ambas con vista
+  previa editable; la página madre queda como índice con enlaces a sus puntos —, y "Hacerla subnota de…" / "Sacarla".
+- **Rockie las usa al conectar**: en procesar y revisar ve de qué tema es cada página; conecta con la subnota MÁS
+  específica (el motor que pierde calor → "Segunda ley", no "Termodinámica"), no propone conectar lo que ya une la
+  jerarquía, puede crear una nota como subnota de un tema (`tema_id`) y proponer "volver subnota" (`hacer_subnota`) solo
+  cuando es un subtema conceptual (una vivencia o un ejemplo se conecta, no se cuelga).
+- Bóveda: la subnota va en la carpeta de su tema (`Física/Termodinámica/Entropía.md`) con `padre: [[Termodinámica]]`;
+  al traer de la carpeta, un .md en la carpeta de un tema (o con `padre`) nace como su subnota.

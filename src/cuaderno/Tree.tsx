@@ -45,16 +45,42 @@ export function BookTree() {
   const actions = useCuadernoActions()
   const nav = useNavigate()
   const loc = useLocation()
-  const { tree, unfiled } = useMemo(() => buildTree(books, notes), [books, notes])
+  const { tree, unfiled, subsOf } = useMemo(() => buildTree(books, notes), [books, notes])
   const { open, toggle } = useOpenSet()
 
-  const pageLink = (n: Note) => {
+  // una página con subnotas se despliega como una carpetita (cerrada al empezar; abierta si estás adentro)
+  const here = loc.pathname.startsWith('/cuaderno/nota/') ? loc.pathname.slice('/cuaderno/nota/'.length) : null
+  const inside = (id: string): boolean => (subsOf.get(id) ?? []).some((x) => x.id === here || inside(x.id))
+  const pageLink = (n: Note, lvl = 0): JSX.Element => {
     const c = noteColorOf(books, n)
-    return (
+    const subs = lvl < 5 ? (subsOf.get(n.id) ?? []) : []
+    const link = (
       <NavLink key={n.id} to={`/cuaderno/nota/${n.id}`} className="cu-tree-page" title={n.title} style={c ? spine(c) : undefined}>
         <ItemIcon value={n.icon} fallback={n.kind === 'pizarra' ? 'board' : 'note'} size={14} className="cu-tree-pico" />
         <span>{n.title}</span>
+        {subs.length > 0 && <small className="cu-tree-subn">{subs.length}</small>}
       </NavLink>
+    )
+    if (!subs.length) return link
+    const isOpen = open.has(`p:${n.id}`) || inside(n.id)
+    return (
+      <div key={n.id} className="cu-tree-pnode" style={c ? spine(c) : undefined}>
+        <div className="cu-tree-prow">
+          <button className="cu-tree-chev xs" onClick={() => toggle(`p:${n.id}`)} aria-label={isOpen ? `Cerrar las subnotas de ${n.title}` : `Abrir las subnotas de ${n.title}`} aria-expanded={isOpen}>
+            <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={{ type: 'spring', stiffness: 500, damping: 30 }}>
+              <CIcon name="right" size={11} />
+            </motion.span>
+          </button>
+          {link}
+        </div>
+        <AnimatePresence initial={false}>
+          {isOpen && (
+            <motion.div className="cu-tree-psubs" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}>
+              {subs.map((x) => pageLink(x, lvl + 1))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     )
   }
   // Sueltas empieza desplegada: se guarda solo si la cierras
@@ -66,7 +92,7 @@ export function BookTree() {
   const kids = (t: Node) => (
     <motion.div className="cu-tree-kids" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22, ease: EASE }}>
       {t.kids.map(inner)}
-      {t.pages.map(pageLink)}
+      {t.pages.map((n) => pageLink(n))}
       {!t.count && !t.kids.length && <p className="cu-tree-empty">Vacío</p>}
     </motion.div>
   )
@@ -153,7 +179,7 @@ export function BookTree() {
           <AnimatePresence initial={false}>
             {looseOpen && (
               <motion.div className="cu-tree-kids" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}>
-                {unfiled.slice(0, LOOSE_MAX).map(pageLink)}
+                {unfiled.slice(0, LOOSE_MAX).map((n) => pageLink(n))}
                 {unfiled.length > LOOSE_MAX && (
                   <NavLink to="/cuaderno/c/sueltas" className="cu-tree-page more">
                     Ver las {unfiled.length}

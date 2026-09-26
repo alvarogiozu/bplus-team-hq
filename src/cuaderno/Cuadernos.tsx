@@ -17,6 +17,7 @@ import {
   nextColor,
   noteColorOf,
   spine,
+  withSubnotes,
   type BookColor,
   type TreeNode,
 } from './books'
@@ -102,7 +103,9 @@ function kidsSummary(t: Node) {
   return parts.join(' · ')
 }
 
-const allPages = (t: Node): Note[] => [...t.pages, ...t.kids.flatMap(allPages)]
+type Subs = Map<string, Note[]>
+/** Todas sus páginas, subnotas incluidas. */
+const allPages = (t: Node, subsOf: Subs): Note[] => [...withSubnotes(t.pages, subsOf), ...t.kids.flatMap((k) => allPages(k, subsOf))]
 
 // ============================================================
 // Todas las carpetas (el estante)
@@ -115,7 +118,7 @@ export function CuadernosPage() {
   const nav = useNavigate()
   const mobile = useIsMobile()
   const memOf = useMemoryOf()
-  const { tree, unfiled } = useMemo(() => buildTree(books, notes), [books, notes])
+  const { tree, unfiled, subsOf } = useMemo(() => buildTree(books, notes), [books, notes])
 
   return (
     <div className="cu-page">
@@ -146,7 +149,7 @@ export function CuadernosPage() {
           ) : (
             <div className="cu-shelf">
               {tree.map((t, i) => (
-                <NodeCard key={t.book.id} t={t} i={i} books={books} memOf={memOf} />
+                <NodeCard key={t.book.id} t={t} i={i} books={books} memOf={memOf} subsOf={subsOf} />
               ))}
               <button className="cu-nb new" onClick={() => void newFolder(actions, nav, books)}>
                 <CIcon name="folderplus" size={22} />
@@ -172,7 +175,7 @@ export function CuadernosPage() {
               <p className="cu-muted">Lo que nació en tu diario y aún no vive en una carpeta.</p>
               <ul className="cu-rows">
                 {unfiled.slice(0, 5).map((n, i) => (
-                  <PageRow key={n.id} n={n} i={i} mem={memOf(n.id)} books={books} />
+                  <PageRow key={n.id} n={n} i={i} mem={memOf(n.id)} books={books} subsOf={subsOf} memOf={memOf} />
                 ))}
               </ul>
             </section>
@@ -191,8 +194,8 @@ export function CuadernosPage() {
 }
 
 /** La tarjeta de una carpeta (con pestaña) o de un cuaderno (con lomo). */
-function NodeCard({ t, i, books, memOf, small }: { t: Node; i: number; books: Book[]; memOf: (id: string) => Memory; small?: boolean }) {
-  const pages = allPages(t)
+function NodeCard({ t, i, books, memOf, subsOf, small }: { t: Node; i: number; books: Book[]; memOf: (id: string) => Memory; subsOf: Subs; small?: boolean }) {
+  const pages = allPages(t, subsOf)
   const m: Record<Memory, number> = { none: 0, learning: 0, mastered: 0, fading: 0 }
   for (const p of pages) m[memOf(p.id)]++
   const last = pages.reduce<Note | null>((a, b) => (!a || b.updated_at > a.updated_at ? b : a), null)
@@ -241,7 +244,23 @@ function MemoryBar({ m, total }: { m: Record<Memory, number>; total: number }) {
   )
 }
 
-export function PageRow({ n, i, mem, books }: { n: Note; i: number; mem: Memory; books?: Book[] }) {
+export function PageRow({
+  n,
+  i,
+  mem,
+  books,
+  subsOf,
+  memOf,
+}: {
+  n: Note
+  i: number
+  mem: Memory
+  books?: Book[]
+  /** si se pasan, sus subnotas van debajo, con sangría */
+  subsOf?: Subs
+  memOf?: (id: string) => Memory
+}) {
+  const subs = subsOf?.get(n.id) ?? NONE
   const links = useLinks().data ?? NONE
   const deg = useMemo(() => links.filter((l) => l.a_id === n.id || l.b_id === n.id).length, [links, n.id])
   const snip = plain(n.body).slice(0, 140)
@@ -263,9 +282,21 @@ export function PageRow({ n, i, mem, books }: { n: Note; i: number; mem: Memory;
               <CIcon name="link" size={14} /> {deg}
             </span>
           )}
+          {subs.length > 0 && (
+            <span title="Subnotas">
+              <CIcon name="section" size={14} /> {subs.length}
+            </span>
+          )}
           <small>{timeAgo(n.updated_at)}</small>
         </span>
       </Link>
+      {subs.length > 0 && (
+        <ul className="cu-rows sub" aria-label={`Subnotas de ${n.title}`}>
+          {subs.map((x, j) => (
+            <PageRow key={x.id} n={x} i={j} mem={memOf ? memOf(x.id) : 'none'} books={books} subsOf={subsOf} memOf={memOf} />
+          ))}
+        </ul>
+      )}
     </motion.li>
   )
 }
@@ -284,7 +315,7 @@ export function CuadernoPage() {
   const nav = useNavigate()
   const mobile = useIsMobile()
   const memOf = useMemoryOf()
-  const { unfiled, byId } = useMemo(() => buildTree(books, notes), [books, notes])
+  const { unfiled, byId, subsOf } = useMemo(() => buildTree(books, notes), [books, notes])
   const [menuAt, setMenuAt] = useState<HTMLElement | null>(null)
   // "Mover a" es su propio menú (anidado en el ⋯, el ⋯ se cerraba y se lo llevaba al tocarlo)
   const [moveAt, setMoveAt] = useState<HTMLElement | null>(null)
@@ -313,7 +344,7 @@ export function CuadernoPage() {
   }
 
   const book = t?.book
-  const pages = loose ? unfiled : allPages(t!)
+  const pages = loose ? withSubnotes(unfiled, subsOf) : allPages(t!, subsOf)
   const nCards = cards.filter((c) => pages.some((p) => p.id === c.note_id)).length
   const chain = book ? chainOf(books, book.id) : []
   const depth = chain.length
@@ -529,7 +560,7 @@ export function CuadernoPage() {
               {t!.kids.length > 0 && (
                 <div className="cu-shelf cu-kids">
                   {t!.kids.map((k, i) => (
-                    <NodeCard key={k.book.id} t={k} i={i} books={books} memOf={memOf} small />
+                    <NodeCard key={k.book.id} t={k} i={i} books={books} memOf={memOf} subsOf={subsOf} small />
                   ))}
                 </div>
               )}
@@ -538,7 +569,7 @@ export function CuadernoPage() {
                   {t!.kids.length > 0 && <h3 className="cu-subhead">Páginas en esta carpeta</h3>}
                   <ul className="cu-rows">
                     {t!.pages.map((n, i) => (
-                      <PageRow key={n.id} n={n} i={i} mem={memOf(n.id)} books={books} />
+                      <PageRow key={n.id} n={n} i={i} mem={memOf(n.id)} books={books} subsOf={subsOf} memOf={memOf} />
                     ))}
                   </ul>
                 </>
@@ -549,11 +580,11 @@ export function CuadernoPage() {
               {(loose ? unfiled : t!.pages).length > 0 && (
                 <ul className="cu-rows">
                   {(loose ? unfiled : t!.pages).map((n, i) => (
-                    <PageRow key={n.id} n={n} i={i} mem={memOf(n.id)} books={books} />
+                    <PageRow key={n.id} n={n} i={i} mem={memOf(n.id)} books={books} subsOf={subsOf} memOf={memOf} />
                   ))}
                 </ul>
               )}
-              {t?.kids.map((s) => <SectionBlock key={s.book.id} s={s} books={books} memOf={memOf} />)}
+              {t?.kids.map((s) => <SectionBlock key={s.book.id} s={s} books={books} memOf={memOf} subsOf={subsOf} />)}
             </>
           )}
           <div className="cu-end" />
@@ -564,7 +595,7 @@ export function CuadernoPage() {
 }
 
 /** Una sección dentro de un cuaderno, con sus páginas (y sus propias secciones, si tiene). */
-function SectionBlock({ s, books, memOf }: { s: Node; books: Book[]; memOf: (id: string) => Memory }) {
+function SectionBlock({ s, books, memOf, subsOf }: { s: Node; books: Book[]; memOf: (id: string) => Memory; subsOf: Subs }) {
   const actions = useCuadernoActions()
   const nav = useNavigate()
   const canSub = chainOf(books, s.book.id).length < MAX_DEPTH
@@ -592,14 +623,14 @@ function SectionBlock({ s, books, memOf }: { s: Node; books: Book[]; memOf: (id:
       {s.pages.length ? (
         <ul className="cu-rows">
           {s.pages.map((n, i) => (
-            <PageRow key={n.id} n={n} i={i} mem={memOf(n.id)} books={books} />
+            <PageRow key={n.id} n={n} i={i} mem={memOf(n.id)} books={books} subsOf={subsOf} memOf={memOf} />
           ))}
         </ul>
       ) : (
         !s.kids.length && <p className="cu-muted cu-section-empty">Sin páginas todavía.</p>
       )}
       {s.kids.map((k) => (
-        <SectionBlock key={k.book.id} s={k} books={books} memOf={memOf} />
+        <SectionBlock key={k.book.id} s={k} books={books} memOf={memOf} subsOf={subsOf} />
       ))}
     </section>
   )

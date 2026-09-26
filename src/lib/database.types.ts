@@ -763,6 +763,7 @@ export type Database = {
           icon: string | null
           id: string
           kind: string
+          parent_note_id: string | null
           position: number
           title: string
           updated_at: string
@@ -780,6 +781,7 @@ export type Database = {
           icon?: string | null
           id?: string
           kind?: string
+          parent_note_id?: string | null
           position?: number
           title: string
           updated_at?: string
@@ -797,6 +799,7 @@ export type Database = {
           icon?: string | null
           id?: string
           kind?: string
+          parent_note_id?: string | null
           position?: number
           title?: string
           updated_at?: string
@@ -815,6 +818,13 @@ export type Database = {
             columns: ["entry_id"]
             isOneToOne: false
             referencedRelation: "cuaderno_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_notes_parent_note_id_fkey"
+            columns: ["parent_note_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_notes"
             referencedColumns: ["id"]
           },
           {
@@ -1237,6 +1247,164 @@ export type Database = {
           },
         ]
       }
+      material_folders: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          position: number
+          project_id: string | null
+          space_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          position?: number
+          project_id?: string | null
+          space_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          position?: number
+          project_id?: string | null
+          space_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_folders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "material_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_folders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_folders_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materials: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          folder_id: string | null
+          id: string
+          kind: string
+          mime: string
+          name: string
+          note: string
+          project_id: string | null
+          size_bytes: number
+          space_id: string
+          storage_path: string | null
+          task_id: string | null
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          folder_id?: string | null
+          id?: string
+          kind: string
+          mime?: string
+          name: string
+          note?: string
+          project_id?: string | null
+          size_bytes?: number
+          space_id: string
+          storage_path?: string | null
+          task_id?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          folder_id?: string | null
+          id?: string
+          kind?: string
+          mime?: string
+          name?: string
+          note?: string
+          project_id?: string | null
+          size_bytes?: number
+          space_id?: string
+          storage_path?: string | null
+          task_id?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materials_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "material_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           accent: string | null
@@ -1326,6 +1494,41 @@ export type Database = {
           },
         ]
       }
+      rockie_turns: {
+        Row: {
+          app: string
+          created_at: string
+          id: string
+          role: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          app: string
+          created_at?: string
+          id?: string
+          role: string
+          text: string
+          user_id?: string
+        }
+        Update: {
+          app?: string
+          created_at?: string
+          id?: string
+          role?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rockie_turns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       space_members: {
         Row: {
           created_at: string
@@ -1383,6 +1586,7 @@ export type Database = {
           links: Json
           mission: string
           name: string
+          storage_limit_bytes: number
           tagline: string
           updated_at: string
         }
@@ -1394,6 +1598,7 @@ export type Database = {
           links?: Json
           mission?: string
           name?: string
+          storage_limit_bytes?: number
           tagline?: string
           updated_at?: string
         }
@@ -1405,6 +1610,7 @@ export type Database = {
           links?: Json
           mission?: string
           name?: string
+          storage_limit_bytes?: number
           tagline?: string
           updated_at?: string
         }
@@ -1524,6 +1730,83 @@ export type Database = {
           {
             foreignKeyName: "tasks_validated_by_fkey"
             columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_achievements: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          description: string
+          goal_id: string | null
+          icon: string
+          id: string
+          space_id: string
+          threshold: number
+          title: string
+          unlocked_at: string | null
+          unlocked_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          goal_id?: string | null
+          icon?: string
+          id?: string
+          space_id: string
+          threshold?: number
+          title: string
+          unlocked_at?: string | null
+          unlocked_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          goal_id?: string | null
+          icon?: string
+          id?: string
+          space_id?: string
+          threshold?: number
+          title?: string
+          unlocked_at?: string | null
+          unlocked_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_achievements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_achievements_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_achievements_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_achievements_unlocked_by_fkey"
+            columns: ["unlocked_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1650,8 +1933,10 @@ export type Database = {
       is_member_text: { Args: { sid: string }; Returns: boolean }
       is_owner: { Args: { sid: string }; Returns: boolean }
       join_space: { Args: { p_code: string }; Returns: string }
+      materials_room_left: { Args: { sid_text: string }; Returns: boolean }
       shares_space: { Args: { uid: string }; Returns: boolean }
       team_streak: { Args: { sid: string }; Returns: number }
+      unlock_team_achievement: { Args: { p_id: string }; Returns: boolean }
       user_today: { Args: { uid?: string }; Returns: string }
       username_available: { Args: { p_username: string }; Returns: boolean }
       validate_task: {

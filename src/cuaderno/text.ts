@@ -71,3 +71,38 @@ export function joinSpoken(before: string, piece: string) {
 }
 
 export const countWords = (t: string) => (t.trim() ? t.trim().split(/\s+/).length : 0)
+
+// ---------- subnotas ----------
+/**
+ * Una página → sus puntos, cortando por títulos (el nivel más alto que se repite: #, ## o ###).
+ * Lo de antes del primer título queda como introducción. Los bloques de código no se cortan.
+ * Si no hay al menos dos títulos del mismo nivel, no hay nada que dividir (partes vacío).
+ */
+export function splitByHeadings(md: string): { indice: string; partes: { titulo: string; cuerpo: string }[] } {
+  const lines = md.replace(/\r\n/g, '\n').split('\n')
+  const levelAt: (number | null)[] = []
+  let fence = false
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) fence = !fence
+    const h = fence ? null : /^(#{1,3})\s+\S/.exec(line)
+    levelAt.push(h ? h[1].length : null)
+  }
+  let level = 0
+  for (const l of [1, 2, 3])
+    if (levelAt.filter((x) => x === l).length >= 2) {
+      level = l
+      break
+    }
+  if (!level) return { indice: md.trim(), partes: [] }
+  const intro: string[] = []
+  const partes: { titulo: string; cuerpo: string[] }[] = []
+  lines.forEach((line, i) => {
+    const l = levelAt[i]
+    if (l === level) partes.push({ titulo: line.replace(/^#{1,3}\s+/, '').replace(/[*_`]/g, '').trim(), cuerpo: [] })
+    else (partes.length ? partes[partes.length - 1].cuerpo : intro).push(line)
+  })
+  return {
+    indice: intro.join('\n').trim(),
+    partes: partes.map((p) => ({ titulo: p.titulo.slice(0, 160) || 'Sin título', cuerpo: p.cuerpo.join('\n').trim() })),
+  }
+}

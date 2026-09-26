@@ -43,6 +43,11 @@ const TOOLS_PROCESAR: Tool[] = [
       body: { type: 'string', description: 'Markdown breve (máx. ~120 palabras): la idea redactada, no el relato copiado' },
       area: { type: 'string', enum: AREAS },
       cuaderno_id: { ...S.optStr, description: 'id de "cuadernos" donde esta nota encaja CLARAMENTE (una nota de física va a "Física"); null si ninguno encaja' },
+      tema_id: {
+        ...S.optStr,
+        description:
+          'id de una nota existente (de parecidas o recientes) cuando esta nota es un PUNTO dentro de ese tema más general (p. ej. "Entropía" dentro de "Termodinámica"): queda como su subnota. null si es independiente',
+      },
       tarjetas: { type: 'array', description: '0 a 3 tarjetas de repaso si hay algo que conviene memorizar', items: S.obj({ q: S.str, a: S.str }) },
     }),
   },
@@ -96,6 +101,7 @@ Tu trabajo es convertir eso en PROPUESTAS con las herramientas. Nunca ejecutas n
 - Si es una conversación con Rockie: rescata lo que la PERSONA descubrió, decidió o aprendió (no lo que dijo Rockie), en sus palabras.
 - Si ya existe una nota del mismo tema (en "parecidas" o "recientes"), usa ampliar_nota en vez de duplicar.
 - Si la nota encaja claramente en uno de sus "cuadernos", pon su cuaderno_id; si no, null.
+- Subnotas: una página puede dividirse en subnotas (un tema grande → sus puntos), y en "parecidas"/"recientes" "tema" dice de qué página es subnota cada una. Si lo nuevo es un subtema conceptual de un tema que ya existe (un aprendizaje que es parte de ese tema), crea la nota con tema_id (queda como su subnota, en su mismo cuaderno); una vivencia o un ejemplo no va como subnota: se conecta. Conecta con la subnota MÁS específica que corresponda, no con el tema general. No conectes una nota con su propio tema ni con sus subnotas: ya están unidas.
 - ${AREA_GUIDE}
 - Tarjetas: solo si hay un concepto, dato o lección que conviene memorizar. Pregunta corta; respuesta corta.
 - Conecta solo cuando la relación es real y le sirve a la persona (máximo 3 conexiones). El porqué es concreto y en segunda persona: "Aplicaste la ruta crítica para ordenar los plazos con el cliente". Lo más valioso: conectar lo que VIVIÓ con lo que APRENDIÓ antes.
@@ -113,6 +119,13 @@ const TOOLS_REVISAR: Tool[] = [
     description: 'Conecta ESTA nota con otra de "parecidas" (to) o con un proyecto del HQ (project_id). Usa uno de los dos.',
     strict: true,
     input_schema: S.obj({ to: S.optStr, project_id: S.optStr, reason: { type: 'string', description: 'Una frase, en segunda persona, con el porqué concreto' } }),
+  },
+  {
+    name: 'hacer_subnota',
+    description:
+      'ESTA nota es un SUBTEMA conceptual de un tema más general de "parecidas" (una parte de su contenido: esta es "Entropía" y hay "Termodinámica"): propón volverla subnota. NO si es una vivencia, un ejemplo, una aplicación o una opinión: eso se conecta. Como mucho una.',
+    strict: true,
+    input_schema: S.obj({ tema_id: S.str, reason: { type: 'string', description: 'Una frase, en segunda persona, con el porqué' } }),
   },
   {
     name: 'crear_tarjeta',
@@ -134,6 +147,7 @@ Propón, con las herramientas:
 - Conexiones reales y útiles entre esta nota y otras (máximo 4). El porqué es concreto y en segunda persona. Si no hay relación de verdad, no conectes: el parecido de palabras no basta.
 - Tarjetas de repaso (máximo 3) solo si hay algo que conviene memorizar y no está ya en "tarjetas_existentes".
 - Si no hay nada, usa nada_mas con una frase corta y cálida.
+- Jerarquía: "nota.tema" es la página de la que esta es subnota y "nota.subnotas" sus propias subnotas (ya están unidas: no las conectes). En "parecidas", "tema" dice de qué página es subnota cada una: conecta con la subnota más específica, no con el tema general, y no dupliques lo que ya une la jerarquía. Si esta nota es un subtema conceptual de un tema más general de "parecidas" y aún no es su subnota, propón hacer_subnota; una vivencia o un ejemplo NO es subnota: conéctalo con la subnota más específica que explica lo que pasó (el motor que pierde calor → "Segunda ley", no "Termodinámica").
 Usa solo ids del contexto. Español, tuteando, breve (es-PE).`
 
 // ============================================================
@@ -315,6 +329,7 @@ Deno.serve(async (req) => {
   if (body.action === 'aprender') return aprender(supa, user.id, body)
   if (body.action === 'conversar') return conversar(supa, body)
   if (body.action === 'redactar') return redactar(supa, body)
+  if (body.action === 'dividir' && body.note_id) return dividir(supa, body.note_id)
   return json({ error: 'Acción desconocida' }, 400)
 })
 
@@ -332,6 +347,19 @@ async function booksOf(supa: Supa) {
   const rows = data ?? []
   const byId = new Map(rows.map((b) => [b.id, b]))
   return rows.map((b) => ({ id: b.id, nombre: b.parent_id ? `${byId.get(b.parent_id)?.name ?? ''} › ${b.name}` : b.name }))
+}
+
+/** De qué página es subnota cada una (para que Rockie entienda la jerarquía al conectar). */
+async function temasOf(supa: Supa, ids: string[]) {
+  const out = new Map<string, { id: string; title: string }>()
+  if (!ids.length) return out
+  const { data } = await supa.from('cuaderno_notes').select('id, parent_note_id').in('id', ids)
+  const parents = [...new Set((data ?? []).map((r) => r.parent_note_id).filter(Boolean))] as string[]
+  if (!parents.length) return out
+  const { data: ps } = await supa.from('cuaderno_notes').select('id, title').in('id', parents)
+  const titleOf = new Map((ps ?? []).map((x) => [x.id, x.title]))
+  for (const r of data ?? []) if (r.parent_note_id && titleOf.has(r.parent_note_id)) out.set(r.id, { id: r.parent_note_id, title: titleOf.get(r.parent_note_id)! })
+  return out
 }
 
 const clean = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
@@ -357,13 +385,15 @@ async function procesar(supa: Supa, entryId: string, hoy?: string, zona?: string
   const simIds = new Set(similar.map((s) => s.id))
   const recent = (recentRes.data ?? []).filter((n) => !simIds.has(n.id))
   const projects = projRes.data ?? []
+  const temas = await temasOf(supa, [...simIds, ...recent.map((n) => n.id)])
+  const tema = (id: string) => temas.get(id)?.title
 
   const ctx = {
     hoy: hoy && DATE.test(hoy) ? hoy : entry.day,
     zona: zona ?? 'America/Lima',
     dia_de_la_entrada: entry.day,
-    parecidas: similar.map((s) => ({ id: s.id, title: s.title, area: s.area, extracto: s.snippet })),
-    recientes: recent,
+    parecidas: similar.map((s) => ({ id: s.id, title: s.title, area: s.area, extracto: s.snippet, tema: tema(s.id) })),
+    recientes: recent.map((n) => ({ ...n, tema: tema(n.id) })),
     cuadernos: books,
     proyectos: projects,
   }
@@ -410,9 +440,19 @@ function validateProcesar(calls: Call[], sayIn: string, noteIds: Set<string>, pr
     while (keys.has(key)) key = `n${keys.size + 2}`
     keys.add(key)
     const book = typeof c.args.cuaderno_id === 'string' && bookIds.has(c.args.cuaderno_id) ? c.args.cuaderno_id : null
+    // subnota de un tema existente (no de una pizarra)
+    const parent = typeof c.args.tema_id === 'string' && noteIds.has(c.args.tema_id) && !boardIds.has(c.args.tema_id) ? c.args.tema_id : null
     out.push({
       tool: 'crear_nota',
-      input: { key, title, body: clean(c.args.body, 6000), area: AREAS.includes(String(c.args.area)) ? c.args.area : 'libre', book_id: book, tarjetas: cards(c.args.tarjetas, 3) },
+      input: {
+        key,
+        title,
+        body: clean(c.args.body, 6000),
+        area: AREAS.includes(String(c.args.area)) ? c.args.area : 'libre',
+        book_id: book,
+        parent_note_id: parent,
+        tarjetas: cards(c.args.tarjetas, 3),
+      },
     })
   }
   const endpoint = (v: unknown) => typeof v === 'string' && (keys.has(v) || noteIds.has(v))
@@ -463,26 +503,33 @@ function validateProcesar(calls: Call[], sayIn: string, noteIds: Set<string>, pr
 // ---------- revisar ----------
 async function revisar(supa: Supa, noteId: string) {
   const t0 = Date.now()
-  const { data: note } = await supa.from('cuaderno_notes').select('id, title, body, area').eq('id', noteId).maybeSingle()
+  const { data: note } = await supa.from('cuaderno_notes').select('id, title, body, area, parent_note_id').eq('id', noteId).maybeSingle()
   if (!note) return json({ error: 'No encontré esa nota.' }, 404)
-  const [linksRes, cardsRes, projRes, vecs] = await Promise.all([
+  const [linksRes, cardsRes, projRes, vecs, kidsRes, parentRes] = await Promise.all([
     supa.from('cuaderno_links').select('a_id, b_id, project_id').or(`a_id.eq.${note.id},b_id.eq.${note.id}`),
     supa.from('cuaderno_cards').select('q').eq('note_id', note.id),
     supa.from('projects').select('id, name').eq('archived', false).limit(30),
     embed([`${note.title}\n\n${note.body}`]),
+    supa.from('cuaderno_notes').select('id, title').eq('parent_note_id', note.id).limit(30),
+    note.parent_note_id ? supa.from('cuaderno_notes').select('id, title').eq('id', note.parent_note_id).maybeSingle() : Promise.resolve({ data: null }),
   ])
   if (vecs?.[0]) await supa.rpc('cuaderno_set_embedding', { note: note.id, emb: vecs[0] as unknown as string })
+  const kids = kidsRes.data ?? []
+  const parentNote = parentRes.data as { id: string; title: string } | null
+  // lo que ya une la jerarquía no se propone como conexión
+  const family = [parentNote?.id, ...kids.map((k) => k.id)].filter(Boolean) as string[]
   const linked = new Set<string>()
   const linkedProjects = new Set<string>()
   for (const l of linksRes.data ?? []) {
     if (l.b_id) linked.add(l.a_id === note.id ? l.b_id : l.a_id)
     if (l.project_id) linkedProjects.add(l.project_id)
   }
-  const similar = await similarTo(supa, vecs?.[0], [note.id, ...linked], 8)
+  const similar = await similarTo(supa, vecs?.[0], [note.id, ...linked, ...family], 8)
   const projects = (projRes.data ?? []).filter((p) => !linkedProjects.has(p.id))
+  const temas = await temasOf(supa, similar.map((s) => s.id))
   const ctx = {
-    nota: { id: note.id, title: note.title, area: note.area, body: note.body.slice(0, 3000) },
-    parecidas: similar.map((s) => ({ id: s.id, title: s.title, area: s.area, extracto: s.snippet })),
+    nota: { id: note.id, title: note.title, area: note.area, body: note.body.slice(0, 3000), tema: parentNote, subnotas: kids },
+    parecidas: similar.map((s) => ({ id: s.id, title: s.title, area: s.area, extracto: s.snippet, tema: temas.get(s.id)?.title })),
     proyectos: projects,
     tarjetas_existentes: (cardsRes.data ?? []).map((c) => c.q),
   }
@@ -496,9 +543,19 @@ async function revisar(supa: Supa, noteId: string) {
   let say = r.say
   let links = 0
   let nCards = 0
+  let sub = false
+  const { data: simBoards } = await supa.from('cuaderno_notes').select('id').eq('kind', 'pizarra').in('id', [...simIds])
+  const boardSet = new Set((simBoards ?? []).map((b) => b.id))
   for (const c of r.calls) {
     const a = c.args
-    if (c.name === 'conectar') {
+    if (c.name === 'hacer_subnota' && !sub) {
+      const reason = clean(a.reason, 300)
+      // un tema de "parecidas", que no sea pizarra ni ya su tema, y que no cuelgue de esta nota
+      if (typeof a.tema_id === 'string' && simIds.has(a.tema_id) && !boardSet.has(a.tema_id) && a.tema_id !== note.parent_note_id && temas.get(a.tema_id)?.id !== note.id && reason) {
+        sub = true
+        proposals.push({ tool: 'hacer_subnota', input: { note_id: note.id, tema_id: a.tema_id, reason } })
+      }
+    } else if (c.name === 'conectar') {
       const reason = clean(a.reason, 300)
       const to = a.to ?? null
       const project = a.project_id ?? null
@@ -693,6 +750,55 @@ async function redactar(supa: Supa, b: Body) {
     .trim()
   if (!out) return json({ error: 'Rockie no pudo ordenarlo. Tu dictado sigue en la página.' }, 502)
   return json({ texto: out, t: Date.now() - t0 })
+}
+
+// ---------- dividir: una página larga → subnotas (se reparte lo que ya está, sin inventar) ----------
+const TOOLS_DIVIDIR: Tool[] = [
+  {
+    name: 'dividir_nota',
+    description: 'Divide la página en subnotas, una por punto del tema.',
+    strict: true,
+    input_schema: S.obj({
+      indice: { type: 'string', description: '1 a 3 frases (Markdown) que presentan el tema: quedan en la página madre. Sin la lista de subnotas (se agrega sola).' },
+      partes: {
+        type: 'array',
+        description: '2 a 8 subnotas, en el orden de la página',
+        items: S.obj({
+          titulo: { type: 'string', description: 'Corto, como un concepto (máx. 6 palabras), sin repetir el tema' },
+          cuerpo: { type: 'string', description: 'El contenido de la página que corresponde a este punto, en Markdown' },
+        }),
+      },
+    }),
+  },
+]
+const SYSTEM_DIVIDIR = `Eres Rockie, el compañero de estudio de B+. Te paso UNA página que trata un tema con varios puntos (p. ej. "Termodinámica" con sus leyes). Divídela en SUBNOTAS: una por punto, de 2 a 8, en el orden de la página.
+- Reparte el contenido que YA está: cada parte se lleva su texto (puedes ordenarlo y quitar repeticiones). No se pierde nada y no inventas nada nuevo.
+- Conserva el Markdown (listas, negritas, fórmulas, casillas, enlaces).
+- Títulos cortos como conceptos ("Primera ley", no "Termodinámica: primera ley").
+- El índice: la introducción que ya tiene la página (1 a 3 frases), sin agregar ideas, adjetivos ni conclusiones nuevas.
+- Mismo idioma que la página. Usa dividir_nota.`
+
+async function dividir(supa: Supa, noteId: string) {
+  const t0 = Date.now()
+  const { data: note } = await supa.from('cuaderno_notes').select('id, title, body, kind').eq('id', noteId).maybeSingle()
+  if (!note) return json({ error: 'No encontré esa página.' }, 404)
+  if (note.kind === 'pizarra') return json({ error: 'Una pizarra no se divide en subnotas.' }, 400)
+  if (note.body.trim().length < 300) return json({ error: 'La página es muy corta para dividirla en subnotas.' }, 400)
+  const r = await callTools({
+    system: SYSTEM_DIVIDIR,
+    prompt: `Página: «${note.title}»\n\n${note.body.slice(0, 20000)}`,
+    tools: TOOLS_DIVIDIR,
+    timeoutMs: 40000,
+    deadline: t0 + 90_000,
+  })
+  if (!r.ok) return json({ error: r.error, detalle: r.detail }, r.status)
+  const call = r.calls.find((c) => c.name === 'dividir_nota')
+  const partes = (Array.isArray(call?.args.partes) ? call!.args.partes : [])
+    .map((x: { titulo?: unknown; cuerpo?: unknown }) => ({ titulo: clean(x?.titulo, 160), cuerpo: clean(x?.cuerpo, 20000) }))
+    .filter((x: { titulo: string; cuerpo: string }) => x.titulo && x.cuerpo)
+    .slice(0, 8)
+  if (partes.length < 2) return json({ error: 'Rockie ve esta página como un solo punto: no hace falta dividirla.' }, 422)
+  return json({ indice: clean(call?.args.indice, 2000), partes, t: Date.now() - t0 })
 }
 
 // ---------- conversar ----------

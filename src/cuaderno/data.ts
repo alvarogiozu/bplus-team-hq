@@ -20,6 +20,8 @@ export type Proposal =
         body: string
         area: Area
         book_id?: string | null
+        /** subnota de este tema */
+        parent_note_id?: string | null
         tarjetas: { q: string; a: string }[]
       }
       st?: PropStatus
@@ -39,6 +41,7 @@ export type Proposal =
       ref?: string
     }
   | { tool: 'crear_tarjeta'; input: { note_id: string; q: string; a: string }; st?: PropStatus; ref?: string }
+  | { tool: 'hacer_subnota'; input: { note_id: string; tema_id: string; reason: string }; st?: PropStatus; ref?: string }
   | { tool: 'aprender_tema'; input: { tema: string }; st?: PropStatus; ref?: string }
   | { tool: 'conversar'; input: { motivo: string }; st?: PropStatus; ref?: string }
 
@@ -70,7 +73,7 @@ export const AREAS: { id: Area; label: string; icon: string; hint: string }[] = 
 export const areaOf = (id: string) => AREAS.find((a) => a.id === id) ?? AREAS[4]
 
 // sin la columna embedding: pesa y el cliente no la usa
-const NOTE_COLS = 'id, user_id, title, body, area, kind, color, icon, entry_id, book_id, position, embedded_at, created_at, updated_at'
+const NOTE_COLS = 'id, user_id, title, body, area, kind, color, icon, entry_id, book_id, parent_note_id, position, embedded_at, created_at, updated_at'
 
 export const ckeys = {
   notes: (u: string | null) => ['cu-notes', u] as const,
@@ -233,6 +236,29 @@ const stripNote = (n: Note) => {
   return rest
 }
 
+/** Todas las subnotas de una página, en cualquier nivel. */
+export function subnotesOf(notes: Pick<Note, 'id' | 'parent_note_id'>[], id: string): Set<string> {
+  const out = new Set<string>()
+  const walk = (pid: string) => {
+    for (const n of notes)
+      if (n.parent_note_id === pid && !out.has(n.id)) {
+        out.add(n.id)
+        walk(n.id)
+      }
+  }
+  walk(id)
+  return out
+}
+
+/** Una subnota vive donde vive su tema: al mover el tema, en la caché también se mueven sus subnotas. */
+function followBook(qc: QueryClient, key: readonly unknown[], id: string, bookId: string | null) {
+  qc.setQueryData<Note[]>(key, (old) => {
+    if (!old) return old
+    const inner = subnotesOf(old, id)
+    return old.map((n) => (inner.has(n.id) ? { ...n, book_id: bookId } : n))
+  })
+}
+
 // ---------- escrituras (cada una devuelve cómo deshacerse) ----------
 export function useCuadernoActions() {
   const qc = useQueryClient()
@@ -338,6 +364,8 @@ export function useCuadernoActions() {
       book_id?: string | null
       position?: number
       kind?: NoteKind
+      /** subnota de esta página (vive en su mismo cuaderno) */
+      parent_note_id?: string | null
     }): Promise<{ note: Note; undo: Undo } | null> => {
       const { data, error } = await supabase
         .from('cuaderno_notes')
@@ -348,6 +376,7 @@ export function useCuadernoActions() {
           kind: input.kind ?? 'pagina',
           entry_id: input.entry_id ?? null,
           book_id: input.book_id ?? null,
+          parent_note_id: input.parent_note_id ?? null,
           // al final de su cuaderno, en el orden en que se crean
           position: input.position ?? Date.now() / 1000,
         })
@@ -417,7 +446,10 @@ export function useCuadernoActions() {
         note.kind === 'pizarra'
           ? ((await supabase.from('cuaderno_boards').select('scene').eq('note_id', note.id).maybeSingle()).data?.scene ?? null)
           : null
+      // sus subnotas quedan como páginas del mismo cuaderno (deshacer las vuelve a colgar de ella)
+      const kids = notesNow().filter((n) => n.parent_note_id === note.id).map((n) => n.id)
       dropIn(qc, ckeys.notes(uid), note.id)
+      qc.setQueryData<Note[]>(ckeys.notes(uid), (old) => old?.map((n) => (kids.includes(n.id) ? { ...n, parent_note_id: null } : n)))
       qc.setQueryData<Link[]>(ckeys.links(uid), (old) => old?.filter((l) => !links.includes(l)))
       qc.setQueryData<Card[]>(ckeys.cards(uid), (old) => old?.filter((c) => !cards.includes(c)))
       const { error } = await supabase.from('cuaderno_notes').delete().eq('id', note.id)
@@ -430,12 +462,18 @@ export function useCuadernoActions() {
         action: {
           label: 'Deshacer',
           onClick: async () => {
+            // si su tema ya no está, vuelve como página suelta de ese cuaderno
+            const parentAlive = !note.parent_note_id || notesNow().some((n) => n.id === note.parent_note_id)
             const { data } = await supabase
               .from('cuaderno_notes')
-              .insert(stripNote(note))
+              .insert({ ...stripNote(note), parent_note_id: parentAlive ? note.parent_note_id : null })
               .select(NOTE_COLS)
               .single()
             if (data) upsertIn(qc, ckeys.notes(uid), data as unknown as Note, true)
+            if (data && kids.length) {
+              await supabase.from('cuaderno_notes').update({ parent_note_id: note.id }).in('id', kids)
+              qc.setQueryData<Note[]>(ckeys.notes(uid), (old) => old?.map((n) => (kids.includes(n.id) ? { ...n, parent_note_id: note.id } : n)))
+            }
             if (scene) await supabase.from('cuaderno_boards').insert({ note_id: note.id, scene })
             if (links.length) {
               const { data: l } = await supabase
@@ -455,18 +493,21 @@ export function useCuadernoActions() {
         },
       })
     },
-    [qc, uid, linksNow, cardsNow],
+    [qc, uid, linksNow, cardsNow, notesNow],
   )
 
-  /** Mueve una página a otro cuaderno o sección (null = Sueltas). */
+  /** Mueve una página (con sus subnotas) a otro cuaderno o sección (null = Sueltas). Una subnota que se va, deja de serlo. */
   const moveNote = useCallback(
     async (note: Note, bookId: string | null, label: string) => {
       if (note.book_id === bookId) return
       const prev = note.book_id
-      upsertIn(qc, ckeys.notes(uid), { ...note, book_id: bookId })
-      const { error } = await supabase.from('cuaderno_notes').update({ book_id: bookId }).eq('id', note.id)
+      const prevParent = note.parent_note_id
+      upsertIn(qc, ckeys.notes(uid), { ...note, book_id: bookId, parent_note_id: null })
+      followBook(qc, ckeys.notes(uid), note.id, bookId)
+      const { error } = await supabase.from('cuaderno_notes').update({ book_id: bookId, parent_note_id: null }).eq('id', note.id)
       if (error) {
         upsertIn(qc, ckeys.notes(uid), note)
+        followBook(qc, ckeys.notes(uid), note.id, prev)
         toastError(humanError(error))
         return
       }
@@ -477,11 +518,50 @@ export function useCuadernoActions() {
           label: 'Deshacer',
           onClick: async () => {
             const cur = notesNow().find((n) => n.id === note.id)
-            if (cur) upsertIn(qc, ckeys.notes(uid), { ...cur, book_id: prev })
-            await supabase.from('cuaderno_notes').update({ book_id: prev }).eq('id', note.id)
+            if (cur) upsertIn(qc, ckeys.notes(uid), { ...cur, book_id: prev, parent_note_id: prevParent })
+            followBook(qc, ckeys.notes(uid), note.id, prev)
+            await supabase.from('cuaderno_notes').update({ book_id: prev, parent_note_id: prevParent }).eq('id', note.id)
           },
         },
       })
+    },
+    [qc, uid, notesNow],
+  )
+
+  /** Vuelve una página subnota de otra (o la saca: null). Se va al cuaderno de su tema, con sus propias subnotas. */
+  const setParent = useCallback(
+    async (note: Note, parentId: string | null, opts: { quiet?: boolean } = {}): Promise<Undo | null> => {
+      if (note.parent_note_id === parentId) return async () => {}
+      const all = notesNow()
+      const parent = parentId ? all.find((n) => n.id === parentId) : null
+      if (parentId && (!parent || parentId === note.id || subnotesOf(all, note.id).has(parentId))) {
+        toastError('Una página no puede quedar dentro de sus propias subnotas')
+        return null
+      }
+      const before = { parent_note_id: note.parent_note_id, book_id: note.book_id }
+      const bookId = parent ? parent.book_id : note.book_id
+      upsertIn(qc, ckeys.notes(uid), { ...note, parent_note_id: parentId, book_id: bookId })
+      followBook(qc, ckeys.notes(uid), note.id, bookId)
+      const { error } = await supabase.from('cuaderno_notes').update({ parent_note_id: parentId }).eq('id', note.id)
+      if (error) {
+        upsertIn(qc, ckeys.notes(uid), note)
+        followBook(qc, ckeys.notes(uid), note.id, before.book_id)
+        toastError(humanError(error))
+        return null
+      }
+      const undo = async () => {
+        const cur = notesNow().find((n) => n.id === note.id)
+        if (cur) upsertIn(qc, ckeys.notes(uid), { ...cur, ...before })
+        followBook(qc, ckeys.notes(uid), note.id, before.book_id)
+        await supabase.from('cuaderno_notes').update(before).eq('id', note.id)
+      }
+      if (!opts.quiet)
+        toast(parent ? `«${note.title}» ahora es subnota de «${parent.title}»` : `«${note.title}» ya no es subnota`, {
+          kind: 'ok',
+          icon: 'check',
+          action: { label: 'Deshacer', onClick: () => void undo() },
+        })
+      return undo
     },
     [qc, uid, notesNow],
   )
@@ -827,6 +907,7 @@ export function useCuadernoActions() {
     updateNote,
     deleteNote,
     moveNote,
+    setParent,
     createBook,
     updateBook,
     deleteBook,

@@ -21,6 +21,7 @@ import { CIcon } from './icons'
 import { MEMORY_LABEL, memoryOf } from './leitner'
 import { PageHeader, SavedTag } from './PageHeader'
 import { ProposalList } from './Proposals'
+import { SubnotesSection } from './Subnotas'
 import { WikiSuggest } from './WikiSuggest'
 import { useHasPanel, useIsMobile } from './ui'
 
@@ -67,6 +68,8 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
   const [saved, setSaved] = useState<'ok' | 'saving'>('ok')
   const [ask, setAsk] = useState<AskRequest | null>(null)
   const [dictating, setDictating] = useState(false)
+  // una subnota muestra arriba de qué tema es un punto (y lleva a él)
+  const parentNote = useNotes().data?.find((n) => n.id === note.parent_note_id)
   const pending = useRef<{ title?: string; body?: string }>({})
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const embedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -157,6 +160,11 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
         </div>
 
         <article className="cu-read cu-note">
+          {parentNote && (
+            <Link className="cu-note-up" to={`/cuaderno/nota/${parentNote.id}`} title="El tema del que esta página es un punto">
+              <CIcon name="section" size={14} /> {parentNote.title}
+            </Link>
+          )}
           <textarea
             ref={titleRef}
             className="cu-title-input"
@@ -344,6 +352,8 @@ function NotePanel(p: { note: Note; today: string; ask: AskRequest | null; edito
           )}
         </button>
       </section>
+
+      <SubnotesSection note={note} editor={p.editor} />
 
       <section className="cu-psec">
         <h2>

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { dueAfter, dueToday, memoryOf, streakOf } from './leitner'
 import { buildGlobal, distToSegment, neighbors } from './graph'
-import { buildTree, canNest, colorOf, flatten, heightOf, iconOf, kindLabel, nextColor, pathOf, rootOf, type BookColor, type BookKind } from './books'
+import { buildTree, canNest, colorOf, flatten, heightOf, iconOf, kindLabel, nextColor, pathOf, rootOf, withSubnotes, type BookColor, type BookKind } from './books'
 import { touches } from './Draw'
-import { countWords, joinSpoken, plain, spoken } from './text'
+import { countWords, joinSpoken, plain, splitByHeadings, spoken } from './text'
 import { asScene, edgePoint, sceneText, strokeTouches } from './board'
 import type { Book, Link, Note } from './data'
 
@@ -18,6 +18,7 @@ const note = (id: string, area: Note['area']): Note => ({
   icon: null,
   entry_id: null,
   book_id: null,
+  parent_note_id: null as string | null,
   position: 0,
   embedded_at: null,
   created_at: '2026-09-25T12:00:00Z',
@@ -269,5 +270,52 @@ describe('dictado', () => {
     expect(joinSpoken('Hoy ', 'fui')).toBe('fui')
     expect(joinSpoken('', '¿qué pasó?')).toBe('¿Qué pasó?')
     expect(countWords('  una  dos tres ')).toBe(3)
+  })
+})
+
+describe('subnotas', () => {
+  const books = [book('fis', 'Física', null, 0, 'green')] as unknown as Book[]
+  const sub = (id: string, parent: string | null, book_id: string | null, position = 0) => ({ ...page(id, book_id, position), parent_note_id: parent })
+  const notes = [sub('termo', null, 'fis', 0), sub('ley1', 'termo', 'fis', 1), sub('entropia', 'termo', 'fis', 2), sub('clausius', 'entropia', 'fis', 0), sub('suelta', null, null), sub('hija', 'suelta', null)]
+
+  it('el árbol muestra solo los temas; las subnotas cuelgan de ellos y cuentan', () => {
+    const { tree, unfiled, subsOf } = buildTree(books, notes)
+    expect(tree[0].pages.map((n) => n.id)).toEqual(['termo'])
+    expect(tree[0].count).toBe(4)
+    expect(subsOf.get('termo')?.map((n) => n.id)).toEqual(['ley1', 'entropia'])
+    expect(unfiled.map((n) => n.id)).toEqual(['suelta'])
+    expect(withSubnotes(tree[0].pages, subsOf).map((n) => n.id)).toEqual(['termo', 'ley1', 'entropia', 'clausius'])
+  })
+  it('en el grafo cada subnota se une a su tema, que pesa más', () => {
+    const g = buildGlobal({ books, notes, links: [], projects: [], memOf: () => 'none', opts: { hubs: true, projects: true, orphans: false } })
+    const tree = g.edges.map((e) => `${e.a}>${e.b}`).sort()
+    expect(tree).toEqual(['entropia>clausius', 'fis>termo', 'suelta>hija', 'termo>entropia', 'termo>ley1'])
+    const by = new Map(g.nodes.map((n) => [n.id, n]))
+    expect(by.get('termo')?.size).toBe(3)
+    expect(by.get('clausius')?.parent).toBe('entropia')
+    expect(by.get('clausius')?.depth).toBe(4)
+  })
+  it('dividir por títulos: introducción y un punto por título (sin cortar el código)', () => {
+    const md = [
+      'Intro del tema.',
+      '',
+      '## Primera ley',
+      'La energía se conserva.',
+      '',
+      '```',
+      '## no es título',
+      '```',
+      '',
+      '## Entropía',
+      '- mide el desorden',
+      '### detalle',
+      'más',
+    ].join('\n')
+    const r = splitByHeadings(md)
+    expect(r.indice).toBe('Intro del tema.')
+    expect(r.partes.map((p) => p.titulo)).toEqual(['Primera ley', 'Entropía'])
+    expect(r.partes[0].cuerpo).toContain('## no es título')
+    expect(r.partes[1].cuerpo).toContain('### detalle')
+    expect(splitByHeadings(['solo texto', '## uno'].join('\n')).partes).toEqual([])
   })
 })
