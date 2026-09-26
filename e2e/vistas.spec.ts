@@ -97,8 +97,8 @@ test('Metas: mapa, avance con deshacer y sub-meta nueva', async ({ page }) => {
   await page.keyboard.press('Escape')
   await expect(page.locator('.gnode')).toHaveCount(8)
 
-  // listas: empresa (árbol) y mías
-  await page.getByRole('tab', { name: 'Empresa' }).click()
+  // listas: todo el equipo (árbol) y mías
+  await page.getByRole('tab', { name: 'Equipo' }).click()
   await expect(page.locator('.glist-row')).toHaveCount(8)
   await page.getByRole('tab', { name: 'Mías' }).click()
   await expect(page.locator('.glist-row', { hasText: 'Subir el NPS a 60' })).toBeVisible()

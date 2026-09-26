@@ -30,8 +30,12 @@ export function useRealtime(spaceId: string) {
     const ch = supabase
       .channel(`space:${spaceId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter }, (p) => {
-        if (p.eventType === 'DELETE') removeTask(qc, spaceId, (p.old as { id: string }).id)
-        else patchTask(qc, spaceId, p.new as Task)
+        if (p.eventType === 'DELETE') return removeTask(qc, spaceId, (p.old as { id: string }).id)
+        const row = p.new as Task
+        // un eco atrasado (p. ej. el de "mover" que llega después de "deshacer") no pisa lo más nuevo
+        const cur = qc.getQueryData<Task[]>(keys.tasks(spaceId))?.find((t) => t.id === row.id)
+        if (cur && Date.parse(cur.updated_at) > Date.parse(row.updated_at)) return
+        patchTask(qc, spaceId, row)
       })
       // los DELETE no traen space_id con RLS: se escuchan sin filtro y se ignoran si no están en caché
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tasks' }, (p) =>

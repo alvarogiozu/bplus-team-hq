@@ -71,8 +71,8 @@ function GoalBody({ node, all, onGone }: { node: GoalNode; all: GoalNode[]; onGo
   const chain = ancestors(node)
   const banned = subtreeIds(node)
   const parentOpts: Opt<string>[] = [
-    { value: '', label: 'Ninguna', sub: 'Es una meta de empresa (va arriba del mapa)', visual: <Icon name="goal" className="sm" /> },
-    ...all.filter((n) => !banned.has(n.goal.id)).map((n) => ({ value: n.goal.id, label: `${'  '.repeat(n.depth)}${n.goal.title}`, sub: n.parent ? `dentro de ${n.parent.goal.title}` : 'meta de empresa', color: PACE_COLOR[n.pace] })),
+    { value: '', label: 'Ninguna', sub: 'Es una meta general (va arriba del mapa)', visual: <Icon name="goal" className="sm" /> },
+    ...all.filter((n) => !banned.has(n.goal.id)).map((n) => ({ value: n.goal.id, label: `${'  '.repeat(n.depth)}${n.goal.title}`, sub: n.parent ? `dentro de ${n.parent.goal.title}` : 'meta general', color: PACE_COLOR[n.pace] })),
   ]
 
   async function saveNum(field: 'start_value' | 'target_value', raw: string) {
@@ -170,13 +170,13 @@ function GoalBody({ node, all, onGone }: { node: GoalNode; all: GoalNode[]; onGo
         <Select label="Estado" variant="field" value={g.status_override ?? ''} onChange={(v) => void update(g.id, { status_override: (v || null) as GoalStatus | null })} options={STATUS_OPTS} />
         <span>Dueño</span>
         <PersonPicker value={g.owner_id} onChange={(v) => void update(g.id, { owner_id: v })} allowNone noneLabel="Sin dueño" label="Dueño" />
-        <span>Equipo</span>
+        <span>Área</span>
         <Select
-          label="Equipo"
+          label="Área"
           variant="field"
           value={g.area_id ?? ''}
           onChange={(v) => void update(g.id, { area_id: v || null })}
-          options={[{ value: '', label: 'Toda la empresa', visual: <span className="sel-none" /> }, ...areas.map((a) => ({ value: a.id, label: a.name, color: a.color }))]}
+          options={[{ value: '', label: 'Todo el equipo', visual: <span className="sel-none" /> }, ...areas.map((a) => ({ value: a.id, label: a.name, color: a.color }))]}
         />
         <span>Dentro de</span>
         <Select label="Meta padre" variant="field" searchable value={g.parent_id ?? ''} onChange={(v) => void update(g.id, { parent_id: v || null })} options={parentOpts} />
@@ -487,14 +487,14 @@ export function NewGoalDialog({ all }: { all: GoalNode[] }) {
             <input id="ng-d" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
           </div>
           <div>
-            <label className="lbl" htmlFor="ng-ar">Equipo</label>
+            <label className="lbl" htmlFor="ng-ar">Área</label>
             <Select
               id="ng-ar"
-              label="Equipo"
+              label="Área"
               variant="field"
               value={area}
               onChange={setArea}
-              options={[{ value: '', label: 'Toda la empresa', visual: <span className="sel-none" /> }, ...areas.map((a) => ({ value: a.id, label: a.name, color: a.color }))]}
+              options={[{ value: '', label: 'Todo el equipo', visual: <span className="sel-none" /> }, ...areas.map((a) => ({ value: a.id, label: a.name, color: a.color }))]}
             />
           </div>
           <div>
@@ -506,7 +506,7 @@ export function NewGoalDialog({ all }: { all: GoalNode[] }) {
               searchable
               value={parent}
               onChange={setParent}
-              options={[{ value: '', label: 'Ninguna (meta de empresa)', visual: <Icon name="goal" className="sm" /> }, ...all.map((n) => ({ value: n.goal.id, label: `${'  '.repeat(n.depth)}${n.goal.title}`, color: PACE_COLOR[n.pace] }))]}
+              options={[{ value: '', label: 'Ninguna (meta general)', visual: <Icon name="goal" className="sm" /> }, ...all.map((n) => ({ value: n.goal.id, label: `${'  '.repeat(n.depth)}${n.goal.title}`, color: PACE_COLOR[n.pace] }))]}
             />
           </div>
         </div>

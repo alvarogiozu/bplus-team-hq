@@ -11,7 +11,7 @@ import { openNewGoal } from './data'
 import { projectAgg, valueLine, type GoalNode } from './model'
 import { useTasks } from '../data/queries'
 
-// El mapa de metas: la misión arriba, las metas de empresa debajo y cada sub-meta colgando
+// El mapa de metas: la misión arriba, las metas generales debajo y cada sub-meta colgando
 // de su meta, como una pirámide de lo general a lo específico. Al pasar sobre una meta se
 // ilumina su camino hasta la misión: así se ve para qué sirve cada cosa.
 

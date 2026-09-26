@@ -11,9 +11,9 @@ de ajustes para entenderse, está mal.
   **Panel** es el estado del equipo de un vistazo: resumen en palabras (con IA si se pide), números clave, ritmo de
   2 semanas, carga por persona, proyectos que no llegan, metas y lo que vence.
 - **Proyectos** — el progreso se calcula solo (tareas validadas / tareas del proyecto).
-- **Metas** (`/metas`) — como las Goals de Asana, en simple: la **misión** arriba, metas de empresa y sub-metas en un
-  **mapa** (pirámide conectada; al pasar sobre una meta se ilumina su camino hasta la misión) y listas **Empresa ·
-  Equipos · Mías**. Cada meta es medible (un número, un %, el avance de un proyecto o el promedio de sus sub-metas),
+- **Metas** (`/metas`) — como las Goals de Asana, en simple: la **misión** arriba, metas generales y sub-metas en un
+  **mapa** (pirámide conectada; al pasar sobre una meta se ilumina su camino hasta la misión) y listas **Equipo ·
+  Áreas · Mías**. Cada meta es medible (un número, un %, el avance de un proyecto o el promedio de sus sub-metas),
   con dueño, equipo y plazo; el estado (a tiempo / en riesgo / atrasada) se calcula comparando avance con plazo.
   Los avances quedan en un historial con gráfico.
 - **Equipo** — Rockies, XP, niveles, los 10 logros, invitaciones.

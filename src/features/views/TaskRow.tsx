@@ -18,8 +18,9 @@ export const TaskRow = forwardRef<HTMLDivElement, { task: Task; showAssignee?: b
   { task, showAssignee = true, layoutId, index = 0 },
   ref,
 ) {
-  const { memberById, areaById, today } = useLookup()
+  const { memberById, areaById, projectById, today } = useLookup()
   const { validate, move } = useTaskActions()
+  const project = task.project_id ? projectById.get(task.project_id) : undefined
   const [params, setParams] = useSearchParams()
   const done = task.status === 'done'
   const area = areaById.get(task.area_id ?? '')
@@ -65,6 +66,15 @@ export const TaskRow = forwardRef<HTMLDivElement, { task: Task; showAssignee?: b
       <div style={{ minWidth: 0 }}>
         <div className="ttl">{task.title}</div>
       </div>
+      {/* columna de proyecto: solo aparece cuando la lista es ancha (container query) */}
+      <span className="tproj" style={{ ['--pc' as string]: project?.color } as CSSProperties}>
+        {project && (
+          <>
+            <i />
+            {project.name}
+          </>
+        )}
+      </span>
       <div className="meta">
         {task.priority === 'urgent' && !done && <span className="pill urgent">Urgente</span>}
         {task.status === 'doing' && <span className="pill doing">En curso</span>}

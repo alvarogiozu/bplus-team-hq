@@ -128,8 +128,9 @@ svg { display: block; }
 .shell.collapsed .me-btn { justify-content: center; padding: 4px; }
 
 .main { min-width: 0; display: flex; flex-direction: column; min-height: 100dvh; }
-.content { flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; padding: var(--s6) var(--s8) var(--s6); }
-.content.wide { max-width: none; }
+/* Un solo ancho en todo el HQ: ocupa la pantalla en laptops y se frena en 1440 px en monitores grandes.
+   Cambiar de vista nunca mueve la cabecera ni los filtros. */
+.content { flex: 1; width: 100%; max-width: 1440px; margin: 0 auto; padding: var(--s6) var(--s8) var(--s6); }
 
 .topbar { display: none; }
 .bottomnav { display: none; }
@@ -177,6 +178,15 @@ svg { display: block; }
 .trow .ttl { font-weight: 700; font-size: var(--t-sm); line-height: 1.3; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .trow.done .ttl { text-decoration: line-through; text-decoration-color: var(--ink-faint); text-decoration-thickness: 2px; color: var(--ink-soft); }
 .trow .meta { display: flex; align-items: center; gap: 8px; }
+.rows { container-type: inline-size; }
+.trow .tproj { display: none; }
+@container (min-width: 820px) {
+  /* columnas fijas: el proyecto queda alineado en todas las filas */
+  .trow { grid-template-columns: 44px minmax(0, 1fr) 210px 290px; column-gap: 14px; }
+  .trow .meta { justify-content: flex-end; }
+  .trow .tproj { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); white-space: nowrap; text-overflow: ellipsis; }
+  .trow .tproj i { flex: none; width: 9px; height: 9px; border-radius: 3px; background: var(--pc); }
+}
 .check { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; }
 .check .box { width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--ink-faint); display: grid; place-items: center; background: var(--card); transition: border-color 0.15s, background 0.15s, transform 0.2s var(--spring); }
 .check:hover .box { border-color: var(--green-photo); transform: scale(1.08); }
@@ -986,4 +996,46 @@ button.mission:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ca
   .kindpick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid3 { grid-template-columns: 1fr 1fr; }
   .mission-txt b { font-size: var(--t-md); }
+}
+
+/* ---------- Proyectos en tarjetas ---------- */
+.ptiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s5); align-items: stretch; }
+.ptile { position: relative; display: flex; flex-direction: column; min-height: 318px; padding: 0; overflow: hidden; text-align: left; border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 5px 0 var(--card-edge), var(--shadow-soft); color: var(--ink); }
+.ptile:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.ptile.archived { opacity: 0.62; }
+.ptile-cover { position: relative; display: flex; align-items: center; gap: 14px; min-height: 104px; padding: 18px 18px 16px; background: var(--pc); color: var(--on-color); box-shadow: inset 0 -5px 0 color-mix(in oklab, var(--pc) 70%, black); }
+.ptile-ring { flex: none; width: 64px; height: 64px; transform: rotate(-90deg); }
+.ptile-ring circle { fill: none; stroke-width: 7; }
+.ptile-ring .bg { stroke: color-mix(in oklab, var(--on-color) 30%, transparent); }
+.ptile-ring .fg { stroke: var(--on-color); stroke-linecap: round; }
+.ptile-pct { font-family: var(--serif); font-size: var(--t-3xl); font-weight: 700; line-height: 1; }
+.ptile-tags { margin-left: auto; align-self: flex-start; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ptile-tags .pace { background: var(--card); }
+.ptile-tag { padding: 2px 9px; border-radius: 999px; background: color-mix(in oklab, var(--card) 85%, transparent); color: var(--ink); font-size: var(--t-3xs); font-weight: 800; }
+.ptile-body { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 16px; }
+.ptile-name { font-family: var(--serif); font-size: var(--t-lg); line-height: 1.2; color: var(--ink); }
+.ptile-desc { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: var(--t-xs); line-height: 1.4; color: var(--ink-soft); }
+.pblocks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.pblocks i { width: 13px; height: 13px; border-radius: 4px; background: var(--paper-alt); box-shadow: inset 0 0 0 1.5px var(--card-line); }
+.pblocks i.doing { background: var(--amber-soft); box-shadow: inset 0 0 0 1.5px var(--amber); }
+.pblocks i.on { background: var(--pc); box-shadow: inset 0 -2px 0 color-mix(in oklab, var(--pc) 65%, black); }
+.pblocks em { font-style: normal; font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); }
+.ptile-next { display: flex; align-items: center; gap: 6px; overflow: hidden; font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); white-space: nowrap; text-overflow: ellipsis; }
+.ptile-next .ico { flex: none; color: var(--pc); }
+.ptile-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ptile-people { display: flex; }
+.ptile-people > * + * { margin-left: -6px; }
+.ptile-foot small { font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); }
+.ptile.new { align-items: center; justify-content: center; gap: 10px; padding: var(--s6); background: var(--paper-alt); border: 2px dashed var(--card-edge); box-shadow: none; text-align: center; }
+.ptile.new:hover { border-color: var(--accent); background: var(--accent-soft); }
+.ptile.new b { font-family: var(--serif); font-size: var(--t-lg); color: var(--ink); }
+.ptile.new small { max-width: 200px; font-size: var(--t-xs); font-weight: 600; color: var(--ink-muted); }
+.ptile-plus { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 20px; background: var(--accent); color: var(--on-color); box-shadow: 0 4px 0 var(--accent-edge); }
+.ptile-plus .ico { width: 28px; height: 28px; }
+@media (max-width: 700px) {
+  .ptiles { grid-template-columns: 1fr; gap: var(--s4); }
+  .ptile { min-height: 0; }
+  .ptile.new { flex-direction: row; justify-content: flex-start; text-align: left; padding: var(--s4); }
+  .ptile.new small { display: none; }
+  .ptile-plus { width: 44px; height: 44px; border-radius: 14px; }
 }

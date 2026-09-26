@@ -70,7 +70,7 @@ export function projectAgg(tasks: Pick<Task, 'project_id' | 'status'>[]): Agg {
   return agg
 }
 
-/** Arma el árbol (raíces = metas de empresa) con avance y ritmo de cada meta. */
+/** Arma el árbol (raíces = metas generales) con avance y ritmo de cada meta. */
 export function buildTree(goals: Goal[], tasks: Pick<Task, 'project_id' | 'status'>[], today: string) {
   const ids = new Set(goals.map((g) => g.id))
   const kids = new Map<string | null, Goal[]>()

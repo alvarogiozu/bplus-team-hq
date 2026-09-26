@@ -27,7 +27,6 @@ const VIEWS: { key: ViewKey; label: string; icon: IconName; color: string }[] = 
   { key: 'gantt', label: 'Gantt', icon: 'gantt', color: 'var(--green-photo)' },
   { key: 'panel', label: 'Panel', icon: 'panel', color: 'var(--berry)' },
 ]
-const WIDE: ViewKey[] = ['tablero', 'gantt', 'panel']
 
 function load<T>(k: string, fallback: T): T {
   try {
@@ -74,7 +73,7 @@ export default function TasksPage() {
   }
 
   return (
-    <div className={WIDE.includes(view) ? 'content wide' : 'content'}>
+    <div className="content">
       <header className="pagehead">
         <div>
           <h1>Tareas</h1>

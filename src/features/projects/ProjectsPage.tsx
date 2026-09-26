@@ -1,16 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { motion } from 'motion/react'
 import { Icon } from '../../components/Icon'
+import { ColorPick } from '../../components/Select'
 import { Sheet } from '../../components/Sheet'
-import { Empty, ListSkeleton, LoadError } from '../../components/States'
+import { ListSkeleton, LoadError } from '../../components/States'
 import { toast, toastError } from '../../components/Toasts'
 import { PALETTE } from '../../lib/colors'
-import { fmtDay } from '../../lib/dates'
+import { fmtRelative } from '../../lib/dates'
+import { PACE_COLOR, PACE_LABEL, paceOf } from '../../lib/pace'
 import { humanError, supabase } from '../../lib/supabase'
 import type { LinkItem, Project, Task } from '../../lib/types'
 import { useSpace } from '../spaces/SpaceProvider'
 import { keys, useProjects, useSpaceRow, useTasks } from '../data/queries'
 import { openNewTask } from '../tasks/dialogs'
+import { MemberAvatar, useLookup } from '../tasks/bits'
 import { TaskRow } from '../views/TaskRow'
 
 // Proyectos (antes "Hitos"): el % ya no se mueve a mano, sale de las tareas validadas.
@@ -45,32 +49,97 @@ export default function ProjectsPage() {
         <ListSkeleton rows={4} />
       ) : q.isError ? (
         <LoadError error={q.error} onRetry={() => q.refetch()} />
-      ) : list.length === 0 ? (
-        <div className="card"><Empty title="Aún no hay proyectos"><p className="hint">Un proyecto agrupa tareas con una fecha objetivo.</p></Empty></div>
       ) : (
-        <div className="projlist">
-          {list.map((p) => {
-            const pr = progressOf(p, tasks)
-            return (
-              <button key={p.id} className="card project" style={{ ['--pc' as string]: p.color, opacity: p.archived ? 0.6 : 1 }} onClick={() => setOpenId(p.id)}>
-                <div>
-                  <h3>{p.name}</h3>
-                  {p.description && <p className="pdesc">{p.description}</p>}
-                  <div className="pbar" aria-label={`${pr.pct}% validado`}><i style={{ width: `${pr.pct}%` }} /></div>
-                  <div className="hint" style={{ marginTop: 6 }}>
-                    {pr.total ? `${pr.done} de ${pr.total} tareas validadas` : 'Sin tareas todavía'}
-                    {(p.start_date || p.due_date) && ` · ${p.start_date ? fmtDay(p.start_date) : '…'} → ${p.due_date ? fmtDay(p.due_date) : '…'}`}
-                  </div>
-                </div>
-                <div className="ppct">{pr.pct}%</div>
-              </button>
-            )
-          })}
+        <div className="ptiles">
+          <motion.button className="ptile new" onClick={() => setOpenId('new')} whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <span className="ptile-plus">
+              <Icon name="plus" />
+            </span>
+            <b>Nuevo proyecto</b>
+            <small>{list.length ? 'Agrupa tareas con una fecha objetivo' : 'Aún no hay proyectos: crea el primero'}</small>
+          </motion.button>
+          {list.map((p, i) => (
+            <ProjectTile key={p.id} project={p} tasks={tasks} index={i} onOpen={() => setOpenId(p.id)} />
+          ))}
         </div>
       )}
       <TeamLinks />
       <ProjectSheet id={openId} onClose={() => setOpenId(null)} />
     </div>
+  )
+}
+
+/** Proyecto como tarjeta: portada de su color con el avance, un bloque por tarea (se llena al
+ *  validarla), ritmo, quiénes trabajan en él y la siguiente tarea. */
+function ProjectTile({ project: p, tasks, index, onOpen }: { project: Project; tasks: Task[]; index: number; onOpen: () => void }) {
+  const { today, memberById } = useLookup()
+  const mine = tasks.filter((t) => t.project_id === p.id)
+  const pr = progressOf(p, tasks)
+  const pace = pr.total ? paceOf(pr.pct / 100, p.start_date, p.due_date, today) : 'none'
+  const pending = mine.filter((t) => !t.validation).sort((a, b) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999'))
+  const next = pending[0]
+  const people = [...new Set(pending.concat(mine).map((t) => t.assignee_id).filter((x): x is string => !!x))].slice(0, 4)
+  const order = (t: Task) => (t.validation ? 0 : t.status === 'doing' ? 1 : 2)
+  const blocks = mine.slice().sort((a, b) => order(a) - order(b))
+  const shown = blocks.slice(0, 28)
+  const R = 26
+  const C = 2 * Math.PI * R
+  return (
+    <motion.button
+      className={`ptile${p.archived ? ' archived' : ''}`}
+      style={{ ['--pc' as string]: p.color } as CSSProperties}
+      onClick={onOpen}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: Math.min(index * 0.04, 0.3), type: 'spring', stiffness: 360, damping: 30 }}
+      whileHover={{ y: -4 }}
+      whileTap={{ scale: 0.985 }}
+      aria-label={`${p.name}: ${pr.pct}% validado`}
+    >
+      <span className="ptile-cover">
+        <svg className="ptile-ring" viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="32" cy="32" r={R} className="bg" />
+          <motion.circle cx="32" cy="32" r={R} className="fg" initial={{ strokeDasharray: `0 ${C}` }} animate={{ strokeDasharray: `${(pr.pct / 100) * C} ${C}` }} transition={{ type: 'spring', stiffness: 110, damping: 22, delay: 0.1 + index * 0.04 }} />
+        </svg>
+        <span className="ptile-pct">{pr.pct}%</span>
+        <span className="ptile-tags">
+          {p.archived && <span className="ptile-tag">Archivado</span>}
+          {pace !== 'none' && (
+            <span className="pace" style={{ ['--st' as string]: PACE_COLOR[pace] } as CSSProperties}>
+              {pace === 'done' ? 'Cumplido' : PACE_LABEL[pace].replace('Atrasada', 'Atrasado').replace('Lograda', 'Cumplido')}
+            </span>
+          )}
+        </span>
+      </span>
+      <span className="ptile-body">
+        <b className="ptile-name">{p.name}</b>
+        {p.description && <span className="ptile-desc">{p.description}</span>}
+        {shown.length > 0 && (
+          <span className="pblocks" aria-hidden="true">
+            {shown.map((t) => (
+              <i key={t.id} className={t.validation ? 'on' : t.status === 'doing' ? 'doing' : ''} />
+            ))}
+            {blocks.length > shown.length && <em>+{blocks.length - shown.length}</em>}
+          </span>
+        )}
+        {next && (
+          <span className="ptile-next">
+            <Icon name="arrow" className="sm" /> {next.title}
+          </span>
+        )}
+        <span className="ptile-foot">
+          <span className="ptile-people">
+            {people.map((id) => (
+              <MemberAvatar key={id} member={memberById.get(id)} size={24} />
+            ))}
+          </span>
+          <small>
+            {pr.total ? `${pr.done}/${pr.total} tareas` : 'Sin tareas'}
+            {p.due_date ? ` · ${fmtRelative(p.due_date, today)}` : ''}
+          </small>
+        </span>
+      </span>
+    </motion.button>
   )
 }
 
@@ -165,9 +234,9 @@ function ProjectSheet({ id, onClose }: { id: string | 'new' | null; onClose: () 
           <input id="pj-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
         </div>
       </div>
-      <label className="lbl">Color</label>
-      <div className="swatches">
-        {PALETTE.map((c) => <button key={c} type="button" className="sw" style={{ background: c }} aria-pressed={c === color} aria-label={`Color ${c}`} onClick={() => setColor(c)} />)}
+      <div className="row" style={{ marginTop: 'var(--s4)', gap: 12 }}>
+        <ColorPick value={color} onChange={setColor} palette={PALETTE} label="Color del proyecto" size={30} />
+        <span className="hint">Color del proyecto (su tarjeta y sus barras en el Gantt)</span>
       </div>
 
       <label className="lbl">Recursos</label>

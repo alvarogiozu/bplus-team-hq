@@ -14,14 +14,15 @@ import { GoalMap } from './GoalMap'
 import { GoalPanel, NewGoalDialog, useOpenGoal } from './GoalPanel'
 import { buildTree, flatten, type GoalNode } from './model'
 
-// Metas y objetivos: la misión arriba, las metas de empresa y sus sub-metas en un mapa
-// (pirámide), y tres listas como en Asana: de la empresa, por equipo y las mías.
+// Metas y objetivos: la misión arriba, las metas generales y sus sub-metas en un mapa
+// (pirámide), y tres listas como en Asana: todo el equipo, por área y las mías. Sirve igual a
+// una empresa, un club o una organización estudiantil.
 
-type Tab = 'mapa' | 'empresa' | 'equipos' | 'mias'
+type Tab = 'mapa' | 'equipo' | 'areas' | 'mias'
 const TABS: { key: Tab; label: string; icon: IconName }[] = [
   { key: 'mapa', label: 'Mapa', icon: 'tree' },
-  { key: 'empresa', label: 'Empresa', icon: 'goal' },
-  { key: 'equipos', label: 'Equipos', icon: 'team' },
+  { key: 'equipo', label: 'Equipo', icon: 'goal' },
+  { key: 'areas', label: 'Áreas', icon: 'board' },
   { key: 'mias', label: 'Mías', icon: 'user' },
 ]
 const ORDER: Pace[] = ['on_track', 'at_risk', 'off_track', 'done', 'none']
@@ -52,12 +53,12 @@ export default function GoalsPage() {
   }
 
   return (
-    <div className={tab === 'mapa' ? 'content wide' : 'content'}>
+    <div className="content">
       <header className="pagehead">
         <div>
           <h1>Metas</h1>
           <div className="sub">
-            {all.length ? `${all.length} ${all.length === 1 ? 'meta' : 'metas'} · las de empresa van en ${avg}%` : 'Lo que el equipo quiere lograr, medible y con plazo'}
+            {all.length ? `${all.length} ${all.length === 1 ? 'meta' : 'metas'} · las generales van en ${avg}%` : 'Lo que el equipo quiere lograr, medible y con plazo'}
           </div>
         </div>
         <div className="row" style={{ flexWrap: 'wrap' }}>
@@ -99,8 +100,8 @@ export default function GoalsPage() {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
             {tab === 'mapa' && <GoalMap roots={tree.roots} mission={space?.mission ?? ''} onOpen={openGoal} onEditMission={() => setEditMission(true)} />}
-            {tab === 'empresa' && <TreeList roots={tree.roots} onOpen={openGoal} />}
-            {tab === 'equipos' && <ByTeam all={all} onOpen={openGoal} />}
+            {tab === 'equipo' && <TreeList roots={tree.roots} onOpen={openGoal} />}
+            {tab === 'areas' && <ByTeam all={all} onOpen={openGoal} />}
             {tab === 'mias' && <Mine all={all} onOpen={openGoal} />}
           </motion.div>
         </AnimatePresence>
@@ -264,7 +265,7 @@ function ByTeam({ all, onOpen }: { all: GoalNode[]; onOpen: (id: string) => void
   const { areas } = useLookup()
   const groups = [
     ...areas.map((a) => ({ key: a.id, name: a.name, color: a.color, nodes: all.filter((n) => n.goal.area_id === a.id) })),
-    { key: 'none', name: 'Toda la empresa', color: 'var(--ink-faint)', nodes: all.filter((n) => !n.goal.area_id || !areas.some((a) => a.id === n.goal.area_id)) },
+    { key: 'none', name: 'Todo el equipo', color: 'var(--ink-faint)', nodes: all.filter((n) => !n.goal.area_id || !areas.some((a) => a.id === n.goal.area_id)) },
   ].filter((g) => g.nodes.length)
   return (
     <div className="stack" style={{ gap: 'var(--s5)' }}>

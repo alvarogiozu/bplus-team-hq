@@ -10,7 +10,7 @@ const PAGES = [
   ['gantt', '/tareas?vista=gantt'],
   ['panel-equipo', '/tareas?vista=panel'],
   ['metas', '/metas'],
-  ['metas-empresa', '/metas?vista=empresa'],
+  ['metas-equipo', '/metas?vista=equipo'],
   ['proyectos', '/proyectos'],
   ['equipo', '/equipo'],
   ['ajustes', '/ajustes'],
@@ -32,7 +32,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.waitForTimeout(400)
     await page.screenshot({ path: `e2e/screens/${info.project.name}-${theme}-panel.png` })
     // panel de una meta y meta nueva
-    await page.goto('/metas?vista=empresa')
+    await page.goto('/metas?vista=equipo')
     await page.getByRole('button', { name: /Conseguir 500 patrocinadores/ }).click()
     await expect(page.getByRole('dialog', { name: 'Meta' })).toBeVisible()
     await page.waitForTimeout(500)
