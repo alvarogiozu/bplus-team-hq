@@ -1,12 +1,12 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import { motion } from 'motion/react'
 import { Sheet } from '../components/Sheet'
-import { useTheme } from '../app/theme'
-import { buildTree, spine } from './books'
+import { openDialog } from './bus'
+import { buildTree, flatten, iconOf, pathOf, spine } from './books'
 import type { Book } from './data'
-import { CIcon } from './icons'
+import { CIcon, ItemIcon } from './icons'
 
 // ---------- panel derecho: cada pantalla dice si lo usa (la barra de Rockie se centra en lo que queda) ----------
 export const PanelCtx = createContext<(on: boolean) => void>(() => {})
@@ -30,10 +30,9 @@ export function useIsMobile() {
   return m
 }
 
-/** Móvil: lo que en PC vive al pie de la barra lateral (HQ, agenda, tema). */
+/** Móvil: lo que en PC vive al pie de la barra lateral (HQ, agenda, ajustes). */
 export function OsMenu() {
   const [open, setOpen] = useState(false)
-  const { theme, toggle } = useTheme()
   return (
     <>
       <button className="iconbtn" onClick={() => setOpen(true)} aria-label="Más opciones">
@@ -47,9 +46,14 @@ export function OsMenu() {
           <Link className="cu-os" to="/agenda">
             <CIcon name="calendar" size={18} /> Mi agenda
           </Link>
-          <button className="cu-os" onClick={toggle}>
-            <CIcon name={theme === 'dark' ? 'sun' : 'moon'} size={18} /> Tema{' '}
-            {theme === 'dark' ? 'claro' : 'oscuro'}
+          <button
+            className="cu-os"
+            onClick={() => {
+              setOpen(false)
+              openDialog({ kind: 'ajustes' })
+            }}
+          >
+            <CIcon name="settings" size={18} /> Ajustes (tema, dictado, bóveda)
           </button>
         </div>
       </Sheet>
@@ -101,27 +105,42 @@ export function Popover(p: { anchor: HTMLElement | null; open: boolean; onClose:
   )
 }
 
-/** Elegir cuaderno o sección (o Sueltas) para una página. */
-export function BookPicker(p: { books: Book[]; current: string | null; onPick: (id: string | null, label: string) => void }) {
-  const { tree } = buildTree(p.books, [])
+/** Elegir dónde va algo: cualquier carpeta, cuaderno o sección (o Sueltas / arriba de todo). */
+export function BookPicker(p: {
+  books: Book[]
+  current: string | null
+  onPick: (id: string | null, label: string) => void
+  /** ¿se puede elegir ese lugar? (al mover una carpeta: no dentro de sí misma) */
+  can?: (b: Book) => boolean
+  /** la opción "ninguno": Sueltas para páginas, "Arriba de todo" para carpetas */
+  none?: { label: string; hint: string }
+}) {
+  const rows = useMemo(() => flatten(buildTree(p.books, []).tree), [p.books])
+  const none = p.none ?? { label: 'Sueltas', hint: 'Sueltas (sin carpeta)' }
   return (
     <div className="cu-pick">
-      {tree.map((t) => (
-        <div key={t.book.id} className="cu-pick-group" style={spine(t.book.color)}>
-          <button role="menuitem" className={`cu-pick-book${p.current === t.book.id ? ' on' : ''}`} onClick={() => p.onPick(t.book.id, t.book.name)}>
-            <i aria-hidden="true" /> {t.book.name}
-          </button>
-          {t.sections.map((s) => (
-            <button key={s.book.id} role="menuitem" className={`cu-pick-sec${p.current === s.book.id ? ' on' : ''}`} onClick={() => p.onPick(s.book.id, `${t.book.name} › ${s.book.name}`)}>
-              <CIcon name="section" size={14} /> {s.book.name}
-            </button>
-          ))}
-        </div>
+      {rows.map((t) => (
+        <button
+          key={t.book.id}
+          role="menuitem"
+          disabled={p.can ? !p.can(t.book) : false}
+          className={`cu-pick-row${p.current === t.book.id ? ' on' : ''}${t.depth === 1 ? ' top' : ''}`}
+          style={{ ...spine(t.color), paddingLeft: `calc(var(--s2) + ${(t.depth - 1) * 14}px)` }}
+          onClick={() => p.onPick(t.book.id, pathOf(p.books, t.book.id))}
+        >
+          <span className={`cu-pick-ico ${t.book.kind}`} aria-hidden="true">
+            <ItemIcon value={t.book.icon} fallback={iconOf(p.books, t.book)} size={15} />
+          </span>
+          <span className="cu-pick-name">{t.book.name}</span>
+        </button>
       ))}
-      <button role="menuitem" className={`cu-pick-book loose${p.current === null ? ' on' : ''}`} onClick={() => p.onPick(null, 'Sueltas')}>
-        <CIcon name="note" size={15} /> Sueltas (sin cuaderno)
+      <button role="menuitem" className={`cu-pick-row loose${p.current === null ? ' on' : ''}`} onClick={() => p.onPick(null, none.label)}>
+        <span className="cu-pick-ico" aria-hidden="true">
+          <CIcon name="note" size={15} />
+        </span>
+        <span className="cu-pick-name">{none.hint}</span>
       </button>
-      {!tree.length && <p className="cu-muted">Aún no tienes cuadernos. Crea uno desde la barra lateral.</p>}
+      {!rows.length && <p className="cu-muted">Aún no tienes carpetas. Crea una desde la barra lateral.</p>}
     </div>
   )
 }

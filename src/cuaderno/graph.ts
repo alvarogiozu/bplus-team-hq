@@ -1,24 +1,32 @@
 import type { SimulationLinkDatum, SimulationNodeDatum } from 'd3-force'
-import type { Area, HqProject, Link, Note } from './data'
+import { buildTree, noteColorOf, type BookColor, type BookKind, type TreeNode } from './books'
+import type { Book, HqProject, Link, Note } from './data'
 import type { Memory } from './leitner'
 
-// Datos del Mapa. Nivel 1 = áreas (con su anillo de memoria). Nivel 2 = las notas de un área,
-// más las de otras áreas que conectan con ellas (atenuadas) y los proyectos del HQ enlazados.
+// El grafo del Mapa, como el de Obsidian pero con núcleos: cada carpeta, cuaderno y sección es un
+// nodo grande de su color, unido a lo que contiene (líneas de pertenencia) y las páginas se unen
+// entre sí y con proyectos del HQ (líneas de conexión, cada una con su porqué).
 
+export type GKind = 'hub' | 'note' | 'project'
 export type GNode = SimulationNodeDatum & {
   id: string
-  kind: 'note' | 'project'
+  kind: GKind
   title: string
-  area: Area
+  /** color de identidad (el de su carpeta, heredado); null = Sueltas */
+  color: BookColor | null
   mem: Memory
+  /** conexiones propias (no cuenta la pertenencia) */
   deg: number
-  outside: boolean
-  /** de dónde viene una nota de otro grupo (se muestra junto a su nombre) */
-  from?: string
+  /** núcleos: páginas en todo lo que contiene */
+  size: number
+  hubKind?: BookKind
+  /** núcleos 1–4; páginas: la de su lugar + 1; sueltas y proyectos: 0 */
+  depth: number
+  /** el núcleo que lo contiene */
+  parent: string | null
+  icon?: string | null
 }
-export type GEdge = SimulationLinkDatum<GNode> & { id: string; reason: string; a: string; b: string }
-
-export type AreaStat = { count: number; mem: Record<Memory, number> }
+export type GEdge = SimulationLinkDatum<GNode> & { id: string; kind: 'tree' | 'link'; reason: string; a: string; b: string }
 
 export function degrees(links: Link[]) {
   const m = new Map<string, number>()
@@ -30,121 +38,107 @@ export function degrees(links: Link[]) {
   return m
 }
 
-export function areaStats(notes: Note[], memOf: (id: string) => Memory) {
-  const stats = new Map<Area, AreaStat>()
-  for (const n of notes) {
-    const s = stats.get(n.area) ?? { count: 0, mem: { none: 0, learning: 0, mastered: 0, fading: 0 } }
-    s.count++
-    s.mem[memOf(n.id)]++
-    stats.set(n.area, s)
-  }
-  return stats
-}
+export type GraphOpts = { hubs: boolean; projects: boolean; orphans: boolean }
 
-/** Cuántas conexiones cruzan de un grupo a otro (clave "a|b" ordenada). */
-export function crossingsBy(notes: Note[], links: Link[], groupOf: (n: Note) => string, projectGroup = 'proyectos') {
-  const g = new Map(notes.map((n) => [n.id, groupOf(n)]))
-  const m = new Map<string, number>()
-  for (const l of links) {
-    const a = g.get(l.a_id)
-    const b = l.b_id ? g.get(l.b_id) : l.project_id ? projectGroup : undefined
-    if (!a || !b || a === b) continue
-    const k = [a, b].sort().join('|')
-    m.set(k, (m.get(k) ?? 0) + 1)
-  }
-  return m
-}
-
-/** Cuántas conexiones cruzan de un área a otra (clave "a|b" ordenada). */
-export function crossings(notes: Note[], links: Link[]) {
-  const areaOfNote = new Map(notes.map((n) => [n.id, n.area]))
-  const m = new Map<string, number>()
-  for (const l of links) {
-    const a = areaOfNote.get(l.a_id)
-    const b = l.b_id ? areaOfNote.get(l.b_id) : l.project_id ? 'proyectos' : undefined
-    if (!a || !b || a === b) continue
-    const k = [a, b].sort().join('|')
-    m.set(k, (m.get(k) ?? 0) + 1)
-  }
-  return m
-}
-
-export function buildArea(
-  area: Area,
-  notes: Note[],
-  links: Link[],
-  projects: HqProject[],
-  memOf: (id: string) => Memory,
-) {
-  return buildGroup((n) => n.area === area, area === 'proyectos', notes, links, projects, memOf)
-}
-
-/**
- * Un grupo del mapa (un cuaderno, Sueltas o un área): sus notas, las de otros grupos que conectan
- * con ellas (atenuadas, con su origen en groupOf) y los proyectos del HQ enlazados.
- */
-export function buildGroup(
-  isInside: (n: Note) => boolean,
-  projectsInside: boolean,
-  notes: Note[],
-  links: Link[],
-  projects: HqProject[],
-  memOf: (id: string) => Memory,
-  groupOf?: (n: Note) => string,
-) {
+/** Todo el grafo: núcleos (si se muestran), páginas, proyectos enlazados y las dos clases de líneas. */
+export function buildGlobal(p: {
+  books: Book[]
+  notes: Note[]
+  links: Link[]
+  projects: HqProject[]
+  memOf: (id: string) => Memory
+  opts: GraphOpts
+}) {
+  const { books, notes, links, projects, memOf, opts } = p
   const deg = degrees(links)
-  const byId = new Map(notes.map((n) => [n.id, n]))
-  const inside = new Set(notes.filter(isInside).map((n) => n.id))
-  const ids = new Set(inside)
-  const projIds = new Set<string>()
-  for (const l of links) {
-    const aIn = inside.has(l.a_id)
-    const bIn = l.b_id ? inside.has(l.b_id) : false
-    if (l.b_id && (aIn || bIn)) {
-      ids.add(l.a_id)
-      ids.add(l.b_id)
-    }
-    if (l.project_id && aIn) projIds.add(l.project_id)
-  }
+  const { tree, byId } = buildTree(books, notes)
   const nodes: GNode[] = []
-  for (const id of ids) {
-    const n = byId.get(id)
-    if (!n) continue
+  const edges: GEdge[] = []
+
+  // páginas (sin conexiones y con "solo conectadas": fuera)
+  const shown = new Set<string>()
+  for (const n of notes) {
+    if (!opts.orphans && !deg.get(n.id)) continue
+    const home = n.book_id ? byId.get(n.book_id) : undefined
+    shown.add(n.id)
     nodes.push({
-      id,
+      id: n.id,
       kind: 'note',
       title: n.title,
-      area: n.area,
-      mem: memOf(id),
-      deg: deg.get(id) ?? 0,
-      outside: !inside.has(id),
-      from: !inside.has(id) && groupOf ? groupOf(n) : undefined,
+      color: noteColorOf(books, n),
+      mem: memOf(n.id),
+      deg: deg.get(n.id) ?? 0,
+      size: 0,
+      depth: home ? home.depth + 1 : 0,
+      parent: home ? home.book.id : null,
+      icon: n.icon,
     })
   }
-  for (const p of projects) {
-    if (projIds.has(p.id))
+
+  // núcleos: solo los que tienen algo visible adentro (o están vacíos pero existen: se ven como semillas)
+  if (opts.hubs) {
+    const visibleIn = new Map<string, number>()
+    const count = (t: TreeNode<Book, Note>): number => {
+      const c = t.pages.filter((n) => shown.has(n.id)).length + t.kids.reduce((s, k) => s + count(k), 0)
+      visibleIn.set(t.book.id, c)
+      return c
+    }
+    tree.forEach(count)
+    const walk = (t: TreeNode<Book, Note>, parent: string | null) => {
+      if (!opts.orphans && !visibleIn.get(t.book.id)) return
       nodes.push({
-        id: p.id,
-        kind: 'project',
-        title: p.name,
-        area: 'proyectos',
+        id: t.book.id,
+        kind: 'hub',
+        title: t.book.name,
+        color: t.color,
         mem: 'none',
-        deg: deg.get(p.id) ?? 0,
-        outside: !projectsInside,
+        deg: 0,
+        size: t.count,
+        hubKind: t.book.kind,
+        depth: t.depth,
+        parent,
+        icon: t.book.icon,
       })
+      if (parent) edges.push({ id: `t:${t.book.id}`, kind: 'tree', reason: '', source: parent, target: t.book.id, a: parent, b: t.book.id })
+      for (const n of t.pages)
+        if (shown.has(n.id)) edges.push({ id: `t:${n.id}`, kind: 'tree', reason: '', source: t.book.id, target: n.id, a: t.book.id, b: n.id })
+      t.kids.forEach((k) => walk(k, t.book.id))
+    }
+    tree.forEach((t) => walk(t, null))
   }
+
+  // proyectos del HQ enlazados a páginas visibles
+  if (opts.projects) {
+    const linked = new Set(links.filter((l) => l.project_id && shown.has(l.a_id)).map((l) => l.project_id!))
+    for (const pr of projects)
+      if (linked.has(pr.id))
+        nodes.push({ id: pr.id, kind: 'project', title: pr.name, color: 'navy', mem: 'none', deg: deg.get(pr.id) ?? 0, size: 0, depth: 0, parent: null })
+  }
+
   const present = new Set(nodes.map((n) => n.id))
-  const edges: GEdge[] = []
   for (const l of links) {
     const b = l.b_id ?? l.project_id
     if (!b || !present.has(l.a_id) || !present.has(b)) continue
-    if (!inside.has(l.a_id) && !(l.b_id && inside.has(l.b_id))) continue // solo lo que toca esta área
-    edges.push({ id: l.id, source: l.a_id, target: b, reason: l.reason, a: l.a_id, b })
+    edges.push({ id: l.id, kind: 'link', reason: l.reason, source: l.a_id, target: b, a: l.a_id, b })
   }
   return { nodes, edges }
 }
 
-export const nodeRadius = (n: GNode) => (n.outside ? 6 : 8) + 2.6 * Math.sqrt(n.deg)
+export function nodeRadius(n: GNode) {
+  if (n.kind === 'hub') return Math.min(40, (n.hubKind === 'carpeta' ? 17 : 13) + 3.4 * Math.sqrt(n.size))
+  if (n.kind === 'project') return 10 + 2 * Math.sqrt(n.deg)
+  return 6.5 + 2.4 * Math.sqrt(n.deg)
+}
+
+/** Lo que está a un paso de un nodo (para resaltar al pasar o elegir). */
+export function neighbors(id: string, edges: GEdge[]) {
+  const out = new Set<string>([id])
+  for (const e of edges) {
+    if (e.a === id) out.add(e.b)
+    if (e.b === id) out.add(e.a)
+  }
+  return out
+}
 
 /** Distancia de un punto a un segmento (para tocar una conexión). */
 export function distToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
@@ -154,3 +148,6 @@ export function distToSegment(px: number, py: number, ax: number, ay: number, bx
   const t = len ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len)) : 0
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
 }
+
+/** Busca sin tildes ni mayúsculas. */
+export const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()

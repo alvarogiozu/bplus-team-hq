@@ -987,3 +987,6 @@ button.mission:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ca
   .grid3 { grid-template-columns: 1fr 1fr; }
   .mission-txt b { font-size: var(--t-md); }
 }
+
+/* tema claro / oscuro / automático (compartido por HQ, Agenda y Cuaderno) */
+.theme-choice { max-width: 100%; flex-wrap: wrap; }

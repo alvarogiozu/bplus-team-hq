@@ -23,6 +23,8 @@ Anotadas para no perderlas; ninguna entra sin preguntarnos si suma o si es ruido
 Ya entraron en v2: cuadernos con secciones, editor con barra, imágenes, dibujo, tablas, preguntar sobre una
 selección, aprender desde tema/apuntes/YouTube/PDF, conversar (reflexionar/profundizar) y el mapa por cuadernos.
 En v2.2: color de letra, columnas redimensionables, pizarra infinita y Sueltas desplegable.
+En v3: carpetas anidadas con color heredado e íconos, casillas y atajos de Markdown, `[[ ]]`, conectar a mano,
+dictado con Rockie, grafo con núcleos + vista Carpetas, pizarra dentro de la página, hoja que crece, ajustes y bóveda.
 
 - Pizarra: elegir varios a la vez (recuadro), formas (rectángulo/círculo), imágenes pegadas, exportar a PNG y que pegar
   una página cree también la conexión en el mapa.
@@ -38,7 +40,9 @@ En v2.2: color de letra, columnas redimensionables, pizarra infinita y Sueltas d
 - Lentes del mapa (Aprendizaje / Proyectos / Evolución).
 - Patrones emocionales ("tu ansiedad de hoy conecta con…"): delicado, cuando la base esté probada.
 - Hábitos de la app B+ en el grafo (viven en otro Supabase).
-- Enlaces manuales `[[ ]]`, etiquetas, plantillas: fuera por diseño (una sola forma de conectar).
-- Exportar a Markdown/Obsidian (el cuerpo ya es Markdown; faltan las imágenes), modo sin conexión, cifrado de extremo
-  a extremo (rompe la búsqueda por significado).
+- Etiquetas y plantillas (los `[[ ]]` ya entraron en v3).
+- Menú de comandos con "/" (insertar casilla, tabla, pizarra… escribiendo).
+- Bóveda: conexión directa a la API de Google Drive (sin la app de escritorio) y borrar en la app lo que borras en la carpeta.
+- Dictado con la voz de Gemini (audio al servidor) para navegadores sin reconocimiento de voz (Firefox).
+- Modo sin conexión, cifrado de extremo a extremo (rompe la búsqueda por significado).
 - FSRS en vez de Leitner; tiempo real entre dispositivos (hoy basta con recargar al volver a la pestaña).

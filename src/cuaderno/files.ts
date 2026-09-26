@@ -1,5 +1,6 @@
 import { humanError, supabase } from '../lib/supabase'
 import { toastError } from '../components/Toasts'
+import { BOARD_SRC } from './text'
 
 // Imágenes y dibujos del cuaderno: privados en storage (<user_id>/<archivo>).
 // En el Markdown viajan como "cuaderno://<ruta>" y al mostrarse se cambian por un enlace firmado.
@@ -7,7 +8,10 @@ const SCHEME = 'cuaderno://'
 const BUCKET = 'cuaderno'
 const signed = new Map<string, { url: string; exp: number }>()
 
-export const isStored = (src: string) => src.startsWith(SCHEME)
+/** Una pizarra metida en una página viaja como imagen "cuaderno://pizarra/<id>" (no es un archivo). */
+export { BOARD_SRC }
+export const isBoardSrc = (src: string) => src.startsWith(BOARD_SRC)
+export const isStored = (src: string) => src.startsWith(SCHEME) && !isBoardSrc(src) && !src.startsWith(`${SCHEME}nota/`)
 export const pathOfSrc = (src: string) => src.slice(SCHEME.length).split('?')[0]
 /** La marca de versión obliga a pedir otro enlace cuando un dibujo se vuelve a guardar. */
 export const srcOf = (path: string) => `${SCHEME}${path}?v=${Date.now().toString(36)}`

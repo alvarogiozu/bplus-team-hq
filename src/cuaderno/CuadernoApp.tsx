@@ -2,10 +2,10 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router'
 import { AnimatePresence, MotionConfig } from 'motion/react'
 import { Rockie } from '../components/Rockie'
-import { useTheme } from '../app/theme'
 import { useMe } from '../features/auth/AuthProvider'
+import { CuadernoSettings, useVaultAutoSync } from './Ajustes'
 import { AprenderDialog } from './Aprender'
-import { useDialog } from './bus'
+import { closeDialog, openDialog, useDialog } from './bus'
 import { CaptureBar } from './CaptureBar'
 import { useToday } from './capture'
 import { ConversarPanel } from './Conversar'
@@ -31,12 +31,13 @@ export default function CuadernoApp() {
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<Hoy />} />
-        <Route path="cuadernos" element={<CuadernosPage />} />
+        <Route path="carpetas" element={<CuadernosPage />} />
+        <Route path="cuadernos" element={<Navigate to="/cuaderno/carpetas" replace />} />
         <Route path="c/:id" element={<CuadernoPage />} />
         <Route path="nota/:id" element={<NotaPage />} />
         <Route path="mapa" element={<Mapa />} />
         <Route path="repaso" element={<Repaso />} />
-        <Route path="notas" element={<Navigate to="/cuaderno/cuadernos" replace />} />
+        <Route path="notas" element={<Navigate to="/cuaderno/carpetas" replace />} />
         <Route path="*" element={<Navigate to="/cuaderno" replace />} />
       </Route>
     </Routes>
@@ -45,7 +46,7 @@ export default function CuadernoApp() {
 
 const NAV = [
   { to: '/cuaderno', end: true, label: 'Hoy', icon: 'diary' },
-  { to: '/cuaderno/cuadernos', label: 'Cuadernos', icon: 'notebook' },
+  { to: '/cuaderno/carpetas', label: 'Carpetas', icon: 'folder' },
   { to: '/cuaderno/mapa', label: 'Mapa', icon: 'map' },
   { to: '/cuaderno/repaso', label: 'Repaso', icon: 'cards' },
 ]
@@ -62,6 +63,8 @@ function Shell() {
   const cards = useCards().data
   const due = useMemo(() => dueToday(cards ?? [], today, 99).length, [cards, today])
   const open = useOpenEntries().data?.length ?? 0
+  // tu bóveda en Markdown (si conectaste una carpeta) se mantiene al día sola
+  useVaultAutoSync()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -111,11 +114,13 @@ function Shell() {
   )
 }
 
-/** Aprender, Conversar y Dibujar viven una sola vez aquí, se abran desde donde se abran. */
+/** Aprender, Conversar, Dibujar y Ajustes viven una sola vez aquí, se abran desde donde se abran. */
 function DialogHost() {
   const d = useDialog()
   return (
-    <AnimatePresence>
+    <>
+      <CuadernoSettings open={d?.kind === 'ajustes'} onClose={closeDialog} />
+      <AnimatePresence>
       {d?.kind === 'aprender' && <AprenderDialog key="aprender" tema={d.tema} bookId={d.bookId} restore={d.restore} />}
       {d?.kind === 'conversar' && <ConversarPanel key="conversar" contexto={d.contexto} motivo={d.motivo} />}
       {d?.kind === 'dibujo' && (
@@ -123,12 +128,12 @@ function DialogHost() {
           <DrawSheet drawingId={d.drawingId} initial={d.initial as never} onSave={d.onSave} />
         </Suspense>
       )}
-    </AnimatePresence>
+      </AnimatePresence>
+    </>
   )
 }
 
 function Sidebar({ badges }: { badges: Record<string, number> }) {
-  const { theme, toggle } = useTheme()
   return (
     <aside className="cu-side" aria-label="Navegación del cuaderno">
       <Link to="/cuaderno" className="cu-brand">
@@ -162,8 +167,8 @@ function Sidebar({ badges }: { badges: Record<string, number> }) {
         <Link className="cu-os" to="/agenda">
           <CIcon name="calendar" size={17} /> Mi agenda
         </Link>
-        <button className="cu-os" onClick={toggle}>
-          <CIcon name={theme === 'dark' ? 'sun' : 'moon'} size={17} /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}
+        <button className="cu-os" onClick={() => openDialog({ kind: 'ajustes' })}>
+          <CIcon name="settings" size={17} /> Ajustes
         </button>
       </div>
     </aside>

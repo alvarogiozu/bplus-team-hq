@@ -281,6 +281,7 @@ type Body = {
   book_id?: string
   history?: { role?: string; text?: string }[]
   contexto?: { tipo?: string; id?: string }
+  texto?: string
 }
 
 Deno.serve(async (req) => {
@@ -313,6 +314,7 @@ Deno.serve(async (req) => {
   if (body.action === 'preguntar' && body.note_id) return preguntar(supa, body)
   if (body.action === 'aprender') return aprender(supa, user.id, body)
   if (body.action === 'conversar') return conversar(supa, body)
+  if (body.action === 'redactar') return redactar(supa, body)
   return json({ error: 'Acción desconocida' }, 400)
 })
 
@@ -649,6 +651,48 @@ async function aprender(supa: Supa, userId: string, b: Body) {
     },
     t: { contexto: t1 - t0, modelo: Date.now() - t1, model: r.model },
   })
+}
+
+// ---------- redactar: lo que dictaste, bien escrito (sin inventar nada) ----------
+const SYSTEM_REDACTAR = `Eres Rockie, el compañero de estudio de B+. Te paso un DICTADO por voz (con poca puntuación, muletillas y a veces palabras mal reconocidas).
+Devuelve SOLO el texto final en Markdown, listo para quedar en su página. Reglas:
+- Conserva TODAS sus ideas, datos, nombres y cifras. No inventes ni agregues información, explicaciones, adjetivos ni conclusiones que no dijo.
+- Corrige puntuación, mayúsculas y palabras claramente mal reconocidas (el título de la página es una pista).
+- Quita muletillas ("eh", "este", "o sea", "¿no?") y repeticiones.
+- En el mismo idioma en que dictó (si dictó en francés, queda en francés) y con su voz (si habló en primera persona, se queda en primera persona).
+- Nada tuyo alrededor ("Aquí tienes…", "Espero que…"): solo el texto.`
+const MODOS_REDACTAR: Record<string, string> = {
+  ordenar: 'Ordénalo: agrupa por ideas con subtítulos cortos (###) si hay más de un tema, y usa viñetas para listas, pasos o datos. Frases breves.',
+  redactar: 'Redáctalo como prosa clara y bien escrita, en párrafos cortos. Sin viñetas salvo que enumere pasos.',
+}
+
+async function redactar(supa: Supa, b: Body) {
+  const t0 = Date.now()
+  const texto = clean(b.texto, 8000)
+  if (!texto) return json({ error: 'No escuché nada que redactar.' }, 400)
+  const modo = b.modo === 'redactar' ? 'redactar' : 'ordenar'
+  let titulo = ''
+  if (b.note_id) {
+    const { data } = await supa.from('cuaderno_notes').select('title').eq('id', b.note_id).maybeSingle()
+    titulo = data?.title ?? ''
+  }
+  const prompt = [titulo ? `Página: «${titulo}»` : '', 'Dictado:', texto].filter(Boolean).join('\n')
+  const r = await callText({
+    system: [SYSTEM_REDACTAR, MODOS_REDACTAR[modo]].join('\n\n'),
+    history: [{ role: 'user', text: prompt }],
+    timeoutMs: 25000,
+    maxTokens: 2000,
+    deadline: t0 + 50_000,
+  })
+  if (!r.ok) return json({ error: r.error, detalle: r.detail }, r.status)
+  // a veces el modelo lo envuelve en ```markdown: se quita
+  const out = r.text
+    .trim()
+    .replace(/^```(?:markdown|md)?\s*\n/i, '')
+    .replace(/\n```\s*$/, '')
+    .trim()
+  if (!out) return json({ error: 'Rockie no pudo ordenarlo. Tu dictado sigue en la página.' }, 502)
+  return json({ texto: out, t: Date.now() - t0 })
 }
 
 // ---------- conversar ----------

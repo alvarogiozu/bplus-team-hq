@@ -97,6 +97,13 @@ export async function converse(history: ConvTurn[], contexto: { tipo: string; id
   return { error: r.unconfigured ? NO_AI : r.error }
 }
 
+/** Lo que dictaste, bien escrito: "ordenar" (subtítulos y viñetas) o "redactar" (prosa). Nunca inventa. */
+export async function redactar(p: { texto: string; modo: 'ordenar' | 'redactar'; noteId?: string }): Promise<{ texto?: string; error?: string }> {
+  const r = await invoke<{ texto: string }>({ action: 'redactar', texto: p.texto, modo: p.modo, note_id: p.noteId })
+  if (r.data?.texto) return { texto: r.data.texto }
+  return { error: r.unconfigured ? NO_AI : r.error }
+}
+
 /** Recalcula la huella de significado de notas que cambiaron (sin esperar). */
 export function embedNotes(ids: string[]) {
   if (ids.length) void invoke({ action: 'embed', note_ids: ids })

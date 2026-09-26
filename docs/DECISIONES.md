@@ -261,3 +261,79 @@ Con lápiz, el dedo mueve en vez de rayar.
 **Migraciones: ojo con los números.** La sesión del HQ/Agenda usó `20260928120000` en paralelo; la de pizarras quedó
 como `20260929200000`. Para aplicarla hubo que tener en la carpeta local las migraciones que el remoto ya tenía (se
 copiaron solo para el `db push` y no se commitearon).
+
+### Cuaderno v3 — carpetas, dictado, casillas, grafo con núcleos, pizarra en la página y bóveda (sep 2026)
+
+**Carpetas.** Lo que eran "cuadernos" pasaron a ser **carpetas** y sus secciones, **cuadernos** (la migración
+`20260930200000` lo hizo sola: lo de arriba → carpeta). Árbol: carpeta → subcarpetas y cuadernos → secciones (un cuaderno
+dentro de otro) → páginas. Máximo 4 niveles, sin ciclos y una carpeta nunca va dentro de un cuaderno: lo exige la base de
+datos (guard) y la app lo respeta antes de preguntar (`canNest`: en "Mover a…" lo imposible sale deshabilitado).
+- **Color que se hereda.** `color` null = el de quien lo contiene; carpetas, cuadernos, secciones y **páginas** pueden
+  tener el suyo ("Heredar" es la primera muestra, rayada). Al mover algo que heredaba, toma el color de su nuevo lugar;
+  al sacarlo arriba de todo, se queda con el que se veía.
+- **Íconos**: 38 de la línea de la app o 24 emojis, para carpetas, cuadernos y páginas (`icon` en las dos tablas).
+- Borrar una carpeta se lleva todo lo de adentro (las páginas pasan a Sueltas) y Deshacer lo recrea de afuera hacia adentro.
+- Pantallas: el estante muestra carpetas con pestaña (y chips de sus cuadernos); la página de una carpeta, sus cuadernos
+  como tarjetas; la de un cuaderno, sus secciones con páginas. Migas "Carpetas › …" arriba. El árbol lateral es recursivo.
+- "Aprender un tema" crea una **carpeta** con un cuaderno por parte del tema, o suma a cualquier carpeta o cuaderno.
+
+**Casillas como Obsidian.** `- [ ] ` o `- [x] ` al empezar una viñeta la vuelve casilla (y se une a la lista de al lado);
+Ctrl+Enter marca/desmarca (o vuelve casilla la línea). Casilla cuadrada propia con el visto animado. El botón de la barra
+pasó a un cuadrado con visto ("Casillas") y hay una guía de **atajos de Markdown** (#, -, 1., - [ ], >, ```, ---, **,
+*, ~~, ==, `) en la barra.
+
+**Enlaces `[[ ]]`.** Escribir `[[` abre la lista de páginas (flechas, Enter/Tab, Esc; "Crear «…»" si no existe). Queda
+un enlace `cuaderno://nota/<id>` (en Markdown, un enlace normal) que se abre con un clic, **y** una conexión en el mapa
+(así también aparece en la otra página). Esto reemplaza lo que IDEAS decía ("una sola forma de conectar"): ahora hay tres
+(Rockie propone, `[[ ]]` al escribir y "Conectar" a mano), todas terminan en la misma tabla de conexiones.
+
+**Conectar a mano.** En el panel de cada página ("+ Conectar", buscador) y en el mapa: modo "Conectar" (o Shift/Alt +
+arrastrar) tiende una línea de una página a otra o a un proyecto. El porqué ("Conectadas a mano") se edita en el panel
+de la conexión; se puede quitar desde ahí o desde la lista.
+
+**Dictado con Rockie.** Botón "Dictar" en la barra: el reconocimiento del navegador escribe cada frase al terminarla, en
+el lugar del cursor (o en un párrafo nuevo al final), resaltado y con un punto que late donde va a seguir. Entiende
+«coma», «punto» (al final), «punto y seguido», «punto y coma», «dos puntos», «punto y aparte» / «nuevo párrafo», sin
+confundir "entró en coma" o "llegamos a un punto" (`spoken`, probado). Se retoma solo cuando el navegador corta. Al
+terminar: **Ordenar** (subtítulos y viñetas) o **Redactar** (prosa) con Rockie (`redactar` en la Edge Function, no
+inventa, mismo idioma), vista previa y luego "Reemplazar mi dictado" / "Ponerlo debajo" / probar el otro modo; o "Dejar
+así". Idioma del dictado en Ajustes (español PE/ES/MX, inglés, francés, portugués, alemán, italiano).
+
+**Mapa: Grafo + Carpetas.**
+- **Grafo** (como Obsidian, con núcleos): cada carpeta (forma de carpeta), cuaderno y sección (forma de libro con lomo)
+  es un nodo grande de su color unido a lo que contiene; las páginas llevan el color que heredan y se unen entre sí y con
+  proyectos del HQ. Filtros: Carpetas (sin ellas es el grafo puro de páginas), Proyectos, Solo conectadas, Color por
+  memoria. Buscar resalta y Enter vuela al primero. Al pasar o elegir se atenúa lo que no está a un paso. Nacen con una
+  animación de resorte desde su núcleo. Panel de núcleo (qué tiene adentro) y de conexión (porqué editable).
+- **Carpetas**: mapa mental de izquierda a derecha con la forma real de cada cosa (carpeta con pestaña, cuaderno con
+  lomo, hoja con la esquina doblada), ramas del color heredado que salen y vuelven a su carpeta al abrir/cerrar, y la
+  vista se desplaza sola a lo que abriste. Buscar abre el camino hasta lo encontrado.
+
+**Pizarra dentro de la página.** Botón de pizarra en la barra: "Nueva pizarra aquí" o una que ya tienes. Viaja como imagen
+`![título](cuaderno://pizarra/<id>)` (sin tipo de nodo nuevo; `plain` y la búsqueda la ignoran) y se ve como una vista
+previa encuadrada (trazos, notas, textos, páginas y flechas) que se abre con un toque; también queda conectada.
+
+**Hoja de dibujo que crece hacia abajo.** "Más hoja" (y sola al escribir cerca del final) hasta 20 000 de alto; si la hoja
+entera se vería chica, pasa a lo ancho y se desplaza (dos dedos en el celular). El lienzo solo cubre lo visible (una hoja
+larga no rompe el límite de tamaño de los canvas) y al guardar la imagen termina donde termina lo dibujado.
+
+**Ajustes (engranaje).** Tema **Claro / Oscuro / Automático** compartido por HQ, Agenda y Cuaderno (el mismo selector en
+los tres; `hq.theme` vacío = automático y sigue al sistema en vivo; cambia también en las otras pestañas abiertas), color
+principal, idioma del dictado, bóveda y cuenta.
+
+**Tu bóveda (Markdown, como Obsidian).** Carpetas y cuadernos = carpetas del disco; cada página un `.md` con ficha
+(frontmatter: id, área, fechas, color, ícono), `[[enlaces]]`, `## Conexiones` al final (así el grafo de Obsidian las ve);
+pizarras como `.canvas` (JSON Canvas: notas, textos, páginas como archivos y flechas); imágenes y dibujos en `_adjuntos`.
+- **Descargar todo (.zip)** en cualquier navegador (zip propio sin comprimir, sin dependencias).
+- **Conectar una carpeta** (Chrome/Edge de PC, File System Access; el permiso se recuerda en IndexedDB): sincroniza en los
+  dos sentidos con un manifiesto — escribe solo lo que cambió, trae lo que editaste en la carpeta (si cambió en los dos
+  lados, lo de la carpeta llega como página aparte: nunca se pisa nada), importa los .md nuevos creando las carpetas que
+  falten, y quita solo los archivos que escribió y no tocaste (páginas renombradas, movidas o borradas). Mientras el
+  cuaderno está abierto y hay permiso, se sincroniza sola 20 s después de cada cambio.
+- **Google Drive**: elegir una carpeta dentro de Google Drive para escritorio (o OneDrive/Dropbox) la sube a la nube sola.
+  La conexión directa a la API de Drive (sin app de escritorio) queda para después.
+
+**Detalles que salieron probando.** Al abrir una página ya no se guarda nada si no cambiaste nada (antes el párrafo final
+automático marcaba "editado"). Los menús anidados ("Mover a…", "Cambiar ícono") se cerraban con el menú de afuera: ahora
+son propios. En `sticky`, el navegador descuenta el relleno del contenedor: la barra de dictado lo compensa. La cabecera
+de la página se acomoda en dos líneas cuando la columna es angosta.

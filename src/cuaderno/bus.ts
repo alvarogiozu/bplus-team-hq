@@ -22,6 +22,7 @@ export type Dialog =
       initial?: unknown[]
       onSave: (r: { src: string; drawingId: string }) => void
     }
+  | { kind: 'ajustes' }
 
 let current: Dialog | null = null
 const subs = new Set<() => void>()

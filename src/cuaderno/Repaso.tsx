@@ -6,7 +6,7 @@ import { useMe } from '../features/auth/AuthProvider'
 import { fmtRelative } from '../lib/dates'
 import { burst, celebrateRockie, centerPoint, haptic } from '../lib/fx'
 import { useToday } from './capture'
-import { rootOf } from './books'
+import { chainOf } from './books'
 import { NONE, areaOf, useBooks, useCards, useCuadernoActions, useDays, useNotes, type Card } from './data'
 import { CIcon } from './icons'
 import { dueToday, streakOf } from './leitner'
@@ -38,7 +38,12 @@ export default function Repaso() {
     if (queue !== null || !cardsQ.data) return
     if (!practiceOf) return setQueue(dueToday(cardsQ.data, today))
     if (!notes.length) return
-    const inBook = new Set(notes.filter((n) => (rootOf(books, n.book_id)?.id ?? 'sueltas') === practiceOf).map((n) => n.id))
+    // lo de esa carpeta o cuaderno, con todo lo que tiene adentro
+    const inBook = new Set(
+      notes
+        .filter((n) => (practiceOf === 'sueltas' ? !chainOf(books, n.book_id).length : chainOf(books, n.book_id).some((b) => b.id === practiceOf)))
+        .map((n) => n.id),
+    )
     const pool = cardsQ.data.filter((c) => inBook.has(c.note_id))
     // barajadas, hasta 20
     for (let k = pool.length - 1; k > 0; k--) {

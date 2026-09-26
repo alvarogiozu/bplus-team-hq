@@ -1,10 +1,287 @@
-import { Mark, Node, createBlockMarkdownSpec, mergeAttributes, type Editor, type JSONContent } from '@tiptap/core'
+import { Extension, InputRule, Mark, Node, createBlockMarkdownSpec, mergeAttributes, type Editor, type JSONContent } from '@tiptap/core'
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model'
-import { TextSelection, type Transaction } from '@tiptap/pm/state'
+import { Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { NOTE_HREF, joinSpoken, spoken } from './text'
 
-// Lo que el editor suma a TipTap: color de letra y columnas (como Notion).
-// Las dos cosas se guardan en Markdown que se sigue leyendo en cualquier lado:
+// Lo que el editor suma a TipTap: color de letra, columnas (como Notion), casillas como en
+// Obsidian y el dictado. Todo se guarda en Markdown que se sigue leyendo en cualquier lado:
 // el color como <span data-color="…"> y las columnas como bloques ":::" (estilo Pandoc).
+
+// ---------- casillas (como Obsidian) ----------
+/**
+ * "- [ ] " o "- [x] " vuelve casilla a la viñeta (como en Obsidian); "[ ] " en un párrafo ya lo hace TipTap.
+ * Ctrl+Enter marca o desmarca la casilla, o vuelve casilla la línea.
+ */
+export const ObsidianTasks = Extension.create({
+  name: 'obsidianTasks',
+  priority: 200,
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^\s*\[([ xX]?)\]\s$/,
+        handler: ({ state, range, match, chain }) => {
+          const $from = state.doc.resolve(range.from)
+          const d = $from.depth
+          if (d < 3 || $from.node(d - 1).type.name !== 'listItem' || $from.index(d - 1) !== 0) return null
+          if (!['bulletList', 'orderedList'].includes($from.node(d - 2).type.name)) return null
+          chain()
+            .deleteRange(range)
+            .toggleTaskList()
+            .updateAttributes('taskItem', { checked: /x/i.test(match[1] ?? '') })
+            .run()
+        },
+      }),
+    ]
+  },
+  addKeyboardShortcuts() {
+    return {
+      'Mod-Enter': () => {
+        const e = this.editor
+        if (e.isActive('taskItem')) return e.commands.updateAttributes('taskItem', { checked: !e.getAttributes('taskItem').checked })
+        if (e.isActive('codeBlock') || e.isActive('table')) return false
+        return e.commands.toggleTaskList()
+      },
+    }
+  },
+})
+
+// ---------- enlaces [[ ]] (como Obsidian) ----------
+// Escribir [[ abre la lista de tus páginas; lo que elijas queda como enlace interno
+// (cuaderno://nota/<id>) y como conexión en el mapa. En Markdown es un enlace normal.
+type Wiki = { from: number; to: number; query: string; closed: boolean } | null
+export const wikiKey = new PluginKey<Wiki>('cuWiki')
+export type WikiKeys = { current: ((key: string) => boolean) | null }
+export { NOTE_HREF }
+
+// (las teclas llegan por una función: TipTap copia las opciones al configurar, un objeto perdería la referencia)
+export const WikiLinks = Extension.create<{ onKey: (key: string) => boolean }>({
+  name: 'wikiLinks',
+  // antes que Enter, Tab y las flechas del resto del editor
+  priority: 1000,
+  addOptions() {
+    return { onKey: () => false }
+  },
+  addProseMirrorPlugins() {
+    const opts = this.options
+    return [
+      new Plugin<Wiki>({
+        key: wikiKey,
+        state: {
+          init: () => null,
+          apply(tr, prev, _old, state) {
+            const sel = state.selection
+            if (!sel.empty) return null
+            const $p = sel.$from
+            if (!$p.parent.isTextblock || $p.parent.type.spec.code) return null
+            const before = $p.parent.textBetween(Math.max(0, $p.parentOffset - 80), $p.parentOffset, undefined, '￼')
+            const m = /\[\[([^[\]\n￼]{0,60})$/.exec(before)
+            if (!m) return null
+            const from = sel.from - m[0].length
+            // Esc la cierra hasta que empieces otro [[
+            const closed = tr.getMeta(wikiKey) === 'close' || (prev?.closed === true && prev.from === from)
+            return { from, to: sel.from, query: m[1], closed }
+          },
+        },
+        props: {
+          handleKeyDown(view, e) {
+            const st = wikiKey.getState(view.state)
+            if (!st || st.closed || !['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) return false
+            return opts.onKey(e.key)
+          },
+        },
+      }),
+    ]
+  },
+})
+
+export const closeWiki = (editor: Editor) => editor.view.dispatch(editor.state.tr.setMeta(wikiKey, 'close'))
+
+/** Pone el enlace a otra página en lugar de lo escrito desde [[ (y del ]] si ya estaba). */
+export function insertWikiLink(editor: Editor, target: { id: string; title: string }) {
+  const st = wikiKey.getState(editor.state)
+  if (!st) return false
+  const doc = editor.state.doc
+  const after = doc.textBetween(st.to, Math.min(doc.content.size, st.to + 2), undefined, '￼')
+  editor
+    .chain()
+    .focus()
+    .insertContentAt({ from: st.from, to: after === ']]' ? st.to + 2 : st.to }, [
+      { type: 'text', text: target.title, marks: [{ type: 'link', attrs: { href: `${NOTE_HREF}${target.id}` } }] },
+      { type: 'text', text: ' ' },
+    ])
+    .run()
+  return true
+}
+
+// ---------- dictado ----------
+// Lo que vas dictando se resalta y sigue en su sitio aunque escribas en otra parte de la página;
+// al terminar, Rockie puede ordenarlo o redactarlo y reemplazar justo ese tramo.
+type Dictated = { from: number; to: number; live: boolean } | null
+export const dictationKey = new PluginKey<Dictated>('cuDictation')
+
+export const DictationRange = Extension.create({
+  name: 'dictationRange',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin<Dictated>({
+        key: dictationKey,
+        state: {
+          init: () => null,
+          apply(tr, v) {
+            const meta = tr.getMeta(dictationKey) as Dictated | undefined
+            if (meta !== undefined) return meta
+            if (!v || !tr.docChanged) return v
+            return { ...v, from: tr.mapping.map(v.from, -1), to: tr.mapping.map(v.to, 1) }
+          },
+        },
+        props: {
+          decorations(state) {
+            const v = dictationKey.getState(state)
+            if (!v) return null
+            const decos: Decoration[] = []
+            if (v.to > v.from) decos.push(Decoration.inline(v.from, v.to, { class: 'cu-dictated' }))
+            if (v.live)
+              decos.push(
+                Decoration.widget(
+                  v.to,
+                  () => {
+                    const s = document.createElement('span')
+                    s.className = 'cu-dict-caret'
+                    s.setAttribute('aria-hidden', 'true')
+                    return s
+                  },
+                  { side: 1, key: 'cu-dict-caret' },
+                ),
+              )
+            return DecorationSet.create(state.doc, decos)
+          },
+        },
+      }),
+    ]
+  },
+})
+
+const setDictation = (editor: Editor, v: Dictated) => editor.view.dispatch(editor.state.tr.setMeta(dictationKey, v))
+
+/** Empieza (o retoma) el dictado: donde está el cursor; si no lo pusiste en la página, en un párrafo nuevo al final. */
+export function beginDictation(editor: Editor) {
+  const { state } = editor
+  const cur = dictationKey.getState(state)
+  if (cur) {
+    setDictation(editor, { ...cur, live: true })
+    return true
+  }
+  const tr = state.tr
+  const para = state.schema.nodes.paragraph
+  let pos: number
+  if (editor.isFocused || state.selection.from > 1) pos = state.selection.to
+  else {
+    const last = state.doc.lastChild
+    if (last?.type === para && last.content.size === 0) pos = state.doc.content.size - 1
+    else {
+      tr.insert(state.doc.content.size, para.create())
+      pos = tr.doc.content.size - 1
+    }
+  }
+  const $p = tr.doc.resolve(pos)
+  if (!$p.parent.isTextblock) {
+    // una imagen o una tabla seleccionada: el dictado va en un párrafo nuevo ahí mismo
+    if ($p.parent.canReplaceWith($p.index(), $p.index(), para)) {
+      tr.insert(pos, para.create())
+      pos += 1
+    } else {
+      const near = Selection.findFrom($p, 1, true) ?? Selection.findFrom($p, -1, true)
+      if (!near) return false
+      pos = near.from
+    }
+  }
+  editor.view.dispatch(tr.setMeta(dictationKey, { from: pos, to: pos, live: true }))
+  return true
+}
+
+/** Escribe una frase dictada al final de lo dictado, con su puntuación y mayúsculas. */
+export function writeDictation(editor: Editor, raw: string) {
+  const v = dictationKey.getState(editor.state)
+  if (!v) return
+  const { state, view } = editor
+  if (!state.doc.resolve(v.to).parent.isTextblock) return
+  // si estás escribiendo en otra parte, tu cursor no se mueve; si no, acompaña al dictado
+  const follow = !view.hasFocus() || (state.selection.empty && state.selection.from === v.to)
+  const tr = state.tr
+  let pos = v.to
+  spoken(raw).forEach((piece, i) => {
+    let $p = tr.doc.resolve(pos)
+    if (i > 0 && $p.parent.content.size > 0) {
+      tr.split(pos)
+      pos += 2
+      $p = tr.doc.resolve(pos)
+    }
+    const text = joinSpoken($p.parent.textBetween(Math.max(0, $p.parentOffset - 80), $p.parentOffset, undefined, ' '), piece)
+    if (!text) return
+    tr.insertText(text, pos)
+    pos += text.length
+  })
+  if (!tr.docChanged) return
+  tr.setMeta(dictationKey, { from: tr.mapping.map(v.from, -1), to: pos, live: v.live })
+  if (follow) tr.setSelection(TextSelection.create(tr.doc, pos)).scrollIntoView()
+  view.dispatch(tr)
+}
+
+export const dictatedText = (editor: Editor) => {
+  const v = dictationKey.getState(editor.state)
+  return v && v.to > v.from ? editor.state.doc.textBetween(v.from, v.to, '\n\n', ' ').trim() : ''
+}
+
+/** Deja de escuchar (lo dictado sigue marcado hasta que decidas qué hacer con él). */
+export function pauseDictation(editor: Editor) {
+  const v = dictationKey.getState(editor.state)
+  if (v?.live) setDictation(editor, { ...v, live: false })
+}
+
+/** Termina: lo dictado queda como texto normal. */
+export function endDictation(editor: Editor) {
+  if (!editor.isDestroyed && dictationKey.getState(editor.state)) setDictation(editor, null)
+}
+
+/**
+ * Pone lo que escribió Rockie: en lugar de lo dictado ("replace") o debajo ("below").
+ * Devuelve dónde quedó, para destacarlo.
+ */
+export function applyDictation(editor: Editor, md: string, how: 'replace' | 'below') {
+  const v = dictationKey.getState(editor.state)
+  if (!v) return null
+  const doc = editor.state.doc
+  const $f = doc.resolve(v.from)
+  const $t = doc.resolve(v.to)
+  let from = v.from
+  let to = v.to
+  let whole = false
+  if (how === 'below') {
+    // después del bloque de primer nivel (o de su columna), no dentro de una lista
+    let d = $t.depth
+    while (d > 1 && !['doc', 'column'].includes($t.node(d - 1).type.name)) d--
+    from = to = d >= 1 ? $t.after(d) : doc.content.size
+    whole = true
+  } else if ($f.parent.isTextblock && $t.parent.isTextblock && $f.parentOffset === 0 && $t.parentOffset === $t.parent.content.size && $f.depth === $t.depth) {
+    // lo dictado ocupa párrafos enteros: se cambian los párrafos, sin dejar vacíos
+    from = $f.before()
+    to = $t.after()
+    whole = true
+  }
+  const blocks = editor.markdown?.parse(md).content ?? []
+  // un solo párrafo en medio de un texto: va como texto, sin partir el párrafo
+  const content: JSONContent[] | string = !blocks.length ? md : !whole && blocks.length === 1 && blocks[0].type === 'paragraph' ? (blocks[0].content ?? []) : blocks
+  editor
+    .chain()
+    .command(({ tr }) => {
+      tr.setMeta(dictationKey, null)
+      return true
+    })
+    .insertContentAt({ from, to }, content, typeof content === 'string' ? { contentType: 'markdown' } : undefined)
+    .run()
+  return from
+}
 
 // ---------- color de letra ----------
 export type TextColor = 'coral' | 'amber' | 'green' | 'accent' | 'berry' | 'muted'

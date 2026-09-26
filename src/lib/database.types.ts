@@ -471,9 +471,11 @@ export type Database = {
       }
       cuaderno_books: {
         Row: {
-          color: string
+          color: string | null
           created_at: string
+          icon: string | null
           id: string
+          kind: string
           name: string
           parent_id: string | null
           position: number
@@ -481,9 +483,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          color?: string
+          color?: string | null
           created_at?: string
+          icon?: string | null
           id?: string
+          kind?: string
           name: string
           parent_id?: string | null
           position?: number
@@ -491,9 +495,11 @@ export type Database = {
           user_id?: string
         }
         Update: {
-          color?: string
+          color?: string | null
           created_at?: string
+          icon?: string | null
           id?: string
+          kind?: string
           name?: string
           parent_id?: string | null
           position?: number
@@ -749,10 +755,12 @@ export type Database = {
           area: string
           body: string
           book_id: string | null
+          color: string | null
           created_at: string
           embedded_at: string | null
           embedding: string | null
           entry_id: string | null
+          icon: string | null
           id: string
           kind: string
           position: number
@@ -764,10 +772,12 @@ export type Database = {
           area?: string
           body?: string
           book_id?: string | null
+          color?: string | null
           created_at?: string
           embedded_at?: string | null
           embedding?: string | null
           entry_id?: string | null
+          icon?: string | null
           id?: string
           kind?: string
           position?: number
@@ -779,10 +789,12 @@ export type Database = {
           area?: string
           body?: string
           book_id?: string | null
+          color?: string | null
           created_at?: string
           embedded_at?: string | null
           embedding?: string | null
           entry_id?: string | null
+          icon?: string | null
           id?: string
           kind?: string
           position?: number
