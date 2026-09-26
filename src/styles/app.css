@@ -1109,3 +1109,27 @@ button.mission:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ca
   .mmeter { width: 100%; }
 }
 .linkish { padding: 0; font: inherit; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------- Logros configurables ---------- */
+.ach.custom .aic, .goalach .aic, .achpreview .aic { background: var(--ac); box-shadow: 0 3px 0 color-mix(in oklab, var(--ac) 62%, black); }
+.ach.custom:not(.on) { opacity: 0.85; filter: grayscale(0.55); }
+.ach.custom.on { border-color: color-mix(in oklab, var(--ac) 40%, var(--card-line)); background: linear-gradient(160deg, color-mix(in oklab, var(--ac) 10%, var(--card)), var(--card) 70%); }
+.ach-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ach-when { color: var(--ink-soft) !important; }
+.ach-goal { display: flex; flex-direction: column; gap: 5px; margin-top: 2px; font-size: var(--t-3xs); font-weight: 700; }
+.ach-goal a { color: var(--accent-ink); }
+.ach-goal .progress { height: 7px; }
+.ach-goal .progress > i { background: var(--ac); }
+.ach-actions { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: var(--t-3xs); font-weight: 700; }
+.goalach { color: var(--ink); text-decoration: none; }
+.goalach:hover { border-color: var(--green); }
+.achpreview { display: flex; align-items: center; gap: 14px; padding: var(--s3) var(--s4); border-radius: var(--r-lg); background: color-mix(in oklab, var(--ac) 12%, var(--card)); border: 1.5px solid color-mix(in oklab, var(--ac) 35%, var(--card-line)); }
+.achpreview b { font-family: var(--serif); font-size: var(--t-lg); }
+.achpreview .aic { display: grid; place-items: center; flex: none; color: var(--on-color); }
+.aic.big { width: 54px; height: 54px; border-radius: 18px; }
+.aic.big .ico { width: 26px; height: 26px; }
+.achicons { display: flex; flex-wrap: wrap; gap: 6px; }
+.achicons button { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--paper-alt); border: 1.5px solid var(--card-line); color: var(--ink-soft); transition: background 0.15s, color 0.15s; }
+.achicons button.on { background: var(--ac); border-color: transparent; color: var(--on-color); box-shadow: 0 3px 0 color-mix(in oklab, var(--ac) 62%, black); }
+.kindpick.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gach-ic { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 8px; color: var(--on-color); }

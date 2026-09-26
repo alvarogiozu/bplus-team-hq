@@ -86,6 +86,8 @@ async function goalsDemo(sid) {
   const happy = await ins({ title: 'Clientes felices', kind: 'children', owner_id: id('qa.alvaro'), due_date: add(90), position: 2 })
   await ins({ title: 'Subir el NPS a 60', kind: 'number', unit: 'NPS', start_value: 20, target_value: 60, current_value: 41, parent_id: happy, owner_id: id('qa.alvaro'), start_date: add(-40), due_date: add(80), position: 1 })
   await ins({ title: 'Responder soporte en menos de 2 h', kind: 'percent', start_value: 0, target_value: 100, current_value: 88, parent_id: happy, owner_id: id('qa.sebastian'), status_override: 'on_track', position: 2 })
+  const { error: ae } = await admin.from('team_achievements').insert({ space_id: sid, title: 'Medio camino: 250 patrocinadores', icon: 'star', color: '#eaa545', goal_id: backers, threshold: 0.5, created_by: id('qa.alvaro') })
+  if (ae) throw ae
   const days = [[-20, 60], [-10, 120], [-2, 180]]
   for (const [d, v] of days) {
     const { error } = await admin.from('goal_checkins').insert({ goal_id: backers, space_id: sid, author_id: id('qa.mariana'), value: v, note: v === 180 ? 'Llegó la nota en el blog de hardware' : '', created_at: `${add(d)}T15:00:00Z` })

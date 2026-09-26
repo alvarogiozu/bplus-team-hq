@@ -9,11 +9,12 @@ import { toast, toastError } from '../../components/Toasts'
 import { PALETTE } from '../../lib/colors'
 import { fmtDay, hourIn, isNight } from '../../lib/dates'
 import { humanError, supabase } from '../../lib/supabase'
-import { ACHIEVEMENTS, levelProgress, xpByUser } from '../../lib/xp'
+import { levelProgress, xpByUser } from '../../lib/xp'
 import type { Member } from '../../lib/types'
 import { useMe } from '../auth/AuthProvider'
 import { useSpace } from '../spaces/SpaceProvider'
-import { keys, useAchievements, useAreas, useMembers, useXp } from '../data/queries'
+import { keys, useAreas, useMembers, useXp } from '../data/queries'
+import { TeamAchievements } from './TeamAchievements'
 import { presenceStore } from './presence'
 
 export default function TeamPage() {
@@ -21,8 +22,6 @@ export default function TeamPage() {
   const { userId, profile } = useMe()
   const membersQ = useMembers()
   const xp = useXp().data ?? []
-  const achQ = useAchievements()
-  const unlocked = achQ.data ?? []
   const [editing, setEditing] = useState<Member | null>(null)
   const [tempPw, setTempPw] = useState<{ name: string; password: string } | null>(null)
   const qc = useQueryClient()
@@ -121,18 +120,7 @@ export default function TeamPage() {
         </div>
       )}
 
-      <div className="sectionh" style={{ marginTop: 32 }}>
-        <h2>Logros del equipo</h2>
-        {achQ.isSuccess && <span className="hint">{unlocked.length} de {ACHIEVEMENTS.length}</span>}
-      </div>
-      <div className="achgrid">
-        {ACHIEVEMENTS.map((a) => (
-          <div key={a.id} className={`card ach${unlocked.includes(a.id) ? ' on' : ''}`}>
-            <span className="aic"><Icon name="star" /></span>
-            <div><h3>{a.name}</h3><p>{a.desc}</p></div>
-          </div>
-        ))}
-      </div>
+      <TeamAchievements />
 
       {editing && <ProfileSheet member={editing} onClose={() => setEditing(null)} />}
       <Sheet open={Boolean(tempPw)} onClose={() => setTempPw(null)} title="Contraseña temporal">

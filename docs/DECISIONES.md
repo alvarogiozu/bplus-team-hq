@@ -272,3 +272,9 @@ del bucket rechaza subidas cuando ya no queda cupo. Borrar una carpeta borra sus
 **Un solo ancho.** Todas las páginas del HQ usan `.content` hasta 1440 px: en laptops ocupan la pantalla y en monitores
 grandes se frenan centradas. Se descartó "lista centrada, tablero a pantalla completa" porque la cabecera saltaba al
 cambiar de vista.
+
+**Logros configurables y ligados a Metas.** Tabla `team_achievements` (título, ícono, color, meta opcional y umbral
+25/50/75/100%). El avance de una meta se calcula en el cliente (proyectos y sub-metas incluidos), así que el
+desbloqueo lo dispara el primer cliente que ve la meta en su marca, vía `unlock_team_achievement` (idempotente,
+anota actividad); cada sesión celebra cuando la lista trae un logro recién desbloqueado, sea de quien sea. Las metas
+logradas aparecen solas como logros. Los 10 logros fijos siguen calculándose en el servidor al validar.

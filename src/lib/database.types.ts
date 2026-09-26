@@ -1666,6 +1666,83 @@ export type Database = {
           },
         ]
       }
+      team_achievements: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          description: string
+          goal_id: string | null
+          icon: string
+          id: string
+          space_id: string
+          threshold: number
+          title: string
+          unlocked_at: string | null
+          unlocked_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          goal_id?: string | null
+          icon?: string
+          id?: string
+          space_id: string
+          threshold?: number
+          title: string
+          unlocked_at?: string | null
+          unlocked_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          goal_id?: string | null
+          icon?: string
+          id?: string
+          space_id?: string
+          threshold?: number
+          title?: string
+          unlocked_at?: string | null
+          unlocked_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_achievements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_achievements_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_achievements_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_achievements_unlocked_by_fkey"
+            columns: ["unlocked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xp_log: {
         Row: {
           created_at: string
@@ -1789,6 +1866,7 @@ export type Database = {
       materials_room_left: { Args: { sid_text: string }; Returns: boolean }
       shares_space: { Args: { uid: string }; Returns: boolean }
       team_streak: { Args: { sid: string }; Returns: number }
+      unlock_team_achievement: { Args: { p_id: string }; Returns: boolean }
       user_today: { Args: { uid?: string }; Returns: string }
       username_available: { Args: { p_username: string }; Returns: boolean }
       validate_task: {

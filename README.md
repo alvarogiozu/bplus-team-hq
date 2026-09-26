@@ -19,7 +19,8 @@ de ajustes para entenderse, está mal.
 - **Materiales** (`/materiales`) — archivos y enlaces del equipo en carpetas de colores (se pueden ligar a un
   proyecto). Se sube arrastrando desde la computadora, se mueve arrastrando una tarjeta a una carpeta, y lo de Drive,
   Docs, Figma o YouTube entra como enlace reconocido. Cupo por equipo (1 GB en el plan gratis, 50 MB por archivo).
-- **Equipo** — Rockies, XP, niveles, los 10 logros, invitaciones.
+- **Equipo** — Rockies, XP, niveles, roles, invitaciones y **logros**: los 10 de siempre, las metas logradas y los
+  propios del equipo (nombre, ícono y color; se desbloquean solos cuando una meta llega a su marca, o se entregan a mano).
 - **Rockie** (barra de abajo, `Ctrl/Cmd + K`, o **mantén el micrófono y habla**) — "tarea para Sebastián el viernes,
   urgente", "pásale lo del firmware a Andrea", "¿qué está atrasado?". Entiende con IA (la misma Edge Function de la
   agenda, `scope: hq`), muestra una tarjeta por propuesta y todo se deshace. Sin IA, un intérprete local.

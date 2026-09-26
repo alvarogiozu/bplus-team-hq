@@ -55,6 +55,8 @@ export function useRealtime(spaceId: string) {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'material_folders' }, invalidate(keys.folders(spaceId)))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'materials', filter }, invalidate(keys.materials(spaceId)))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'materials' }, invalidate(keys.materials(spaceId)))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_achievements', filter }, invalidate(keys.teamAch(spaceId)))
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'team_achievements' }, invalidate(keys.teamAch(spaceId)))
       .subscribe((status) => {
         // al reconectar (celular que vuelve de segundo plano), ponerse al día
         if (status === 'SUBSCRIBED') qc.invalidateQueries({ queryKey: keys.tasks(spaceId) })

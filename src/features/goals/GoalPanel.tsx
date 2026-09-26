@@ -10,6 +10,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useTasks } from '../data/queries'
 import { MemberAvatar, useLookup } from '../tasks/bits'
 import { PersonPicker } from '../team/PersonPicker'
+import { openAchievementDialog, useTeamAchievements } from '../team/achievements'
 import { closeNewGoal, newGoalStore, openNewGoal, useCheckins, useGoalActions } from './data'
 import { ancestors, fmtLeft, fmtNum, fmtValue, KIND_LABEL, KIND_SHORT, projectAgg, subtreeIds, valueLine, type Checkin, type Goal, type GoalKind, type GoalNode, type GoalStatus } from './model'
 
@@ -241,6 +242,8 @@ function GoalBody({ node, all, onGone }: { node: GoalNode; all: GoalNode[]; onGo
         )}
       </div>
 
+      <GoalAchievements goalId={g.id} pct={node.pct} />
+
       {checkins.length > 0 && (
         <>
           <label className="lbl">Historial de avances</label>
@@ -285,6 +288,38 @@ function GoalBody({ node, all, onGone }: { node: GoalNode; all: GoalNode[]; onGo
         </AnimatePresence>
       </div>
     </>
+  )
+}
+
+/** Los logros del equipo que esta meta desbloquea (y cuánto falta para cada uno). */
+function GoalAchievements({ goalId, pct }: { goalId: string; pct: number }) {
+  const list = (useTeamAchievements().data ?? []).filter((a) => a.goal_id === goalId)
+  return (
+    <div className="gsubs">
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <label className="lbl" style={{ margin: 0 }}>Logros</label>
+        <button className="btn ghost sm" type="button" onClick={() => openAchievementDialog({ goalId })}>
+          <Icon name="trophy" className="sm" /> Crear logro
+        </button>
+      </div>
+      {list.length === 0 ? (
+        <p className="hint">Celebra esta meta con un logro del equipo: se desbloquea solo cuando llegue a la marca que elijas.</p>
+      ) : (
+        <ul>
+          {list.map((a) => (
+            <li key={a.id}>
+              <button type="button" onClick={() => openAchievementDialog({ edit: a })} style={{ ['--pc' as string]: a.color } as CSSProperties}>
+                <span className="gach-ic" style={{ background: a.color }}>
+                  <Icon name={a.unlocked_at ? 'check' : 'trophy'} className="sm" />
+                </span>
+                <span className="gsub-t">{a.title}</span>
+                <b>{a.unlocked_at ? 'Logrado' : `${Math.min(100, Math.round((pct / Number(a.threshold)) * 100))}%`}</b>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

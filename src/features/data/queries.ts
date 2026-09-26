@@ -20,6 +20,7 @@ export const keys = {
   checkins: (sid: string) => ['goal_checkins', sid] as const,
   folders: (sid: string) => ['material_folders', sid] as const,
   materials: (sid: string) => ['materials', sid] as const,
+  teamAch: (sid: string) => ['team_achievements', sid] as const,
 }
 
 function must<T>(r: { data: T | null; error: unknown }): T {

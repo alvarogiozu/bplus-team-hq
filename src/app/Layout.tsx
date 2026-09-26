@@ -21,6 +21,8 @@ import { NewTaskDialog } from '../features/tasks/NewTaskDialog'
 import { AgentCapture } from '../features/agent/AgentCapture'
 import { openNewTask } from '../features/tasks/dialogs'
 import { setAccent, useTheme } from './theme'
+import { useAchievementWatcher } from '../features/team/achievements'
+import { AchievementDialog } from '../features/team/TeamAchievements'
 
 type Dest = { to: string; label: string; icon: IconName; color: string }
 const DESKTOP: Dest[] = [
@@ -40,6 +42,7 @@ export function Layout() {
   useRealtime(spaceId)
   const members = useMembers().data ?? []
   usePresenceTracker()
+  useAchievementWatcher()
   // tu color principal viaja con tu perfil (en otro equipo se ve igual)
   useEffect(() => setAccent(profile.accent ?? null), [profile.accent])
   const online = presenceStore.use()
@@ -170,6 +173,7 @@ export function Layout() {
       <TaskPanel />
       <ValidateDialog />
       <NewTaskDialog />
+      <AchievementDialog />
     </div>
   )
 }
