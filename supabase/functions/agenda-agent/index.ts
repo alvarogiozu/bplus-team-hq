@@ -289,7 +289,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Rockie necesita un respiro: llegaste a 60 órdenes esta hora.' }, 429)
   }
 
-  let body: { text?: unknown; context?: Ctx; history?: Turn[]; scope?: unknown }
+  let body: { text?: unknown; context?: Ctx; history?: Turn[]; scope?: unknown; caps?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -298,7 +298,10 @@ Deno.serve(async (req) => {
   const text = typeof body.text === 'string' ? body.text.trim().slice(0, 600) : ''
   if (!text) return json({ error: 'No escuché ninguna orden' }, 400)
   const ctx: Ctx = body.context ?? {}
-  const kit: Kit = body.scope === 'hq' ? { tools: TOOLS_HQ as typeof TOOLS, system: SYSTEM_HQ } : { tools: TOOLS, system: SYSTEM }
+  const base: Kit = body.scope === 'hq' ? { tools: TOOLS_HQ as typeof TOOLS, system: SYSTEM_HQ } : { tools: TOOLS, system: SYSTEM }
+  // derivar a otra app solo si el cliente sabe mostrarlo (las versiones viejas no mandan caps)
+  const canRoute = Array.isArray(body.caps) && body.caps.includes('otra_app')
+  const kit: Kit = canRoute ? base : { ...base, tools: base.tools.filter((t) => t.name !== 'otra_app') }
   const history = (Array.isArray(body.history) ? body.history : [])
     .filter((t) => (t.role === 'user' || t.role === 'assistant') && typeof t.text === 'string' && t.text.trim())
     .slice(-8)

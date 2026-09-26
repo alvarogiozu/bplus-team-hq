@@ -101,7 +101,7 @@ export function buildContext(p: {
 }
 
 export async function askRockie(text: string, history: Turn[], context: unknown, local: () => Proposal | null): Promise<AgentReply> {
-  const { data, error } = await supabase.functions.invoke('agenda-agent', { body: { text, history, context } })
+  const { data, error } = await supabase.functions.invoke('agenda-agent', { body: { text, history, context, caps: ['otra_app'] } })
   if (error) {
     let body: { error?: string } | null = null
     try {

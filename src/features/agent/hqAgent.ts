@@ -55,7 +55,7 @@ export function buildHqContext(p: { today: string; tz: string; userId: string; m
 }
 
 export async function askHq(text: string, history: HqTurn[], context: unknown): Promise<HqReply> {
-  const { data, error } = await supabase.functions.invoke('agenda-agent', { body: { text, history, context, scope: 'hq' } })
+  const { data, error } = await supabase.functions.invoke('agenda-agent', { body: { text, history, context, scope: 'hq', caps: ['otra_app'] } })
   if (error) {
     let body: { error?: string } | null = null
     try {
