@@ -6,6 +6,7 @@ import { MarkdownManager } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
 import { crosses, growLine, touches } from './Draw'
 import { HighlightMark, TextColorMark } from './extensions'
+import { canvasDpr, inkOutline, inkSvg, smoothPoints } from './ink'
 import { countWords, joinSpoken, plain, splitByHeadings, spoken, subnoteName } from './text'
 import { asScene, edgePoint, sceneText, strokeTouches } from './board'
 import type { Book, Link, Note } from './data'
@@ -327,6 +328,49 @@ describe('subnotas', () => {
     const long = subnoteName('Una frase larguísima sin puntos que habla de la termodinámica de los agujeros negros y su radiación')
     expect(long.length).toBeLessThanOrEqual(71)
     expect(long.endsWith('…')).toBe(true)
+  })
+})
+
+describe('tinta suave (ink.ts)', () => {
+  // una diagonal hecha con el mouse: escalones de un píxel
+  const stairs: number[] = []
+  for (let i = 0; i < 60; i++) stairs.push(i, i % 2 ? i - 1 : i, 0.5)
+  const off = (pts: number[][]) => Math.max(...pts.map(([x, y]) => Math.abs(x - y - 0.5) / Math.SQRT2))
+  it('suaviza el serrucho del mouse sin mover las puntas', () => {
+    const raw: number[][] = []
+    for (let i = 0; i < stairs.length; i += 3) raw.push([stairs[i], stairs[i + 1]])
+    const sm = smoothPoints(stairs, 0.8, 4)
+    expect(sm[0].slice(0, 2)).toEqual([0, 0])
+    expect(sm[sm.length - 1].slice(0, 2)).toEqual([59, 58])
+    // lejos de las puntas, la línea queda casi recta (antes zigzagueaba medio píxel)
+    expect(off(sm.slice(10, -10))).toBeLessThan(off(raw.slice(10, -10)) / 3)
+  })
+  it('reparte los puntos a pasos iguales (la forma no depende de cada cuánto llegan los eventos)', () => {
+    const sm = smoothPoints([0, 0, 0.5, 10, 0, 0.5, 11, 0, 0.5, 30, 0, 0.5], 1, 0)
+    const gaps = sm.slice(1).map((q, i) => q[0] - sm[i][0])
+    expect(Math.max(...gaps.slice(0, -1)) - Math.min(...gaps.slice(0, -1))).toBeLessThan(1e-9)
+    expect(sm[sm.length - 1][0]).toBe(30)
+  })
+  it('un toque es un punto redondo y un trazo es una figura cerrada', () => {
+    expect(inkSvg({ p: [5, 5, 0.5], s: 6 }, false)).toMatch(/^M.*Z$/)
+    const d = inkSvg({ p: stairs, s: 6 }, false)
+    expect(d.startsWith('M')).toBe(true)
+    expect(d.endsWith('Z')).toBe(true)
+  })
+  it('con mouse la línea es pareja; con lápiz sigue la presión', () => {
+    const line = (pr: (i: number) => number) => {
+      const p: number[] = []
+      for (let i = 0; i <= 100; i += 2) p.push(i, 0, pr(i))
+      return p
+    }
+    const width = (o: number[][]) => Math.max(...o.map((q) => q[1])) - Math.min(...o.map((q) => q[1]))
+    const flat = inkOutline({ p: line(() => 0.5), s: 6 }, false, true)
+    const hard = inkOutline({ p: line(() => 1), s: 6 }, false, true)
+    expect(width(flat)).toBeCloseTo(6, 0)
+    expect(width(hard)).toBeGreaterThan(width(flat))
+  })
+  it('la densidad del lienzo no se pasa de memoria', () => {
+    expect(canvasDpr(4000, 3000)).toBe(1)
   })
 })
 

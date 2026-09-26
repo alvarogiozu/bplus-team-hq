@@ -12,7 +12,6 @@ import {
   type ReactNode,
 } from 'react'
 import { useNavigate } from 'react-router'
-import getStroke from 'perfect-freehand'
 import { haptic } from '../lib/fx'
 import { embedNotes } from './agent'
 import {
@@ -38,6 +37,7 @@ import {
 } from './board'
 import { noteColorOf, pathOf, spine } from './books'
 import { distToSegment } from './graph'
+import { canvasDpr, inkPath, predicted, snapshot } from './ink'
 import { NONE, useBooks, useCuadernoActions, useNotes, type Book, type Note } from './data'
 import { CIcon } from './icons'
 import { PageHeader } from './PageHeader'
@@ -80,40 +80,20 @@ const geoCache = new WeakMap<BStroke, Geo>()
 function strokeGeo(st: BStroke, final: boolean): Geo {
   const hit = final ? geoCache.get(st) : undefined
   if (hit) return hit
-  const pts: number[][] = []
   let x0 = Infinity
   let y0 = Infinity
   let x1 = -Infinity
   let y1 = -Infinity
-  let pressured = false
   for (let i = 0; i < st.p.length; i += 3) {
     const x = st.p[i]
     const y = st.p[i + 1]
-    pts.push([x, y, st.p[i + 2]])
-    if (st.p[i + 2] !== 0.5) pressured = true
     x0 = Math.min(x0, x)
     y0 = Math.min(y0, y)
     x1 = Math.max(x1, x)
     y1 = Math.max(y1, y)
   }
-  const outline = getStroke(pts, {
-    size: st.s,
-    thinning: st.m ? 0 : 0.55,
-    smoothing: 0.55,
-    streamline: 0.45,
-    simulatePressure: !pressured,
-    last: final,
-  })
-  const path = new Path2D()
-  if (outline.length) {
-    path.moveTo(outline[0][0], outline[0][1])
-    for (let i = 1; i < outline.length; i++) {
-      const [a, b] = outline[i - 1]
-      const [c, d] = outline[i]
-      path.quadraticCurveTo(a, b, (a + c) / 2, (b + d) / 2)
-    }
-    path.closePath()
-  }
+  // la tinta suave de ink.ts (la misma de la hoja de dibujo)
+  const path = inkPath(st, Boolean(st.m), final)
   const geo: Geo = { path, bb: [x0 - st.s, y0 - st.s, x1 + st.s, y1 + st.s] }
   if (final) geoCache.set(st, geo)
   return geo
@@ -190,6 +170,10 @@ export default function Pizarra({ note, mobile }: { note: Note; mobile: boolean 
   const itemEls = useRef(new Map<string, HTMLElement>())
   const fresh = useRef<{ id: string; before: Scene } | null>(null)
   const raf = useRef(0)
+  // lo que el lápiz predice que viene (solo en vivo) y la copia de la tinta ya pintada
+  const pred = useRef<number[]>([])
+  const inkBase = useRef<{ canvas: HTMLCanvasElement; key: string } | null>(null)
+  const spare = useRef<HTMLCanvasElement | null>(null)
   const tweenRaf = useRef(0)
 
   const boxOf = (it: BItem): Box => {
@@ -212,6 +196,22 @@ export default function Pizarra({ note, mobile }: { note: Note; mobile: boolean 
     const { x, y, k } = cam.current
     const C = colors.current
     const s = sceneRef.current
+    const ic = inkRef.current?.getContext('2d')
+    const cur = liveStroke.current
+    const drawn = cur && pred.current.length ? { ...cur, p: cur.p.concat(pred.current) } : cur
+    // mientras escribes: lo terminado ya está en una copia; cada cuadro solo pinta el trazo nuevo encima
+    const b = inkBase.current
+    if (drawn && ic && b && b.key === `${x},${y},${k}` && b.canvas.width === ic.canvas.width && b.canvas.height === ic.canvas.height) {
+      ic.setTransform(1, 0, 0, 1, 0, 0)
+      ic.clearRect(0, 0, ic.canvas.width, ic.canvas.height)
+      ic.drawImage(b.canvas, 0, 0)
+      ic.setTransform(dpr * k, 0, 0, dpr * k, dpr * x, dpr * y)
+      ic.globalAlpha = drawn.m ? 0.4 : 1
+      ic.fillStyle = C[drawn.c] || C.ink
+      ic.fill(inkPath(drawn, Boolean(drawn.m), false))
+      ic.globalAlpha = 1
+      return
+    }
     const bg = bgRef.current?.getContext('2d')
     if (bg) {
       bg.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -238,7 +238,6 @@ export default function Pizarra({ note, mobile }: { note: Note; mobile: boolean 
       }
     }
     // la tinta va encima de las notas (se puede escribir sobre ellas)
-    const ic = inkRef.current?.getContext('2d')
     if (ic) {
       ic.setTransform(dpr, 0, 0, dpr, 0, 0)
       ic.clearRect(0, 0, w, h)
@@ -247,14 +246,18 @@ export default function Pizarra({ note, mobile }: { note: Note; mobile: boolean 
       const vy0 = -y / k
       const vx1 = (w - x) / k
       const vy1 = (h - y) / k
-      const all = liveStroke.current ? [...s.strokes, liveStroke.current] : s.strokes
-      for (const st of all) {
-        const geo = strokeGeo(st, st !== liveStroke.current)
+      for (const st of s.strokes) {
+        const geo = strokeGeo(st, true)
         const [a0, b0, a1, b1] = geo.bb
         if (a1 < vx0 || a0 > vx1 || b1 < vy0 || b0 > vy1) continue
         ic.globalAlpha = st.m ? 0.4 : 1
         ic.fillStyle = C[st.c] || C.ink
         ic.fill(geo.path)
+      }
+      if (drawn) {
+        ic.globalAlpha = drawn.m ? 0.4 : 1
+        ic.fillStyle = C[drawn.c] || C.ink
+        ic.fill(inkPath(drawn, Boolean(drawn.m), false))
       }
       ic.globalAlpha = 1
     }
@@ -446,7 +449,7 @@ export default function Pizarra({ note, mobile }: { note: Note; mobile: boolean 
     if (!el) return
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect()
-      const dpr = Math.min(2, devicePixelRatio || 1)
+      const dpr = canvasDpr(r.width, r.height)
       for (const c of [bgRef.current, inkRef.current]) {
         if (!c) continue
         c.width = Math.round(r.width * dpr)
@@ -608,6 +611,8 @@ export default function Pizarra({ note, mobile }: { note: Note; mobile: boolean 
     // dos dedos: mover y acercar (cancela un trazo a medias)
     if (ptrs.current.size === 2) {
       liveStroke.current = null
+      pred.current = []
+      inkBase.current = null
       const [a, b] = [...ptrs.current.values()]
       g.current = { kind: 'pinch', d: Math.hypot(a.x - b.x, a.y - b.y), k: cam.current.k, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, cx: cam.current.x, cy: cam.current.y }
       requestPaint()
@@ -630,6 +635,15 @@ export default function Pizarra({ note, mobile }: { note: Note; mobile: boolean 
     }
     if (tool === 'pen' || tool === 'marker') {
       const pr = e.pointerType === 'pen' ? Math.max(0.05, e.pressure) : 0.5
+      // lo ya pintado queda en una copia: el trazo en curso se pinta solo encima (fluido en pizarras llenas)
+      cancelAnimationFrame(raf.current)
+      paint()
+      const ink0 = inkRef.current
+      if (ink0) {
+        spare.current = snapshot(ink0, spare.current)
+        inkBase.current = { canvas: spare.current, key: `${cam.current.x},${cam.current.y},${cam.current.k}` }
+      }
+      pred.current = []
       liveStroke.current = { id: newId(), c: ink, s: r1(SIZES[tool][sizeIx] / cam.current.k), ...(tool === 'marker' ? { m: 1 as const } : {}), p: [r1(w.x), r1(w.y), pr] }
       g.current = { kind: 'draw' }
       requestPaint()
@@ -671,6 +685,7 @@ export default function Pizarra({ note, mobile }: { note: Note; mobile: boolean 
         const w = toWorld(local(ev))
         liveStroke.current.p.push(r1(w.x), r1(w.y), ev.pointerType === 'pen' ? Math.max(0.05, ev.pressure) : 0.5)
       }
+      pred.current = predicted(e.nativeEvent, (ev) => toWorld(local(ev)), liveStroke.current.p)
       requestPaint()
     } else if (gs.kind === 'erase') {
       const w = toWorld(pt)
@@ -718,6 +733,8 @@ export default function Pizarra({ note, mobile }: { note: Note; mobile: boolean 
     if (gs.kind === 'draw') {
       const st = liveStroke.current
       liveStroke.current = null
+      pred.current = []
+      inkBase.current = null
       if (st && st.p.length >= 3) commit({ ...s, strokes: [...s.strokes, st] })
       else requestPaint()
     } else if (gs.kind === 'erase') {

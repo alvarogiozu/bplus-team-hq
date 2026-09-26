@@ -383,3 +383,14 @@ Markdown). Sin selección, pintan el bloque entero.
 - Al seleccionar también: tachado, quitar formato (sin tocar los enlaces) y **Llevar a una subnota**: lo seleccionado
   pasa a ser una subnota de la página (si empieza con un título, ese es su nombre; si no, su primera frase) y en su lugar
   queda un enlace a ella. En el celular la burbuja cabe en 360 px (B · I · A · marcador · ⋯ · Preguntar) y lo demás va en ⋯.
+
+### Cuaderno v3.3 — tinta suave como lapicero (oct 2026)
+
+Un solo motor de tinta (`ink.ts`) para la hoja de dibujo, la pizarra y su vista previa: el recorrido se remuestrea a
+pasos iguales y se suaviza con una campana (se va el serrucho de las coordenadas enteras del mouse y el temblor del
+dedo, sin mover las puntas); con mouse o dedo la línea es pareja como un lapicero (antes engordaba al ir lento y se
+afinaba al ir rápido); con lápiz sigue la presión suavizada; el contorno se cierra con curvas continuas. Se guardan los
+puntos crudos, así los dibujos viejos también se ven con la tinta nueva. Mientras escribes, lo terminado queda en una
+copia y cada cuadro solo pinta el trazo nuevo (fluido en hojas llenas); el lápiz usa los puntos predichos del sistema
+para sentirse pegado a la tinta. Lienzos hasta 3x en pantallas densas, imagen guardada al doble, y en la hoja de dibujo
+los grosores son de pantalla (en el celular ya no sale una línea finísima).

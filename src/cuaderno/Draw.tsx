@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
-import getStroke from 'perfect-freehand'
 import { toast } from '../components/Toasts'
 import { useAuth } from '../features/auth/AuthProvider'
 import { supabase } from '../lib/supabase'
@@ -11,42 +10,22 @@ import { useCuadernoActions } from './data'
 import { strokeTouches } from './board'
 import { srcOf, upload } from './files'
 import { CIcon } from './icons'
+import { canvasDpr, inkPath, predicted, snapshot } from './ink'
 import { isPaper, newPaper, setPaperChoice, type Paper } from './prefs'
 
 // Hoja de dibujo (como OneNote / Samsung Notes): pluma con presión, resaltador y borrador.
 // Papel claro u oscuro (cada dibujo recuerda el suyo): se guarda como PNG con ese papel, como una hoja
 // pegada que se ve igual en tema claro u oscuro, y los trazos quedan guardados para volver a editarlo.
 // La hoja usa todo el ancho y crece hacia abajo: una línea punteada marca dónde; al cruzarla, crece.
+// La tinta es la de ink.ts (suave como un lapicero); los grosores son de pantalla: se ve igual en el celular.
 
 type Tool = 'pen' | 'marker' | 'eraser'
 export type Stroke = { t: 'pen' | 'marker'; c: Ink; s: number; p: number[] } // p = [x, y, presión, …]
 export type Ink = 'tinta' | 'coral' | 'azul' | 'verde' | 'ambar'
 const INKS: Ink[] = ['tinta', 'coral', 'azul', 'verde', 'ambar']
 const INK_LABEL: Record<Ink, string> = { tinta: 'Tinta', coral: 'Coral', azul: 'Azul', verde: 'Verde', ambar: 'Ámbar' }
-const SIZES: Record<Tool, number[]> = { pen: [3, 6, 11], marker: [16, 26, 38], eraser: [12, 22, 40] }
-
-function strokePath(st: Stroke, last = true) {
-  const pts: number[][] = []
-  for (let i = 0; i < st.p.length; i += 3) pts.push([st.p[i], st.p[i + 1], st.p[i + 2]])
-  const outline = getStroke(pts, {
-    size: st.s,
-    thinning: st.t === 'pen' ? 0.55 : 0,
-    smoothing: 0.55,
-    streamline: 0.45,
-    simulatePressure: st.p.every((v, i) => i % 3 !== 2 || v === 0.5),
-    last,
-  })
-  const path = new Path2D()
-  if (!outline.length) return path
-  path.moveTo(outline[0][0], outline[0][1])
-  for (let i = 1; i < outline.length; i++) {
-    const [x0, y0] = outline[i - 1]
-    const [x1, y1] = outline[i]
-    path.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2)
-  }
-  path.closePath()
-  return path
-}
+/** grosores en píxeles de pantalla (en la hoja se guardan según el zoom con que dibujaste) */
+const SIZES: Record<Tool, number[]> = { pen: [2.5, 5, 9], marker: [16, 26, 38], eraser: [12, 22, 40] }
 
 /** ¿El borrador toca este trazo? (distancia a cualquiera de sus puntos) */
 export const touches = strokeTouches
@@ -73,7 +52,7 @@ function paint(ctx: CanvasRenderingContext2D, strokes: Stroke[], pal: Palette, l
     ctx.globalAlpha = marker ? pal.marker : 1
     ctx.globalCompositeOperation = marker ? pal.blend : 'source-over'
     ctx.fillStyle = pal.ink[st.c] ?? pal.ink.tinta
-    ctx.fill(strokePath(st, st !== live))
+    ctx.fill(inkPath(st, marker, st !== live))
   }
   ctx.globalAlpha = 1
   ctx.globalCompositeOperation = 'source-over'
@@ -142,6 +121,11 @@ export function DrawSheet(p: {
   const live = useRef<Stroke | null>(null)
   const penSeen = useRef(false)
   const raf = useRef(0)
+  // lo que el lápiz predice que viene (solo se pinta en vivo) y la copia de lo ya pintado
+  const pred = useRef<number[]>([])
+  const base = useRef<{ canvas: HTMLCanvasElement; top: number } | null>(null)
+  const spare = useRef<HTMLCanvasElement | null>(null)
+  const baseTop = useRef(0)
   const hotRef = useRef(false)
   // una hoja nueva nace del alto de la pantalla (se ve entera, con su línea para crecer)
   const autoH = useRef(!p.drawingId && !p.initial)
@@ -204,33 +188,48 @@ export function DrawSheet(p: {
     return () => ro.disconnect()
   }, [size.w, size.h])
 
+  /** Pinta la hoja ya. Con `base` (una copia de lo terminado), mientras escribes solo agrega el trazo en curso. */
+  const draw = useCallback(() => {
+    const c = canvasRef.current
+    const sheet = sheetRef.current
+    const ctx = c?.getContext('2d')
+    if (!c || !sheet || !ctx || !c.clientWidth) return
+    const dpr = canvasDpr(c.clientWidth, c.clientHeight)
+    const cw = Math.round(c.clientWidth * dpr)
+    const ch = Math.round(c.clientHeight * dpr)
+    if (c.width !== cw) c.width = cw
+    if (c.height !== ch) c.height = ch
+    const { w } = sizeRef.current
+    const rs = sheet.getBoundingClientRect()
+    const rc = c.getBoundingClientRect()
+    const kk = rs.width / w
+    const top = (rc.top - rs.top) / kk // lo primero visible, en unidades de la hoja
+    const bottom = top + rc.height / kk
+    const pal = palettes[paperRef.current]
+    const cur = live.current
+    const drawn = cur && pred.current.length ? { ...cur, p: cur.p.concat(pred.current) } : cur
+    const b = base.current
+    if (drawn && b && b.canvas.width === cw && b.canvas.height === ch && Math.abs(b.top - top) < 1e-3) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, cw, ch)
+      ctx.drawImage(b.canvas, 0, 0)
+      ctx.setTransform(dpr * kk, 0, 0, dpr * kk, 0, -top * dpr * kk)
+      paint(ctx, [], pal, drawn)
+      return
+    }
+    ctx.setTransform(dpr * kk, 0, 0, dpr * kk, 0, -top * dpr * kk)
+    ctx.clearRect(0, top, w, bottom - top)
+    const visible = strokesRef.current.filter((st) => {
+      const bb = boxOf(st)
+      return bb.y1 >= top && bb.y0 <= bottom
+    })
+    paint(ctx, visible, pal, drawn ?? undefined)
+    baseTop.current = top
+  }, [palettes])
   const redraw = useCallback(() => {
     cancelAnimationFrame(raf.current)
-    raf.current = requestAnimationFrame(() => {
-      const c = canvasRef.current
-      const sheet = sheetRef.current
-      const ctx = c?.getContext('2d')
-      if (!c || !sheet || !ctx || !c.clientWidth) return
-      const dpr = Math.min(2, devicePixelRatio || 1)
-      const cw = Math.round(c.clientWidth * dpr)
-      const ch = Math.round(c.clientHeight * dpr)
-      if (c.width !== cw) c.width = cw
-      if (c.height !== ch) c.height = ch
-      const { w } = sizeRef.current
-      const rs = sheet.getBoundingClientRect()
-      const rc = c.getBoundingClientRect()
-      const kk = rs.width / w
-      const top = (rc.top - rs.top) / kk // lo primero visible, en unidades de la hoja
-      const bottom = top + rc.height / kk
-      ctx.setTransform(dpr * kk, 0, 0, dpr * kk, 0, -top * dpr * kk)
-      ctx.clearRect(0, top, w, bottom - top)
-      const visible = strokesRef.current.filter((st) => {
-        const b = boxOf(st)
-        return b.y1 >= top && b.y0 <= bottom
-      })
-      paint(ctx, visible, palettes[paperRef.current], live.current ?? undefined)
-    })
-  }, [palettes])
+    raf.current = requestAnimationFrame(draw)
+  }, [draw])
 
   useEffect(() => {
     const c = canvasRef.current
@@ -290,6 +289,8 @@ export function DrawSheet(p: {
     const kk = r.width / sizeRef.current.w
     return { x: (clientX - r.left) / kk, y: (clientY - r.top) / kk }
   }
+  /** cuántos píxeles de pantalla mide una unidad de la hoja ahora */
+  const scaleNow = () => (sheetRef.current?.getBoundingClientRect().width ?? 0) / sizeRef.current.w || 1
   const erased = useRef<Stroke[] | null>(null)
   const fingers = useRef(new Map<number, number>()) // dedo → última y
   const scrolling = useRef(false)
@@ -307,6 +308,8 @@ export function DrawSheet(p: {
         // el segundo dedo: no era un trazo, era desplazar la hoja
         scrolling.current = true
         live.current = null
+        pred.current = []
+        base.current = null
         heat(false)
         redraw()
         return
@@ -321,7 +324,16 @@ export function DrawSheet(p: {
       return
     }
     const pr = e.pointerType === 'pen' ? Math.max(0.05, e.pressure) : 0.5
-    live.current = { t: tool, c: ink, s: SIZES[tool][sizeIx], p: [round(x), round(y), pr] }
+    // lo terminado queda en una copia: cada cuadro solo pinta el trazo nuevo encima (fluido en hojas llenas)
+    cancelAnimationFrame(raf.current)
+    draw()
+    const c = canvasRef.current
+    if (c) {
+      spare.current = snapshot(c, spare.current)
+      base.current = { canvas: spare.current, top: baseTop.current }
+    }
+    pred.current = []
+    live.current = { t: tool, c: ink, s: round(SIZES[tool][sizeIx] / scaleNow()), p: [round(x), round(y), pr] }
     redraw()
   }
   function move(e: React.PointerEvent) {
@@ -341,6 +353,7 @@ export function DrawSheet(p: {
         if (y + live.current.s / 2 >= lineRef.current) heat(true)
       }
     }
+    if (live.current) pred.current = predicted(e.nativeEvent, (ev) => toLogical(ev.clientX, ev.clientY), live.current.p)
     redraw()
   }
   function up(e: React.PointerEvent) {
@@ -358,6 +371,8 @@ export function DrawSheet(p: {
     }
     const st = live.current
     live.current = null
+    pred.current = []
+    base.current = null
     heat(false)
     if (st && st.p.length >= 3) {
       commit([...strokesRef.current, st])
@@ -366,7 +381,7 @@ export function DrawSheet(p: {
     } else redraw()
   }
   function eraseAt(x: number, y: number) {
-    const r = SIZES.eraser[sizeIx]
+    const r = SIZES.eraser[sizeIx] / scaleNow()
     const keep = strokesRef.current.filter((st) => !touches(st, x, y, r))
     if (keep.length !== strokesRef.current.length) {
       strokesRef.current = keep
@@ -399,7 +414,7 @@ export function DrawSheet(p: {
     // la imagen termina donde termina lo dibujado (sin papel vacío al final)
     const outH = Math.round(Math.min(size.h, Math.max(Math.min(size.h, size.w * 0.5), inkBottom(strokes) + 60)))
     // hojas muy largas: menos resolución para que la imagen no pese de más
-    const scale = Math.min(1.5, 16000 / outH, 4000 / size.w)
+    const scale = Math.min(2, 16000 / outH, 4000 / size.w)
     const out = document.createElement('canvas')
     out.width = Math.round(size.w * scale)
     out.height = Math.round(outH * scale)
