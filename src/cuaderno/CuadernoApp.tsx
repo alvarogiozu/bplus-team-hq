@@ -14,6 +14,7 @@ import { useCards, useOpenEntries } from './data'
 import { dueToday } from './leitner'
 import { CIcon } from './icons'
 import { BookTree } from './Tree'
+import { usePageWidth } from './prefs'
 import { PanelCtx, useIsMobile } from './ui'
 import Hoy from './Hoy'
 import '../agenda/agenda.css'
@@ -65,6 +66,7 @@ function Shell() {
   const open = useOpenEntries().data?.length ?? 0
   // tu bóveda en Markdown (si conectaste una carpeta) se mantiene al día sola
   useVaultAutoSync()
+  const width = usePageWidth()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -92,7 +94,7 @@ function Shell() {
   return (
     <PanelCtx.Provider value={setPanel}>
       <MotionConfig reducedMotion="user">
-        <div className={`cu${mobile ? ' is-mobile' : ''}`}>
+        <div className={`cu${mobile ? ' is-mobile' : ''}`} data-width={width}>
           {!mobile && <Sidebar badges={badges} />}
           <main className={`cu-main${panel ? ' has-panel' : ''}`}>
             <Suspense
@@ -125,7 +127,7 @@ function DialogHost() {
       {d?.kind === 'conversar' && <ConversarPanel key="conversar" contexto={d.contexto} motivo={d.motivo} />}
       {d?.kind === 'dibujo' && (
         <Suspense key="dibujo" fallback={null}>
-          <DrawSheet drawingId={d.drawingId} initial={d.initial as never} onSave={d.onSave} />
+          <DrawSheet drawingId={d.drawingId} initial={d.initial} onSave={d.onSave} />
         </Suspense>
       )}
       </AnimatePresence>

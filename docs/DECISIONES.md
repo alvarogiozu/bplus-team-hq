@@ -366,3 +366,60 @@ pizarras como `.canvas` (JSON Canvas: notas, textos, páginas como archivos y fl
 automático marcaba "editado"). Los menús anidados ("Mover a…", "Cambiar ícono") se cerraban con el menú de afuera: ahora
 son propios. En `sticky`, el navegador descuenta el relleno del contenedor: la barra de dictado lo compensa. La cabecera
 de la página se acomoda en dos líneas cuando la columna es angosta.
+
+### Cuaderno v3.1 — subnotas (oct 2026)
+
+**Una página se divide en subnotas.** Un tema grande (Termodinámica) se parte en sus puntos (Ley cero, Primera ley…),
+que a su vez pueden dividirse (máx. 4 niveles). `cuaderno_notes.parent_note_id`; la base impide ciclos y otro dueño, y
+una subnota vive en el cuaderno de su tema (al crearla o cambiarle de tema; si el tema se mueve, lo siguen). Borrar el
+tema no borra sus subnotas: quedan como páginas del cuaderno (Deshacer las vuelve a colgar).
+- Dónde se ve: debajo de su tema en las listas y en el árbol (se despliegan), "↰ Tema" arriba de la subnota, sección
+  **Subnotas** en el panel de la página, ramas en el Mapa (el tema pesa más en el grafo; en Carpetas se abre como rama).
+- Cómo se hacen: "+ Subnota", **Dividir por sus títulos** (sin IA: corta por el nivel de título que se repite; no corta
+  bloques de código), **Dividir con Rockie** (acción `dividir`: reparte lo que ya está, sin inventar) — ambas con vista
+  previa editable; la página madre queda como índice con enlaces a sus puntos —, y "Hacerla subnota de…" / "Sacarla".
+- **Rockie las usa al conectar**: en procesar y revisar ve de qué tema es cada página; conecta con la subnota MÁS
+  específica (el motor que pierde calor → "Segunda ley", no "Termodinámica"), no propone conectar lo que ya une la
+  jerarquía, puede crear una nota como subnota de un tema (`tema_id`) y proponer "volver subnota" (`hacer_subnota`) solo
+  cuando es un subtema conceptual (una vivencia o un ejemplo se conecta, no se cuelga).
+- Bóveda: la subnota va en la carpeta de su tema (`Física/Termodinámica/Entropía.md`) con `padre: [[Termodinámica]]`;
+  al traer de la carpeta, un .md en la carpeta de un tema (o con `padre`) nace como su subnota.
+
+### Cuaderno v3.2 — hoja oscura, línea para crecer, más ancho y color vs. resaltado (oct 2026)
+
+**Hoja de dibujo clara u oscura.** Un botón del color del papel (sol = clara, luna = oscura) la cambia; cada dibujo
+recuerda su hoja (`cuaderno_drawings.paper`, migración 20261002200000) y la elegida queda para los dibujos nuevos
+(Ajustes > Páginas y dibujos: Clara / Oscura / Como el tema; por defecto, la del tema de la app). En la oscura la tinta
+principal pasa a ser clara y los colores se aclaran para contrastar (tokens `--pen-night-*`); el resaltador aclara en
+vez de multiplicar para no tapar la tinta. El PNG sale con el papel elegido.
+
+**La línea punteada para crecer siempre está.** Queda a ~96 px (en pantalla) del final de la hoja, con "Cruza esta línea
+y la hoja crece"; se enciende mientras un trazo la cruza y, al soltarlo, la hoja crece más o menos una pantalla y la
+línea baja con ella. Antes de la línea nunca crece (antes crecía cerca del final aunque no hubiera línea a la vista, y
+los cortes de página confundían). La hoja usa todo el ancho (hasta 1400 px) y nace del alto de la pantalla, así que al
+crecer el ancho no cambia: nada salta ni se achica.
+
+**Más ancho para las páginas.** Amplio (960 px) por defecto; en Ajustes: Cómodo (720) / Amplio / Todo el ancho. La barra
+de formato y la de dictado siguen ese ancho.
+
+**Columnas que se ven.** Cada columna es una zona con borde punteado y fondo suave; la que tiene el cursor se levanta un
+poco; entre columnas hay siempre una raya con manija para arrastrar el ancho.
+
+**Color de letra y resaltado, separados.** Dos botones que se distinguen: una "A" con la raya de su color (pinta la letra)
+y un marcador con la raya del resaltado (pinta el fondo); cada uno abre su paleta con título. El resaltado tiene
+colores: el amarillo sigue siendo `==texto==` (Obsidian) y los demás van como `<mark data-color="…">` (también
+Markdown). Sin selección, pintan el bloque entero.
+- Al seleccionar también: tachado, quitar formato (sin tocar los enlaces) y **Llevar a una subnota**: lo seleccionado
+  pasa a ser una subnota de la página (si empieza con un título, ese es su nombre; si no, su primera frase) y en su lugar
+  queda un enlace a ella. En el celular la burbuja cabe en 360 px (B · I · A · marcador · ⋯ · Preguntar) y lo demás va en ⋯.
+
+### Cuaderno v3.3 — tinta suave como lapicero (oct 2026)
+
+Un solo motor de tinta (`ink.ts`) para la hoja de dibujo, la pizarra y su vista previa: el recorrido se remuestrea a
+pasos iguales y se suaviza con una campana (se va el serrucho de las coordenadas enteras del mouse y el temblor del
+dedo, sin mover las puntas); con mouse o dedo la línea es pareja como un lapicero (antes engordaba al ir lento y se
+afinaba al ir rápido); con lápiz sigue la presión suavizada; el contorno se cierra con curvas continuas. Se guardan los
+puntos crudos, así los dibujos viejos también se ven con la tinta nueva. Mientras escribes, lo terminado queda en una
+copia y cada cuadro solo pinta el trazo nuevo (fluido en hojas llenas); el lápiz usa los puntos predichos del sistema
+para sentirse pegado a la tinta. Lienzos hasta 3x en pantallas densas, imagen guardada al doble, y en la hoja de dibujo
+los grosores son de pantalla (en el celular ya no sale una línea finísima).

@@ -9,6 +9,7 @@ const X: Record<string, ReactNode> = {
   underline: <path d="M7 5v5a5 5 0 0 0 10 0V5M5 19h14" />,
   strike: <path d="M5 12h14M16 6.5A4 3 0 0 0 12 5h-1a3.5 3.5 0 0 0 0 7h2a3.5 3.5 0 0 1 0 7h-1.5a4 3 0 0 1-4-1.5" />,
   highlight: <path d="M3 19h4L17.5 8.5a2.828 2.828 0 1 0-4-4L3 15v4M12.5 5.5l4 4M4.5 13.5l4 4M21 15v4h-8l4-4z" />,
+  clearfmt: <path d="M17 15l4 4m0-4l-4 4M7 6V5h11v1M7 19h4M13 5L9 19" />,
   list: <path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01" />,
   listnum: <path d="M11 6h9M11 12h9M12 18h8M4 16a2 2 0 1 1 4 0c0 .6-.5 1-1 1.5L4 20h4M6 10V4L4 6" />,
   checklist: <path d="M9.615 20H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8M14 19l2 2 4-4M9 8h4M9 12h2" />,

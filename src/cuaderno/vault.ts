@@ -25,15 +25,22 @@ export function safeName(s: string, fallback = 'Sin título') {
   return out || fallback
 }
 
-/** La carpeta de cada carpeta/cuaderno ("Francés/Lecciones") y el .md (o .canvas) de cada página, sin choques de nombre. */
+/**
+ * La carpeta de cada carpeta/cuaderno ("Francés/Lecciones") y el .md (o .canvas) de cada página, sin choques de nombre.
+ * Una subnota va en una carpeta con el nombre de su tema: "Física/Termodinámica.md" y "Física/Termodinámica/Entropía.md".
+ */
 export function vaultPaths(books: Book[], notes: Note[]) {
   const dirOf = new Map<string, string>()
   for (const b of books) dirOf.set(b.id, chainOf(books, b.id).map((x) => safeName(x.name)).join('/'))
   const taken = new Set<string>()
   const pathOf = new Map<string, string>()
-  const sorted = [...notes].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+  const byId = new Map(notes.map((n) => [n.id, n]))
+  const level = (n: Note, g = 0): number => (n.parent_note_id && byId.has(n.parent_note_id) && g < 6 ? 1 + level(byId.get(n.parent_note_id)!, g + 1) : 0)
+  // primero los temas (sus subnotas necesitan saber dónde quedaron)
+  const sorted = [...notes].sort((a, b) => level(a) - level(b) || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
   for (const n of sorted) {
-    const dir = (n.book_id && dirOf.get(n.book_id)) || LOOSE_DIR
+    const topic = n.parent_note_id ? pathOf.get(n.parent_note_id) : undefined
+    const dir = topic ? topic.replace(/\.(md|canvas)$/, '') : (n.book_id && dirOf.get(n.book_id)) || LOOSE_DIR
     const ext = n.kind === 'pizarra' ? 'canvas' : 'md'
     const base = safeName(n.title)
     let p = `${dir}/${base}.${ext}`
@@ -132,7 +139,9 @@ export function noteToMarkdown(n: Note, ctx: Ctx, attachments?: Map<string, stri
     return pr ? `- Proyecto del HQ: ${pr.name} — ${l.reason}` : null
   })
   const tail = lines.filter(Boolean).length ? `\n\n${CONNECTIONS}\n${lines.filter(Boolean).join('\n')}\n` : '\n'
-  return frontmatter(n) + bodyToVault(n.body, ctx, attachments).trimEnd() + tail
+  // una subnota dice de qué tema es (Obsidian lo muestra como propiedad y lo une en el grafo)
+  const topic = n.parent_note_id ? ctx.pathOf.get(n.parent_note_id) : undefined
+  return frontmatter(n, { padre: topic ? `[[${linkName(topic)}]]` : undefined }) + bodyToVault(n.body, ctx, attachments).trimEnd() + tail
 }
 
 /** Lo que viene de un .md: su ficha (solo lo que usamos) y el cuerpo sin la ficha ni las conexiones. */

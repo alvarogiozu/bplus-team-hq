@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import getStroke from 'perfect-freehand'
 import { supabase } from '../lib/supabase'
 import { asScene, edgePoint, sceneBounds, type BItem, type Box, type Scene } from './board'
 import { CIcon } from './icons'
+import { inkSvg } from './ink'
 
 // Una pizarra infinita dentro de una página: se ve entera (encuadrada) y se abre con un toque
 // para seguir dibujando. Vive fuera del árbol de React de la app (dentro del editor), así que
@@ -24,24 +24,6 @@ const INK: Record<string, string> = {
   green: 'var(--cu-tx-green)',
   accent: 'var(--cu-tx-accent)',
   berry: 'var(--cu-tx-berry)',
-}
-
-function strokeD(p: number[], size: number, marker: boolean) {
-  const pts: number[][] = []
-  let pressured = false
-  for (let i = 0; i < p.length; i += 3) {
-    pts.push([p[i], p[i + 1], p[i + 2]])
-    if (p[i + 2] !== 0.5) pressured = true
-  }
-  const o = getStroke(pts, { size, thinning: marker ? 0 : 0.55, smoothing: 0.55, streamline: 0.45, simulatePressure: !pressured })
-  if (!o.length) return ''
-  let d = `M${o[0][0].toFixed(1)} ${o[0][1].toFixed(1)}`
-  for (let i = 1; i < o.length; i++) {
-    const [a, b] = o[i - 1]
-    const [c, e] = o[i]
-    d += `Q${a.toFixed(1)} ${b.toFixed(1)} ${((a + c) / 2).toFixed(1)} ${((b + e) / 2).toFixed(1)}`
-  }
-  return d + 'Z'
 }
 
 /** El texto en renglones de hasta `per` letras, cortando entre palabras (como se ve en la pizarra). */
@@ -141,7 +123,7 @@ export function BoardEmbed({ id, title, onOpen, onRemove }: { id: string; title:
               </marker>
             </defs>
             {scene.strokes.map((st) => (
-              <path key={st.id} d={strokeD(st.p, st.s, Boolean(st.m))} fill={INK[st.c] ?? INK.ink} opacity={st.m ? 0.35 : 1} />
+              <path key={st.id} d={inkSvg(st, Boolean(st.m))} fill={INK[st.c] ?? INK.ink} opacity={st.m ? 0.35 : 1} />
             ))}
             {scene.links.map((l) => {
               const a = scene.items.find((i) => i.id === l.a)

@@ -586,6 +586,7 @@ export type Database = {
           created_at: string
           height: number
           id: string
+          paper: string
           strokes: Json
           updated_at: string
           user_id: string
@@ -595,6 +596,7 @@ export type Database = {
           created_at?: string
           height: number
           id?: string
+          paper?: string
           strokes?: Json
           updated_at?: string
           user_id?: string
@@ -604,6 +606,7 @@ export type Database = {
           created_at?: string
           height?: number
           id?: string
+          paper?: string
           strokes?: Json
           updated_at?: string
           user_id?: string
@@ -738,6 +741,7 @@ export type Database = {
           icon: string | null
           id: string
           kind: string
+          parent_note_id: string | null
           position: number
           title: string
           updated_at: string
@@ -755,6 +759,7 @@ export type Database = {
           icon?: string | null
           id?: string
           kind?: string
+          parent_note_id?: string | null
           position?: number
           title: string
           updated_at?: string
@@ -772,6 +777,7 @@ export type Database = {
           icon?: string | null
           id?: string
           kind?: string
+          parent_note_id?: string | null
           position?: number
           title?: string
           updated_at?: string
@@ -790,6 +796,13 @@ export type Database = {
             columns: ["entry_id"]
             isOneToOne: false
             referencedRelation: "cuaderno_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_notes_parent_note_id_fkey"
+            columns: ["parent_note_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_notes"
             referencedColumns: ["id"]
           },
           {

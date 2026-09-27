@@ -17,12 +17,12 @@ export type GNode = SimulationNodeDatum & {
   mem: Memory
   /** conexiones propias (no cuenta la pertenencia) */
   deg: number
-  /** núcleos: páginas en todo lo que contiene */
+  /** núcleos: páginas en todo lo que contiene; páginas: cuántas subnotas tiene (en cualquier nivel) */
   size: number
   hubKind?: BookKind
   /** núcleos 1–4; páginas: la de su lugar + 1; sueltas y proyectos: 0 */
   depth: number
-  /** el núcleo que lo contiene */
+  /** el núcleo que lo contiene (o, si es subnota, su tema) */
   parent: string | null
   icon?: string | null
 }
@@ -55,12 +55,24 @@ export function buildGlobal(p: {
   const nodes: GNode[] = []
   const edges: GEdge[] = []
 
-  // páginas (sin conexiones y con "solo conectadas": fuera)
-  const shown = new Set<string>()
-  for (const n of notes) {
-    if (!opts.orphans && !deg.get(n.id)) continue
+  // páginas (sin conexiones y con "solo conectadas": fuera; ser tema o subnota también es estar conectada)
+  const ids = new Set(notes.map((n) => n.id))
+  const byNote = new Map(notes.map((n) => [n.id, n]))
+  const hasKids = new Set(notes.filter((n) => n.parent_note_id && ids.has(n.parent_note_id)).map((n) => n.parent_note_id!))
+  const topicOf = (n: Note) => (n.parent_note_id && n.parent_note_id !== n.id && ids.has(n.parent_note_id) ? n.parent_note_id : null)
+  const shown = new Set(notes.filter((n) => opts.orphans || deg.get(n.id) || topicOf(n) || hasKids.has(n.id)).map((n) => n.id))
+  const subCount = (id: string, seen = new Set<string>()): number =>
+    notes.filter((x) => x.parent_note_id === id && !seen.has(x.id) && seen.add(x.id)).reduce((s, x) => s + 1 + subCount(x.id, seen), 0)
+  const depthOf = (n: Note, guard = 0): number => {
+    const t = topicOf(n)
+    if (t && guard < 6) return depthOf(byNote.get(t)!, guard + 1) + 1
     const home = n.book_id ? byId.get(n.book_id) : undefined
-    shown.add(n.id)
+    return home ? home.depth + 1 : 0
+  }
+  for (const n of notes) {
+    if (!shown.has(n.id)) continue
+    const home = n.book_id ? byId.get(n.book_id) : undefined
+    const topic = topicOf(n)
     nodes.push({
       id: n.id,
       kind: 'note',
@@ -68,9 +80,9 @@ export function buildGlobal(p: {
       color: noteColorOf(books, n),
       mem: memOf(n.id),
       deg: deg.get(n.id) ?? 0,
-      size: 0,
-      depth: home ? home.depth + 1 : 0,
-      parent: home ? home.book.id : null,
+      size: hasKids.has(n.id) ? subCount(n.id) : 0,
+      depth: depthOf(n),
+      parent: topic && shown.has(topic) ? topic : home ? home.book.id : null,
       icon: n.icon,
     })
   }
@@ -107,6 +119,12 @@ export function buildGlobal(p: {
     tree.forEach((t) => walk(t, null))
   }
 
+  // cada subnota cuelga de su tema
+  for (const n of notes) {
+    const t = topicOf(n)
+    if (t && shown.has(n.id) && shown.has(t)) edges.push({ id: `t:${n.id}`, kind: 'tree', reason: '', source: t, target: n.id, a: t, b: n.id })
+  }
+
   // proyectos del HQ enlazados a páginas visibles
   if (opts.projects) {
     const linked = new Set(links.filter((l) => l.project_id && shown.has(l.a_id)).map((l) => l.project_id!))
@@ -127,7 +145,8 @@ export function buildGlobal(p: {
 export function nodeRadius(n: GNode) {
   if (n.kind === 'hub') return Math.min(40, (n.hubKind === 'carpeta' ? 17 : 13) + 3.4 * Math.sqrt(n.size))
   if (n.kind === 'project') return 10 + 2 * Math.sqrt(n.deg)
-  return 6.5 + 2.4 * Math.sqrt(n.deg)
+  // un tema con subnotas pesa más (un núcleo chico dentro de su cuaderno)
+  return 6.5 + 2.4 * Math.sqrt(n.deg) + 2.6 * Math.sqrt(n.size)
 }
 
 /** Lo que está a un paso de un nodo (para resaltar al pasar o elegir). */

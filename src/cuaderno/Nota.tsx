@@ -16,11 +16,12 @@ import { ConnectPicker } from './Conectar'
 import { DictationBar } from './Dictado'
 import type { WikiKeys } from './extensions'
 import { dictationSupported } from './dictation'
-import { SelectionMenu, Toolbar, useNoteEditor, type AskRequest } from './Editor'
+import { SelectionMenu, Toolbar, replaceWithNoteLink, useNoteEditor, type AskRequest, type Extracted } from './Editor'
 import { CIcon } from './icons'
 import { MEMORY_LABEL, memoryOf } from './leitner'
 import { PageHeader, SavedTag } from './PageHeader'
 import { ProposalList } from './Proposals'
+import { SubnotesSection } from './Subnotas'
 import { WikiSuggest } from './WikiSuggest'
 import { useHasPanel, useIsMobile } from './ui'
 
@@ -67,6 +68,8 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
   const [saved, setSaved] = useState<'ok' | 'saving'>('ok')
   const [ask, setAsk] = useState<AskRequest | null>(null)
   const [dictating, setDictating] = useState(false)
+  // una subnota muestra arriba de qué tema es un punto (y lleva a él)
+  const parentNote = useNotes().data?.find((n) => n.id === note.parent_note_id)
   const pending = useRef<{ title?: string; body?: string }>({})
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const embedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -127,6 +130,17 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
     el.style.height = `${el.scrollHeight}px`
   }, [title])
 
+  // lo seleccionado pasa a ser una subnota de esta página; aquí queda un enlace a ella
+  const extract = async (sel: Extracted) => {
+    const res = await actions.createNote({ title: sel.title, body: sel.md, book_id: note.book_id, area: note.area, parent_note_id: note.id })
+    if (!res || !editor) return
+    const linked = replaceWithNoteLink(editor, sel, res.note)
+    haptic([6, 18, 6])
+    toast(linked ? `Nueva subnota: «${res.note.title}» (aquí quedó el enlace)` : `Nueva subnota: «${res.note.title}»`, {
+      action: { label: 'Abrir', onClick: () => nav(`/cuaderno/nota/${res.note.id}`) },
+    })
+  }
+
   const created = dayOfTs(note.created_at, profile.timezone)
 
   const panel = <NotePanel note={note} today={today} ask={ask} editor={editor} onCloseAsk={() => setAsk(null)} />
@@ -157,6 +171,11 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
         </div>
 
         <article className="cu-read cu-note">
+          {parentNote && (
+            <Link className="cu-note-up" to={`/cuaderno/nota/${parentNote.id}`} title="El tema del que esta página es un punto">
+              <CIcon name="section" size={14} /> {parentNote.title}
+            </Link>
+          )}
           <textarea
             ref={titleRef}
             className="cu-title-input"
@@ -199,7 +218,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
             </label>
           </p>
           <EditorContent editor={editor} />
-          <SelectionMenu editor={editor} onAsk={(r) => setAsk(r)} />
+          <SelectionMenu editor={editor} onAsk={(r) => setAsk(r)} onExtract={(sel) => void extract(sel)} />
           <WikiSuggest editor={editor} note={note} keys={wikiKeys} />
           <div className="cu-end" />
           {mobile && panel}
@@ -344,6 +363,8 @@ function NotePanel(p: { note: Note; today: string; ask: AskRequest | null; edito
           )}
         </button>
       </section>
+
+      <SubnotesSection note={note} editor={p.editor} />
 
       <section className="cu-psec">
         <h2>

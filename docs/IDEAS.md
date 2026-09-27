@@ -25,11 +25,15 @@ selección, aprender desde tema/apuntes/YouTube/PDF, conversar (reflexionar/prof
 En v2.2: color de letra, columnas redimensionables, pizarra infinita y Sueltas desplegable.
 En v3: carpetas anidadas con color heredado e íconos, casillas y atajos de Markdown, `[[ ]]`, conectar a mano,
 dictado con Rockie, grafo con núcleos + vista Carpetas, pizarra dentro de la página, hoja que crece, ajustes y bóveda.
+En v3.2: hoja de dibujo oscura, línea fija para crecer, páginas más anchas, columnas visibles, resaltado con colores
+y llevar lo seleccionado a una subnota.
 
 - Pizarra: elegir varios a la vez (recuadro), formas (rectángulo/círculo), imágenes pegadas, exportar a PNG y que pegar
   una página cree también la conexión en el mapa.
 - Columnas: arrastrar un bloque al costado de otro para crearlas (como Notion), no solo desde la barra.
 - Color del título grande de la página (hoy se colorean los títulos 1–3 de adentro).
+- Dibujo: grosores que se adapten a la pantalla (en el celular la pluma fina queda muy delgada) y reglas o cuadrícula
+  opcionales en la hoja.
 - **Conector de Claude (MCP)** cuando lo aprueben: la base ya tiene `cuaderno_tokens` y las funciones de service role;
   falta la Edge Function MCP y la pantalla para crear/revocar el token.
 - Audio resumen tipo NotebookLM; quizzes por voz y voz de ida y vuelta ("mañana a las 9 te pregunto por…").

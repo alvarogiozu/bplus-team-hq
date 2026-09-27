@@ -34,7 +34,7 @@ export function nextColor(used: (BookColor | null)[]): BookColor {
 }
 
 type BookLike = { id: string; parent_id: string | null; name: string; color: BookColor | null; kind: BookKind; position: number; icon?: string | null }
-type NoteLike = { id: string; book_id: string | null; position: number; title: string }
+type NoteLike = { id: string; book_id: string | null; position: number; title: string; parent_note_id?: string | null }
 
 /** Un nodo del árbol: la carpeta o cuaderno, su color ya resuelto, lo que tiene adentro y sus páginas. */
 export type TreeNode<B, N> = {
@@ -42,20 +42,47 @@ export type TreeNode<B, N> = {
   color: BookColor
   depth: number
   kids: TreeNode<B, N>[]
+  /** sus páginas de primer nivel (las subnotas cuelgan de su tema: ver subsOf) */
   pages: N[]
-  /** páginas en todo lo que cuelga de aquí */
+  /** páginas en todo lo que cuelga de aquí (subnotas incluidas) */
   count: number
 }
 
 const byPos = <T extends { position: number }>(a: T, b: T) => a.position - b.position
 
+/** Las subnotas de cada página (una nota que se divide en otras), en su orden. */
+export function subnoteMap<N extends NoteLike>(notes: N[]) {
+  const ids = new Set(notes.map((n) => n.id))
+  const subsOf = new Map<string, N[]>()
+  for (const n of notes)
+    if (n.parent_note_id && n.parent_note_id !== n.id && ids.has(n.parent_note_id)) subsOf.set(n.parent_note_id, [...(subsOf.get(n.parent_note_id) ?? []), n])
+  for (const list of subsOf.values()) list.sort(byPos)
+  return subsOf
+}
+
+/** Una página y todas sus subnotas, en orden de lectura. */
+export function withSubnotes<N extends NoteLike>(pages: N[], subsOf: Map<string, N[]>, seen = new Set<string>()): N[] {
+  return pages.flatMap((p) => {
+    if (seen.has(p.id)) return []
+    seen.add(p.id)
+    return [p, ...withSubnotes(subsOf.get(p.id) ?? [], subsOf, seen)]
+  })
+}
+
 /** Arma el árbol completo; lo que no tiene lugar (o cuyo lugar ya no existe) queda en "Sueltas". */
 export function buildTree<B extends BookLike, N extends NoteLike>(books: B[], notes: N[]) {
   const known = new Set(books.map((b) => b.id))
+  const subsOf = subnoteMap(notes)
+  const noteIds = new Set(notes.map((n) => n.id))
+  const isSub = (n: N) => Boolean(n.parent_note_id && n.parent_note_id !== n.id && noteIds.has(n.parent_note_id))
   const pagesOf = new Map<string, N[]>()
+  const countOf = new Map<string, number>()
   const unfiled: N[] = []
   for (const n of notes) {
-    if (n.book_id && known.has(n.book_id)) pagesOf.set(n.book_id, [...(pagesOf.get(n.book_id) ?? []), n])
+    const home = n.book_id && known.has(n.book_id) ? n.book_id : null
+    if (home) countOf.set(home, (countOf.get(home) ?? 0) + 1)
+    if (isSub(n)) continue
+    if (home) pagesOf.set(home, [...(pagesOf.get(home) ?? []), n])
     else unfiled.push(n)
   }
   const kidsOf = new Map<string | null, B[]>()
@@ -72,12 +99,12 @@ export function buildTree<B extends BookLike, N extends NoteLike>(books: B[], no
       .sort(byPos)
       .map((k) => make(k, depth + 1, color))
     const pages = (pagesOf.get(b.id) ?? []).sort(byPos)
-    const node: TreeNode<B, N> = { book: b, color, depth, kids, pages, count: pages.length + kids.reduce((s, k) => s + k.count, 0) }
+    const node: TreeNode<B, N> = { book: b, color, depth, kids, pages, count: (countOf.get(b.id) ?? 0) + kids.reduce((s, k) => s + k.count, 0) }
     byId.set(b.id, node)
     return node
   }
   const tree = (kidsOf.get(null) ?? []).sort(byPos).map((b) => make(b, 1, 'accent'))
-  return { tree, unfiled: unfiled.sort((a, b) => b.position - a.position), byId }
+  return { tree, unfiled: unfiled.sort((a, b) => b.position - a.position), byId, subsOf }
 }
 
 /** Todos los nodos en orden de lectura (para listas planas con sangría). */

@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react'
+import { EditorContent, useEditor, useEditorState, type Editor, type JSONContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { Placeholder, TrailingNode } from '@tiptap/extensions'
-import { Highlight } from '@tiptap/extension-highlight'
 import { Image } from '@tiptap/extension-image'
 import { TableKit } from '@tiptap/extension-table'
 import { Markdown } from '@tiptap/markdown'
@@ -18,22 +17,27 @@ import {
   Column,
   Columns,
   DictationRange,
+  HighlightMark,
+  MARK_COLORS,
   NOTE_HREF,
   ObsidianTasks,
   WikiLinks,
   TEXT_COLORS,
   TextColorMark,
   addColumn,
+  applyHighlight,
   applyTextColor,
   inColumns,
   insertColumns,
   removeColumn,
   unwrapColumns,
+  type MarkColor,
   type TextColor,
   type WikiKeys,
 } from './extensions'
 import { BOARD_SRC, isBoardSrc, isStored, resolveSrc, shrinkImage, srcOf, upload } from './files'
 import { CIcon } from './icons'
+import { subnoteName } from './text'
 import { Popover } from './ui'
 
 // El editor de páginas: como Google Docs + OneNote, pero guardando Markdown (portátil, exportable).
@@ -173,7 +177,7 @@ export function useNoteEditor(p: {
         ObsidianTasks,
         DictationRange,
         WikiLinks.configure({ onKey: (key) => wikiKeys.current?.current?.(key) ?? false }),
-        Highlight,
+        HighlightMark,
         TextColorMark,
         CuImage.configure({ inline: false }),
         TableKit.configure({ table: { resizable: false } }),
@@ -265,7 +269,7 @@ export function useNoteEditor(p: {
 }
 
 // ---------- barra de herramientas ----------
-function Btn(p: { icon: string; label: string; on?: boolean; disabled?: boolean; onClick: () => void; children?: ReactNode; className?: string }) {
+function Btn(p: { icon?: string; label: string; on?: boolean; disabled?: boolean; onClick: () => void; children?: ReactNode; className?: string }) {
   return (
     <button
       type="button"
@@ -277,7 +281,7 @@ function Btn(p: { icon: string; label: string; on?: boolean; disabled?: boolean;
       onMouseDown={(e) => e.preventDefault()}
       onClick={p.onClick}
     >
-      <CIcon name={p.icon} size={18} />
+      {p.icon && <CIcon name={p.icon} size={18} />}
       {p.children}
     </button>
   )
@@ -303,6 +307,7 @@ export function Toolbar({ editor, onDictate, dictating, note }: { editor: Editor
             underline: e.isActive('underline'),
             strike: e.isActive('strike'),
             highlight: e.isActive('highlight'),
+            mark: (e.getAttributes('highlight').color as MarkColor | undefined) ?? null,
             bullet: e.isActive('bulletList'),
             ordered: e.isActive('orderedList'),
             task: e.isActive('taskList'),
@@ -318,6 +323,7 @@ export function Toolbar({ editor, onDictate, dictating, note }: { editor: Editor
         : null,
   })
   const [colorAt, setColorAt] = useState<HTMLElement | null>(null)
+  const [markAt, setMarkAt] = useState<HTMLElement | null>(null)
   const [mdAt, setMdAt] = useState<HTMLElement | null>(null)
   const [boardAt, setBoardAt] = useState<HTMLElement | null>(null)
   if (!editor || !s) return <div className="cu-toolbar" aria-hidden="true" />
@@ -358,22 +364,37 @@ export function Toolbar({ editor, onDictate, dictating, note }: { editor: Editor
       <Btn icon="italic" label="Cursiva (Ctrl+I)" on={s.italic} onClick={() => c().toggleItalic().run()} />
       <Btn icon="underline" label="Subrayado (Ctrl+U)" on={s.underline} onClick={() => c().toggleUnderline().run()} />
       <Btn icon="strike" label="Tachado" on={s.strike} onClick={() => c().toggleStrike().run()} />
-      <Btn icon="highlight" label="Resaltar" on={s.highlight} onClick={() => c().toggleHighlight().run()} />
+      <span className="cu-tb-sep" />
+      {/* dos botones distintos: la letra "A" pinta las letras; el marcador pinta el fondo (como Google Docs) */}
       <button
         type="button"
-        className={`cu-tb cu-tb-color${colorAt ? ' on' : ''}`}
+        className={`cu-tb cu-tb-pick${s.color || colorAt ? ' on' : ''}`}
         aria-label="Color de letra"
         title="Color de letra (sin seleccionar, pinta todo el bloque: ideal para títulos)"
         aria-haspopup="menu"
         onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => setColorAt(colorAt ? null : e.currentTarget)}
       >
-        <CIcon name="textcolor" size={18} />
-        <i className="cu-tb-colorbar" data-color={s.color ?? ''} aria-hidden="true" />
+        <TextColorGlyph color={s.color} />
       </button>
       <Popover anchor={colorAt} open={Boolean(colorAt)} onClose={() => setColorAt(null)} label="Color de letra">
         <p className="cu-pop-title">Color de letra</p>
         <TextColorPicker editor={editor} current={s.color} onDone={() => setColorAt(null)} />
+      </Popover>
+      <button
+        type="button"
+        className={`cu-tb cu-tb-pick${s.highlight || markAt ? ' on' : ''}`}
+        aria-label="Resaltar"
+        title="Resaltar como con un marcador (o escribe ==texto==)"
+        aria-haspopup="menu"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => setMarkAt(markAt ? null : e.currentTarget)}
+      >
+        <HighlightGlyph color={s.highlight ? s.mark : null} />
+      </button>
+      <Popover anchor={markAt} open={Boolean(markAt)} onClose={() => setMarkAt(null)} label="Resaltado">
+        <p className="cu-pop-title">Resaltado</p>
+        <HighlightPicker editor={editor} current={s.mark} active={s.highlight} onDone={() => setMarkAt(null)} />
       </Popover>
       <span className="cu-tb-sep" />
       <Btn icon="list" label="Lista" on={s.bullet} onClick={() => c().toggleBulletList().run()} />
@@ -499,6 +520,94 @@ function TextColorPicker({ editor, current, onDone }: { editor: Editor; current:
   )
 }
 
+// ---------- resaltado ----------
+/** Cada muestra es una "A" resaltada: se ve que pinta el fondo, no la letra. */
+function HighlightPicker({ editor, current, active, onDone }: { editor: Editor; current: MarkColor | null; active: boolean; onDone?: () => void }) {
+  const pick = (c: MarkColor | null | false) => {
+    applyHighlight(editor, c)
+    haptic(6)
+    onDone?.()
+  }
+  return (
+    <div className="cu-txpick" role="group" aria-label="Resaltado">
+      {MARK_COLORS.map((c) => (
+        <button
+          key={c.id ?? 'yellow'}
+          type="button"
+          className={`cu-hlsw${active && current === c.id ? ' on' : ''}`}
+          data-hl={c.id ?? 'yellow'}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => pick(c.id)}
+          aria-label={`Resaltar en ${c.label.toLowerCase()}`}
+          title={c.label}
+        >
+          <span>A</span>
+        </button>
+      ))}
+      <button type="button" className="cu-hlsw is-none" disabled={!active} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(false)} aria-label="Quitar el resaltado" title="Sin resaltado">
+        <CIcon name="close" size={15} />
+      </button>
+    </div>
+  )
+}
+
+/** El botón de color de letra: una "A" con una raya del color que tiene (como en Google Docs). */
+function TextColorGlyph({ color }: { color: TextColor | null }) {
+  return (
+    <span className="cu-glyph" aria-hidden="true">
+      <span className="cu-glyph-a">A</span>
+      <i className="cu-glyph-bar" data-color={color ?? ''} />
+    </span>
+  )
+}
+
+/** El botón de resaltar: un marcador con una raya del color con que resalta. */
+function HighlightGlyph({ color }: { color: MarkColor | null }) {
+  return (
+    <span className="cu-glyph" aria-hidden="true">
+      <CIcon name="highlight" size={16} />
+      <i className="cu-glyph-bar is-hl" data-hl={color ?? 'yellow'} />
+    </span>
+  )
+}
+
+// ---------- llevar lo seleccionado a una subnota ----------
+export type Extracted = { title: string; md: string; text: string; from: number; to: number; inline: boolean }
+
+const textOf = (n: JSONContent): string => (n.text ?? '') + (n.content ?? []).map(textOf).join('')
+
+/** Lo seleccionado, listo para ser una subnota: si empieza con un título, ese es su nombre. */
+export function extractSelection(editor: Editor): Extracted | null {
+  const { from, to, $from, $to } = editor.state.selection
+  const text = editor.state.doc.textBetween(from, to, '\n').trim()
+  if (from === to || !text) return null
+  const nodes = (editor.state.doc.slice(from, to).content.toJSON() ?? []) as JSONContent[]
+  const headed = nodes[0]?.type === 'heading' && nodes.length > 1
+  const md = editor.markdown?.serialize({ type: 'doc', content: headed ? nodes.slice(1) : nodes }) ?? ''
+  return {
+    title: (headed ? textOf(nodes[0]).trim() : subnoteName(text)) || 'Subnota',
+    md: md.trim() || text,
+    text,
+    from,
+    to,
+    inline: $from.parent === $to.parent && $from.parent.isTextblock,
+  }
+}
+
+/** Cambia lo que se llevó a la subnota por un enlace a ella (en su línea, o como párrafo si eran varios bloques). */
+export function replaceWithNoteLink(editor: Editor, sel: Extracted, target: { id: string; title: string }) {
+  const doc = editor.state.doc
+  // si el texto cambió mientras se creaba la subnota, no se toca nada
+  if (sel.to > doc.content.size || doc.textBetween(sel.from, sel.to, '\n').trim() !== sel.text) return false
+  const link = { type: 'text', text: target.title, marks: [{ type: 'link', attrs: { href: `${NOTE_HREF}${target.id}` } }] }
+  editor
+    .chain()
+    .focus()
+    .insertContentAt({ from: sel.from, to: sel.to }, sel.inline ? [link] : [{ type: 'paragraph', content: [link] }])
+    .run()
+  return true
+}
+
 // ---------- pizarra dentro de la página ----------
 /** Una pizarra nueva aquí, o una que ya tienes: queda metida en la página (y conectada con ella). */
 function BoardPick({ editor, note, onDone }: { editor: Editor; note: Note; onDone: () => void }) {
@@ -602,8 +711,8 @@ const ASKS: { modo: AskMode; label: string }[] = [
   { modo: 'pregunta', label: 'Hazme una pregunta' },
 ]
 
-export function SelectionMenu({ editor, onAsk }: { editor: Editor | null; onAsk: (r: AskRequest) => void }) {
-  const [mode, setMode] = useState<'fmt' | 'ask' | 'link' | 'color'>('fmt')
+export function SelectionMenu({ editor, onAsk, onExtract }: { editor: Editor | null; onAsk: (r: AskRequest) => void; onExtract?: (sel: Extracted) => void }) {
+  const [mode, setMode] = useState<'fmt' | 'ask' | 'link' | 'color' | 'mark' | 'more'>('fmt')
   const [text, setText] = useState('')
   // lo activo se lee del estado del editor (si no, la burbuja mostraría lo de la selección anterior)
   const on = useEditorState({
@@ -614,8 +723,10 @@ export function SelectionMenu({ editor, onAsk }: { editor: Editor | null; onAsk:
             bold: e.isActive('bold'),
             italic: e.isActive('italic'),
             underline: e.isActive('underline'),
+            strike: e.isActive('strike'),
             link: e.isActive('link'),
             highlight: e.isActive('highlight'),
+            mark: (e.getAttributes('highlight').color as MarkColor | undefined) ?? null,
             color: (e.getAttributes('textColor').color as TextColor | undefined) ?? null,
           }
         : null,
@@ -646,6 +757,19 @@ export function SelectionMenu({ editor, onAsk }: { editor: Editor | null; onAsk:
     setMode('fmt')
     setText('')
   }
+  const c = () => editor.chain().focus()
+  // quita negrita, colores, resaltado…, pero no los enlaces (son tus conexiones)
+  const clear = () => c().unsetBold().unsetItalic().unsetUnderline().unsetStrike().unsetCode().unsetHighlight().unsetMark('textColor').run()
+  const extract = () => {
+    const sel = extractSelection(editor)
+    setMode('fmt')
+    if (sel && onExtract) onExtract(sel)
+  }
+  const linkMode = () => {
+    setText(String(editor.getAttributes('link').href ?? ''))
+    setMode('link')
+  }
+  const back = <Btn icon="left" label="Volver" onClick={() => setMode('fmt')} />
   return (
     <BubbleMenu
       editor={editor}
@@ -655,25 +779,42 @@ export function SelectionMenu({ editor, onAsk }: { editor: Editor | null; onAsk:
     >
       {mode === 'fmt' && (
         <>
-          <Btn icon="bold" label="Negrita" on={on.bold} onClick={() => editor.chain().focus().toggleBold().run()} />
-          <Btn icon="italic" label="Cursiva" on={on.italic} onClick={() => editor.chain().focus().toggleItalic().run()} />
-          {/* en el celular el subrayado queda solo en la barra de arriba, para que la burbuja quepa */}
-          <Btn icon="underline" label="Subrayado" className="cu-wide-only" on={on.underline} onClick={() => editor.chain().focus().toggleUnderline().run()} />
-          <Btn icon="textcolor" label="Color y resaltado" on={Boolean(on.color) || on.highlight} onClick={() => setMode('color')} />
-          <Btn
-            icon="link"
-            label="Enlace"
-            on={on.link}
-            onClick={() => {
-              setText(String(editor.getAttributes('link').href ?? ''))
-              setMode('link')
-            }}
-          />
+          <Btn icon="bold" label="Negrita" on={on.bold} onClick={() => c().toggleBold().run()} />
+          <Btn icon="italic" label="Cursiva" on={on.italic} onClick={() => c().toggleItalic().run()} />
+          {/* en el celular, subrayado, tachado y lo demás van en "Más" para que la burbuja quepa */}
+          <Btn icon="underline" label="Subrayado" className="cu-wide-only" on={on.underline} onClick={() => c().toggleUnderline().run()} />
+          <Btn icon="strike" label="Tachado" className="cu-wide-only" on={on.strike} onClick={() => c().toggleStrike().run()} />
+          <span className="cu-tb-sep" />
+          <Btn label="Color de letra" className="cu-tb-pick" on={Boolean(on.color)} onClick={() => setMode('color')}>
+            <TextColorGlyph color={on.color} />
+          </Btn>
+          <Btn label="Resaltar" className="cu-tb-pick" on={on.highlight} onClick={() => setMode('mark')}>
+            <HighlightGlyph color={on.highlight ? on.mark : null} />
+          </Btn>
+          <span className="cu-tb-sep" />
+          <Btn icon="link" label="Enlace" className="cu-wide-only" on={on.link} onClick={linkMode} />
+          <Btn icon="clearfmt" label="Quitar formato" className="cu-wide-only" onClick={clear} />
+          {onExtract && <Btn icon="section" label="Llevar a una subnota (aquí queda un enlace)" className="cu-wide-only" onClick={extract} />}
+          <Btn icon="more" label="Más" className="cu-narrow-only" onClick={() => setMode('more')} />
           <span className="cu-tb-sep" />
           <button type="button" className="cu-bubble-rockie" onMouseDown={(e) => e.preventDefault()} onClick={() => setMode('ask')}>
             <CIcon name="sparkle" size={15} /> <span className="cu-ask-long">Pregúntale a Rockie</span>
             <span className="cu-ask-short">Preguntar</span>
           </button>
+        </>
+      )}
+      {mode === 'more' && (
+        <>
+          {back}
+          <Btn icon="underline" label="Subrayado" on={on.underline} onClick={() => c().toggleUnderline().run()} />
+          <Btn icon="strike" label="Tachado" on={on.strike} onClick={() => c().toggleStrike().run()} />
+          <Btn icon="link" label="Enlace" on={on.link} onClick={linkMode} />
+          <Btn icon="clearfmt" label="Quitar formato" onClick={clear} />
+          {onExtract && (
+            <button type="button" className="cu-bubble-chip" onMouseDown={(e) => e.preventDefault()} onClick={extract} title="Llevar a una subnota (aquí queda un enlace)">
+              <CIcon name="section" size={15} /> Subnota
+            </button>
+          )}
         </>
       )}
       {mode === 'ask' && (
@@ -695,17 +836,16 @@ export function SelectionMenu({ editor, onAsk }: { editor: Editor | null; onAsk:
       )}
       {mode === 'color' && (
         <div className="cu-bubble-color">
+          {back}
+          <span className="cu-bubble-label">Color de letra</span>
           <TextColorPicker editor={editor} current={on.color} onDone={() => setMode('fmt')} />
-          <span className="cu-tb-sep" />
-          <Btn
-            icon="highlight"
-            label="Resaltar"
-            on={on.highlight}
-            onClick={() => {
-              editor.chain().focus().toggleHighlight().run()
-              setMode('fmt')
-            }}
-          />
+        </div>
+      )}
+      {mode === 'mark' && (
+        <div className="cu-bubble-color">
+          {back}
+          <span className="cu-bubble-label">Resaltado</span>
+          <HighlightPicker editor={editor} current={on.mark} active={on.highlight} onDone={() => setMode('fmt')} />
         </div>
       )}
       {mode === 'link' && (
@@ -714,8 +854,8 @@ export function SelectionMenu({ editor, onAsk }: { editor: Editor | null; onAsk:
           onSubmit={(e) => {
             e.preventDefault()
             const href = text.trim()
-            if (href) editor.chain().focus().extendMarkRange('link').setLink({ href }).run()
-            else editor.chain().focus().extendMarkRange('link').unsetLink().run()
+            if (href) c().extendMarkRange('link').setLink({ href }).run()
+            else c().extendMarkRange('link').unsetLink().run()
             setMode('fmt')
           }}
         >

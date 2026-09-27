@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { dueAfter, dueToday, memoryOf, streakOf } from './leitner'
 import { buildGlobal, distToSegment, neighbors } from './graph'
-import { buildTree, canNest, colorOf, flatten, heightOf, iconOf, kindLabel, nextColor, pathOf, rootOf, type BookColor, type BookKind } from './books'
-import { touches } from './Draw'
-import { countWords, joinSpoken, plain, spoken } from './text'
+import { buildTree, canNest, colorOf, flatten, heightOf, iconOf, kindLabel, nextColor, pathOf, rootOf, withSubnotes, type BookColor, type BookKind } from './books'
+import { MarkdownManager } from '@tiptap/markdown'
+import StarterKit from '@tiptap/starter-kit'
+import { crosses, growLine, touches } from './Draw'
+import { HighlightMark, TextColorMark } from './extensions'
+import { canvasDpr, inkOutline, inkSvg, smoothPoints } from './ink'
+import { countWords, joinSpoken, plain, splitByHeadings, spoken, subnoteName } from './text'
 import { asScene, edgePoint, sceneText, strokeTouches } from './board'
 import type { Book, Link, Note } from './data'
 
@@ -18,6 +22,7 @@ const note = (id: string, area: Note['area']): Note => ({
   icon: null,
   entry_id: null,
   book_id: null,
+  parent_note_id: null as string | null,
   position: 0,
   embedded_at: null,
   created_at: '2026-09-25T12:00:00Z',
@@ -269,5 +274,135 @@ describe('dictado', () => {
     expect(joinSpoken('Hoy ', 'fui')).toBe('fui')
     expect(joinSpoken('', '¿qué pasó?')).toBe('¿Qué pasó?')
     expect(countWords('  una  dos tres ')).toBe(3)
+  })
+})
+
+describe('subnotas', () => {
+  const books = [book('fis', 'Física', null, 0, 'green')] as unknown as Book[]
+  const sub = (id: string, parent: string | null, book_id: string | null, position = 0) => ({ ...page(id, book_id, position), parent_note_id: parent })
+  const notes = [sub('termo', null, 'fis', 0), sub('ley1', 'termo', 'fis', 1), sub('entropia', 'termo', 'fis', 2), sub('clausius', 'entropia', 'fis', 0), sub('suelta', null, null), sub('hija', 'suelta', null)]
+
+  it('el árbol muestra solo los temas; las subnotas cuelgan de ellos y cuentan', () => {
+    const { tree, unfiled, subsOf } = buildTree(books, notes)
+    expect(tree[0].pages.map((n) => n.id)).toEqual(['termo'])
+    expect(tree[0].count).toBe(4)
+    expect(subsOf.get('termo')?.map((n) => n.id)).toEqual(['ley1', 'entropia'])
+    expect(unfiled.map((n) => n.id)).toEqual(['suelta'])
+    expect(withSubnotes(tree[0].pages, subsOf).map((n) => n.id)).toEqual(['termo', 'ley1', 'entropia', 'clausius'])
+  })
+  it('en el grafo cada subnota se une a su tema, que pesa más', () => {
+    const g = buildGlobal({ books, notes, links: [], projects: [], memOf: () => 'none', opts: { hubs: true, projects: true, orphans: false } })
+    const tree = g.edges.map((e) => `${e.a}>${e.b}`).sort()
+    expect(tree).toEqual(['entropia>clausius', 'fis>termo', 'suelta>hija', 'termo>entropia', 'termo>ley1'])
+    const by = new Map(g.nodes.map((n) => [n.id, n]))
+    expect(by.get('termo')?.size).toBe(3)
+    expect(by.get('clausius')?.parent).toBe('entropia')
+    expect(by.get('clausius')?.depth).toBe(4)
+  })
+  it('dividir por títulos: introducción y un punto por título (sin cortar el código)', () => {
+    const md = [
+      'Intro del tema.',
+      '',
+      '## Primera ley',
+      'La energía se conserva.',
+      '',
+      '```',
+      '## no es título',
+      '```',
+      '',
+      '## Entropía',
+      '- mide el desorden',
+      '### detalle',
+      'más',
+    ].join('\n')
+    const r = splitByHeadings(md)
+    expect(r.indice).toBe('Intro del tema.')
+    expect(r.partes.map((p) => p.titulo)).toEqual(['Primera ley', 'Entropía'])
+    expect(r.partes[0].cuerpo).toContain('## no es título')
+    expect(r.partes[1].cuerpo).toContain('### detalle')
+    expect(splitByHeadings(['solo texto', '## uno'].join('\n')).partes).toEqual([])
+  })
+  it('una subnota hecha con lo seleccionado se llama como su primera frase', () => {
+    expect(subnoteName('La entropía mide el desorden. Siempre crece en un sistema aislado.')).toBe('La entropía mide el desorden')
+    expect(subnoteName(['Ciclo de Carnot:', 'cuatro etapas'].join('\n'))).toBe('Ciclo de Carnot')
+    const long = subnoteName('Una frase larguísima sin puntos que habla de la termodinámica de los agujeros negros y su radiación')
+    expect(long.length).toBeLessThanOrEqual(71)
+    expect(long.endsWith('…')).toBe(true)
+  })
+})
+
+describe('tinta suave (ink.ts)', () => {
+  // una diagonal hecha con el mouse: escalones de un píxel
+  const stairs: number[] = []
+  for (let i = 0; i < 60; i++) stairs.push(i, i % 2 ? i - 1 : i, 0.5)
+  const off = (pts: number[][]) => Math.max(...pts.map(([x, y]) => Math.abs(x - y - 0.5) / Math.SQRT2))
+  it('suaviza el serrucho del mouse sin mover las puntas', () => {
+    const raw: number[][] = []
+    for (let i = 0; i < stairs.length; i += 3) raw.push([stairs[i], stairs[i + 1]])
+    const sm = smoothPoints(stairs, 0.8, 4)
+    expect(sm[0].slice(0, 2)).toEqual([0, 0])
+    expect(sm[sm.length - 1].slice(0, 2)).toEqual([59, 58])
+    // lejos de las puntas, la línea queda casi recta (antes zigzagueaba medio píxel)
+    expect(off(sm.slice(10, -10))).toBeLessThan(off(raw.slice(10, -10)) / 3)
+  })
+  it('reparte los puntos a pasos iguales (la forma no depende de cada cuánto llegan los eventos)', () => {
+    const sm = smoothPoints([0, 0, 0.5, 10, 0, 0.5, 11, 0, 0.5, 30, 0, 0.5], 1, 0)
+    const gaps = sm.slice(1).map((q, i) => q[0] - sm[i][0])
+    expect(Math.max(...gaps.slice(0, -1)) - Math.min(...gaps.slice(0, -1))).toBeLessThan(1e-9)
+    expect(sm[sm.length - 1][0]).toBe(30)
+  })
+  it('un toque es un punto redondo y un trazo es una figura cerrada', () => {
+    expect(inkSvg({ p: [5, 5, 0.5], s: 6 }, false)).toMatch(/^M.*Z$/)
+    const d = inkSvg({ p: stairs, s: 6 }, false)
+    expect(d.startsWith('M')).toBe(true)
+    expect(d.endsWith('Z')).toBe(true)
+  })
+  it('con mouse la línea es pareja; con lápiz sigue la presión', () => {
+    const line = (pr: (i: number) => number) => {
+      const p: number[] = []
+      for (let i = 0; i <= 100; i += 2) p.push(i, 0, pr(i))
+      return p
+    }
+    const width = (o: number[][]) => Math.max(...o.map((q) => q[1])) - Math.min(...o.map((q) => q[1]))
+    const flat = inkOutline({ p: line(() => 0.5), s: 6 }, false, true)
+    const hard = inkOutline({ p: line(() => 1), s: 6 }, false, true)
+    expect(width(flat)).toBeCloseTo(6, 0)
+    expect(width(hard)).toBeGreaterThan(width(flat))
+  })
+  it('la densidad del lienzo no se pasa de memoria', () => {
+    expect(canvasDpr(4000, 3000)).toBe(1)
+  })
+})
+
+describe('resaltado con colores y hoja de dibujo', () => {
+  const md = new MarkdownManager({ extensions: [StarterKit, HighlightMark, TextColorMark] })
+  const round = (s: string) => md.serialize(md.parse(s)).trim()
+  it('el amarillo es ==texto== (Obsidian) y los demás colores <mark data-color>', () => {
+    const src = 'Hola ==mundo== y <mark data-color="green">vida</mark> con <span data-color="coral">letra</span>'
+    expect(JSON.stringify(md.parse(src))).toContain('"color":"green"')
+    expect(round(src)).toBe(src)
+    // con negrita adentro: se reordena, pero no se pierde nada al guardar (y queda estable)
+    const bold = round('<mark data-color="green">**vida**</mark>')
+    const marks = JSON.stringify(md.parse(bold))
+    expect(marks).toContain('"type":"bold"')
+    expect(marks).toContain('"color":"green"')
+    expect(round(bold)).toBe(bold)
+  })
+  it('un color de resaltado que no existe no se inventa', () => {
+    expect(JSON.stringify(md.parse('<mark data-color="negro">x</mark>'))).not.toContain('"color":"negro"')
+  })
+  it('las vistas previas limpian el resaltado de color', () => {
+    expect(plain('Mira <mark data-color="blue">esto</mark> ==y esto==')).toBe('Mira esto y esto')
+  })
+  it('la línea para crecer queda siempre cerca del final de la hoja', () => {
+    expect(growLine(1000, 1)).toBe(904)
+    expect(growLine(1000, 0.5)).toBe(808)
+    expect(growLine(200, 1)).toBe(140) // en una hoja corta, nunca más arriba que su 70 %
+  })
+  it('la hoja crece solo si el trazo cruza la línea', () => {
+    const at = (y: number) => ({ t: 'pen' as const, c: 'tinta' as const, s: 6, p: [10, 100, 0.5, 20, y, 0.5] })
+    expect(crosses(at(890), 904)).toBe(false)
+    expect(crosses(at(902), 904)).toBe(true) // su borde ya toca la línea
+    expect(crosses(at(950), 904)).toBe(true)
   })
 })

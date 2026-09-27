@@ -54,7 +54,7 @@ export function CarpetasView({ books, notes, query, memOf }: { books: Book[]; no
   const nav = useNavigate()
   const { userId } = useAuth()
   const key = `cu.map.open.${userId}`
-  const { tree, unfiled } = useMemo(() => buildTree(books, notes), [books, notes])
+  const { tree, unfiled, subsOf } = useMemo(() => buildTree(books, notes), [books, notes])
   const [open, setOpen] = useState<Set<string>>(() => {
     try {
       const raw = lsGet(key)
@@ -93,10 +93,17 @@ export function CarpetasView({ books, notes, query, memOf }: { books: Book[]; no
         hits.add(b.id)
         openChain(b.parent_id)
       }
+    const byId = new Map(notes.map((n) => [n.id, n]))
     for (const n of notes)
       if (fold(n.title).includes(query)) {
         hits.add(n.id)
-        if (n.book_id && books.some((b) => b.id === n.book_id)) openChain(n.book_id)
+        // una subnota: se abren sus temas (hasta el de arriba) y el lugar de ese
+        let top = n
+        for (let i = 0; i < 6 && top.parent_note_id && byId.has(top.parent_note_id); i++) {
+          top = byId.get(top.parent_note_id)!
+          forced.add(top.id)
+        }
+        if (top.book_id && books.some((b) => b.id === top.book_id)) openChain(top.book_id)
         else forced.add('sueltas')
       }
     forced.add('root')
@@ -111,19 +118,24 @@ export function CarpetasView({ books, notes, query, memOf }: { books: Book[]; no
       const first = pages.slice(0, MAX_PAGES)
       const extra = pages.slice(MAX_PAGES).filter((p) => hits.has(p.id))
       const shown = [...first, ...extra]
-      const out: N[] = shown.map((p) => ({
-        id: p.id,
-        kind: 'page',
-        title: p.title,
-        color: noteColorOf(books, p),
-        icon: p.icon,
-        fallback: p.kind === 'pizarra' ? 'board' : 'note',
-        to: `/cuaderno/nota/${p.id}`,
-        kids: [],
-        canOpen: false,
-        match: hits.has(p.id),
-        mem: memOf(p.id),
-      }))
+      const out: N[] = shown.map((p) => {
+        // un tema con subnotas se abre como una rama más
+        const subs = subsOf.get(p.id) ?? []
+        return {
+          id: p.id,
+          kind: 'page',
+          title: p.title,
+          color: noteColorOf(books, p),
+          icon: p.icon,
+          fallback: p.kind === 'pizarra' ? 'board' : 'note',
+          to: `/cuaderno/nota/${p.id}`,
+          kids: subs.length && isOpen(p.id) ? pagesOf(subs, `/cuaderno/nota/${p.id}`, p.id) : [],
+          canOpen: subs.length > 0,
+          count: subs.length || undefined,
+          match: hits.has(p.id),
+          mem: memOf(p.id),
+        }
+      })
       const rest = pages.length - shown.length
       if (rest > 0) out.push({ id: `more:${parentId}`, kind: 'more', title: `+${rest} páginas`, color: null, fallback: 'note', to, kids: [], canOpen: false })
       return out
@@ -241,7 +253,7 @@ export function CarpetasView({ books, notes, query, memOf }: { books: Book[]; no
     save(new Set(['root']))
   }
   const act = (it: Item) => {
-    if (it.kind === 'page' || it.kind === 'more') {
+    if (it.kind === 'more' || (it.kind === 'page' && !it.canOpen)) {
       if (it.to) nav(it.to)
       return
     }
@@ -441,8 +453,9 @@ function Shape({ it }: { it: Item }) {
         <SvgIcon value={it.icon} fallback={it.fallback} x={24} y={h / 2 - 7} size={14} />
       </g>
       <text className="cu-mm-ptitle" x={44} y={h / 2 + 4}>
-        {clip(it.title, room(60, 6.9))}
+        {clip(it.title, room(it.canOpen ? 104 : 60, 6.9))}
       </text>
+      {chev}
     </>
   )
 }

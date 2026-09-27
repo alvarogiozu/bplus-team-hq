@@ -66,7 +66,8 @@ export const CaptureBar = forwardRef<
     const ns = searchNotes(notes ?? [], text, 6 - bs.length).map((n: Note) => ({
       id: n.id,
       title: n.title,
-      sub: pathOf(books ?? [], n.book_id),
+      // una subnota dice también de qué tema es
+      sub: [pathOf(books ?? [], n.book_id), (notes ?? []).find((x) => x.id === n.parent_note_id)?.title].filter(Boolean).join(' › '),
       to: `/cuaderno/nota/${n.id}`,
       color: noteColorOf(books ?? [], n) as BookColor | null,
       icon: n.icon ?? (n.kind === 'pizarra' ? 'board' : 'note'),

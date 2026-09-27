@@ -104,6 +104,14 @@ export async function redactar(p: { texto: string; modo: 'ordenar' | 'redactar';
   return { error: r.unconfigured ? NO_AI : r.error }
 }
 
+/** Rockie divide una página larga en subnotas (reparte lo que ya está, sin inventar). */
+export type Division = { indice: string; partes: { titulo: string; cuerpo: string }[] }
+export async function dividirNota(noteId: string): Promise<{ division?: Division; error?: string }> {
+  const r = await invoke<Division>({ action: 'dividir', note_id: noteId })
+  if (r.data?.partes?.length) return { division: r.data }
+  return { error: r.unconfigured ? NO_AI : r.error }
+}
+
 /** Recalcula la huella de significado de notas que cambiaron (sin esperar). */
 export function embedNotes(ids: string[]) {
   if (ids.length) void invoke({ action: 'embed', note_ids: ids })
@@ -136,9 +144,10 @@ export function describe(p: Proposal, list: Proposal[], look: Look): CardView {
   switch (p.tool) {
     case 'crear_nota': {
       const n = p.input.tarjetas.length
-      const where = p.input.book_id ? ` · en ${pathOf(look.books, p.input.book_id)}` : ''
+      const parent = p.input.parent_note_id ? look.notes.get(p.input.parent_note_id) : undefined
+      const where = parent ? ` · subnota de «${parent.title}»` : p.input.book_id ? ` · en ${pathOf(look.books, p.input.book_id)}` : ''
       return {
-        icon: 'note',
+        icon: parent ? 'section' : 'note',
         title: p.input.title,
         detail: `Nota nueva · ${areaOf(p.input.area).label}${where}`,
         preview: clip(plain(p.input.body), 180),
@@ -163,6 +172,13 @@ export function describe(p: Proposal, list: Proposal[], look: Look): CardView {
     }
     case 'crear_tarjeta':
       return { icon: 'cards', title: plain(p.input.q), detail: 'Tarjeta de repaso', preview: plain(p.input.a) }
+    case 'hacer_subnota':
+      return {
+        icon: 'section',
+        title: `Subnota de «${look.notes.get(p.input.tema_id)?.title ?? 'un tema'}»`,
+        detail: `«${look.notes.get(p.input.note_id)?.title ?? 'Esta página'}» pasa a ser un punto de ese tema`,
+        preview: p.input.reason,
+      }
     case 'aprender_tema':
       return {
         icon: 'sparkle',
@@ -186,8 +202,17 @@ async function applyOne(
   const a = ctx.actions
   switch (p.tool) {
     case 'crear_nota': {
-      const book = p.input.book_id && a.booksNow().some((b) => b.id === p.input.book_id) ? p.input.book_id : null
-      const res = await a.createNote({ title: p.input.title, body: p.input.body, area: p.input.area, entry_id: ctx.entryId ?? null, book_id: book })
+      // subnota de un tema que todavía existe (vive en su cuaderno); si no, en el cuaderno propuesto
+      const parent = p.input.parent_note_id ? a.notesNow().find((n) => n.id === p.input.parent_note_id) : undefined
+      const book = parent ? parent.book_id : p.input.book_id && a.booksNow().some((b) => b.id === p.input.book_id) ? p.input.book_id : null
+      const res = await a.createNote({
+        title: p.input.title,
+        body: p.input.body,
+        area: p.input.area,
+        entry_id: ctx.entryId ?? null,
+        book_id: book,
+        parent_note_id: parent?.id ?? null,
+      })
       if (!res) return null
       const undoCards = await a.createCards(res.note.id, p.input.tarjetas)
       embedNotes([res.note.id])
@@ -228,6 +253,15 @@ async function applyOne(
     }
     case 'crear_tarjeta': {
       const undo = await a.createCards(p.input.note_id, [{ q: p.input.q, a: p.input.a }])
+      return undo ? { undo } : null
+    }
+    case 'hacer_subnota': {
+      const note = a.notesNow().find((n) => n.id === p.input.note_id)
+      if (!note || !a.notesNow().some((n) => n.id === p.input.tema_id)) {
+        toast('Esa página ya no existe')
+        return null
+      }
+      const undo = await a.setParent(note, p.input.tema_id, { quiet: true })
       return undo ? { undo } : null
     }
     case 'aprender_tema':

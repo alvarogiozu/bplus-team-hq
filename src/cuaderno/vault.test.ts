@@ -27,6 +27,7 @@ const note = (id: string, title: string, book_id: string | null, body = '', kind
   icon: null,
   entry_id: null,
   book_id,
+  parent_note_id: null as string | null,
   position: 0,
   embedded_at: null,
   created_at: created,
@@ -111,5 +112,16 @@ describe('bóveda (Markdown como Obsidian)', () => {
     expect(z.type).toBe('application/zip')
     expect(z.size).toBe(30 + 4 + 4 + 46 + 4 + 22)
     expect(hashText('abc')).not.toBe(hashText('abd'))
+  })
+
+  it('las subnotas van en la carpeta de su tema y lo nombran en su ficha', () => {
+    const topic = note(ID(10), 'Termodinámica', 'lec')
+    const child = { ...note(ID(11), 'Entropía', 'lec'), parent_note_id: ID(10) }
+    const all = [...notes, child, topic]
+    const { pathOf } = vaultPaths(books, all)
+    expect(pathOf.get(ID(10))).toBe('Francés/Lecciones A1/Termodinámica.md')
+    expect(pathOf.get(ID(11))).toBe('Francés/Lecciones A1/Termodinámica/Entropía.md')
+    const md = noteToMarkdown(child, { notes: new Map(), pathOf, links: [], projects: new Map() })
+    expect(parseMarkdown(md).meta.padre).toBe('[[Termodinámica]]')
   })
 })
