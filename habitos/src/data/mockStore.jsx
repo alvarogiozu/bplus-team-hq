@@ -679,7 +679,7 @@ export function StoreProvider({ children }) {
           members: mem,
           memberIds: mem.map(m => m.user_id).filter(Boolean),
           canInvite: soyAdmin,
-          alert: enRiesgo.length === 1 ? { text: `${enRiesgo[0].name} lleva 0 habitos hoy`, target: enRiesgo[0].name } : null,
+          alert: enRiesgo.length === 1 ? { text: `${enRiesgo[0].name} lleva 0 hábitos hoy`, target: enRiesgo[0].name } : null,
           inviteCode: g.invite_code, channel: { groupId: g.id },
         }
       }))
@@ -849,7 +849,7 @@ export function StoreProvider({ children }) {
           habitName: pl.habit_name || 'un habito',
           ...(hito
             ? { title: `¡${racha} dias de racha!`, detail: `${self ? 'Tu' : otro(p.name)} y su Rockie siguen imparables.` }
-            : { detail: pl.con_ia ? 'IA verifico la foto ✓' : 'Marcado como hecho ✓' }),
+            : { detail: pl.con_ia ? 'La IA verificó la foto ✓' : 'Marcado como hecho ✓' }),
         })
         if (posts.length >= 40) break
       }

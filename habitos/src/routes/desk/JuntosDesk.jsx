@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { useStore } from '../../data/mockStore.jsx'
 import { stageOfLevel } from '../../data/rockie.js'
@@ -6,6 +6,7 @@ import Rockie from '../../components/Rockie.jsx'
 import Flame from '../../components/Flame.jsx'
 import MetaIcon from '../../components/MetaIcon.jsx'
 import UserAvatar from '../../components/UserAvatar.jsx'
+import { abrirVoz } from '../../components/RockieVozHost.jsx'
 import { compartirGrupoInvite, copiarGrupoInvite } from '../../components/GrupoInviteActions.jsx'
 import './JuntosDesk.css'
 
@@ -79,25 +80,26 @@ function RingAvatar({ avatar, background, size = 56, pct = 0, color, children })
 
 /** Cuantas personas caben en UNA fila (el resto vive en "Ver todos"). */
 const PASO_PERSONA = 100 // .jn-person (88px) + hueco (--space-3)
-function useCabenEnFila(el) {
+const PASO_PERSONA_MOVIL = 60 // en el celular: .jn-m .jn-person (58px) + hueco minimo
+function useCabenEnFila(el, paso = PASO_PERSONA) {
   const [n, setN] = useState(10)
   useEffect(() => {
     if (!el || typeof ResizeObserver === 'undefined') return
-    const medir = () => setN(Math.max(3, Math.floor((el.clientWidth + 12) / PASO_PERSONA)))
+    const medir = () => setN(Math.max(3, Math.floor((el.clientWidth + 8) / paso)))
     medir()
     const ro = new ResizeObserver(medir)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [el])
+  }, [el, paso])
   return n
 }
 
 // ─── Hoy, juntos ─────────────────────────────────────────────────────────────
-function Hero({ gente, flash, openProfile, onVerTodos, onAgregarAmigo, onCodigo }) {
+function Hero({ gente, flash, openProfile, onVerTodos, onAgregarAmigo, onCodigo, mobile = false }) {
   const { emotion, equipped, rockieColor, level } = useStore()
   const [animados, setAnimados] = useState(() => new Set())
   const [filaEl, setFilaEl] = useState(null)
-  const caben = useCabenEnFila(filaEl)
+  const caben = useCabenEnFila(filaEl, mobile ? PASO_PERSONA_MOVIL : PASO_PERSONA)
   const activos = gente.filter((p) => p.total > 0)
   const listos = activos.filter((p) => p.done >= p.total).length
   const faltan = gente.filter((p) => !p.self && stateOf(p.done, p.total) === 'risk' && !animados.has(p.key))
@@ -116,7 +118,7 @@ function Hero({ gente, flash, openProfile, onVerTodos, onAgregarAmigo, onCodigo 
   if (amigos.length === 0) {
     return (
       <section className="dk-card jn-hero jn-hero--empty">
-        <Rockie emotion={emotion ?? { eyes: 1, mouth: 6 }} size={112} float moods={false} equipped={equipped} color={rockieColor} stage={stageOfLevel(level ?? 1)} />
+        <Rockie emotion={emotion ?? { eyes: 1, mouth: 6 }} size={mobile ? 88 : 112} float moods={false} equipped={equipped} color={rockieColor} stage={stageOfLevel(level ?? 1)} />
         <div className="jn-hero-copy">
           <h2 className="s">Todo cuesta menos en compañía</h2>
           <p className="q">Suma a tus amigos: aquí verás quién ya cumplió hoy y podrás animar a quien le falta, con un clic.</p>
@@ -136,6 +138,7 @@ function Hero({ gente, flash, openProfile, onVerTodos, onAgregarAmigo, onCodigo 
   // Una sola fila: la ultima casilla es "Ver todos"
   const visibles = gente.slice(0, Math.max(1, caben - 1))
   const extra = gente.length - visibles.length
+  const avatar = mobile ? 44 : 56
 
   return (
     <section className="dk-card jn-hero">
@@ -150,16 +153,18 @@ function Hero({ gente, flash, openProfile, onVerTodos, onAgregarAmigo, onCodigo 
                 : `${listos} de ${activos.length} ya ${listos === 1 ? 'cumplió' : 'cumplieron'} hoy`}
           </p>
         </div>
-        <div className="jn-hero-actions">
-          {faltan.length > 0 && (
-            <button type="button" className="gbtn dk-btn" style={{ '--bg': 'var(--coral)', '--edge': 'var(--coral-edge)' }} onClick={() => animar(faltan)}>
-              <i className="ti ti-heart-handshake" /> Animar a los que faltan ({faltan.length})
+        {!mobile && (
+          <div className="jn-hero-actions">
+            {faltan.length > 0 && (
+              <button type="button" className="gbtn dk-btn" style={{ '--bg': 'var(--coral)', '--edge': 'var(--coral-edge)' }} onClick={() => animar(faltan)}>
+                <i className="ti ti-heart-handshake" /> Animar a los que faltan ({faltan.length})
+              </button>
+            )}
+            <button type="button" className="gbtn dk-btn dk-btn--ghost" onClick={onAgregarAmigo}>
+              <i className="ti ti-user-plus" /> Agregar amigo
             </button>
-          )}
-          <button type="button" className="gbtn dk-btn dk-btn--ghost" onClick={onAgregarAmigo}>
-            <i className="ti ti-user-plus" /> Agregar amigo
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* El día del equipo: un tramo por persona, lleno según lo que ya cumplió */}
@@ -183,7 +188,7 @@ function Hero({ gente, flash, openProfile, onVerTodos, onAgregarAmigo, onCodigo 
         </div>
       )}
 
-      <div className="jn-people" ref={setFilaEl}>
+      <div className="jn-people" ref={setFilaEl} style={mobile ? { '--cols': caben } : undefined}>
         {visibles.map((p, i) => {
           const st = stateOf(p.done, p.total)
           const color = COLOR[st]
@@ -197,7 +202,7 @@ function Hero({ gente, flash, openProfile, onVerTodos, onAgregarAmigo, onCodigo 
               transition={{ delay: i * 0.04 }}
             >
               <button type="button" className="jn-person-av" onClick={() => openProfile(p.src)} aria-label={`${p.name}: ${p.total ? `${p.done} de ${p.total} hoy` : 'sin hábitos hoy'}`}>
-                <RingAvatar avatar={p.avatar} background={p.color} size={56} pct={p.total ? p.done / p.total : 0} color={color}>
+                <RingAvatar avatar={p.avatar} background={p.color} size={avatar} pct={p.total ? p.done / p.total : 0} color={color}>
                   {st !== 'idle' && (
                     <span className="jn-badge q" style={{ background: color }}>
                       {st === 'done' ? '✓' : st === 'risk' ? '!' : p.done}
@@ -209,7 +214,7 @@ function Hero({ gente, flash, openProfile, onVerTodos, onAgregarAmigo, onCodigo 
               <small className="q" style={{ color: st === 'idle' ? 'var(--ink-muted)' : color }}>
                 {p.total ? `${p.done}/${p.total}` : 'sin hábitos hoy'}
               </small>
-              {st === 'risk' && !p.self && (
+              {st === 'risk' && !p.self && !mobile && (
                 <button type="button" className={`q jn-nudge${sent ? ' sent' : ''}`} disabled={sent} onClick={() => animar([p])}>
                   {sent ? '✓ Enviado' : 'Animar'}
                 </button>
@@ -222,13 +227,51 @@ function Hero({ gente, flash, openProfile, onVerTodos, onAgregarAmigo, onCodigo 
           <b className="q">Ver todos</b>
         </button>
       </div>
+
+      {/* Celular: la acción a todo lo ancho y, debajo, cómo pedírselo a Rockie */}
+      {mobile && faltan.length > 0 && (
+        <div className="jn-m-cta">
+          <button type="button" className="gbtn dk-btn" style={{ '--bg': 'var(--coral)', '--edge': 'var(--coral-edge)' }} onClick={() => animar(faltan)}>
+            <i className="ti ti-heart-handshake" /> Animar a los que faltan ({faltan.length})
+          </button>
+          <button type="button" className="q jn-m-voz" onClick={() => abrirVoz()}>
+            <i className="ti ti-microphone" aria-hidden="true" /> o dile a Rockie «anima a {faltan[0].name}»
+          </button>
+        </div>
+      )}
     </section>
   )
 }
 
+/** Mantener apretado (celular): editar el grupo sin sumar otro botón. */
+function useMantener(fn, ms = 480) {
+  const t = useRef(null)
+  const fue = useRef(false)
+  const soltar = () => clearTimeout(t.current)
+  useEffect(() => soltar, [])
+  return {
+    handlers: {
+      onPointerDown: () => {
+        fue.current = false
+        soltar()
+        t.current = setTimeout(() => {
+          fue.current = true
+          fn()
+        }, ms)
+      },
+      onPointerUp: soltar,
+      onPointerLeave: soltar,
+      onPointerCancel: soltar,
+      onContextMenu: (e) => e.preventDefault(),
+    },
+    fue: () => fue.current,
+  }
+}
+
 // ─── Un grupo, abierto ───────────────────────────────────────────────────────
-function GroupPanel({ g, retos, openProfile, onChat, onEdit, onCrearReto, renderReto, flash, index }) {
+function GroupPanel({ g, retos, openProfile, onChat, onEdit, onCrearReto, renderReto, flash, index, mobile = false, open = true, onToggle }) {
   const { metaDeHabito } = useStore()
+  const mantener = useMantener(() => onEdit(g))
   const color = g.color || 'var(--olive)'
   const edge = g.colorEdge || 'var(--olive-edge)'
   const mems = g.members || []
@@ -246,66 +289,39 @@ function GroupPanel({ g, retos, openProfile, onChat, onEdit, onCrearReto, render
     flash(`💪 ¡Ánimo enviado a ${listaNombres(enRiesgo)}!`)
   }
 
-  return (
-    <motion.article
-      className={`jn-group${g.urgent ? ' urgent' : ''}`}
-      style={{ '--gc': color, '--ge': edge }}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.05 + index * 0.06, ease: EASE, duration: 0.4 }}
-    >
-      <header className="jn-group-head">
-        <span className="jn-group-ic s" aria-hidden="true">
-          {g.anchor?.icon || inicial}
-        </span>
-        <div className="jn-group-title">
-          <h3 className="s">{g.name}</h3>
-          <div className="q jn-group-meta">
-            <span className={streak > 0 ? 'hot' : ''}>
-              <Flame size={13} lit={streak > 0} /> {streak} {streak === 1 ? 'día' : 'días'}
-            </span>
-            <span>
-              · {mems.length} {mems.length === 1 ? 'miembro' : 'miembros'}
-            </span>
+  const identidad = (
+    <>
+      <span className="jn-group-ic s" aria-hidden="true">
+        {g.anchor?.icon || inicial}
+      </span>
+      <div className="jn-group-title">
+        <h3 className="s">{g.name}</h3>
+        <div className="q jn-group-meta">
+          <span className={streak > 0 ? 'hot' : ''}>
+            <Flame size={13} lit={streak > 0} /> {streak} {streak === 1 ? 'día' : 'días'}
+          </span>
+          <span>
+            · {mems.length} {mems.length === 1 ? 'miembro' : 'miembros'}
+          </span>
+          {!mobile && (
             <span>
               · {retos.length} {retos.length === 1 ? 'reto' : 'retos'}
             </span>
-            {g.inviteCode && (
-              <button type="button" className="jn-code" onClick={() => copiarGrupoInvite({ name: g.name, code: g.inviteCode, flash })} title="Copiar invitación con el código">
-                {g.inviteCode} <i className="ti ti-copy" aria-hidden="true" />
-              </button>
-            )}
-          </div>
+          )}
+          {/* Celular: la próxima sesión va en esta línea (no roba ancho al nombre) */}
+          {mobile && conEstado.length === 0 && g.scheduleTag && <span>· {g.scheduleTag}</span>}
+          {!mobile && g.inviteCode && (
+            <button type="button" className="jn-code" onClick={() => copiarGrupoInvite({ name: g.name, code: g.inviteCode, flash })} title="Copiar invitación con el código">
+              {g.inviteCode} <i className="ti ti-copy" aria-hidden="true" />
+            </button>
+          )}
         </div>
-        {conEstado.length > 0 ? (
-          <div className="jn-group-today" title={`${listos} de ${conEstado.length} cumplieron hoy`}>
-            <Ring box={44} stroke={5} pct={pct} color="var(--olive)">
-              <span className="q jn-group-frac">
-                {listos}/{conEstado.length}
-              </span>
-            </Ring>
-            <small className="q">hoy</small>
-          </div>
-        ) : (
-          g.scheduleTag && (
-            <span className="q jn-group-tag">
-              <i className="ti ti-calendar-event" aria-hidden="true" /> {g.scheduleTag}
-            </span>
-          )
-        )}
-        {g.inviteCode && (
-          <button type="button" className="jn-icbtn invite" onClick={() => compartirGrupoInvite({ name: g.name, code: g.inviteCode, flash })} aria-label={`Invitar a ${g.name}`} title="Invitar a este grupo">
-            <i className="ti ti-user-plus" />
-          </button>
-        )}
-        <button type="button" className="jn-icbtn chat" onClick={() => onChat(g)} aria-label={`Chat de ${g.name}`} title="Chat del grupo">
-          <i className="ti ti-message-circle" />
-        </button>
-        <button type="button" className="jn-icbtn" onClick={() => onEdit(g)} aria-label={`Editar ${g.name}`} title="Editar grupo">
-          <i className="ti ti-pencil" />
-        </button>
-      </header>
+      </div>
+    </>
+  )
 
+  const cuerpo = (
+    <>
       {g.anchor && (
         <div className="q jn-anchor">
           <span aria-hidden="true">{g.anchor.icon}</span>
@@ -327,7 +343,7 @@ function GroupPanel({ g, retos, openProfile, onChat, onEdit, onCrearReto, render
             const nm = m.self ? 'Tú' : m.name
             return (
               <button key={m.user_id || m.name} type="button" className={`jn-member ${st}`} onClick={() => openProfile(m)} aria-label={`${nm}${m.frac ? `: ${m.frac} hoy` : ''}`}>
-                <RingAvatar avatar={m.avatar} background={m.color} size={36} pct={p} color={COLOR[st] || 'var(--ink-faint)'} />
+                <RingAvatar avatar={m.avatar} background={m.color} size={mobile ? 32 : 36} pct={p} color={COLOR[st] || 'var(--ink-faint)'} />
                 <span className="q jn-member-name">{nm}</span>
                 {m.frac && (
                   <small className="q" style={{ color: COLOR[st] || 'var(--ink-muted)' }}>
@@ -362,10 +378,101 @@ function GroupPanel({ g, retos, openProfile, onChat, onEdit, onCrearReto, render
         {retos.map((r) => (
           <div key={r.id}>{renderReto(r, true)}</div>
         ))}
-        <button type="button" className="gbtn dk-btn dk-btn--ghost jn-newreto" onClick={() => onCrearReto(g)}>
-          <i className="ti ti-bolt" aria-hidden="true" /> {retos.length ? 'Otro reto en este grupo' : 'Lanzar un reto en este grupo'}
-        </button>
+        <div className="jn-retos-tools">
+          <button type="button" className="gbtn dk-btn dk-btn--ghost jn-newreto" onClick={() => onCrearReto(g)}>
+            <i className="ti ti-bolt" aria-hidden="true" /> {retos.length ? 'Otro reto en este grupo' : 'Lanzar un reto en este grupo'}
+          </button>
+          {mobile && (
+            <button type="button" className="jn-icbtn" onClick={() => onEdit(g)} aria-label={`Editar ${g.name}`} title="Editar grupo">
+              <i className="ti ti-pencil" />
+            </button>
+          )}
+        </div>
       </div>
+    </>
+  )
+
+  return (
+    <motion.article
+      className={`jn-group${g.urgent ? ' urgent' : ''}`}
+      style={{ '--gc': color, '--ge': edge }}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.05 + index * 0.06, ease: EASE, duration: 0.4 }}
+    >
+      <header className="jn-group-head">
+        {mobile ? (
+          // Celular: tocar abre o cierra; mantener apretado edita el grupo
+          <button
+            type="button"
+            className="jn-group-toggle"
+            aria-expanded={open}
+            {...mantener.handlers}
+            onClick={() => {
+              if (!mantener.fue()) onToggle?.()
+            }}
+          >
+            {identidad}
+          </button>
+        ) : (
+          identidad
+        )}
+        {conEstado.length > 0 ? (
+          <div className="jn-group-today" title={`${listos} de ${conEstado.length} cumplieron hoy`}>
+            <Ring box={44} stroke={5} pct={pct} color="var(--olive)">
+              <span className="q jn-group-frac">
+                {listos}/{conEstado.length}
+              </span>
+            </Ring>
+            <small className="q">hoy</small>
+          </div>
+        ) : (
+          !mobile && g.scheduleTag && (
+            <span className="q jn-group-tag">
+              <i className="ti ti-calendar-event" aria-hidden="true" /> {g.scheduleTag}
+            </span>
+          )
+        )}
+        {!mobile && g.inviteCode && (
+          <button type="button" className="jn-icbtn invite" onClick={() => compartirGrupoInvite({ name: g.name, code: g.inviteCode, flash })} aria-label={`Invitar a ${g.name}`} title="Invitar a este grupo">
+            <i className="ti ti-user-plus" />
+          </button>
+        )}
+        {(!mobile || open) && (
+          <button type="button" className="jn-icbtn chat" onClick={() => onChat(g)} aria-label={`Chat de ${g.name}`} title="Chat del grupo">
+            <i className="ti ti-message-circle" />
+          </button>
+        )}
+        {mobile && !open && (
+          <button type="button" className="jn-icbtn" onClick={() => onToggle?.()} aria-label={`Abrir ${g.name}`}>
+            <i className="ti ti-chevron-down" />
+          </button>
+        )}
+        {!mobile && (
+          <button type="button" className="jn-icbtn" onClick={() => onEdit(g)} aria-label={`Editar ${g.name}`} title="Editar grupo">
+            <i className="ti ti-pencil" />
+          </button>
+        )}
+      </header>
+
+      {mobile ? (
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div
+              key="cuerpo"
+              className="jn-group-body"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.26, ease: EASE }}
+            >
+              {cuerpo}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        cuerpo
+      )}
     </motion.article>
   )
 }
@@ -447,8 +554,9 @@ function Timeline({ feed, flash, openProfile }) {
   )
 }
 
-export default function JuntosDesk({ flash, openProfile, openChat, onCrearReto, onEditGrupo, onVerTodos, onAgregarAmigo, onCodigo, onDescubrir, renderReto }) {
-  const { me, friends, groups, retos, feed, today } = useStore()
+/** Tu gente (tú primero), los retos de cada grupo y los retos sueltos. */
+function useJuntos() {
+  const { me, friends, groups, retos, today } = useStore()
 
   // Tú primero y después tu gente: quien necesita ánimo, quien va y quien ya cumplió
   const gente = useMemo(() => {
@@ -479,6 +587,129 @@ export default function JuntosDesk({ flash, openProfile, openChat, onCrearReto, 
     const nombres = new Set(groups.map((g) => g.name))
     return retos.active.filter((r) => !r.group || !nombres.has(r.group))
   }, [groups, retos])
+
+  return { gente, retosPorGrupo, sueltos }
+}
+
+/**
+ * Juntos en el celular (lienzo «B+ móvil»): la misma información que en PC, en
+ * una columna. `view` = 'hoy' (tu gente + tus grupos, uno abierto a la vez),
+ * 'metas' (los retos que tienes con otros) o 'feed' (lo que pasa).
+ */
+export function JuntosMovil({ view, flash, openProfile, openChat, onCrearReto, onEditGrupo, onVerTodos, onAgregarAmigo, onCodigo, onDescubrir, onCrearGrupo, renderReto }) {
+  const { groups, retos, feed } = useStore()
+  const { gente, retosPorGrupo } = useJuntos()
+  // Abierto por defecto: el primer grupo (undefined = aún no eligió; null = todos cerrados)
+  const [abierto, setAbierto] = useState(undefined)
+  const abiertoId = abierto === undefined ? groups[0]?.id : abierto
+
+  if (view === 'feed') {
+    return (
+      <MotionConfig reducedMotion="user">
+        <div className="jn jn-m">
+          <section className="dk-card jn-feed">
+            <div className="dk-sechead">
+              <span className="q dk-label">Lo que pasa</span>
+              <span className="jd-live q">
+                <span /> En vivo
+              </span>
+            </div>
+            <Timeline feed={feed} flash={flash} openProfile={openProfile} />
+          </section>
+        </div>
+      </MotionConfig>
+    )
+  }
+
+  if (view === 'metas') {
+    return (
+      <MotionConfig reducedMotion="user">
+        <div className="jn jn-m">
+          <section className="jn-groups">
+            <div className="jn-m-intro">
+              <b className="s">Metas en compañía</b>
+              <p className="q">Retos con fecha de fin: si todos cumplen, todos ganan.</p>
+            </div>
+            {retos.active.length === 0 ? (
+              <div className="dk-card jn-groups-empty">
+                <span className="jn-group-ic s" style={{ '--gc': 'var(--amber)', '--ge': 'var(--amber-edge)' }} aria-hidden="true">
+                  <i className="ti ti-bolt" />
+                </span>
+                <div>
+                  <b className="s">Aún no tienes retos</b>
+                  <p className="q">Lanza uno con tu gente: el mismo hábito para todos o cada quien el suyo.</p>
+                </div>
+              </div>
+            ) : (
+              retos.active.map((r) => <div key={r.id}>{renderReto(r, false)}</div>)
+            )}
+            <button type="button" className="gbtn dk-btn jn-m-full" style={{ '--bg': 'var(--amber)', '--edge': 'var(--amber-edge)' }} onClick={() => onCrearReto(null)}>
+              <i className="ti ti-bolt" /> Crear reto
+            </button>
+          </section>
+        </div>
+      </MotionConfig>
+    )
+  }
+
+  return (
+    <MotionConfig reducedMotion="user">
+      <div className="jn jn-m">
+        <Hero mobile gente={gente} flash={flash} openProfile={openProfile} onVerTodos={onVerTodos} onAgregarAmigo={onAgregarAmigo} onCodigo={onCodigo} />
+
+        <section className="jn-groups">
+          <div className="dk-sechead">
+            <span className="q dk-label">Tus grupos</span>
+            <button type="button" className="dk-link" onClick={onDescubrir}>
+              Descubrir
+            </button>
+          </div>
+          {groups.length === 0 ? (
+            <div className="dk-card jn-groups-empty">
+              <span className="jn-group-ic s" style={{ '--gc': 'var(--olive)', '--ge': 'var(--olive-edge)' }} aria-hidden="true">
+                +
+              </span>
+              <div>
+                <b className="s">Aún no tienes grupos</b>
+                <p className="q">Crea uno con tu gente o únete al de un amigo con su código.</p>
+              </div>
+            </div>
+          ) : (
+            groups.map((g, i) => (
+              <GroupPanel
+                key={g.id}
+                g={g}
+                index={i}
+                mobile
+                open={abiertoId === g.id}
+                onToggle={() => setAbierto(abiertoId === g.id ? null : g.id)}
+                retos={retosPorGrupo.get(g.name) || []}
+                openProfile={openProfile}
+                onChat={openChat}
+                onEdit={onEditGrupo}
+                onCrearReto={onCrearReto}
+                renderReto={renderReto}
+                flash={flash}
+              />
+            ))
+          )}
+          <div className="jn-m-duo">
+            <button type="button" className="gbtn dk-btn dk-btn--ghost" onClick={onCrearGrupo}>
+              <i className="ti ti-users-plus" /> Crear grupo
+            </button>
+            <button type="button" className="gbtn dk-btn dk-btn--ghost" onClick={onCodigo}>
+              <i className="ti ti-key" /> Unirme con código
+            </button>
+          </div>
+        </section>
+      </div>
+    </MotionConfig>
+  )
+}
+
+export default function JuntosDesk({ flash, openProfile, openChat, onCrearReto, onEditGrupo, onVerTodos, onAgregarAmigo, onCodigo, onDescubrir, renderReto }) {
+  const { groups, feed } = useStore()
+  const { gente, retosPorGrupo, sueltos } = useJuntos()
 
   return (
     <MotionConfig reducedMotion="user">

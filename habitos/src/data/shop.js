@@ -25,7 +25,7 @@ export const SHOP_ITEMS = [
     desc: 'Calida y terrosa' },
   { id: 'stone-tierra', type: 'stone', colorId: 'tierra', name: 'Tierra', price: 150,
     desc: 'Marron de raiz' },
-  { id: 'stone-carbon', type: 'stone', colorId: 'carbon', name: 'Carbon', price: 200,
+  { id: 'stone-carbon', type: 'stone', colorId: 'carbon', name: 'Carbón', price: 200,
     desc: 'Gris profundo' },
   { id: 'stone-obsidiana', type: 'stone', colorId: 'obsidiana', name: 'Obsidiana', price: 250,
     desc: 'Noche volcanica', req: { level: 10 } },
@@ -33,7 +33,7 @@ export const SHOP_ITEMS = [
   // ---- Accesorios ----
   { id: 'sombrero', type: 'acc', slot: 'cabeza', name: 'Sombrero', price: 80,
     desc: 'Un clasico con cinta roja', thumb: { cx: 54, cy: 19, z: 2.1 } },
-  { id: 'baston', type: 'acc', slot: 'mano', name: 'Baston', price: 60,
+  { id: 'baston', type: 'acc', slot: 'mano', name: 'Bastón', price: 60,
     desc: 'Elegancia de caballero', thumb: { cx: 21, cy: 52, z: 2.3 } },
   { id: 'lentes', type: 'acc', slot: 'cara', name: 'Lentes', price: 60,
     desc: 'Para leer mas paginas', thumb: { cx: 48, cy: 39, z: 2.0 } },
@@ -59,9 +59,9 @@ export const SHOP_ITEMS = [
     desc: 'Para los buhos', bg: 'linear-gradient(180deg, #dcd8ea 0%, #e6e2ef 55%, transparent 100%)' },
   { id: 'bg-amatista', type: 'bg', name: 'Santuario Amatista', price: 80, req: { level: 5 },
     desc: 'Cristales violetas de foco', bg: 'linear-gradient(180deg, #ecdcf7 0%, #dfc8f2 55%, transparent 100%)' },
-  { id: 'bg-zen', type: 'bg', name: 'Jardin Cuarzo', price: 80,
+  { id: 'bg-zen', type: 'bg', name: 'Jardín Cuarzo', price: 80,
     desc: 'Calma mineral y armonia', bg: 'linear-gradient(180deg, #faebd7 0%, #f3dfc8 55%, transparent 100%)' },
-  { id: 'bg-volcan', type: 'bg', name: 'Veta Volcanica', price: 120, req: { level: 12 },
+  { id: 'bg-volcan', type: 'bg', name: 'Veta Volcánica', price: 120, req: { level: 12 },
     desc: 'Energia ignea y constancia', bg: 'linear-gradient(180deg, #ebdcd6 0%, #dfc4bc 55%, transparent 100%)' },
 
   // ---- Comida (consumible) ----

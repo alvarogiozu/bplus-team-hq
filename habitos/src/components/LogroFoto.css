@@ -1,0 +1,94 @@
+/* ==== Logro (LogroFoto.jsx, lienzo «B+ móvil»): festejo a pantalla completa ==== */
+.lg-root {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow-y: auto;
+  padding: calc(var(--space-8) + env(safe-area-inset-top, 0px)) var(--screen-x) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  background: var(--paper);
+}
+.lg-stage {
+  position: relative;
+  width: 230px;
+  height: 230px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lg-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--amber) 20%, var(--card));
+}
+.lg-burst { position: absolute; left: 50%; top: 50%; }
+.lg-copy {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.lg-kick {
+  margin-top: var(--space-4);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--olive-edge);
+}
+.lg-xp {
+  margin-top: var(--space-1);
+  font-size: 54px; /* cifra de marca del festejo (como el logo del splash) */
+  line-height: 1.05;
+  color: var(--olive-edge);
+}
+:root[data-theme='dark'] .lg-kick,
+:root[data-theme='dark'] .lg-xp { color: var(--olive); }
+.lg-sub {
+  margin: 6px 0 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.lg-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.lg-pills .gpill { min-height: 36px; font-size: var(--text-sm); color: var(--ink); }
+.lg-grupo {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 20px;
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  box-shadow: 0 4px 0 var(--card-edge);
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.lg-caras { display: flex; flex-shrink: 0; }
+.lg-grupo-t { flex: 1; min-width: 0; font-size: var(--text-sm); font-weight: 600; line-height: 1.35; }
+.lg-grupo > i { color: var(--ink-muted); font-size: var(--text-lg); }
+.lg-acts {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-6);
+}
+.lg-seguir { width: 100%; min-height: 52px; border-radius: 18px; font-size: var(--text-base); }
+.lg-contar { width: 100%; border-radius: 18px; }

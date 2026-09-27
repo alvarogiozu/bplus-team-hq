@@ -12,18 +12,19 @@ import { ROCKIE_TONES } from '../data/rockie.js'
 import { areaOf } from '../data/areas.js'
 import { fechaHoy, fechaDeOffset, hoyISO } from '../data/fechas.js'
 import { habitosDelDia, modesDelDia } from '../data/habitHistory.js'
-import ScreenHeader from '../components/ScreenHeader.jsx'
+import { HoyMovilAcciones, HoyMovilAvance, HoyMovilTop } from './HoyMovil.jsx'
 import useDesktop from '../lib/useDesktop.js'
 import HoyDesk from './desk/HoyDesk.jsx'
 import MetaIcon from '../components/MetaIcon.jsx'
-import ProgressBar from '../components/ProgressBar.jsx'
 import StreakToast from '../components/StreakToast.jsx'
 import Flame from '../components/Flame.jsx'
+import HudPill from '../components/HudPill.jsx'
 import SparkleBurst from '../components/SparkleBurst.jsx'
 import HabitEditSheet from '../components/HabitEditSheet.jsx'
 import CreateHabitSheet from '../components/CreateHabitSheet.jsx'
 import CrearMetaFlow from '../components/CrearMetaFlow.jsx'
 import CameraCaptureSheet from '../components/CameraCaptureSheet.jsx'
+import LogroFoto from '../components/LogroFoto.jsx'
 import Confetti from '../components/Confetti.jsx'
 import { playSfx } from '../lib/sfx.js'
 import '../components/HabitEditSheet.css'
@@ -312,36 +313,6 @@ function FanCard({ index, pos, entrance, className, children, onSelect }) {
   )
 }
 
-function HudPill({ emoji, value, color = 'var(--ink)', pulseKey, suffix }) {
-  const scale = useMotionValue(1)
-  const prevVal = useRef(value)
-  useEffect(() => {
-    const changed = prevVal.current !== value
-    prevVal.current = value
-    const c = changed
-      ? animate(scale, [1, 1.28, 1], { duration: 0.5, times: [0, 0.3, 1], ease: 'easeOut' })
-      : animate(scale, [1, 1.1, 1], { duration: 0.32, ease: 'easeOut' })
-    return () => c.stop()
-  }, [value, pulseKey, scale])
-  return (
-    <motion.span className="q gpill" style={{ scale, fontSize: 'var(--text-s)', color }}>
-      {emoji && <span>{emoji}</span>}
-      <span style={{ display: 'inline-flex', overflow: 'hidden' }}>
-        <motion.span
-          key={value}
-          initial={{ y: 12, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
-          style={{ display: 'inline-block' }}
-        >
-          {value}
-        </motion.span>
-      </span>
-      {suffix && <span>{suffix}</span>}
-    </motion.span>
-  )
-}
-
 function Dot({ index, pos, onSelect }) {
   const width = useTransform(pos, p => 6 + Math.max(0, 1 - Math.abs(index - p)) * 16)
   const background = useTransform(pos, p => (
@@ -518,6 +489,7 @@ export default function Hoy() {
   const [metaFlow, setMetaFlow] = useState(null)
   const [cameraHabitId, setCameraHabitId] = useState(null)
   const [submittingPhoto, setSubmittingPhoto] = useState(false)
+  const [logro, setLogro] = useState(null) // hábito recién validado con foto (pantalla Logro)
   const [fiestaHoy, setFiestaHoy] = useState(false)
 
   // Motion values
@@ -576,6 +548,22 @@ export default function Hoy() {
     next.delete('focus')
     setSearchParams(next, { replace: true })
   }, [focusId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ?foto=<id> (desde la voz de Rockie): esa carta al centro y la cámara abierta
+  const fotoId = searchParams.get('foto')
+  useEffect(() => {
+    if (!fotoId || !hoyItems.length) return // en live espera a que carguen las cartas
+    const idx = hoyItems.findIndex(h => h.id === fotoId)
+    if (idx >= 0) {
+      setActive(idx)
+      startRef.current = idx
+      pos.set(idx)
+      if (hoyItems[idx].status === 'scheduled') openCamera(fotoId)
+    }
+    const next = new URLSearchParams(searchParams)
+    next.delete('foto')
+    setSearchParams(next, { replace: true })
+  }, [fotoId, hoyItems.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!lastCoinGain) return
@@ -801,10 +789,13 @@ export default function Hoy() {
   const sendPhoto = async (id, file) => {
     if (!file || !id || submittingPhoto) return
     setSubmittingPhoto(true)
+    const habito = today.find(h => h.id === id) || null
     try {
       const result = await submitPhotoProof(id, file)
-      if (result?.ok) sealFx('photo')
-      else playSfx('softFail')
+      if (result?.ok) {
+        sealFx('photo')
+        setLogro(habito) // Logro: el festejo a pantalla completa (LogroFoto)
+      } else playSfx('softFail')
     } finally {
       setSubmittingPhoto(false)
     }
@@ -911,6 +902,7 @@ export default function Hoy() {
           habitName={cameraHabit?.name}
           instruction={cameraHabit?.photo}
         />
+        <LogroFoto habit={logro} onClose={() => setLogro(null)} />
         <HoyDesk
           saludo={saludo}
           fecha={fechaHoy()}
@@ -944,9 +936,9 @@ export default function Hoy() {
   }
 
   return (
-    <div className="hoy-screen">
+    <div className="hoy-screen hm">
       {fiestaHoy && <Confetti onDone={() => setFiestaHoy(false)} />}
-      <StreakToast streak={streak} triggerKey={lastToast} milestone={MILESTONES.includes(streak)} />
+      <StreakToast streak={streak} triggerKey={lastToast} milestone={MILESTONES.includes(streak)} position="top" />
 
       <CameraCaptureSheet
         open={!!cameraHabitId}
@@ -955,86 +947,26 @@ export default function Hoy() {
         habitName={cameraHabit?.name}
         instruction={cameraHabit?.photo}
       />
+      <LogroFoto habit={logro} onClose={() => setLogro(null)} />
 
-      {/* Header superior centrado, exactamente como en la imagen */}
-      <motion.div initial={false}>
-        <ScreenHeader date={fechaHoy()} title={saludo} center>
-          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <HudPill emoji={<Flame size={13} lit={streak > 0} />} value={streak} color="var(--coral)" pulseKey={doneCount} />
-            <HudPill emoji="🪙" value={coins} color="var(--amber)" />
-          </div>
-        </ScreenHeader>
-      </motion.div>
+      {/* Lienzo «B+ móvil»: selector de apps + pills, saludo, semana y avance (HoyMovil.jsx) */}
+      <HoyMovilTop
+        fecha={fechaHoy()}
+        saludo={saludo}
+        pills={<>
+          <HudPill emoji={<Flame size={13} lit={streak > 0} />} value={streak} color="var(--coral)" pulseKey={doneCount} />
+          <HudPill emoji="🪙" value={coins} color="var(--amber)" />
+        </>}
+        week={weekStrip}
+        dayOffset={hoyView === 'cal' ? calDayOffset : 0}
+        onPickDay={(off) => {
+          setCalDayOffset(off)
+          setHoyView(off === 0 ? 'cartas' : 'cal')
+        }}
+        onCreate={() => setCreating(true)}
+      />
+      <HoyMovilAvance label={accionesLabel} done={completadosCount} total={totalAcciones} pct={pctAcciones} view={hoyView} onView={setHoyView} />
 
-      {/* Barra de progreso, conteo, selector de vistas */}
-      <motion.div
-        className="hoy-toolbar"
-        initial={false}
-        style={{ padding: 'var(--space-5) var(--screen-x) var(--space-3)' }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-          <span className="q" style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-muted)', fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase' }}>{accionesLabel}</span>
-          <HudPill value={completadosCount} suffix={`de ${totalAcciones}`} color="var(--ink)" />
-        </div>
-        <ProgressBar value={pctAcciones} />
-
-        {/* Switcher de vistas: Cartas · Lista · Calendario */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
-          <div style={{
-            display: 'flex', gap: 3, padding: 3, background: 'var(--card)', borderRadius: 14,
-            border: '2px solid var(--card-line)', boxShadow: '0 2px 0 var(--card-edge)'
-          }}>
-            <button
-              type="button"
-              className="q"
-              onClick={() => setHoyView('cartas')}
-              style={{
-                width: 38, height: 32, borderRadius: 10, border: 'none', cursor: 'pointer',
-                background: hoyView === 'cartas' ? 'var(--coral)' : 'transparent',
-                color: hoyView === 'cartas' ? '#fff' : 'var(--ink-muted)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                boxShadow: hoyView === 'cartas' ? '0 2px 0 var(--coral-edge)' : 'none',
-                transition: 'all 0.18s ease'
-              }}
-              title="Vista de Cartas"
-            >
-              <i className="ti ti-cards" />
-            </button>
-            <button
-              type="button"
-              className="q"
-              onClick={() => setHoyView('lista')}
-              style={{
-                width: 38, height: 32, borderRadius: 10, border: 'none', cursor: 'pointer',
-                background: hoyView === 'lista' ? 'var(--coral)' : 'transparent',
-                color: hoyView === 'lista' ? '#fff' : 'var(--ink-muted)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                boxShadow: hoyView === 'lista' ? '0 2px 0 var(--coral-edge)' : 'none',
-                transition: 'all 0.18s ease'
-              }}
-              title="Vista de Lista"
-            >
-              <i className="ti ti-list" />
-            </button>
-            <button
-              type="button"
-              className="q"
-              onClick={() => setHoyView('cal')}
-              style={{
-                width: 38, height: 32, borderRadius: 10, border: 'none', cursor: 'pointer',
-                background: hoyView === 'cal' ? 'var(--coral)' : 'transparent',
-                color: hoyView === 'cal' ? '#fff' : 'var(--ink-muted)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                boxShadow: hoyView === 'cal' ? '0 2px 0 var(--coral-edge)' : 'none',
-                transition: 'all 0.18s ease'
-              }}
-              title="Vista de Calendario"
-            >
-              <i className="ti ti-calendar" />
-            </button>
-          </div>
-        </div>
-      </motion.div>
 
       {/* VISTA 1: CARTAS (ABANICO 2.5D) */}
       {hoyView === 'cartas' && (
@@ -1227,19 +1159,27 @@ export default function Hoy() {
           </motion.div>
 
           {hoyItems.length > 0 && (
+            <HoyMovilAcciones
+              item={activeHabit}
+              onSeal={doSeal}
+              onNext={() => {
+                const next = hoyItems.findIndex((h, i) => i > safeActive && h.status === 'scheduled')
+                const first = hoyItems.findIndex((h) => h.status === 'scheduled')
+                if (next !== -1) setActive(next)
+                else if (first !== -1) setActive(first)
+              }}
+              aplazosLibres={aplazosUsados < maxAplazos}
+              todoHecho={!hoyItems.some((h) => h.status === 'scheduled')}
+            />
+          )}
+
+          {hoyItems.length > 0 && (
             <div className="hoy-stage-foot">
               <div className="hoy-dots">
                 {hoyItems.map((h, i) => (
                   <Dot key={h.id} index={i} pos={pos} onSelect={() => selectCard(i)} />
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={() => setCreating(true)}
-                className="q hoy-add-habit"
-              >
-                <i className="ti ti-plus" /> Agregar otro hábito
-              </button>
             </div>
           )}
         </div>

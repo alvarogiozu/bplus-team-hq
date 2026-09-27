@@ -332,7 +332,151 @@
 }
 .os-connect .ico { color: #4a7c3f; flex-shrink: 0; }
 
+/* ---------- Celular (lienzo «B+ móvil»: Tus apps) ---------- */
+.os-home--m {
+  gap: var(--s4);
+  padding: calc(var(--s4) + env(safe-area-inset-top)) var(--screen-x) calc(120px + env(safe-area-inset-bottom));
+}
+.os-cuenta { position: relative; flex-shrink: 0; }
+.os-avatar {
+  width: var(--tap);
+  height: var(--tap);
+  border: none;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 2px 0 var(--amber-edge);
+  color: var(--on-color);
+  font: 700 var(--t-md) var(--serif);
+  cursor: pointer;
+}
+.os-avatar:active { transform: translateY(2px); box-shadow: none; }
+.os-cuenta-menu {
+  position: absolute;
+  top: calc(100% + var(--s2));
+  right: 0;
+  z-index: 30;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s2);
+  border-radius: var(--r-xl);
+  background: var(--card);
+  border: 1.5px solid var(--card-line);
+  box-shadow: 0 4px 0 var(--card-edge), var(--shadow-lift);
+  animation: os-pop 0.18s var(--glide);
+}
+.os-cuenta-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--tap);
+  padding: 0 var(--s3);
+  border: none;
+  border-radius: var(--r-lg);
+  background: none;
+  color: var(--ink);
+  font: 700 var(--t-s) var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+.os-cuenta-menu button:hover { background: var(--card-2); }
+
+.os-hero--m { flex-direction: row; align-items: center; text-align: left; gap: var(--s3); padding: var(--s3) var(--s4); }
+.os-hero--m .os-rockie { animation: os-float 4s ease-in-out infinite; }
+.os-hero--m .os-hero-copy h1 { font-size: var(--t-lg); line-height: 1.25; }
+.os-hero--m .os-hero-copy p { margin-top: 2px; font-size: var(--t-xs); line-height: 1.4; }
+
+.os-home--m .os-app { min-height: 146px; padding: var(--s4) var(--s3) var(--s3); border-radius: 22px; }
+.os-home--m .os-tile.lg { width: 44px; height: 44px; border-radius: 14px; box-shadow: 0 3px 0 var(--app-edge, var(--navbar-blue-edge)); }
+.os-home--m .os-app-name { margin-top: var(--s3); font-size: var(--t-md); }
+.os-home--m .os-app-line { font-size: var(--t-2xs); font-weight: 600; color: var(--ink-soft); }
+.os-home--m .os-card { padding: var(--s3) var(--s4); }
+.os-home--m .os-card h2 { margin-bottom: var(--s1); }
+.os-said-ic {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--app) 16%, var(--card));
+  color: var(--app);
+}
+.os-home--m .os-said-t { flex: 1; }
+.os-said-ok { flex-shrink: 0; color: var(--olive-edge); }
+
+/* Abajo: el Rockie para hablarle (abre su voz en Hábitos) */
+.os-dock {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--s4) + env(safe-area-inset-bottom));
+  z-index: 20;
+  width: min(250px, calc(100vw - 2 * var(--screen-x)));
+  height: 64px;
+  box-sizing: border-box;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  border-radius: 26px;
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  box-shadow: 0 4px 0 var(--card-edge);
+}
+.os-dock-side {
+  justify-self: center;
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+}
+.os-dock-side .ico { width: 24px; height: 24px; }
+.os-dock-side.manos { color: var(--green-edge); }
+.os-dock-mic {
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: -28px;
+  color: var(--accent);
+  font: 700 var(--t-3xs) var(--sans);
+  text-decoration: none;
+}
+.os-dock-btn {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 5px 0 var(--accent-edge);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.os-dock-mic:active .os-dock-btn { transform: translateY(3px); box-shadow: 0 2px 0 var(--accent-edge); }
+.os-dock-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.os-dock-badge .ico { width: 14px; height: 14px; }
+
 @media (prefers-reduced-motion: reduce) {
-  .os-menu, .os-skel, .os-blink, .os-hero-art .os-rockie { animation: none; }
+  .os-menu, .os-skel, .os-blink, .os-hero-art .os-rockie, .os-hero--m .os-rockie, .os-cuenta-menu { animation: none; }
   .os-app { transition: none; }
 }

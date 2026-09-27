@@ -1,32 +1,36 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useStore } from '../data/mockStore.jsx'
 import { mesAnio } from '../data/fechas.js'
 import { getAreasResetEpoch, subscribeAreasReset } from '../data/areas.js'
-import ScreenHeader from '../components/ScreenHeader.jsx'
+import MovilHeader from '../components/MovilHeader.jsx'
 import MetasHabitosSwitch from '../components/MetasHabitosSwitch.jsx'
 import Metas from './Metas.jsx'
 import Habitos from './Habitos.jsx'
 import Areas from './Areas.jsx'
+import VidaMovil from './VidaMovil.jsx'
 import useDesktop from '../lib/useDesktop.js'
 import './Amigos.css'
 import '../components/MetasHabitosSwitch.css'
 import './MetasHouse.css'
 
-// Casa "Vida" = chrome FIJO + 3 vistas: Areas | Metas | Habitos.
-// Entrar por /metas aterriza en Areas (L→R). En modo 'solo metas'
+// Casa "Vida". PC: mapa de Areas (o Metas) a la izquierda y la lista a la
+// derecha. Celular (lienzo «B+ móvil»): UNA pagina (VidaMovil: mapa + metas)
+// en /metas/areas y /metas/lista; subpaginas /metas/habitos (tus habitos) y
+// /metas/rueda (editar tus areas) con «‹ Tu vida» para volver.
+// Entrar por /metas aterriza en Areas. En modo 'solo metas'
 // (prefs.vidaMode='metas') la vista Areas no existe: todo cae en Metas.
 function tabFromPath(pathname, soloMetas) {
   if (pathname.includes('/habitos')) return 'habitos'
+  if (pathname.includes('/rueda')) return soloMetas ? 'metas' : 'rueda'
   if (pathname.includes('/lista') || pathname.endsWith('/metas/metas')) return 'metas'
   if (pathname.includes('/areas')) return soloMetas ? 'metas' : 'areas'
   return soloMetas ? 'metas' : 'areas'
 }
 
-const TITLES = { areas: 'Areas', metas: 'Metas', habitos: 'Mis habitos' }
-
 export default function MetasHouse() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [areasEpoch, setAreasEpoch] = useState(getAreasResetEpoch)
   // Hooks SIEMPRE antes de cualquier return (los redirects de abajo son condicionales)
@@ -43,7 +47,7 @@ export default function MetasHouse() {
   // /metas exacto → Areas (L→R); en modo metas → lista. Si viene ?crear=
   // (deep-link meta), siempre a lista. /metas/areas en modo metas tampoco
   // existe: cae a lista (marcadores viejos, tutorial, etc.).
-  if (pathname === '/metas' || pathname === '/metas/' || (soloMetas && pathname.includes('/areas'))) {
+  if (pathname === '/metas' || pathname === '/metas/' || (soloMetas && (pathname.includes('/areas') || pathname.includes('/rueda')))) {
     const qs = searchParams.toString()
     const dest = (searchParams.get('crear') || soloMetas)
       ? `/metas/lista${qs ? `?${qs}` : ''}`
@@ -114,45 +118,33 @@ export default function MetasHouse() {
     )
   }
 
+  // Celular: Vida es una pagina (mapa + metas); habitos y la rueda son subpaginas
+  if (tab !== 'habitos' && tab !== 'rueda') return <VidaMovil soloMetas={soloMetas} />
+
+  const volver = { label: soloMetas ? 'Tus metas' : 'Tu vida', onClick: () => navigate(soloMetas ? '/metas/lista' : '/metas/areas') }
+  const api = tab === 'habitos' ? habitosApi : areasApi
   return (
     <div className="amg-screen">
-      <ScreenHeader date={mesAnio()} title={TITLES[tab]}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          {tab === 'habitos' && totalCount > 0 && (
-            <span className="q gpill" style={{ fontSize: 'var(--text-s)', color: doneCount >= totalCount ? 'var(--olive)' : 'var(--ink)' }}>
-              {doneCount >= totalCount ? '✨ ' : ''}{doneCount} de {totalCount} hoy
-            </span>
-          )}
+      <MovilHeader
+        back={volver}
+        kicker={tab === 'habitos' && totalCount > 0 ? `${doneCount} de ${totalCount} hoy` : mesAnio()}
+        title={tab === 'habitos' ? 'Tus hábitos' : 'Tus áreas'}
+        action={(
           <button
-            className="amg-iconbtn amg-iconbtn--primary amg-iconbtn--big"
+            type="button"
+            className="amg-iconbtn amg-iconbtn--primary"
             data-coach="crear"
-            onClick={() => apiOf[tab].current?.crear?.()}
-            aria-label={crearLabel[tab]}
+            onClick={() => api.current?.crear?.()}
+            aria-label={tab === 'habitos' ? 'Crear hábito' : 'Crear área'}
           ><i className="ti ti-plus" /></button>
-        </div>
-      </ScreenHeader>
-
-      <MetasHabitosSwitch active={tab} soloMetas={soloMetas} />
-
-      {/* Areas: key=epoch remonta al volver a Vida (AppShell bumpAreasReset).
-          Tambien se desmonta al ir a Metas/Habitos (reset interno). */}
-      {tab === 'areas' && (
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <Areas key={areasEpoch} embedded apiRef={areasApi} />
-        </div>
-      )}
-      {tab === 'metas' && (
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <Metas embedded apiRef={metasApi} />
-        </div>
-      )}
-      {tab === 'habitos' && (
-        <div style={{
-          flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative',
-        }}>
-          <Habitos embedded apiRef={habitosApi} />
-        </div>
-      )}
+        )}
+      />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative', marginTop: 'var(--space-3)' }}>
+        {tab === 'habitos'
+          ? <Habitos embedded apiRef={habitosApi} />
+          // key=epoch: la rueda arranca limpia al volver a Vida (AppShell bumpAreasReset)
+          : <Areas key={areasEpoch} embedded apiRef={areasApi} />}
+      </div>
     </div>
   )
 }

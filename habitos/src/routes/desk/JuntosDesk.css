@@ -660,3 +660,179 @@
   .jn-nudge,
   .jn-icbtn { transition: none; }
 }
+
+/* Reto nuevo + (celular) editar grupo, en una fila */
+.jn-retos-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.jn-retos-tools .jn-newreto { flex: 1; min-width: 0; }
+
+/* ==== Celular (lienzo «B+ móvil»): JuntosMovil, montado en Amigos.jsx ====
+   Una columna: "Hoy, juntos" compacto (una fila de gente + animar a todo lo
+   ancho), tus grupos (uno abierto a la vez) y, al final, crear o unirte. */
+.jn-m {
+  gap: var(--space-4);
+  padding: var(--space-1) var(--screen-x) var(--space-8);
+}
+.jn-m .jn-hero {
+  padding: var(--space-4);
+  gap: var(--space-4);
+}
+.jn-m .jn-hero-head p {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+}
+.jn-m .jn-people {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), 58px);
+  justify-content: space-between;
+  gap: 0;
+}
+.jn-m .jn-person { width: 58px; }
+.jn-m .jn-person > b {
+  margin-top: 2px;
+  font-size: var(--text-xs);
+}
+.jn-m .jn-person > small { font-size: var(--text-2xs); }
+.jn-m .jn-more > b { max-width: none; overflow: visible; }
+.jn-m .jn-badge {
+  right: -3px;
+  bottom: -3px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+}
+.jn-m .jn-more-circle {
+  width: 54px;
+  height: 54px;
+  font-size: var(--text-lg);
+}
+.jn-m .jn-more-circle b { font-size: var(--text-md); }
+.jn-m-cta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.jn-m-cta .dk-btn {
+  width: 100%;
+  border-radius: var(--r-lg);
+}
+/* Pista de voz: área táctil de 44px sin separar el texto del botón */
+.jn-m-voz {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap-min);
+  margin: calc(-1 * var(--space-3)) 0;
+  padding: 0 var(--space-2);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--text-s);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+.jn-m-voz i { font-size: var(--text-sm); }
+
+/* Sin amigos: Rockie arriba, texto y botones centrados */
+.jn-m .jn-hero--empty {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+.jn-m .jn-hero-copy h2 { font-size: var(--text-xl); }
+.jn-m .jn-hero-copy p { font-size: var(--text-sm); }
+.jn-m .jn-hero-copy .jn-hero-actions { justify-content: center; }
+
+/* Tus grupos */
+.jn-m .jn-groups { gap: var(--space-3); }
+.jn-m .jn-groups > .dk-sechead {
+  min-height: 0;
+  margin-top: var(--space-1);
+}
+.jn-m .jn-group {
+  gap: 0;
+  padding: var(--space-4);
+}
+.jn-group-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.jn-m .jn-group-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  font-size: var(--text-xl);
+}
+.jn-m .jn-group-title h3 { font-size: var(--text-lg); }
+.jn-m .jn-group-meta {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.jn-m .jn-group-today small { display: none; }
+.jn-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow: hidden;
+  /* que el canto de los botones no se corte al abrir/cerrar */
+  padding-bottom: 4px;
+  margin-bottom: -4px;
+}
+.jn-group-body > :first-child { margin-top: var(--space-3); }
+.jn-m .jn-members {
+  display: grid;
+  grid-template-columns: repeat(5, 56px);
+  justify-content: space-between;
+  gap: var(--space-2) 0;
+}
+.jn-m .jn-member {
+  width: 56px;
+  padding: 2px 0;
+}
+.jn-m .jn-member-name { font-size: var(--text-2xs); }
+.jn-m .jn-alert {
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+.jn-m .jn-alert .dk-btn { padding: 0 var(--space-4); }
+.jn-m-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+.jn-m-duo .dk-btn { padding: 0 var(--space-3); }
+.jn-m-full { width: 100%; }
+
+/* Metas (retos con otros) y Feed */
+.jn-m-intro b {
+  font-size: var(--text-xl);
+  color: var(--ink);
+}
+.jn-m-intro p {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.jn-m .jn-feed { padding: var(--space-4); }

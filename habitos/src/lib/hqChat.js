@@ -19,6 +19,24 @@ function hq() {
   return client
 }
 
+/** Lo último que hablaste con Rockie en cualquier app (más viejo primero). [] si no hay sesión. */
+export async function leerChat(limite = 6) {
+  try {
+    const c = hq()
+    if (!c) return []
+    const { data } = await c.auth.getSession()
+    if (!data.session) return []
+    const { data: filas } = await c
+      .from('rockie_turns')
+      .select('id, app, role, text, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limite)
+    return (filas || []).reverse()
+  } catch {
+    return []
+  }
+}
+
 /** Guarda lo que dijiste y lo que respondió Rockie (app «habitos»). */
 export async function contarleAlChat(turnos) {
   try {

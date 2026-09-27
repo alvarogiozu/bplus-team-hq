@@ -308,3 +308,123 @@
   .pg2-row { grid-template-columns: minmax(0, 1fr); }
   .pg2-hrow { grid-template-columns: minmax(160px, 1fr) minmax(0, 1.6fr) 110px 44px; gap: var(--space-3); }
 }
+
+/* ==== Celular (lienzo «B+ móvil»): ProgresoMovil, montado en Progreso.jsx ====
+   Una columna con las mismas piezas: Rockie + tu frase, el anillo de hoy con
+   cuatro números, el mes, la semana y cada hábito con su tira debajo. */
+.pg2-m {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--screen-x) var(--space-8);
+}
+.pg2-m .pg2-hero,
+.pg2-m .pg2-month,
+.pg2-m .pg2-week,
+.pg2-m .pg2-habits { padding: var(--space-4); }
+.pg2-m .pg2-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.pg2-hero-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.pg2-m .pg2-hero-rockie {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border: none;
+}
+.pg2-m .pg2-hero-copy { gap: var(--space-1); }
+.pg2-m .pg2-hero-title {
+  font-size: var(--text-lg);
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+.pg2-m .pg2-hero-streak {
+  gap: var(--space-1);
+  font-size: var(--text-s);
+  font-weight: 600;
+}
+.pg2-m .pg2-hero-stats {
+  justify-content: flex-start;
+  gap: var(--space-3);
+}
+.pg2-m .pg2-today-n { font-size: var(--text-3xl); }
+.pg2-m .pg2-today-n small { font-size: var(--text-base); }
+.pg2-m .pg2-today-l { font-size: var(--text-3xs); }
+.pg2-m .pg2-minis {
+  flex: 1;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.pg2-m .pg2-mini { padding: var(--space-2); }
+.pg2-m .pg2-mini b {
+  font-size: var(--text-xl);
+  color: var(--mce, var(--mc));
+}
+:root[data-theme='dark'] .pg2-m .pg2-mini b { color: var(--mc); }
+.pg2-m .pg2-mini > span {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+}
+
+/* Mes: celdas de 38px de alto, sin los chips (los números ya están arriba) */
+.pg2-m .pg2-month-pct { font-size: var(--text-xl); }
+.pg2-m .pg2-cal .pg2-day {
+  aspect-ratio: auto;
+  height: 38px;
+}
+.pg2-m .pg2-cal-detail {
+  font-size: var(--text-s);
+  font-weight: 600;
+}
+.pg2-m .pg2-chips { display: none; }
+
+/* Semana */
+.pg2-m .pg2-week-row { gap: 0; justify-items: center; }
+.pg2-m .pg2-wday { gap: var(--space-1); }
+.pg2-m .pg2-wday-n { font-size: var(--text-3xs); }
+.pg2-m .pg2-wday-ok { font-size: var(--text-md); }
+.pg2-m .pg2-wday-l { font-size: var(--text-2xs); }
+.pg2-m .pg2-week-foot {
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+}
+.pg2-m .pg2-week-foot b { font-size: var(--text-lg); }
+.pg2-m .pg2-week-foot > div > span { font-size: var(--text-2xs); font-weight: 600; }
+
+/* Hábito por hábito: nombre y racha arriba, la tira del mes a todo lo ancho */
+.pg2-m .pg2-hlist { gap: var(--space-3); }
+.pg2-m .pg2-hrow {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'name streak'
+    'strip strip';
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-1) 0;
+}
+.pg2-m .pg2-hrow:hover { background: none; transform: none; }
+.pg2-m .pg2-hname { grid-area: name; }
+.pg2-m .pg2-hstreak { grid-area: streak; }
+.pg2-m .pg2-hstreak small,
+.pg2-m .pg2-hpct { display: none; }
+.pg2-m .pg2-strip { grid-area: strip; gap: 2px; }
+.pg2-m .pg2-strip i {
+  min-width: 0;
+  max-width: none;
+  height: 16px;
+  border-radius: 3px;
+}
+.pg2-m .pg2-hico {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  font-size: var(--text-md);
+}
+.pg2-m .pg2-htxt b { font-size: var(--text-base); }
+.pg2-m .pg2-htxt small { font-size: var(--text-2xs); }

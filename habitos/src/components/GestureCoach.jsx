@@ -80,6 +80,8 @@ function buildSteps(vidaMode, compania, desk = false) {
         : 'En esa pestana vive tu mapa: Areas, Metas y Habitos.',
       done: (ctx) => ctx.pathname.startsWith('/metas'),
     },
+    // Celular y PC muestran el mapa y las metas en la misma pagina: sin paso
+    // "toca Metas", de la rueda se pasa directo a crear la primera meta.
     ...(!soloMetas ? [
       {
         id: 'areas', tipo: 'spot', targets: ['rueda-areas'], route: '/metas/areas', color: 'var(--olive)',
@@ -87,15 +89,9 @@ function buildSteps(vidaMode, compania, desk = false) {
         texto: 'Cuerpo, Mente y Alma son tus areas. Cada meta alimentara una, y aqui veras como florece cada pedazo de tu vida.',
         cta: 'Entendido',
       },
-      ...(!desk ? [{
-        id: 'switch', tipo: 'spot', targets: ['switch-metas'], route: '/metas/areas', color: 'var(--azure)',
-        titulo: 'Ahora toca Metas',
-        texto: 'Las metas son tu "para que". Vamos a declarar la primera.',
-        done: (ctx) => ctx.pathname.includes('/metas/lista'),
-      }] : []),
     ] : []),
     {
-      id: 'meta', tipo: 'spot', targets: ['crear-meta', 'crear'], route: '/metas/lista', color: 'var(--olive)',
+      id: 'meta', tipo: 'spot', targets: ['crear-meta', 'crear'], route: '/metas', color: 'var(--olive)',
       titulo: 'Crea tu primera meta',
       texto: 'Algo que quieras lograr, en una frase. Adentro eliges tambien los habitos que te llevan ahi. Yo te espero aqui afuera.',
       done: (ctx) => ctx.metas > ctx.metasBase,

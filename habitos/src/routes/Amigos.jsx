@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '../data/mockStore.jsx'
 import { typeOf } from '../data/habitTypes.js'
@@ -16,11 +16,11 @@ import EditarMiembrosSheet from '../components/EditarMiembrosSheet.jsx'
 import EditarGrupoSheet from '../components/EditarGrupoSheet.jsx'
 import RetoDetailSheet from '../components/RetoDetailSheet.jsx'
 import MetaIcon from '../components/MetaIcon.jsx'
-import GrupoInviteActions from '../components/GrupoInviteActions.jsx'
 import UserAvatar from '../components/UserAvatar.jsx'
 import useDesktop from '../lib/useDesktop.js'
-import JuntosDesk from './desk/JuntosDesk.jsx'
-import OsSwitcher from '../components/OsSwitcher.jsx'
+import JuntosDesk, { JuntosMovil } from './desk/JuntosDesk.jsx'
+import MovilHeader from '../components/MovilHeader.jsx'
+import Segmented from '../components/Segmented.jsx'
 import './Amigos.css'
 import { playSfx } from '../lib/sfx.js'
 
@@ -73,8 +73,8 @@ function useLongPress(onLongPress) {
 }
 
 // El tab activo sobrevive a la navegacion entre pantallas (memoria JS, sin
-// localStorage). Solo quedan 'hoy' y 'feed': los retos viven DENTRO de la
-// tarjeta de su grupo (modelo anidado, 17 jul 2026), ya no en un tab propio.
+// localStorage). En el celular: 'hoy', 'metas' (los retos con otros) y 'feed';
+// en 'hoy' cada reto vive tambien DENTRO de la tarjeta de su grupo.
 let lastTab = 'hoy'
 
 // Estado del dia -> color/badge (compartido por historias y miembros de grupo)
@@ -84,386 +84,6 @@ function stateOf(done, total) {
   return 'progress'
 }
 const STATE_COLOR = { risk: 'var(--coral)', progress: 'var(--amber)', done: 'var(--olive)' }
-function stateBadge(state, done) {
-  if (state === 'risk') return '!'
-  if (state === 'done') return '✓'
-  return String(done)
-}
-
-// ─── Historia (avatar del scroll superior; entra en cascada) ─────────
-function Story({ f, onTap }) {
-  const state = stateOf(f.done, f.total)
-  const color = STATE_COLOR[state]
-  return (
-    <motion.div
-      className="story"
-      onClick={onTap}
-      initial={false}
-      whileTap={{ scale: 0.96 }}
-    >
-      <div style={{ position: 'relative' }}>
-        <UserAvatar
-          avatar={f.avatar}
-          size={58}
-          fontSize={26}
-          background={f.color}
-          className="story-av"
-          style={{ borderColor: color, borderStyle: 'solid', borderWidth: 3, boxShadow: '0 2px 0 var(--edge-soft)' }}
-        />
-        <div className={`story-badge ${state === 'risk' ? 'pulse' : ''}`} style={{ background: color }}>
-          <span>{stateBadge(state, f.done)}</span>
-        </div>
-      </div>
-      <div className="story-name q">{f.name}</div>
-      <div className="story-frac q" style={{ color }}>{f.done}/{f.total}</div>
-    </motion.div>
-  )
-}
-
-// ─── Miembro dentro de un grupo (tocable: abre su perfil) ────────────
-function Member({ m, onTap }) {
-  const color = STATE_COLOR[m.state] || 'var(--ink-soft)'
-  return (
-    <div className="mem" onClick={onTap} style={{ cursor: 'pointer' }}>
-      <div style={{ position: 'relative' }}>
-        <UserAvatar
-          avatar={m.avatar}
-          size={44}
-          fontSize="var(--text-xl)"
-          background={m.color}
-          className="mem-av"
-          style={{
-            borderColor: m.state === 'risk' ? 'var(--coral)' : 'transparent',
-            borderStyle: m.state === 'risk' ? 'dashed' : 'solid',
-            borderWidth: 2,
-          }}
-        />
-        {m.state && (
-          <div className={`mem-badge ${m.state === 'risk' ? 'pulse' : ''}`} style={{ background: color }}>
-            <span>{stateBadge(m.state, Number(m.frac?.split('/')[0] || 0))}</span>
-          </div>
-        )}
-      </div>
-      <div className="mem-name q" style={{ color: m.self ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: m.self ? 700 : 500 }}>{m.name}</div>
-      {m.frac && <div className="mem-frac q" style={{ color }}>{m.frac}</div>}
-    </div>
-  )
-}
-
-// ─── Card de grupo (colapsable; entra en cascada) ────────────────────
-// Modelo anidado: el grupo es la SALA (la gente) y sus retos viven DENTRO de
-// esta tarjeta (RetoCard nested). `anchor` = el habito ancla "para siempre"
-// (un reto sin fecha de fin, mismo motor).
-function GroupActivity({ g }) {
-  const { metaDeHabito } = useStore()
-  if (!g.anchor) return null
-  // Si el habito ancla ademas alimenta una META tuya, el grupo empuja tu "para que"
-  const meta = g.anchor?.id ? metaDeHabito(g.anchor.id) : null
-  return (
-    <div style={{ margin: `0 var(--space-3) var(--space-2)`, background: 'var(--paper)', borderRadius: 'var(--r-sm)', padding: 'var(--space-2) var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-      <div className="q" style={{ fontSize: 'var(--text-xs)', color: 'var(--ink)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-        <span aria-hidden="true">{g.anchor.icon}</span>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.anchor.name}</span>
-      </div>
-      {meta && (
-        <div className="q" style={{
-          fontSize: 'var(--text-2xs)', fontWeight: 700, color: 'var(--ink)',
-          display: 'flex', alignItems: 'center', gap: 'var(--space-1)', minWidth: 0,
-        }}>
-          <MetaIcon meta={meta} size={12} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{meta.name}</span>
-          <span style={{ flexShrink: 0, color: 'var(--ink-soft)' }}>{meta.pct}%</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function GroupCard({ g, open, onToggle, flash, openProfile, retos = [], onChat, onCrearReto, onEdit, onEditGrupo, onOpenReto }) {
-  const { metaDeHabito } = useStore()
-  const { handlers: lpHandlers, wasLongPress } = useLongPress(
-    () => onEditGrupo?.(g),
-  )
-  const color = g.color || 'var(--olive)'
-  const colorEdge = g.colorEdge || 'var(--olive-edge)'
-  // Facepile en la cabecera (antes de abrir): hasta 5 circulos; si hay mas, 4 + "+N"
-  const mems = g.members || []
-  const FACE_MAX = 5
-  const faces = mems.length > FACE_MAX ? mems.slice(0, FACE_MAX - 1) : mems
-  const facesExtra = mems.length - faces.length
-  const streak = g.streak ?? 0
-  const nRetos = retos.length
-  return (
-    <motion.div
-      className={`grp-card ${g.urgent ? 'grp-card--urgent' : ''}`}
-      initial={false}
-    >
-      <div
-        className="grp-head"
-        {...lpHandlers}
-        onClick={() => { if (!wasLongPress()) onToggle() }}
-        style={{ touchAction: 'pan-y', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)' }}
-      >
-        {/* Fila 1: icono + nombre + acciones (sin pelear con la meta) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
-          <div className="grp-ic" style={{ background: color, boxShadow: `0 2px 0 ${colorEdge}` }} />
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <div className="s grp-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</div>
-            {g.inactiveBadge && <div className="grp-badge" style={{ background: 'var(--title-soft)', border: '1px solid var(--coral)', color: 'var(--coral)', flexShrink: 0 }}>⚠️ {g.inactiveBadge}</div>}
-          </div>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onEditGrupo?.(g) }}
-            onPointerDown={(e) => e.stopPropagation()}
-            aria-label={`Editar ${g.name}`}
-            style={{
-              width: 'var(--tap-min)', height: 'var(--tap-min)', flexShrink: 0,
-              border: 'none', background: 'none', cursor: 'pointer', padding: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <span style={{
-              width: 34, height: 34, borderRadius: '50%',
-              border: '1.5px solid var(--card-line)', background: 'var(--paper)',
-              color: 'var(--ink-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 'var(--text-md)',
-            }}>
-              <i className="ti ti-pencil" />
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onChat(g) }}
-            onPointerDown={(e) => e.stopPropagation()}
-            aria-label={`Chat de ${g.name}`}
-            style={{
-              width: 'var(--tap-min)', height: 'var(--tap-min)', flexShrink: 0,
-              border: 'none', background: 'none', cursor: 'pointer', padding: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <span style={{
-              width: 34, height: 34, borderRadius: '50%',
-              border: '1.5px solid var(--card-line)', background: 'var(--paper)',
-              color: 'var(--azure)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 'var(--text-md)',
-            }}>
-              <i className="ti ti-message-circle" />
-            </span>
-          </button>
-          <div className="grp-right" style={{ flexShrink: 0 }}>
-            <div className="grp-ratio q" style={{ color: g.ratioColor || 'var(--ink-soft)' }}>{g.variant === 'active' ? g.ratio : g.scheduleTag}</div>
-            <span className={`grp-arrow ${open ? 'open' : ''}`}>▾</span>
-          </div>
-        </div>
-
-        {/* Fila 2: facepile + racha + retos — ancho completo, sin botones encima */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0,
-          paddingLeft: 'calc(40px + var(--space-2))',
-        }}>
-          {mems.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }} aria-label={`${mems.length} miembros`}>
-              {faces.map((m, i) => (
-                <UserAvatar
-                  key={m.user_id || m.name || i}
-                  avatar={m.avatar}
-                  size={24}
-                  fontSize="var(--text-xs)"
-                  background={m.color || 'var(--paper-dark)'}
-                  style={{ marginLeft: i === 0 ? 0 : -7, border: '2px solid var(--card)', zIndex: faces.length - i }}
-                />
-              ))}
-              {facesExtra > 0 && (
-                <span className="q" style={{
-                  height: 24, minWidth: 24, padding: '0 var(--space-1)', marginLeft: -7, zIndex: 0,
-                  borderRadius: 'var(--r-pill)', background: 'var(--paper-dark)', border: '2px solid var(--card)',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 'var(--text-3xs)', fontWeight: 800, color: 'var(--ink-soft)', whiteSpace: 'nowrap',
-                }}>+{facesExtra}</span>
-              )}
-            </div>
-          )}
-          <div className="q" style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0,
-            fontSize: 'var(--text-2xs)', fontWeight: 700, color: 'var(--ink-soft)',
-          }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0,
-              color: streak > 0 ? 'var(--amber)' : 'var(--ink-muted)', fontWeight: 800,
-            }} aria-label={`Racha del grupo: ${streak} dias`}>
-              🔥 {streak}
-            </span>
-            <span aria-hidden="true">·</span>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0,
-              color: 'var(--azure)', fontWeight: 800, whiteSpace: 'nowrap',
-            }} aria-label={`${nRetos} ${nRetos === 1 ? 'reto' : 'retos'} lanzados`}>
-              <i className="ti ti-bolt" aria-hidden="true" />
-              {nRetos} {nRetos === 1 ? 'reto' : 'retos'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className={`grp-body ${open ? 'open' : ''}`}>
-        <GroupActivity g={g} />
-        {g.inviteCode && (
-          <div style={{ margin: `0 var(--space-3) var(--space-2)` }}>
-            <GrupoInviteActions name={g.name} code={g.inviteCode} flash={flash} dense />
-          </div>
-        )}
-        {g.variant === 'active' ? (
-          <>
-            <div className="grp-members">{g.members.map(m => <Member key={m.user_id || m.name} m={m} onTap={() => openProfile(m)} />)}</div>
-            {g.alert && (
-              <div className="grp-alert">
-                <span style={{ fontSize: 'var(--text-md)' }}>⚠️</span>
-                <div className="grp-alert-txt q">{g.alert.text}</div>
-                <button className="amg-btn-coral q" style={{ padding: '5px var(--space-3)', fontSize: 'var(--text-2xs)' }} onClick={() => flash(`💪 ¡Animo enviado a ${g.alert.target}!`)}>Animar</button>
-              </div>
-            )}
-            {g.animarAll && (
-              <div style={{ padding: `0 var(--space-3) var(--space-3)` }}>
-                <button className="amg-btn-coral q" style={{ width: '100%', padding: 'var(--space-2)', fontSize: 'var(--text-xs)' }} onClick={() => flash('💪 ¡Mensajes enviados!')}>{g.animarAll}</button>
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={{ padding: `0 var(--space-3) var(--space-3)`, textAlign: 'center' }}>
-            <div className="q" style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-muted)', marginBottom: 'var(--space-2)' }}>{g.scheduleNote}</div>
-            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
-              {g.members.map(m => (
-                <div key={m.user_id || m.name} className="mem" onClick={() => openProfile(m)} style={{ cursor: 'pointer' }}>
-                  <UserAvatar avatar={m.avatar} size={36} fontSize="var(--text-md)" background={m.color} className="mem-av" />
-                  <div className="mem-name q" style={{ color: m.self ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: m.self ? 700 : 500 }}>{m.name}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Retos del grupo: la actividad vive DENTRO de la sala (modelo anidado).
-            Sin labels ni hints: el gesto long-press se descubre al usarlo. */}
-        <div style={{ padding: `0 var(--space-3) var(--space-3)`, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          {retos.map(r => (
-            <RetoCard key={r.id} r={r} nested meta={r.habitId ? metaDeHabito(r.habitId) : null} onEdit={onEdit} onOpen={onOpenReto} />
-          ))}
-          <button
-            type="button" className="amg-btn-azure q" onClick={() => onCrearReto(g)}
-            style={{
-              minHeight: 'var(--tap-min)',
-              fontSize: 'var(--text-xs)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-1)',
-            }}
-          ><i className="ti ti-bolt" aria-hidden="true" /> Nuevo reto</button>
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
-let globalOpenGroups = new Set(['g1'])
-
-// ─── Vista HOY: historias + grupos (con sus retos dentro) + retos sueltos ───
-function ViewHoy({ flash, openProfile, onVerTodos, openChat, onCrearReto, onEdit, onEditGrupo, onOpenReto, sinHistorias = false }) {
-  const { friends, groups, retos, metaDeHabito } = useStore()
-  const [openGroups, setOpenGroups] = useState(globalOpenGroups)
-
-  // Modelo anidado: los retos de cada grupo viven DENTRO de su tarjeta
-  // (enlace por nombre); los que corren sueltos/publicos van a "Tus retos".
-  const retosPorGrupo = useMemo(() => {
-    const m = new Map()
-    for (const r of retos.active) if (r.group) m.set(r.group, [...(m.get(r.group) || []), r])
-    return m
-  }, [retos])
-  const sueltos = useMemo(() => {
-    const nombres = new Set(groups.map(g => g.name))
-    return retos.active.filter(r => !r.group || !nombres.has(r.group))
-  }, [groups, retos])
-
-  const toggle = (id) => setOpenGroups(prev => {
-    const next = new Set(prev)
-    next.has(id) ? next.delete(id) : next.add(id)
-    globalOpenGroups = next
-    return next
-  })
-
-  // Historias: solo los amigos marcados para el scroll; el resto vive en "Ver todos".
-  // Memoizado por `friends`: las vistas de Amigos viven montadas a la vez, asi
-  // que sin esto estos filtros/sorts corren en cada cambio del store x2.
-  const stories = useMemo(() => friends.filter(f => f.inStories !== false), [friends])
-  const hidden = friends.length - stories.length
-
-  // Orden por urgencia: riesgo -> progreso -> cumplido
-  const risk = useMemo(() => stories.filter(f => stateOf(f.done, f.total) === 'risk'), [stories])
-  const rest = useMemo(() => stories.filter(f => stateOf(f.done, f.total) !== 'risk')
-    .sort((a, b) => (stateOf(a.done, a.total) === 'progress' ? 0 : 1) - (stateOf(b.done, b.total) === 'progress' ? 0 : 1)), [stories])
-
-  return (
-    <div className="amg-view" style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* Historias (tocar un avatar abre su perfil; entran en cascada) */}
-      {!sinHistorias && <div style={{ padding: `var(--space-3) 0 0 var(--screen-x)`, flexShrink: 0 }}>
-        <div className="hscroll" style={{ paddingRight: 'var(--screen-x)', paddingBottom: 4 }}>
-          {risk.map((f) => <Story key={f.id} f={f} onTap={() => openProfile(f)} />)}
-          {risk.length > 0 && rest.length > 0 && <div className="story-div" />}
-          {rest.map((f) => <Story key={f.id} f={f} onTap={() => openProfile(f)} />)}
-          <motion.div
-            className="story" onClick={onVerTodos} style={{ paddingRight: 'var(--space-2)' }}
-            initial={false}
-          >
-            <div className="story-all">
-              {hidden > 0
-                ? <span className="s" style={{ fontSize: 'var(--text-base)', color: 'var(--ink-muted)' }}>+{hidden}</span>
-                : <i className="ti ti-users" style={{ fontSize: 'var(--text-lg)', color: 'var(--ink-muted)' }} />}
-            </div>
-            <div className="story-name q" style={{ color: 'var(--ink-muted)' }}>Ver todos</div>
-          </motion.div>
-        </div>
-      </div>}
-
-      {/* Grupos (cada uno con sus retos dentro) */}
-      <div style={{ padding: `var(--space-3) var(--screen-x) var(--space-6)`, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        {groups.map((g) => (
-          <GroupCard
-            key={g.id} g={g} retos={retosPorGrupo.get(g.name) || []}
-            open={openGroups.has(g.id)} onToggle={() => toggle(g.id)} flash={flash}
-            openProfile={openProfile} onChat={openChat}
-            onCrearReto={onCrearReto} onEdit={onEdit} onEditGrupo={onEditGrupo} onOpenReto={onOpenReto}
-          />
-        ))}
-        {groups.length === 0 && (
-          <div className="amg-card" style={{ padding: 'var(--space-5)', textAlign: 'center' }}>
-            <div style={{ fontSize: 30, marginBottom: 'var(--space-2)', display: 'flex', justifyContent: 'center' }}>
-              <div style={{ width: 40, height: 40, borderRadius: 'var(--r-md)', background: 'var(--olive)', boxShadow: '0 2px 0 var(--olive-edge)' }} />
-            </div>
-            <div className="s" style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', marginBottom: 4 }}>Aun no tienes grupos</div>
-            <div className="q" style={{ fontSize: 'var(--text-xs)', color: 'var(--ink-muted)', lineHeight: 1.5 }}>
-              Crea uno con el ➕ de arriba, o unete al de un amigo<br />con su codigo de invitacion 🔑
-            </div>
-          </div>
-        )}
-
-        {/* Tus retos: los que corren sueltos (entre amigos / publicos) */}
-        {sueltos.length > 0 && (
-          <>
-            <div className="s" style={{ fontSize: 'var(--text-sm)', color: 'var(--ink)', marginTop: 'var(--space-3)' }}>Tus retos</div>
-            {sueltos.map((r) => (
-              <RetoCard
-                key={r.id} r={r} meta={r.habitId ? metaDeHabito(r.habitId) : null}
-                onEdit={onEdit} onOpen={onOpenReto}
-                onChatGrupo={r.groupId ? () => {
-                  const g = groups.find(x => x.id === r.groupId)
-                  if (g) openChat(g)
-                } : null}
-              />
-            ))}
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // ─── Tarjeta de reto (vive DENTRO de la tarjeta de su grupo, o en "Tus retos") ──
 // `meta` (opcional) = la meta TUYA que este reto alimenta (via su habito):
@@ -590,98 +210,6 @@ function RetoCard({ r, meta = null, onChatGrupo = null, onEdit, onOpen, nested =
   )
 }
 
-// --- Vista FEED (recopilacion: sin fuego ni comentarios) ---
-function GroupChip({ label, solid = false }) {
-  if (!label) return null
-  return (
-    <span className="q" style={{
-      background: solid ? 'var(--ink)' : 'var(--paper-dark)',
-      color: solid ? '#fff' : 'var(--ink-soft)',
-      borderRadius: 'var(--r-pill)', padding: '2px var(--space-2)',
-      fontSize: 'var(--text-3xs)', fontWeight: 700,
-    }}>{label}</span>
-  )
-}
-
-function ViewFeed({ flash, openProfile }) {
-  const { feed } = useStore()
-  const [dismissed, setDismissed] = useState(() => new Set())
-
-  const animar = (p) => {
-    flash(`💪 Animo enviado a ${p.author}`)
-    if (p.type === 'inactivo') setDismissed(prev => new Set(prev).add(p.id))
-  }
-
-  const visible = feed.filter(p => !(p.type === 'inactivo' && dismissed.has(p.id)))
-
-  return (
-    <div className="amg-view" style={{ padding: `var(--space-4) var(--screen-x) var(--space-6)`, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-      {visible.length === 0 && (
-        <div className="q" style={{ textAlign: 'center', color: 'var(--ink-muted)', fontSize: 'var(--text-sm)', padding: 'var(--space-8) var(--space-4)' }}>
-          Aun no hay movimiento. Cuando tu o tus grupos validen, aparece aqui.
-        </div>
-      )}
-      {visible.map((p) => {
-        const accent = p.type === 'inactivo' ? 'var(--coral)' : p.type === 'racha' ? 'var(--amber)' : 'var(--olive)'
-        return (
-          <motion.div key={p.id} initial={false} className="amg-card" style={{ padding: 'var(--space-3)', borderLeft: `3px solid ${accent}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <button
-                type="button"
-                onClick={() => openProfile(p)}
-                style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }}
-              >
-                <UserAvatar avatar={p.avatar} size={36} fontSize="var(--text-md)" background={p.color || accent} />
-              </button>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="s" style={{ fontSize: 'var(--text-s)', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)', flexWrap: 'wrap' }}>
-                  {p.author}
-                  <GroupChip label={p.group} solid={p.type === 'inactivo'} />
-                </div>
-                <div className="q" style={{ fontSize: 'var(--text-3xs)', color: 'var(--ink-muted)' }}>{p.time}</div>
-              </div>
-              {p.type === 'inactivo' ? (
-                <button
-                  type="button"
-                  className="q"
-                  onClick={() => animar(p)}
-                  style={{
-                    flexShrink: 0, border: 'none', cursor: 'pointer',
-                    background: 'var(--coral)', color: '#fff', fontWeight: 700,
-                    fontSize: 'var(--text-2xs)', borderRadius: 'var(--r-md)',
-                    padding: '8px var(--space-3)', boxShadow: '0 3px 0 var(--coral-edge)',
-                    minHeight: 'var(--tap-min)',
-                  }}
-                >Animar</button>
-              ) : (
-                <span className="q" style={{
-                  flexShrink: 0, background: accent, color: '#fff',
-                  borderRadius: 'var(--r-pill)', padding: '3px var(--space-2)',
-                  fontSize: 'var(--text-3xs)', fontWeight: 700,
-                }}>{p.type === 'racha' ? 'Racha' : 'Hecho'}</span>
-              )}
-            </div>
-
-            <div style={{ marginTop: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <span style={{ fontSize: 'var(--text-xl)', flexShrink: 0 }}>
-                {p.type === 'inactivo' ? '⚠️' : p.type === 'racha' ? '🏆' : (p.habitIcon || '✅')}
-              </span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div className="s" style={{ fontSize: 'var(--text-s)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {p.type === 'racha' ? p.title : (p.habitName || 'Sin actividad')}
-                </div>
-                {p.detail && (
-                  <div className="q" style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-soft)', marginTop: 2 }}>{p.detail}</div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )
-      })}
-    </div>
-  )
-}
-
 // ─── Buscador contextual ─────────────────────────────────────────────
 // Que se busca depende del tab activo (sin selector extra): en Hoy vive todo
 // el mundo social (amigos, grupos y retos publicos — descubrir es la lupa);
@@ -717,10 +245,8 @@ function SearchEmpty({ q, what }) {
 
 // ─── Pantalla Amigos ─────────────────────────────────────────────────
 export default function Amigos() {
-  const navigate = useNavigate()
   const { me, friends, groups, allHabits, today, streak, level, publicGroups, joinGroup, joinGroupByCode, retos, joinReto, metaDeHabito } = useStore()
   const [tab, setTabState] = useState(lastTab === 'retos' ? 'hoy' : lastTab)  // recuerda el tab al navegar y volver
-  const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [todosOpen, setTodosOpen] = useState(false)  // pantalla "Tus amigos" (directorio)
@@ -739,6 +265,24 @@ export default function Amigos() {
   const [toast, setToast] = useState('')
   const toastTimer = useRef(null)
   const wide = useDesktop()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // ?crear=reto (voz de Rockie) abre «Crear reto»; ?chat=<grupo> (Logro) abre el chat del grupo
+  useEffect(() => {
+    const crear = searchParams.get('crear')
+    const chatId = searchParams.get('chat')
+    if (crear !== 'reto' && !chatId) return
+    if (chatId) {
+      const g = groups.find((x) => String(x.id) === chatId)
+      if (!g && !groups.length) return // en live: espera a que carguen los grupos
+      if (g) openGroupChat(g)
+    }
+    if (crear === 'reto') setRetoOpen({ grupo: null })
+    const next = new URLSearchParams(searchParams)
+    next.delete('crear')
+    next.delete('chat')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, groups]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Abrir el chat del grupo (unico canal social: no hay chat por reto)
   const openGroupChat = (g) => setChat({
@@ -851,8 +395,32 @@ export default function Amigos() {
     setPickReto(null)
   }
 
-  const tabs = [['hoy', 'Hoy'], ['feed', 'Feed']]
+  const tabs = [{ id: 'hoy', label: 'Hoy' }, { id: 'metas', label: 'Metas' }, { id: 'feed', label: 'Feed' }]
   const scope = SEARCH_SCOPE[tab] || SEARCH_SCOPE.hoy
+
+  // Lo mismo que recibe JuntosDesk en PC: el celular usa las mismas piezas
+  const juntosProps = {
+    flash,
+    openProfile,
+    openChat: openGroupChat,
+    onCrearReto: (g) => setRetoOpen({ grupo: g?.name ?? null }),
+    onEditGrupo: setEditGrupo,
+    onVerTodos: () => setTodosOpen(true),
+    onAgregarAmigo: () => setAmigoOpen(true),
+    onCodigo: () => { setCodeDraft(''); setCodeOpen('grupo') },
+    onDescubrir: () => setFlow('buscar'),
+    onCrearGrupo: () => setFlow('crear'),
+    renderReto: (r, nested) => (
+      <RetoCard
+        r={r} nested={nested} meta={r.habitId ? metaDeHabito(r.habitId) : null}
+        onEdit={setEditTarget} onOpen={setRetoDetail}
+        onChatGrupo={!nested && r.groupId ? () => {
+          const g = groups.find(x => x.id === r.groupId)
+          if (g) openGroupChat(g)
+        } : null}
+      />
+    ),
+  }
 
   return (
     <div className={wide ? 'dk-page jd' : 'amg-screen'}>
@@ -872,43 +440,20 @@ export default function Amigos() {
           </div>
         </header>
       )}
-      {!wide && <div style={{ padding: `var(--space-5) var(--screen-x) 0` }}><OsSwitcher /></div>}
-      {!wide && <div className="amg-header" style={{ padding: `var(--space-3) var(--screen-x) 0` }}>
-        <div>
-          <div className="q" style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-soft)', fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase' }}>{fechaHoy()}</div>
-          <div className="s" style={{ fontSize: 'var(--text-3xl)', color: 'var(--title)', lineHeight: 1.1, marginTop: 3, letterSpacing: '-0.3px' }}>Juntos</div>
-          <div className="editorial-line" />
-        </div>
-        <div className="amg-actions">
-          <button className="amg-iconbtn" onClick={() => openSearch(!searchOpen)}><i className="ti ti-search" /></button>
-          <button className="amg-iconbtn amg-iconbtn--primary" onClick={() => setMenuOpen(o => !o)}><i className="ti ti-plus" /></button>
-        </div>
-      </div>}
-
-      {/* Mini menu del + */}
-      {menuOpen && (
-        <>
-          <div className="amg-menu-catch" onClick={() => setMenuOpen(false)} />
-          <motion.div className="mini-menu"
-            initial={{ scale: 0.85, y: -8 }} animate={{ scale: 1, y: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 22 }}>
-            <button className="mini-item" onClick={() => { setMenuOpen(false); setFlow('crear') }}>
-              <div className="mini-item-ic" style={{ background: 'var(--olive-soft)' }}>👥</div>
-              <div><div className="mini-item-t q">Crear grupo</div><div className="mini-item-s q">Invita a tus amigos</div></div>
+      {!wide && (
+        <MovilHeader
+          kicker={fechaHoy()}
+          title="Juntos"
+          right={(
+            <button type="button" className="amg-iconbtn" onClick={() => setAmigoOpen(true)} aria-label="Agregar amigo" title="Agregar amigo">
+              <i className="ti ti-user-plus" />
             </button>
-            <button className="mini-item" onClick={() => { setMenuOpen(false); setRetoOpen({ grupo: null }) }}>
-              <div className="mini-item-ic" style={{ background: 'var(--amber-soft)' }}>⚡</div>
-              <div><div className="mini-item-t q">Crear reto</div><div className="mini-item-s q">Mismo habito o cada quien</div></div>
-            </button>
-            <button className="mini-item" onClick={() => { setMenuOpen(false); setAmigoOpen(true) }}>
-              <div className="mini-item-ic" style={{ background: 'var(--berry-soft)' }}>🤝</div>
-              <div><div className="mini-item-t q">Agregar amigo</div><div className="mini-item-s q">Escanea su QR o usa su codigo</div></div>
-            </button>
-            <button className="mini-item" onClick={() => { setMenuOpen(false); setCodeDraft(''); setCodeOpen('grupo') }}>
-              <div className="mini-item-ic" style={{ background: 'var(--azure-soft)' }}>🔑</div>
-              <div><div className="mini-item-t q">Unirme con codigo</div><div className="mini-item-s q">Al grupo de un amigo</div></div>
-            </button>
-          </motion.div>
-        </>
+          )}
+        >
+          <div className="amg-seg" style={{ margin: 'var(--space-3) 0' }}>
+            <Segmented id="juntos-vista" value={tab} onChange={setTab} options={tabs} />
+          </div>
+        </MovilHeader>
       )}
 
       {/* Mini modal de codigo: unirse a un grupo o agregar a un amigo */}
@@ -1088,88 +633,15 @@ export default function Amigos() {
       </motion.div>
 
       {/* PC: "Hoy, juntos" + grupos abiertos + lo que pasa (routes/desk/JuntosDesk) */}
-      {wide && (
-        <JuntosDesk
-          flash={flash}
-          openProfile={openProfile}
-          openChat={openGroupChat}
-          onCrearReto={(g) => setRetoOpen({ grupo: g?.name ?? null })}
-          onEditGrupo={setEditGrupo}
-          onVerTodos={() => setTodosOpen(true)}
-          onAgregarAmigo={() => setAmigoOpen(true)}
-          onCodigo={() => { setCodeDraft(''); setCodeOpen('grupo') }}
-          onDescubrir={() => setFlow('buscar')}
-          renderReto={(r, nested) => (
-            <RetoCard
-              r={r} nested={nested} meta={r.habitId ? metaDeHabito(r.habitId) : null}
-              onEdit={setEditTarget} onOpen={setRetoDetail}
-              onChatGrupo={!nested && r.groupId ? () => {
-                const g = groups.find(x => x.id === r.groupId)
-                if (g) openGroupChat(g)
-              } : null}
-            />
-          )}
-        />
-      )}
+      {wide && <JuntosDesk {...juntosProps} />}
 
-      {!wide && <>
-      {/* Cuartel del equipo (Team HQ integrado) */}
-      <button
-        type="button"
-        className="q"
-        onClick={() => window.location.assign('/hoy')}
-        style={{
-          margin: `0 var(--screen-x) var(--space-3)`,
-          padding: 'var(--space-4)',
-          borderRadius: 'var(--r-lg)',
-          border: 'none',
-          background: 'linear-gradient(135deg, var(--azure-soft), var(--card))',
-          boxShadow: 'var(--shadow-card)',
-          textAlign: 'left',
-          width: `calc(100% - 2 * var(--screen-x))`,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <span style={{ width: 44, height: 44, borderRadius: 'var(--r-md)', background: 'var(--azure)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 0 var(--azure-edge)' }}>
-            <i className="ti ti-layout-kanban" style={{ fontSize: 22 }} />
-          </span>
-          <div style={{ flex: 1 }}>
-            <div className="s" style={{ fontSize: 'var(--text-md)', color: 'var(--azure)' }}>Tu equipo</div>
-            <div style={{ fontSize: 'var(--text-s)', color: 'var(--ink-soft)', marginTop: 2 }}>Tareas, metas y proyectos con tu gente</div>
-          </div>
-          <i className="ti ti-chevron-right" style={{ color: 'var(--ink-muted)' }} />
+      {/* Celular (lienzo «B+ móvil»): las mismas piezas que en PC, en una columna.
+          Las tres vistas quedan montadas (conservan scroll y el grupo abierto). */}
+      {!wide && tabs.map(({ id }) => (
+        <div key={id} className="amg-view" style={{ display: tab === id ? 'block' : 'none' }}>
+          <JuntosMovil view={id} {...juntosProps} />
         </div>
-      </button>
-
-      {/* Tabs */}
-      <div className="amg-tabs" style={{ padding: `var(--space-3) var(--screen-x) var(--space-3)` }}>
-        {tabs.map(([id, label]) => (
-          <button key={id} className={`amg-tab ${tab === id ? 'on' : ''}`} onClick={() => setTab(id)}>{label}</button>
-        ))}
-      </div>
-
-      {/* Vistas: ambas montadas (conservan scroll/estado). Pane flex en vez de
-          display:contents — evita el salto diagonal de layout de framer-motion. */}
-      <div
-        className="amg-pane"
-        style={{ display: tab === 'hoy' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}
-      >
-        <ViewHoy
-          flash={flash} openProfile={openProfile} onVerTodos={() => setTodosOpen(true)}
-          openChat={openGroupChat}
-          onCrearReto={(g) => setRetoOpen({ grupo: g?.name ?? null })}
-          onEdit={setEditTarget}
-          onEditGrupo={setEditGrupo}
-          onOpenReto={setRetoDetail}
-        />
-      </div>
-      <div
-        className="amg-pane"
-        style={{ display: tab === 'feed' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}
-      >
-        <ViewFeed flash={flash} openProfile={openProfile} />
-      </div>
-      </>}
+      ))}
 
       {/* Toast de accion */}
       <AnimatePresence>

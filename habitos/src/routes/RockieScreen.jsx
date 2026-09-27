@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useStore } from '../data/mockStore.jsx'
 import { evoOf, rockieArt, stoneArt, stageOfLevel, EYE_OPTIONS, MOUTH_OPTIONS, NEUTRAL_EYES, NEUTRAL_MOUTH } from '../data/rockie.js'
-import { ROCKIE_COLORS } from '../data/rockieColors.js'
+import { ROCKIE_COLORS, colorById } from '../data/rockieColors.js'
 import { SHOP_ITEMS, itemById, acercarThumb } from '../data/shop.js'
 import Rockie from '../components/Rockie.jsx'
 import CenterModal from '../components/CenterModal.jsx'
@@ -11,7 +11,7 @@ import FullScreenSheet from '../components/FullScreenSheet.jsx'
 import ProgressBar from '../components/ProgressBar.jsx'
 import InviteQRSheet from '../components/InviteQRSheet.jsx'
 import useDesktop from '../lib/useDesktop.js'
-import OsSwitcher from '../components/OsSwitcher.jsx'
+import { RockiePerfilTop, RockieHeroCard, EvolucionCard, LoQueLleva, VozDeRockie } from './RockieMovil.jsx'
 import './desk/RockieDesk.css'
 import LogroUnlockModal from '../components/LogroUnlockModal.jsx'
 import Flame from '../components/Flame.jsx'
@@ -172,34 +172,6 @@ function FoodTile({ item, alcanza, onTap }) {
       <span className="q" style={{ fontSize: 'var(--text-3xs)', fontWeight: 700, color: alcanza ? 'var(--amber)' : 'var(--ink-faint)' }}>
         🪙 {item.price}
       </span>
-    </motion.button>
-  )
-}
-
-// ─── Boton de icono del header: circulo de color solido con su canto 3D ───────
-// Comunica con imagen (tienda = bolsa, inventario = mochila) y con color
-// (tienda = ambar nuestro, inventario = azul). bg/color/edge lo pintan.
-function HeaderIcon({ icon, label, onTap, delay = 0, bg = 'var(--card)', color = 'var(--ink-soft)', edge = 'var(--card-edge)', border = 'var(--card-line)' }) {
-  const anim = useContext(EntranceCtx)
-  return (
-    <motion.button
-      type="button"
-      aria-label={label}
-      title={label}
-      initial={false}
-      animate={{ y: 0 }}
-      transition={anim ? { delay, duration: 0.25, ease: 'easeOut' } : { duration: 0 }}
-      whileTap={{ y: 3 }}
-      onClick={onTap}
-      className="q"
-      style={{
-        width: 'var(--tap-min)', height: 'var(--tap-min)', borderRadius: '50%',
-        background: bg, border: `2px solid ${border}`, boxShadow: `0 3px 0 ${edge}`,
-        color, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 'var(--text-xl)', cursor: 'pointer', flexShrink: 0,
-      }}
-    >
-      <i className={`ti ${icon}`} />
     </motion.button>
   )
 }
@@ -686,6 +658,22 @@ export default function RockieScreen() {
   const foods = SHOP_ITEMS.filter(i => i.type === 'food')
   const fondoItem = itemById(equipped?.fondo)
 
+  // «Lo que lleva» (celular): lo puesto, lo de la mochila y algo de la Tienda (4 casillas)
+  const llevaItems = useMemo(() => {
+    const puestos = Object.values(equipped || {}).filter(Boolean)
+    const propios = [
+      ...ownedAcc.filter((i) => puestos.includes(i.id)).map((item) => ({ item, estado: 'puesto' })),
+      ...ownedAcc.filter((i) => !puestos.includes(i.id)).map((item) => ({ item, estado: 'mochila' })),
+    ]
+    const deTienda = SHOP_ITEMS
+      .filter((i) => i.type === 'acc' && !shopOwned.includes(i.id))
+      .sort((a, b) => a.price - b.price)
+      .map((item) => ({ item, estado: 'tienda' }))
+    if (!deTienda.length) return propios.slice(0, 4)
+    const mios = propios.slice(0, 3)
+    return [...mios, ...deTienda.slice(0, 4 - mios.length)]
+  }, [ownedAcc, equipped, shopOwned])
+
   // Mejor racha de un habito concreto (accion → habito a los 21 dias)
   const bestHabitStreak = useMemo(
     () => allHabits.reduce((m, h) => Math.max(m, h.streak || 0), 0),
@@ -1045,145 +1033,34 @@ export default function RockieScreen() {
           transition: 'transform 0.44s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
-      {/* Rockie OS: selector de apps (Inicio, Agenda, Equipo, Cuaderno) */}
-      <div style={{ padding: 'var(--space-5) var(--screen-x) 0' }}><OsSwitcher /></div>
-      {/* ── Header estilo perfil: identidad + saldo + accesos por color/icono
-          (tienda = ambar a la izquierda · inventario = azul a la derecha) ── */}
-      <div style={{ padding: 'var(--space-4) var(--screen-x) 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)' }}>
-        <motion.div
-          style={{ minWidth: 0 }}
-          initial={false}
-          animate={{ y: 0 }}
-          transition={anim ? { duration: 0.28, ease: 'easeOut' } : { duration: 0 }}
-        >
-          <div className="s" style={{ fontSize: 'var(--text-3xl)', color: 'var(--title)', lineHeight: 1, letterSpacing: '-0.3px' }}>Rockie</div>
-          {(() => {
-            return (
-              <div className="q" style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-muted)', marginTop: 5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {rockie.name} {dueno ? `· de ${dueno}` : ''} · {dias} {dias === 1 ? 'dia' : 'dias'}
-              </div>
-            )
-          })()}
-        </motion.div>
-        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexShrink: 0 }}>
-          <motion.span
-            className="q gpill" style={{ fontSize: 'var(--text-sm)' }}
-            initial={false}
-            animate={{ y: 0 }}
-            transition={anim ? { delay: 0.03, duration: 0.25, ease: 'easeOut' } : { duration: 0 }}
-          >
-            <span style={{ fontSize: 'var(--text-md)' }}>🪙</span>
-            <span className="s" style={{ color: 'var(--amber)', fontSize: 'var(--text-base)' }}>{coins}</span>
-          </motion.span>
-          <HeaderIcon icon="ti-building-store" label="Tienda de Rockie" onTap={() => navigate('/rockie/tienda')} bg="var(--amber)" color="#fff" edge="var(--amber-edge)" border="transparent" />
-          <HeaderIcon icon="ti-backpack" label="Inventario de Rockie" onTap={abrirInventario} bg="var(--azure)" color="#fff" edge="var(--azure-edge)" border="transparent" delay={0.06} />
-          {/* Ajustes: la ruedita vive aqui (pantalla de identidad); estilo neutro
-              para leerse como utilidad, no como las acciones de color de al lado */}
-          <HeaderIcon icon="ti-settings" label="Ajustes" onTap={() => navigate('/ajustes')} delay={0.09} />
-        </div>
-      </div>
-
-      {/* ── HERO: Rockie con sus accesorios sobre el fondo equipado.
-          Tocar a Rockie abre su Evolucion. El QR de invitar vive abajo, en la
-          esquina del hero (boton circular). ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'var(--space-2) 0 0' }}>
-        <motion.div
-          initial={false}
-          animate={{ y: 0, scale: 1 }}
-          transition={anim ? { delay: 0.06, type: 'spring', stiffness: 260, damping: 22 } : { duration: 0 }}
-          style={{
-            position: 'relative', padding: 'var(--space-2) var(--space-8)',
-            background: fondoItem?.bg || FONDO_DEFAULT,
-            borderRadius: 'var(--r-xl)', margin: '0 var(--screen-x)', alignSelf: 'stretch',
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-          }}
-        >
-          {SPARKLES.map((s, i) => (
-            <span key={i} aria-hidden="true" style={{
-              position: 'absolute', top: s.top, left: s.left, right: s.right, bottom: s.bottom,
-              fontSize: s.size, color: s.color, pointerEvents: 'none',
-              animation: `shine 3.2s ease-in-out ${s.delay}s infinite`,
-            }}>✦</span>
-          ))}
-          {/* Sin fx ni tap-cara propio: la cara es la configurada (nada la pisa).
-              El tap lo maneja este wrapper -> abre Evolucion. */}
-          <motion.div
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setPanel('evo')}
-            role="button"
-            aria-label="Ver la evolucion de Rockie"
-            style={{ cursor: 'pointer' }}
-          >
-            <Rockie
-              emotion={emotion}
-              size={225}
-              moods={false}
-              equipped={equipped}
-              color={rockieColor}
-              stage={stageOfLevel(level)}
-              fx={levelUpFx ? 'levelup' : null}
-              fxKey={levelUpFx}
-            />
-          </motion.div>
-          {/* Sombra eliptica: ancla al suelo y respira con el float */}
-          <div aria-hidden="true" style={{
-            width: 110, height: 16, borderRadius: '50%', background: 'rgba(87, 82, 121, 0.13)',
-            margin: 'var(--space-2) auto 0', animation: 'shadow-pulse 3s ease-in-out infinite',
-          }} />
-
-          {/* Invitar por QR: boton circular en la esquina inferior del hero */}
-          <motion.button
-            type="button"
-            whileTap={{ y: 3 }}
-            onClick={() => setPanel('qr')}
-            aria-label="Invitar amigos con QR"
-            title="Invitar amigos con QR"
-            className="q"
-            style={{
-              position: 'absolute', bottom: 'var(--space-2)', right: 'var(--space-2)',
-              width: 'var(--tap-min)', height: 'var(--tap-min)', borderRadius: '50%',
-              background: 'var(--card)', border: '2px solid var(--card-line)', boxShadow: '0 3px 0 var(--card-edge)',
-              color: 'var(--ink-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 'var(--text-lg)', cursor: 'pointer',
-            }}
-          >
-            <i className="ti ti-qrcode" />
-          </motion.button>
-        </motion.div>
-
-        {/* Pista + acceso a Evolucion: pildora con la etapa actual (toca a Rockie) */}
-        <motion.button
-          type="button"
-          whileTap={{ y: 2 }}
-          onClick={() => setPanel('evo')}
-          className="q"
-          initial={false}
-          animate={{ y: 0 }}
-          transition={anim ? { delay: 0.12, duration: 0.26, ease: 'easeOut' } : { duration: 0 }}
-          style={{
-            marginTop: 'var(--space-3)', cursor: 'pointer',
-            display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
-            background: 'var(--card)', border: '2px solid var(--card-line)', boxShadow: '0 2px 0 var(--card-edge)',
-            borderRadius: 'var(--r-pill)', padding: '5px var(--space-3)', color: 'var(--ink-soft)',
-            fontSize: 'var(--text-2xs)', fontWeight: 700, letterSpacing: 0.3,
-          }}
-        >
-          💎 {EVO[stageIdx].name} · toca a Rockie <i className="ti ti-chevron-right" style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-muted)' }} />
-        </motion.button>
-
-        {/* Barra hacia el siguiente nivel (XP real; anima al ganar) */}
-        <motion.div
-          initial={false}
-          animate={{ y: 0 }}
-          transition={anim ? { delay: 0.16, duration: 0.28, ease: 'easeOut' } : { duration: 0 }}
-          style={{ width: '100%', padding: '0 var(--screen-x)', marginTop: 'var(--space-3)' }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-1)' }}>
-            <span className="q" style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-muted)', fontWeight: 700, letterSpacing: 0.5 }}>HACIA NIVEL {rockie.level + 1}</span>
-            <span className="q" style={{ fontSize: 'var(--text-2xs)', color: 'var(--amber)', fontWeight: 700 }}>{rockie.xp} / {rockie.xpToNext} XP</span>
-          </div>
-          <ProgressBar value={xpPct} height={16} fill="linear-gradient(90deg, var(--amber), var(--coral))" fillEdge="var(--coral-edge)" />
-        </motion.div>
+      {/* Tu Rockie como el lienzo «B+ móvil»: volver + saldo, Rockie con su nivel y XP,
+          cómo crece la geoda, lo que lleva y su voz (RockieMovil.jsx). Debajo siguen
+          el resumen, los logros y los Rockies amigos. */}
+      <RockiePerfilTop
+        coins={coins}
+        onBack={() => (location.key !== 'default' ? navigate(-1) : navigate('/hoy'))}
+        onAjustes={() => navigate('/ajustes')}
+      />
+      <div className="rkm-body">
+        <RockieHeroCard
+          nombre={rockie.name}
+          nivel={rockie.level}
+          etapa={EVO[stageIdx].name}
+          piedra={colorById(rockieColor).name}
+          xp={rockie.xp}
+          xpToNext={rockie.xpToNext}
+          fondo={fondoItem?.bg}
+          emotion={emotion}
+          equipped={equipped}
+          color={rockieColor}
+          stage={stageOfLevel(level)}
+          levelUpFx={levelUpFx}
+          onEvo={() => setPanel('evo')}
+          onQr={() => setPanel('qr')}
+        />
+        <EvolucionCard evo={EVO} nivel={rockie.level} onOpen={() => setPanel('evo')} />
+        <LoQueLleva items={llevaItems} onTienda={() => navigate('/rockie/tienda')} onInventario={abrirInventario} />
+        <VozDeRockie />
       </div>
 
       {/* ── RESUMEN 2.5D: racha con canto + ProgressBar hacia 21 + gpills ── */}

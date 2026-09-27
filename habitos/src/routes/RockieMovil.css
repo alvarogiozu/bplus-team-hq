@@ -1,0 +1,281 @@
+/* ==== Tu Rockie en el celular (RockieMovil.jsx, lienzo «B+ móvil») ==== */
+
+.rkm-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: calc(var(--space-4) + env(safe-area-inset-top, 0px)) var(--screen-x) 0;
+}
+.rkm-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0 0 0 var(--space-1);
+  font-size: var(--text-2xl);
+  color: var(--ink);
+}
+.rkm-coins { font-size: var(--text-sm); color: var(--amber-edge); }
+:root[data-theme='dark'] .rkm-coins { color: var(--amber); }
+.rkm-ibtn {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--card-line);
+  background: var(--card);
+  box-shadow: 0 3px 0 var(--card-edge);
+  color: var(--ink-soft);
+  font-size: var(--text-xl);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.rkm-ibtn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-edge); }
+
+.rkm-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--screen-x) 0;
+}
+
+/* Rockie grande, su nivel y la barra de XP */
+.rkm-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-5);
+}
+.rkm-stage {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.rkm-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand) 12%, var(--card));
+}
+.rkm-qr {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border-radius: 50%;
+  border: 2px solid var(--card-line);
+  background: var(--card);
+  box-shadow: 0 3px 0 var(--card-edge);
+  color: var(--ink-soft);
+  font-size: var(--text-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.rkm-name {
+  margin-top: var(--space-2);
+  font-size: var(--text-3xl);
+  color: var(--ink);
+}
+.rkm-level {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  margin-top: 6px;
+  padding: 0 var(--space-3);
+  box-sizing: border-box;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  box-shadow: 0 2px 0 var(--card-edge);
+  font-size: var(--text-s);
+  font-weight: 700;
+  color: var(--brand);
+}
+.rkm-xp { width: 100%; margin-top: var(--space-4); }
+.rkm-xp-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+.rkm-bar {
+  height: 10px;
+  margin-top: 6px;
+  border-radius: var(--r-pill);
+  background: var(--paper-dark);
+  overflow: hidden;
+}
+.rkm-bar i { display: block; height: 100%; border-radius: var(--r-pill); background: var(--brand); }
+
+/* Evolución: 4 etapas unidas por una línea */
+.rkm-evo { padding: 0; }
+.rkm-evo-in {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rkm-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: var(--space-3);
+}
+.rkm-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+.rkm-step > b {
+  position: relative;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-base);
+  background: var(--card-2);
+  color: var(--ink-muted);
+  border: 2px solid var(--card-line);
+}
+.rkm-step.on > b { background: color-mix(in srgb, var(--brand) 16%, var(--card)); color: var(--brand); border-color: color-mix(in srgb, var(--brand) 40%, var(--card-line)); }
+.rkm-step.now > b { background: var(--brand); color: #fff; border-color: transparent; box-shadow: 0 3px 0 var(--brand-edge); }
+.rkm-line {
+  position: absolute;
+  top: 21px;
+  left: 50%;
+  width: 100%;
+  height: 3px;
+  background: var(--card-line);
+}
+.rkm-line.on { background: var(--brand); }
+.rkm-step-n { font-size: var(--text-xs); font-weight: 700; color: var(--ink-soft); }
+.rkm-step.now .rkm-step-n { color: var(--ink); }
+.rkm-step small { font-size: var(--text-2xs); font-weight: 600; color: var(--ink-muted); }
+.rkm-evo-note {
+  margin-top: var(--space-3);
+  font-size: var(--text-s);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* Lo que lleva (2 x 2) */
+.rkm-lleva { padding: var(--space-4); }
+.rkm-lleva .dk-sechead { margin-bottom: var(--space-3); }
+.rkm-tienda { min-height: 36px; padding: 0 var(--space-4); font-size: var(--text-s); }
+.rkm-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.rkm-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-3);
+  border-radius: var(--r-lg);
+  background: var(--card-2);
+  border: 2px solid var(--card-line);
+  box-shadow: 0 3px 0 var(--card-edge);
+  font: inherit;
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
+}
+.rkm-item:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-edge); }
+.rkm-thumb {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+  border-radius: var(--r-md);
+}
+.rkm-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.rkm-item b { font-size: var(--text-sm); }
+.rkm-item small { font-size: var(--text-xs); font-weight: 700; color: var(--ink-muted); }
+.rkm-item small.puesto { color: var(--olive-edge); }
+.rkm-item small.tienda { color: var(--amber-edge); }
+:root[data-theme='dark'] .rkm-item small.puesto { color: var(--olive); }
+:root[data-theme='dark'] .rkm-item small.tienda { color: var(--amber); }
+
+/* Voz de Rockie: filas con icono, texto y un interruptor o una flecha */
+.rkm-voz { padding: var(--space-4) var(--space-4) var(--space-2); }
+.rkm-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border: none;
+  border-bottom: 2px solid var(--card-line);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.rkm-row:last-child { border-bottom: none; }
+.rkm-row.tap { cursor: pointer; }
+.rkm-row-ic {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--c) 16%, var(--card));
+  color: var(--c);
+  font-size: var(--text-lg);
+}
+.rkm-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rkm-row-t b { font-size: var(--text-base); color: var(--ink); }
+.rkm-row-t small { font-size: var(--text-xs); font-weight: 600; color: var(--ink-muted); }
+.rkm-row-go { color: var(--ink-muted); font-size: var(--text-lg); }
+.rkm-tonos { overflow: hidden; border-bottom: 2px solid var(--card-line); }
+.rkm-tonos > div { padding: var(--space-2) 0 var(--space-3); }
+.rkm-switch {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--paper-dark);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.rkm-switch::before { content: ''; position: absolute; inset: -9px -2px; } /* área táctil de 44px */
+.rkm-switch b {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+}
+.rkm-switch.on { background: var(--green); }
+.rkm-switch.on b { transform: translateX(18px); }

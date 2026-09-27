@@ -1,21 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useStore } from '../data/mockStore.jsx'
+import { stageOfLevel } from '../data/rockie.js'
+import Rockie from './Rockie.jsx'
 import './CameraCaptureSheet.css'
 
-// Captura de prueba para validar un habito:
-// camara en vivo (frontal / trasera) + galeria como respaldo.
+// Captura de prueba para validar un habito (lienzo «B+ móvil»: Validar con foto):
+// camara en vivo (frontal / trasera) con esquinas guia, Rockie diciendo que debe
+// verse y la galeria como respaldo. «Di "ya"»: Rockie escucha y toma la foto.
 // Portaleado a `.app-phone` (mismo patron que BottomSheet / HabitEditSheet).
+
+const SR = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
+const DISPARO = /\b(ya|listo|lista|foto|dale|ahora)\b/
+
 export default function CameraCaptureSheet({ open, onClose, onCapture, instruction, habitName }) {
+  const { emotion, equipped, rockieColor, level } = useStore()
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const galleryRef = useRef(null)
+  const oidoRef = useRef(null)
+  const disparar = useRef(() => {})
   const [facing, setFacing] = useState('environment') // 'user' | 'environment'
   const [preview, setPreview] = useState(null) // blob URL de la foto tomada
   const [blob, setBlob] = useState(null)
   const [error, setError] = useState(null)
   const [starting, setStarting] = useState(false)
   const [hasStream, setHasStream] = useState(false)
+  const [oyendo, setOyendo] = useState(false) // «Di "ya"» activo
 
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach(t => t.stop())
@@ -26,7 +38,7 @@ export default function CameraCaptureSheet({ open, onClose, onCapture, instructi
 
   const startCamera = useCallback(async (face) => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Tu navegador no permite camara. Usa la galeria.')
+      setError('Tu navegador no permite cámara. Usa la galería.')
       return
     }
     setStarting(true)
@@ -51,13 +63,71 @@ export default function CameraCaptureSheet({ open, onClose, onCapture, instructi
       console.warn('[bplus] Camara:', e)
       setError(
         e?.name === 'NotAllowedError'
-          ? 'Permiso de camara denegado. Puedes elegir una foto de la galeria.'
-          : 'No se pudo abrir la camara. Usa la galeria.',
+          ? 'Permiso de cámara denegado. Puedes elegir una foto de la galería.'
+          : 'No se pudo abrir la cámara. Usa la galería.',
       )
     } finally {
       setStarting(false)
     }
   }, [stopStream])
+
+  // «Di "ya"»: micrófono abierto hasta oír la palabra (o hasta que lo apagues)
+  const dejarDeOir = useCallback(() => {
+    const r = oidoRef.current
+    oidoRef.current = null
+    if (r) {
+      r.onend = null
+      r.onresult = null
+      r.onerror = null
+      try {
+        r.abort()
+      } catch {
+        /* ya estaba cerrado */
+      }
+    }
+    setOyendo(false)
+  }, [])
+
+  const oirYa = () => {
+    if (!SR) return
+    if (oyendo) {
+      dejarDeOir()
+      return
+    }
+    const r = new SR()
+    r.lang = 'es-ES'
+    r.continuous = true
+    r.interimResults = true
+    r.onresult = (e) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (DISPARO.test(e.results[i][0].transcript.toLowerCase())) {
+          dejarDeOir()
+          disparar.current()
+          return
+        }
+      }
+    }
+    // Chrome cierra el micrófono tras un silencio: mientras sigas en la cámara, se reabre
+    r.onend = () => {
+      if (oidoRef.current !== r) return
+      try {
+        r.start()
+      } catch {
+        setOyendo(false)
+      }
+    }
+    r.onerror = (ev) => {
+      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed' || ev.error === 'audio-capture') dejarDeOir()
+    }
+    oidoRef.current = r
+    try {
+      r.start()
+      setOyendo(true)
+    } catch {
+      oidoRef.current = null
+      setOyendo(false)
+    }
+  }
 
   // Abrir / flip camara. Al cerrar se limpia en otro efecto.
   useEffect(() => {
@@ -73,6 +143,7 @@ export default function CameraCaptureSheet({ open, onClose, onCapture, instructi
 
   useEffect(() => {
     if (open) return
+    dejarDeOir()
     setPreview(prev => {
       if (prev) URL.revokeObjectURL(prev)
       return null
@@ -81,7 +152,8 @@ export default function CameraCaptureSheet({ open, onClose, onCapture, instructi
     setError(null)
     setFacing('environment')
     setHasStream(false)
-  }, [open])
+  }, [open, dejarDeOir])
+  useEffect(() => dejarDeOir, [dejarDeOir])
 
   const flipFacing = () => {
     if (preview) return
@@ -110,6 +182,7 @@ export default function CameraCaptureSheet({ open, onClose, onCapture, instructi
       stopStream()
     }, 'image/jpeg', 0.9)
   }
+  disparar.current = takePhoto
 
   const retake = () => {
     if (preview) URL.revokeObjectURL(preview)
@@ -149,15 +222,15 @@ export default function CameraCaptureSheet({ open, onClose, onCapture, instructi
               <i className="ti ti-x" />
             </button>
             <div className="cam-sheet-titles">
-              <div className="s cam-habit">{habitName || 'Validar'}</div>
-              <div className="q cam-hint">{instruction || 'Toma una foto de prueba'}</div>
+              <div className="s cam-habit">Validar con foto</div>
+              <div className="q cam-hint">{habitName || 'Tu hábito de hoy'}</div>
             </div>
             <button
               type="button"
               className="cam-icon-btn"
               onClick={flipFacing}
               disabled={!!preview || starting}
-              aria-label={facing === 'environment' ? 'Camara frontal' : 'Camara trasera'}
+              aria-label={facing === 'environment' ? 'Cámara frontal' : 'Cámara trasera'}
             >
               <i className="ti ti-camera-rotate" />
             </button>
@@ -177,7 +250,21 @@ export default function CameraCaptureSheet({ open, onClose, onCapture, instructi
                 />
                 {!hasStream && !error && (
                   <div className="cam-loading q">
-                    {starting ? 'Abriendo camara…' : 'Preparando…'}
+                    {starting ? 'Abriendo cámara…' : 'Preparando…'}
+                  </div>
+                )}
+                {/* Esquinas guía, lo que revisa la IA y Rockie diciendo qué debe verse */}
+                <span className="cam-corner tl" aria-hidden="true" />
+                <span className="cam-corner tr" aria-hidden="true" />
+                <span className="cam-corner bl" aria-hidden="true" />
+                <span className="cam-corner br" aria-hidden="true" />
+                <span className="q cam-ai">
+                  <i className="ti ti-sparkles" aria-hidden="true" /> La IA revisa tu foto
+                </span>
+                {!error && (
+                  <div className="cam-rockie">
+                    <Rockie emotion={emotion ?? { eyes: 1, mouth: 6 }} size={64} moods={false} equipped={equipped} color={rockieColor} stage={stageOfLevel(level ?? 1)} />
+                    <span className="q cam-bubble">{instruction || 'Que se vea bien lo que hiciste.'}</span>
                   </div>
                 )}
               </>
@@ -192,41 +279,40 @@ export default function CameraCaptureSheet({ open, onClose, onCapture, instructi
 
           <div className="cam-sheet-bottom">
             {preview ? (
-              <>
+              <div className="cam-row">
                 <button type="button" className="cam-sec-btn q" onClick={retake}>
                   <i className="ti ti-refresh" /> Repetir
                 </button>
                 <button type="button" className="cam-primary-btn q gbtn" onClick={confirm}>
                   <i className="ti ti-sparkles" /> Enviar a la IA
                 </button>
-              </>
+              </div>
             ) : (
               <>
-                <button
-                  type="button"
-                  className="cam-sec-btn q"
-                  onClick={() => galleryRef.current?.click()}
-                >
-                  <i className="ti ti-photo" /> Galeria
-                </button>
-                <button
-                  type="button"
-                  className="cam-shutter"
-                  onClick={takePhoto}
-                  disabled={!hasStream}
-                  aria-label="Tomar foto"
-                >
-                  <span className="cam-shutter-ring" />
-                </button>
-                <button
-                  type="button"
-                  className="cam-sec-btn q"
-                  onClick={flipFacing}
-                  disabled={starting}
-                >
-                  <i className="ti ti-camera-rotate" />
-                  {facing === 'environment' ? 'Frontal' : 'Trasera'}
-                </button>
+                <div className="cam-controls">
+                  <button type="button" className="cam-side q" onClick={() => galleryRef.current?.click()}>
+                    <span className="cam-side-ic"><i className="ti ti-photo" /></span>
+                    Galería
+                  </button>
+                  <button
+                    type="button"
+                    className="cam-shutter"
+                    onClick={takePhoto}
+                    disabled={!hasStream}
+                    aria-label="Tomar la foto"
+                  >
+                    <span className="cam-shutter-ring" />
+                  </button>
+                  {SR ? (
+                    <button type="button" className={`cam-side q voz${oyendo ? ' on' : ''}`} onClick={oirYa} disabled={!hasStream} aria-pressed={oyendo}>
+                      <span className="cam-side-ic"><i className={`ti ${oyendo ? 'ti-ear' : 'ti-microphone'}`} /></span>
+                      {oyendo ? 'Te escucho…' : 'Di «ya»'}
+                    </button>
+                  ) : (
+                    <span aria-hidden="true" />
+                  )}
+                </div>
+                {SR && <p className="q cam-caption">{oyendo ? 'Cuando estés listo, di «ya»' : 'o di «ya» y Rockie toma la foto'}</p>}
               </>
             )}
           </div>

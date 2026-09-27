@@ -68,7 +68,7 @@ export default function StreakToast({ streak = 3, triggerKey = 0, subtitle = '¡
               {milestone ? `🏆 ¡HITO: ${streak} DIAS!` : subtitle}
             </div>
             <div className="s" style={{ fontSize: 'var(--text-base)', color: '#fff' }}>
-              {milestone ? '¡Racha legendaria!' : `${streak} dias seguidos`}
+              {milestone ? '¡Racha legendaria!' : `${streak} ${streak === 1 ? 'día seguido' : 'días seguidos'}`}
             </div>
           </div>
         </motion.div>

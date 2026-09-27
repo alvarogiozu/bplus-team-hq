@@ -110,7 +110,7 @@ function insights(mes, porHabito) {
 }
 
 // ─── Cabecera con historia ───────────────────────────────────────────────────
-function Hero({ pct, doneCount, totalCount, streak, esteMes, completados, stats, frases }) {
+function Hero({ pct, doneCount, totalCount, streak, esteMes, completados, stats, frases, mobile = false }) {
   const { emotion, equipped, rockieColor, level } = useStore()
   const cerrado = totalCount > 0 && doneCount >= totalCount
   const faltan = Math.max(0, totalCount - doneCount)
@@ -124,30 +124,34 @@ function Hero({ pct, doneCount, totalCount, streak, esteMes, completados, stats,
           : `Vas ${doneCount} de ${totalCount}: ${faltan === 1 ? 'te falta 1' : `te faltan ${faltan}`} para cerrar el día`
   const racha = streak > 0 ? `Racha de ${streak} ${streak === 1 ? 'día' : 'días'}: no la sueltes` : 'Valida un hábito hoy y empieza tu racha'
 
-  return (
-    <section className="dk-card pg2-hero">
-      <div className="pg2-hero-rockie">
-        <Rockie
-          emotion={emotion ?? { eyes: 1, mouth: 6 }}
-          size={124}
-          float
-          moods={false}
-          equipped={equipped}
-          color={rockieColor}
-          stage={stageOfLevel(level ?? 1)}
-          fx={cerrado ? 'celebrate' : null}
-          fxKey={cerrado ? 1 : 0}
-        />
+  const rockie = (
+    <div className="pg2-hero-rockie">
+      <Rockie
+        emotion={emotion ?? { eyes: 1, mouth: 6 }}
+        size={mobile ? 80 : 124}
+        float
+        moods={false}
+        equipped={equipped}
+        color={rockieColor}
+        stage={stageOfLevel(level ?? 1)}
+        fx={cerrado ? 'celebrate' : null}
+        fxKey={cerrado ? 1 : 0}
+      />
+    </div>
+  )
+  const copy = (
+    <div className="pg2-hero-copy">
+      <div className="q pg2-kicker">
+        {mobile
+          ? `${esteMes}% de constancia`
+          : `${mesActual()} · ${esteMes}% de constancia · ${stats.conAlgo} ${stats.conAlgo === 1 ? 'día' : 'días'} con algo cumplido`}
       </div>
-      <div className="pg2-hero-copy">
-        <div className="q pg2-kicker">
-          {mesActual()} · {esteMes}% de constancia · {stats.conAlgo} {stats.conAlgo === 1 ? 'día' : 'días'} con algo cumplido
-        </div>
-        <h2 className="s pg2-hero-title">{titulo}</h2>
-        <p className="q pg2-hero-streak">
-          <Flame size={16} lit={streak > 0} /> {racha}
-        </p>
-        {frases.length > 0 ? (
+      <h2 className="s pg2-hero-title">{titulo}</h2>
+      <p className="q pg2-hero-streak">
+        <Flame size={mobile ? 14 : 16} lit={streak > 0} /> {racha}
+      </p>
+      {!mobile &&
+        (frases.length > 0 ? (
           <ul className="pg2-insights">
             {frases.map((f) => (
               <li key={f} className="q">
@@ -157,10 +161,26 @@ function Hero({ pct, doneCount, totalCount, streak, esteMes, completados, stats,
           </ul>
         ) : (
           <p className="q pg2-hero-note">Cada día que valides suma aquí: en unos días verás tus patrones.</p>
-        )}
-      </div>
+        ))}
+    </div>
+  )
+
+  return (
+    <section className="dk-card pg2-hero">
+      {mobile ? (
+        // Celular: Rockie y la frase arriba; el anillo de hoy y los números debajo
+        <div className="pg2-hero-top">
+          {rockie}
+          {copy}
+        </div>
+      ) : (
+        <>
+          {rockie}
+          {copy}
+        </>
+      )}
       <div className="pg2-hero-stats">
-        <Ring pct={pct} size={132} stroke={14} color={cerrado ? 'var(--olive)' : 'var(--amber)'} label={`Hoy: ${doneCount} de ${totalCount}`}>
+        <Ring pct={pct} size={mobile ? 104 : 132} stroke={mobile ? 12 : 14} color={cerrado ? 'var(--olive)' : 'var(--amber)'} label={`Hoy: ${doneCount} de ${totalCount}`}>
           <b className="s pg2-today-n">
             {doneCount}
             <small>/{totalCount}</small>
@@ -168,29 +188,29 @@ function Hero({ pct, doneCount, totalCount, streak, esteMes, completados, stats,
           <span className="q pg2-today-l">hoy</span>
         </Ring>
         <div className="pg2-minis">
-          <div className="pg2-mini" style={{ '--mc': 'var(--amber)' }}>
+          <div className="pg2-mini" style={{ '--mc': 'var(--amber)', '--mce': 'var(--amber-edge)' }}>
             <b className="s">
               <CountUp value={streak} />
             </b>
             <span className="q">días de racha</span>
           </div>
-          <div className="pg2-mini" style={{ '--mc': 'var(--olive)' }}>
+          <div className="pg2-mini" style={{ '--mc': 'var(--olive)', '--mce': 'var(--olive-edge)' }}>
             <b className="s">
               <CountUp value={esteMes} />%
             </b>
             <span className="q">este mes</span>
           </div>
-          <div className="pg2-mini" style={{ '--mc': 'var(--berry)' }}>
+          <div className="pg2-mini" style={{ '--mc': 'var(--berry)', '--mce': 'var(--berry-edge)' }}>
             <b className="s">
               <CountUp value={completados} />
             </b>
             <span className="q">completados</span>
           </div>
-          <div className="pg2-mini" style={{ '--mc': 'var(--azure)' }}>
+          <div className="pg2-mini" style={{ '--mc': 'var(--azure)', '--mce': 'var(--azure-edge)' }}>
             <b className="s">
               <CountUp value={stats.mejorRacha} />
             </b>
-            <span className="q">mejor racha del mes</span>
+            <span className="q">{mobile ? 'mejor racha' : 'mejor racha del mes'}</span>
           </div>
         </div>
       </div>
@@ -303,7 +323,7 @@ function AreaRings({ equilibrio, onCrear }) {
 // ─── Esta semana: un anillo por dia ──────────────────────────────────────────
 const DIA_LARGO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
-function WeekRings({ serie }) {
+function WeekRings({ serie, mobile = false }) {
   const hechos = serie.filter((d) => !d.empty && d.pct >= 100).length
   const conDatos = serie.filter((d) => !d.empty && !d.future).length
   const pasados = serie.filter((d) => !d.empty && !d.future)
@@ -324,7 +344,7 @@ function WeekRings({ serie }) {
           const color = d.pct >= 100 ? 'var(--olive)' : d.pct >= 35 ? 'var(--green)' : 'var(--amber)'
           return (
             <div key={d.key} className={`pg2-wday${d.today ? ' today' : ''}${d.empty ? ' empty' : ''}`}>
-              <Ring pct={d.empty ? 0 : d.pct} size={58} stroke={7} color={color} delay={0.1 + i * 0.06} label={`${d.label}: ${d.empty ? 'sin hábitos' : `${d.pct}%`}`}>
+              <Ring pct={d.empty ? 0 : d.pct} size={mobile ? 40 : 58} stroke={mobile ? 5 : 7} color={color} delay={0.1 + i * 0.06} label={`${d.label}: ${d.empty ? 'sin hábitos' : `${d.pct}%`}`}>
                 {d.empty ? (
                   <span className="q pg2-wday-n muted">—</span>
                 ) : d.pct >= 100 ? (
@@ -462,13 +482,13 @@ function Trend({ todo, mes, onPickTodo, onPickMes }) {
 }
 
 // ─── Habito por habito ───────────────────────────────────────────────────────
-function HabitTable({ porHabito, onHabit }) {
+function HabitTable({ porHabito, onHabit, mobile = false }) {
   const { metaDeHabito } = useStore()
   return (
     <section className="dk-card pg2-habits">
       <div className="dk-sechead">
         <span className="q dk-label">Hábito por hábito · {mesActual()}</span>
-        <span className="q pg2-hint">Cada cuadrito es un día · toca un hábito para ver su detalle</span>
+        {!mobile && <span className="q pg2-hint">Cada cuadrito es un día · toca un hábito para ver su detalle</span>}
       </div>
       {porHabito.length === 0 ? (
         <div className="dk-empty q">Todavía no tienes hábitos activos. Crea uno en Hoy y aquí verás su constancia.</div>
@@ -549,6 +569,35 @@ function useMapFit(mapRef, bodyRef, sideRef) {
     return () => ro.disconnect()
   }, [mapRef, bodyRef, sideRef])
   return w
+}
+
+/**
+ * Progreso en el celular (lienzo «B+ móvil»): las mismas piezas en una columna.
+ * Rockie con tu frase del día y el anillo de hoy, el mes, la semana y cada hábito
+ * con su tira. El mapa de metas vive en Vida.
+ */
+export function ProgresoMovil(p) {
+  const stats = useMemo(() => monthStats(p.mes), [p.mes])
+  return (
+    <MotionConfig reducedMotion="user">
+      <div className="pg2 pg2-m">
+        <Hero
+          mobile
+          pct={p.pct}
+          doneCount={p.doneCount}
+          totalCount={p.totalCount}
+          streak={p.streak}
+          esteMes={p.esteMes}
+          completados={p.completados}
+          stats={stats}
+          frases={[]}
+        />
+        <MonthHeat serie={p.mes} esteMes={p.esteMes} stats={stats} onPick={p.onPickMes} />
+        <WeekRings mobile serie={p.semana} />
+        <HabitTable mobile porHabito={p.porHabito} onHabit={p.onHabit} />
+      </div>
+    </MotionConfig>
+  )
 }
 
 export default function ProgresoDesk(p) {

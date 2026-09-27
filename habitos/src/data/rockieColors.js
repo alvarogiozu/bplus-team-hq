@@ -13,7 +13,7 @@ export const ROCKIE_COLORS = [
   { id: 'jade',      name: 'Jade',      swatch: '#2b434b', eye: '#2e7d74' },
   { id: 'arcilla',   name: 'Arcilla',   swatch: '#635953', eye: '#8a7264' },
   { id: 'tierra',    name: 'Tierra',    swatch: '#4c4438', eye: '#8c7a4f' },
-  { id: 'carbon',    name: 'Carbon',    swatch: '#3d3d3d', eye: '#5c6470' },
+  { id: 'carbon',    name: 'Carbón',    swatch: '#3d3d3d', eye: '#5c6470' },
   { id: 'obsidiana', name: 'Obsidiana', swatch: '#313642', eye: '#5a6a94' },
 ]
 

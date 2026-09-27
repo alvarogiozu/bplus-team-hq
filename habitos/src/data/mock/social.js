@@ -85,7 +85,7 @@ export const GROUPS = [
       { name: 'Rafa',  avatar: '👦', color: 'var(--green)',     state: 'done',     frac: '3/3' },
       { name: 'Diego', avatar: '🧒', color: 'var(--paper-dark)', state: 'risk',    frac: '0/3' },
     ],
-    alert: { text: 'Diego lleva 0 habitos hoy', target: 'Diego' },
+    alert: { text: 'Diego lleva 0 hábitos hoy', target: 'Diego' },
   },
   {
     id: 'g2', name: 'Gym Squad', color: 'var(--coral)', colorEdge: 'var(--coral-edge)', iconBg: 'var(--title-soft)', variant: 'active',
@@ -158,8 +158,8 @@ export const RETOS = {
 
 // ---- Feed (tab Feed): recopilacion, sin likes ni comentarios ----
 export const FEED = [
-  { id: 'f1', type: 'validacion', author: 'Luisa', avatar: '🧑', color: 'var(--olive)', group: '5am Club', time: 'hace 8 min', habitIcon: '🌅', habitName: 'Despertar 5am', detail: 'IA verifico la foto ✓' },
-  { id: 'f2', type: 'inactivo', author: 'Carlos', avatar: '🧔', color: 'var(--paper-dark)', group: 'Gym Squad', time: 'Hoy', habitName: 'Sin actividad', detail: 'Lleva 0 habitos hoy' },
+  { id: 'f1', type: 'validacion', author: 'Luisa', avatar: '🧑', color: 'var(--olive)', group: '5am Club', time: 'hace 8 min', habitIcon: '🌅', habitName: 'Despertar 5am', detail: 'La IA verificó la foto ✓' },
+  { id: 'f2', type: 'inactivo', author: 'Carlos', avatar: '🧔', color: 'var(--paper-dark)', group: 'Gym Squad', time: 'Hoy', habitName: 'Sin actividad', detail: 'Lleva 0 hábitos hoy' },
   { id: 'f3', type: 'racha', author: 'Marco', avatar: '👩', color: 'var(--teal-soft)', group: '5am Club', time: 'hace 1 hora', title: '¡30 dias de racha!', detail: 'Marco y su Rockie subieron al nivel 15.', habitIcon: '🏆', habitName: 'Racha' },
 ]
 

@@ -428,3 +428,85 @@
   min-height: var(--tap-min); min-width: 22px; cursor: pointer;
 }
 .hoy-dot { height: 6px; border-radius: 3px; }
+
+/* ==== Hoy en el celular — lienzo «B+ móvil con Rockie al centro» (HoyMovil.jsx) ====
+   Semana arriba, vistas en compacto y botones a la vista bajo el abanico. Las cartas bajan un
+   poco de alto para que todo quepa sin encimarse; en pantallas bajas se esconde la semana. */
+.hm-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: var(--space-2); }
+.hm-day {
+  height: 52px; border-radius: 16px; border: 2px solid transparent; background: transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  padding: 0; cursor: pointer; color: var(--ink-soft); -webkit-tap-highlight-color: transparent;
+}
+.hm-day.fut { color: var(--ink-muted); }
+.hm-day-l { font-size: var(--text-2xs); font-weight: 700; }
+.hm-day-n { font-size: var(--text-lg); line-height: 1.1; }
+.hm-day-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint); }
+.hm-day.fut .hm-day-dot { background: transparent; }
+.hm-day.hoy .hm-day-l { color: var(--coral); }
+.hm-day.hoy .hm-day-dot { background: var(--coral); }
+.hm-day.on { background: var(--card); border-color: var(--card-line); box-shadow: 0 3px 0 var(--card-edge); color: var(--ink); }
+
+.hm-views {
+  display: inline-flex; gap: 2px; padding: 2px; flex-shrink: 0;
+  background: var(--card); border: 2px solid var(--card-line); border-radius: 12px; box-shadow: 0 2px 0 var(--card-edge);
+}
+.hm-view {
+  width: 32px; height: 28px; border-radius: 9px; border: none; background: transparent; cursor: pointer;
+  color: var(--ink-muted); font-size: 16px; display: flex; align-items: center; justify-content: center; position: relative;
+}
+.hm-view::after { content: ''; position: absolute; inset: -8px -2px; } /* área tocable de 44px sin agrandar el ícono */
+.hm-view.on { background: var(--coral); color: #fff; box-shadow: 0 2px 0 var(--coral-edge); }
+
+.hoy-screen.hm .hoy-carousel { height: 332px; }
+.hoy-screen.hm .fan-card { height: 314px; }
+.hoy-screen.hm .fan-circle { width: 96px; height: 96px; margin: var(--space-4) 0 var(--space-3); }
+.hoy-screen.hm .fan-circle--compact { width: 80px; height: 80px; font-size: 30px; margin: var(--space-3) 0 var(--space-2); }
+.hoy-screen.hm .fan-time { margin-top: var(--space-4); }
+.hoy-screen.hm .hoy-stage { gap: 0; padding-top: var(--space-2); }
+.hoy-screen.hm .hoy-stage-foot { display: none; }
+
+.hm-acts { position: relative; z-index: 20; width: 100%; box-sizing: border-box; padding: var(--space-2) var(--screen-x) 0; display: flex; flex-direction: column; gap: var(--space-3); flex-shrink: 0; }
+.hm-photo {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; height: 56px; padding: 0 var(--space-4);
+  border: none; border-radius: 18px; background: var(--olive); box-shadow: 0 4px 0 var(--olive-edge);
+  color: #fff; cursor: pointer; font-size: var(--text-xl); text-align: left;
+}
+.hm-photo:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--olive-edge); }
+.hm-photo-t { display: flex; flex-direction: column; line-height: 1.15; }
+.hm-photo-t b { font-size: var(--text-base); }
+.hm-short { display: none; }
+.hm-photo-t small { font-size: var(--text-xs); font-weight: 600; opacity: 0.92; }
+.hm-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.hm-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: var(--tap-min);
+  padding: 0 var(--space-3); border-radius: 16px; cursor: pointer; font-size: var(--text-sm); font-weight: 700; white-space: nowrap;
+}
+.hm-btn.ghost { background: var(--card); border: 2px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge); color: var(--ink); }
+.hm-btn.ghost:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--card-edge); }
+.hm-btn:disabled { opacity: 0.5; cursor: default; }
+.hm-acts > .hm-btn { width: 100%; }
+.hm-done {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 56px; border-radius: 18px;
+  background: color-mix(in srgb, var(--olive) 16%, var(--card)); border: 2px solid color-mix(in srgb, var(--olive) 40%, var(--card-line));
+  color: var(--olive-edge); font-weight: 700; font-size: var(--text-sm);
+}
+:root[data-theme='dark'] .hm-done { color: var(--olive); }
+
+@media (max-height: 799px) {
+  .hoy-screen.hm .hm-week { display: none; }
+  .hoy-screen.hm .hoy-carousel { height: 320px; }
+  .hoy-screen.hm .fan-card { height: 302px; }
+}
+@media (max-height: 700px) {
+  .hoy-screen.hm .hm-top > .q:not(button) { display: none; }
+  .hoy-screen.hm .hoy-carousel { height: 300px; }
+  .hoy-screen.hm .fan-card { height: 286px; }
+  .hoy-screen.hm .fan-circle, .hoy-screen.hm .fan-circle--compact { width: 72px; height: 72px; font-size: 28px; margin: var(--space-2) 0; }
+  .hm-acts { flex-direction: row; gap: var(--space-2); }
+  .hm-photo { flex: 1.1 1 0; height: 48px; padding: 0 var(--space-3); gap: var(--space-2); font-size: var(--text-lg); border-radius: 16px; }
+  .hm-photo-t small, .hm-photo > .ti-chevron-right, .hm-long { display: none; }
+  .hm-short { display: inline !important; }
+  .hm-row { flex: 2 1 0; gap: var(--space-2); }
+  .hm-btn { padding: 0 var(--space-2); font-size: var(--text-s); }
+}

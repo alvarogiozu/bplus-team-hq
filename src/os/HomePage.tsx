@@ -1,10 +1,11 @@
-import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Icon } from '../components/Icon'
 import { fmtDayLong, greeting, hourIn, isNight, timeAgo, todayIn } from '../lib/dates'
 import { supabase } from '../lib/supabase'
+import { useMedia } from '../lib/useMedia'
 import { useMe } from '../features/auth/AuthProvider'
 import { signOut } from '../features/auth/credentials'
 import { APP_META, useRockieChat } from '../features/agent/chat'
@@ -65,11 +66,57 @@ function Ring({ done, total, size = 44, stroke = 5, color, children }: { done: n
   )
 }
 
+/** Celular: tu inicial abre el tema y cerrar sesión (el lienzo deja arriba solo tu avatar). */
+function Cuenta({ nombre, theme, toggle }: { nombre: string; theme: string; toggle: () => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const fuera = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', fuera)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('pointerdown', fuera)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [open])
+  return (
+    <div className="os-cuenta" ref={ref}>
+      <button type="button" className="os-avatar" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} aria-label="Tu cuenta">
+        {(nombre || '?').charAt(0).toUpperCase()}
+      </button>
+      {open && (
+        <div className="os-cuenta-menu" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              toggle()
+              setOpen(false)
+            }}
+          >
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} className="sm" /> {theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
+          </button>
+          <button type="button" role="menuitem" onClick={() => signOut()}>
+            <Icon name="logout" className="sm" /> Cerrar sesión
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 type Entry = { key: string; app: AppId; min: number | null; title: string; tag: string; done: boolean; to?: string }
 
 export default function HomePage() {
   const { userId, profile } = useMe()
   const { theme, toggle } = useTheme()
+  const mobile = useMedia('(max-width: 719px)')
   const tz = profile.timezone
   const today = todayIn(tz)
   const hour = hourIn(tz)
@@ -179,6 +226,120 @@ export default function HomePage() {
       ...(note.data ? { line: note.data.title.trim() || 'Nota sin título', sub: `Editada ${timeAgo(note.data.updated_at)}` } : { line: 'Tu cuaderno está vacío', sub: 'Escribe o dicta tu primera nota' }),
     },
   ]
+
+  // Celular (lienzo «B+ móvil», Tus apps): marca + avatar, saludo con Rockie, las cuatro apps,
+  // lo último que le pediste y, abajo, el Rockie para hablarle (abre su voz en Hábitos).
+  if (mobile) {
+    return (
+      <div className="os-home os-home--m">
+        <header className="os-top">
+          <div className="os-brand">
+            <span className="os-word">Rockie</span>
+            <span className="os-kicker">Tus apps, un solo Rockie</span>
+          </div>
+          <Cuenta nombre={first} theme={theme} toggle={toggle} />
+        </header>
+
+        <section className="os-hero os-hero--m">
+          <RockieArt size={72} stone={look.stone} equipped={look.equipped} eyes={face.eyes} mouth={face.mouth} />
+          <div className="os-hero-copy">
+            <h1>
+              {greeting(hour)}, {first}.
+            </h1>
+            <p>{loadingDay ? 'Mirando tu día…' : summary}</p>
+          </div>
+        </section>
+
+        <div className="os-grid">
+          {tiles.map((t, i) => (
+            <motion.div key={t.app.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i, type: 'spring', stiffness: 380, damping: 30 }}>
+              <AppLink app={t.app} className="os-app" style={{ ['--app' as string]: t.app.color, ['--app-edge' as string]: t.app.edge } as CSSProperties} label={[t.app.name, t.line, t.sub].filter(Boolean).join('. ')}>
+                <span className="os-tile lg">
+                  <Icon name={t.app.icon} />
+                </span>
+                <span className="os-app-name">{t.app.name}</span>
+                {t.loading ? <span className="os-app-line os-skel" aria-label="Cargando" /> : <span className="os-app-line">{t.line}</span>}
+              </AppLink>
+            </motion.div>
+          ))}
+        </div>
+
+        <section className="os-card os-said" aria-label="Lo último que le pediste a Rockie">
+          <h2>Lo último que le pediste</h2>
+          {said.length ? (
+            <ul>
+              {said.map((t) => (
+                <li key={t.id}>
+                  <span className="os-said-ic" style={{ ['--app' as string]: APP_META[t.app].color } as CSSProperties}>
+                    <Icon name={APP[t.app as AppId]?.icon ?? 'sparkle'} className="sm" />
+                  </span>
+                  <span className="os-said-t">
+                    <b>«{t.text}»</b>
+                    <small>
+                      {APP_META[t.app].label} · {timeAgo(t.created_at)}
+                    </small>
+                  </span>
+                  <Icon name="check" className="sm os-said-ok" />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="os-empty">Cuando le hables a Rockie en cualquier app, lo verás aquí: es un solo chat para las cuatro.</p>
+          )}
+        </section>
+
+        <section className="os-card os-day" aria-label="Tu día">
+          <h2>Tu día</h2>
+          {loadingDay ? (
+            <div className="os-day-skel" aria-label="Cargando">
+              <span className="os-skel" />
+              <span className="os-skel" />
+            </div>
+          ) : entries.length ? (
+            <ol>
+              {entries.map((e) => {
+                const app = APP[e.app]
+                return (
+                  <li key={e.key}>
+                    <AppLink app={app} to={e.to} className={`os-day-row${e.done ? ' done' : ''}`} style={{ ['--app' as string]: app.color } as CSSProperties}>
+                      <span className="os-day-t">{e.min != null ? fmtMin(e.min) : 'Hoy'}</span>
+                      <span className="os-day-dot" aria-hidden="true">
+                        {e.done && <Icon name="check" />}
+                      </span>
+                      <span className="os-day-txt">
+                        <b>{e.title}</b>
+                        <small>{e.done ? `${e.tag} · hecho` : e.tag}</small>
+                      </span>
+                    </AppLink>
+                  </li>
+                )
+              })}
+            </ol>
+          ) : (
+            <p className="os-empty">Hoy no tienes nada agendado. Dile a Rockie qué quieres lograr y lo ponemos en tu día.</p>
+          )}
+        </section>
+
+        <nav className="os-dock" aria-label="Hablarle a Rockie">
+          <a className="os-dock-side" href="/habitos/hoy?voz=escribir" aria-label="Escribirle a Rockie">
+            <Icon name="keyboard" />
+          </a>
+          <a className="os-dock-mic" href="/habitos/hoy?voz=escuchar" aria-label="Hablar con Rockie">
+            <span className="os-dock-btn">
+              <RockieArt size={58} stone={look.stone} equipped={look.equipped} eyes={face.eyes} mouth={face.mouth} />
+              <span className="os-dock-badge" aria-hidden="true">
+                <Icon name="mic" className="sm" />
+              </span>
+            </span>
+            <small>Rockie</small>
+          </a>
+          <a className="os-dock-side manos" href="/habitos/hoy?voz=manos" aria-label="Manos libres">
+            <Icon name="headphones" />
+          </a>
+        </nav>
+      </div>
+    )
+  }
 
   return (
     <div className="os-home">
