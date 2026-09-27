@@ -1,0 +1,270 @@
+/* Página pública /team-hq — misma familia visual que la landing. */
+
+.thq {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--paper);
+  background-image:
+    radial-gradient(circle at 14% 10%, color-mix(in srgb, var(--brand) 14%, transparent), transparent 46%),
+    radial-gradient(circle at 92% 22%, color-mix(in srgb, var(--amber) 11%, transparent), transparent 40%),
+    radial-gradient(circle at 70% 90%, color-mix(in srgb, var(--olive) 10%, transparent), transparent 44%),
+    radial-gradient(circle at 8% 78%, color-mix(in srgb, var(--berry) 8%, transparent), transparent 38%);
+  color: var(--ink-soft);
+  -webkit-overflow-scrolling: touch;
+}
+.thq::-webkit-scrollbar { width: 0; background: transparent; }
+
+.thq-wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: var(--screen-x);
+  padding-right: var(--screen-x);
+}
+
+.thq-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--card-line);
+}
+.thq-nav-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 64px;
+}
+.thq-nav-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.thq-section {
+  padding-top: var(--space-10);
+  padding-bottom: var(--space-10);
+}
+.thq-band { background: var(--paper-alt); }
+
+.thq-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-2xs);
+  letter-spacing: 2.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
+}
+.thq-eyebrow-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.thq-h1 {
+  font-size: var(--text-3xl);
+  line-height: 1.12;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.thq-h2 {
+  font-size: var(--text-2xl);
+  line-height: 1.15;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.thq-sub {
+  font-size: var(--text-base);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.thq-hero {
+  display: grid;
+  gap: var(--space-8);
+  padding-top: var(--space-10);
+  padding-bottom: var(--space-10);
+  align-items: center;
+}
+.thq-hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+.thq-hero-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+}
+.thq-hero-art::before {
+  content: '';
+  position: absolute;
+  inset: 12% 18%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--amber) 28%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.thq-hero-img {
+  position: relative;
+  width: min(100%, 360px);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 28px color-mix(in srgb, var(--ink) 18%, transparent));
+  animation: thq-float 4.2s ease-in-out infinite;
+}
+@keyframes thq-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.thq-whom-grid {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+  grid-template-columns: 1fr;
+}
+.thq-whom-card {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4);
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 4px 0 var(--card-edge);
+}
+.thq-whom-art {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  background: #0a0a0a;
+  border-radius: var(--r-md);
+}
+.thq-whom-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-lg);
+  color: var(--ink);
+}
+.thq-whom-body {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.thq-pillars {
+  display: grid;
+  gap: var(--space-5);
+  margin-top: var(--space-8);
+}
+.thq-pillar {
+  display: grid;
+  gap: var(--space-4);
+  align-items: center;
+}
+.thq-pillar-copy {
+  padding: var(--space-5);
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 4px 0 var(--card-edge);
+}
+.thq-pillar-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.thq-pillar-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 3px 0 var(--brand-edge);
+  flex-shrink: 0;
+}
+.thq-pillar-icon .ti { font-size: 20px; }
+.thq-pillar-title {
+  margin: 0;
+  font-size: var(--text-xl);
+  color: var(--ink);
+}
+.thq-pillar-body {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+.thq-pillar-art-wrap {
+  display: flex;
+  justify-content: center;
+}
+.thq-pillar-art {
+  width: min(100%, 240px);
+  height: auto;
+  object-fit: contain;
+}
+
+.thq-close {
+  background: var(--brand);
+  color: #fff;
+  padding: var(--space-12) 0;
+  border-top: 5px solid var(--amber);
+}
+.thq-close .thq-h2 { color: #fff; }
+.thq-close .thq-sub { color: rgba(240, 235, 229, 0.78); }
+.thq-close-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.thq-footer {
+  background: var(--paper-alt);
+  padding: var(--space-8) 0;
+  text-align: center;
+}
+
+@media (min-width: 720px) {
+  .thq-whom-grid { grid-template-columns: 1fr 1fr; }
+  .thq-pillar {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+  .thq-pillar--flip {
+    grid-template-columns: 0.9fr 1.1fr;
+  }
+  .thq-pillar--flip .thq-pillar-art-wrap { order: -1; }
+}
+
+@media (min-width: 900px) {
+  .thq-wrap { padding-left: var(--space-10); padding-right: var(--space-10); }
+  .thq-section { padding-top: var(--space-12); padding-bottom: var(--space-12); }
+  .thq-hero {
+    grid-template-columns: 1.15fr 0.85fr;
+    padding-top: var(--space-12);
+    padding-bottom: var(--space-12);
+  }
+  .thq-h1 { font-size: var(--text-display); }
+  .thq-h2 { font-size: var(--text-3xl); }
+  .thq-sub { font-size: var(--text-lg); }
+  .thq-whom-grid { grid-template-columns: repeat(2, 1fr); }
+  .thq-hero-img { width: min(100%, 420px); }
+}

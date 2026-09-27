@@ -1,0 +1,125 @@
+/* Barra de Rockie OS: 4 pestañas con píldora deslizante y Rockie (la voz) al centro, en alto.
+   El wrapper lleva los márgenes y el safe-area. */
+.navbar-wrap {
+  margin: 0 var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom));
+  padding-top: 28px; /* aire para Rockie, que sobresale de la barra */
+  flex-shrink: 0;
+  /* Aísla layout/paint del scroll de la pantalla: el gesto de la barra
+     no fuerza recalcular el contenido de arriba. */
+  contain: layout style;
+}
+
+.navbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--card);
+  border-radius: 24px;
+  padding: var(--space-3) var(--space-2);
+  border: 2px solid var(--card-line);
+  box-shadow: 0 4px 0 var(--card-edge), var(--shadow-soft);
+}
+
+/* Píldora deslizante activa: sólida con canto (mismo lenguaje que el segmentado).
+   El color/edge los pone el JSX según la pestaña; aquí solo forma y dimensión. */
+.nav-ind {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  z-index: 0;
+  border-radius: 16px;
+  box-shadow: 0 2px 0 var(--nav-edge, var(--edge-soft));
+  pointer-events: none;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.nav-item,
+.nav-gap {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;      /* mismas anchuras => píldora uniforme y Rockie justo al centro */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+.nav-item {
+  background: none;
+  border: none;
+  padding: 2px var(--space-1);
+  color: var(--ink-muted);
+  transition: color 0.18s ease;
+  touch-action: none; /* el gesto de arrastre entre pestañas es nuestro */
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-gap { justify-content: flex-end; align-self: stretch; pointer-events: none; color: var(--brand); }
+
+.nav-item i { font-size: var(--text-3xl); line-height: 1; }
+.nav-item .label,
+.nav-gap .label { font-size: var(--text-2xs); font-weight: 600; white-space: nowrap; }
+.nav-item.active .label,
+.nav-gap .label { font-weight: 700; }
+
+/* Rockie al centro: botón redondo en alto (toca = hablar). Press con :active, sin JS. */
+.nav-rockie-btn {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: -30px;
+  width: 72px;
+  height: 72px;
+  margin-left: -36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 5px 0 var(--brand-edge), var(--shadow-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.nav-rockie-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--brand-edge); }
+.nav-rockie-btn:focus-visible { outline: 3px solid var(--azure); outline-offset: 3px; }
+.nav-rockie-face { display: flex; line-height: 0; will-change: transform; backface-visibility: hidden; }
+.nav-rockie-mic {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  color: var(--brand);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-rockie-confetti {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  pointer-events: none;
+  z-index: 50;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item, .nav-rockie-btn { transition: none; }
+}
+
+/* Shell de escritorio (>=900px): la navegación vive en el rail izquierdo
+   (DesktopNav), así que la barra inferior móvil se oculta entera. */
+@media (min-width: 900px) {
+  .desktop-shell .navbar-wrap { display: none; }
+}

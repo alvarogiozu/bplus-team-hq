@@ -1,0 +1,72 @@
+/* ==== Tienda en computadora ====
+   Vitrina fija (Rockie probandose lo que compras + como ganar monedas) y el
+   catalogo en rejilla. */
+.td-coins { font-size: var(--text-base); min-height: var(--tap-min); padding: 0 var(--space-4); }
+.td-coins b { color: var(--amber); font-size: var(--text-lg); }
+
+.td-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+.td-vitrina {
+  position: sticky;
+  top: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.td-stage {
+  border-radius: var(--r-xl);
+  border: 2px solid var(--card-line);
+  box-shadow: 0 4px 0 var(--card-edge);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-8) var(--space-4) var(--space-4);
+}
+.td-stage-label {
+  margin-top: var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.td-earn { display: flex; flex-direction: column; gap: var(--space-2); }
+.td-earn-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.td-earn-row i { font-size: var(--text-lg); }
+.td-earn-row b { margin-left: auto; color: var(--ink); }
+
+.td-catalog { min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.td-cats { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.td-cat {
+  --edge: var(--card-edge);
+  min-height: 40px;
+  padding: 0 var(--space-5);
+  border-radius: var(--r-pill);
+  border: 2px solid var(--card-line) !important;
+  background: var(--card);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+.td-cat:hover:not(.on) { background: var(--card-2); }
+.td-cat.on {
+  --edge: var(--azure-edge);
+  background: var(--azure);
+  color: #fff;
+  border-color: transparent !important;
+}
+.td-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--space-3);
+}

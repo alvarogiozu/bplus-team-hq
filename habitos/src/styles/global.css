@@ -1,0 +1,301 @@
+@import './tokens.css';
+@import './desk.css';
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* Altura fija al viewport visible + overflow hidden: el DOCUMENTO nunca scrollea,
+   asi el marco (y la barra inferior) quedan clavados. Cada pantalla scrollea por
+   dentro (.scroll-area). height:100% es el fallback si el navegador no soporta dvh. */
+html, body, #root { height: 100%; height: 100dvh; overflow: hidden; }
+
+body {
+  background: var(--paper-dark);
+  font-family: var(--font-sans);
+  color: var(--ink-soft);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+  /* Quita el flash gris al tocar en iOS/Android */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* App con tacto nativo: nada de texto seleccionable ni callout de long-press
+   (eso genera la seleccion azul accidental en labels/botones al tocar/arrastrar).
+   Se reactiva SOLO en campos de entrada, donde seleccionar si tiene sentido. */
+.app-phone {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Tipografia utilitaria (espejo de los prototipos) */
+.s { font-family: var(--font-serif); font-weight: 700; }
+.q { font-family: var(--font-sans); }
+
+button { font-family: var(--font-sans); cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+
+/* ---- Lienzo de la app: marco de telefono en desktop, full en movil ---- */
+.app-root {
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.app-phone {
+  position: relative;
+  width: 100%;
+  max-width: var(--app-max);
+  /* Altura DEFINIDA (no min-height): asi .scroll-area (flex:1) se vuelve el unico
+     contenedor scrolleable y la barra inferior queda fija. height:100% es fallback
+     si el navegador no soporta dvh. En desktop la media query de abajo la sobreescribe. */
+  height: 100%;
+  height: 100dvh;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Textura sutil de papel (acabado mate, calido) */
+  background-image:
+    radial-gradient(circle at 20% 12%, rgba(189, 108, 86, 0.025), transparent 55%),
+    radial-gradient(circle at 85% 80%, rgba(87, 82, 121, 0.03), transparent 50%);
+}
+
+@media (min-width: 480px) and (max-width: 899px) {
+  .app-root { align-items: center; padding: 22px 0; }
+  .app-phone {
+    /* Proporcion FIJA estilo iPhone 15 (393x852 pt = 1179x2556 px @3x): el marco
+       ya no crece/encoge segun el contenido de cada pantalla. Si sobra queda aire;
+       si falta, la pantalla scrollea por dentro (.scroll-area). */
+    aspect-ratio: 393 / 852;
+    height: min(852px, calc(100dvh - 44px));
+    width: auto;         /* el ancho lo deriva la proporcion, no el 100% base */
+    min-height: 0;       /* anula el rango elastico anterior (760-920) */
+    max-height: none;
+    border-radius: 40px;
+    box-shadow: var(--shadow-phone);
+  }
+}
+
+/* Scroll interno limpio.
+   Columna flex para que las pantallas hijas puedan resolver alturas (min-height:100%)
+   y centrar contenido de forma fiable; las pantallas con lista siguen con scroll por contenido. */
+.scroll-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* overflow-x EXPLICITO: sin el, overflow-y auto lo computa a auto y cualquier
+     cosa que asome (cartas del abanico) vuelve la pantalla scrolleable en
+     horizontal + el compositor descarta capas GPU del lado izquierdo. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-area::-webkit-scrollbar { width: 0; height: 0; display: none; background: transparent; }
+.bottomsheet-panel { scrollbar-width: none; -ms-overflow-style: none; }
+.bottomsheet-panel::-webkit-scrollbar { width: 0; height: 0; display: none; background: transparent; }
+.bottomsheet-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+.bottomsheet-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; background: transparent; }
+.planes-screen { scrollbar-width: none; -ms-overflow-style: none; }
+.planes-screen::-webkit-scrollbar { width: 0; height: 0; display: none; background: transparent; }
+
+/* Subrayado editorial ambar */
+.editorial-line {
+  height: 3px;
+  width: 46px;
+  background: var(--amber);
+  border-radius: 2px;
+  margin-top: 6px;
+}
+
+/* ==== Gamificacion: superficie y dimension 2.5D ====
+   Boton de juego: descansa sobre su canto solido (--edge); al pulsarlo baja
+   4px y el canto se aplasta (fisica de boton real, estilo Duolingo).
+   En motion.* con transform propio, replicar el hundimiento con whileTap={{ y: 4 }}. */
+.gbtn {
+  --edge: var(--card-edge);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--edge);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.2s ease, color 0.2s ease;
+  touch-action: manipulation;
+}
+.gbtn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--edge); }
+.gbtn:disabled { box-shadow: none; }
+
+/* Superficie con cuerpo: borde definido + canto inferior */
+.gsurf {
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  box-shadow: 0 3px 0 var(--card-edge);
+}
+/* Superficie tocable: se hunde al pulsar */
+.gsurf--tap { transition: transform 0.1s ease, box-shadow 0.1s ease; }
+.gsurf--tap:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-edge); }
+
+/* Control segmentado compartido (Segmented.jsx): riel excavado + pildora con canto */
+.seg {
+  position: relative;
+  display: flex;
+  background: var(--paper-alt);
+  border: 2px solid var(--card-line);
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 2px 0 rgba(87, 82, 121, 0.06);
+  padding: 3px;
+  gap: 2px;
+}
+.seg-btn {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  border-radius: var(--r-pill);
+  min-height: 32px;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+  touch-action: none; /* el gesto de arrastre es nuestro, no scroll del navegador */
+}
+/* Indicador unico: se mide por rects (x + width), sin escala => no tambalea */
+.seg-ind {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  z-index: 0;
+  border-radius: var(--r-pill);
+  box-shadow: 0 2px 0 var(--seg-edge, var(--edge-soft));
+  pointer-events: none;
+}
+
+/* Pildora de stat (contadores: monedas, racha, "3 de 5") */
+.gpill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  box-shadow: 0 2px 0 var(--card-edge);
+  border-radius: var(--r-pill);
+  padding: 2px var(--space-3);
+  font-weight: 700;
+}
+
+/* Animaciones compartidas */
+/* float: specs del brief FABLE — 3s, -7px, easing sinusoidal */
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+/* blink: cada 4s; cierre rapido (80ms = 94%->96%) y apertura suave (120ms = 96%->99%) */
+@keyframes blink { 0%, 94%, 99%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.08); } }
+@keyframes shine { 0%, 100% { opacity: 0; transform: scale(0.6); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+/* zzz: las "z" que flotan cuando Rockie duerme (suben y se desvanecen) */
+@keyframes zzz { 0% { opacity: 0; transform: translateY(6px) scale(0.7); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px) scale(1.15); } }
+/* shadow-pulse: la sombra eliptica bajo Rockie respira en contrafase con el float
+   (personaje arriba = sombra chica y tenue). Solo transform/opacity. */
+@keyframes shadow-pulse { 0%, 100% { transform: scaleX(1); opacity: 0.9; } 50% { transform: scaleX(0.82); opacity: 0.55; } }
+
+/* breathe: respiracion de Rockie (squash sutil desde la base) — vida idle,
+   estilo Duolingo. Capa propia anidada para no pelear con float (padre) ni
+   con las emociones de framer (los transforms anidados se componen). */
+@keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(0.995, 1.018); } }
+.breathe { animation: breathe 3.6s ease-in-out infinite; transform-origin: 50% 100%; }
+
+.float { animation: float 3s ease-in-out infinite; }
+.bob { animation: bob 3s ease-in-out infinite; }
+.blink { animation: blink 4s ease-in-out infinite; }
+.pulse { animation: pulse 2s ease-in-out infinite; }
+.zzz { animation: zzz 1.8s ease-out infinite; }
+
+/* Accesibilidad / batería: si el usuario desactivo las animaciones en su
+   dispositivo (iOS/Android), reducimos casi todo el movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==== Escritorio (>=900px): sin marco de iPhone flotante ====
+   Login, legal, onboarding y splash usan todo el viewport. Con sesion,
+   desktop-shell monta rail + columna central + panel (DesktopShell.css).
+   Mismo breakpoint que la landing (900px). */
+@media (min-width: 900px) {
+  .app-root {
+    align-items: stretch;
+    padding: 0;
+    height: 100%;
+    height: 100dvh;
+  }
+
+  .app-phone {
+    aspect-ratio: auto;
+    height: 100%;
+    height: 100dvh;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+  }
+
+  /* Pantalla completa (mismo esqueleto que B+ HQ / Rockie Agenda): barra
+     lateral pegada a la izquierda y area principal a todo el ancho. Nada de
+     "telefono" flotando al centro. */
+  .app-root.desktop-shell {
+    display: flex;
+    justify-content: stretch;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+  }
+
+  .app-root.desktop-shell .app-phone {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+  }
+
+  /* Pantallas sin composicion de escritorio propia (legales, planes...):
+     columna de lectura centrada dentro del area ancha. Las pestanas principales
+     traen su layout de PC (.desk-wide, styles/desk.css) y usan todo el ancho. */
+  .app-root.desktop-shell:not(.desk-wide) .app-phone > .scroll-area {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  /* Onboarding en PC: columna central mas ancha (cuestionario en rejilla) */
+  .app-root.desktop-shell.desktop-shell--onboarding .app-phone {
+    max-width: min(840px, 100%);
+    margin: 0 auto;
+  }
+
+  /* Legal y textos largos: columna de lectura centrada */
+  .legal-page {
+    max-width: 720px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}

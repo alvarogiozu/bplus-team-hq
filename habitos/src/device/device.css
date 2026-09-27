@@ -1,0 +1,165 @@
+/* ==========================================================================
+   B+ DEVICE — tokens del companion fisico (Rockie Companion)
+   Pantalla: 3.5" ILI9488, 320x480 VERTICAL, tactil RESISTIVA, cerebro ESP32-S3.
+   --------------------------------------------------------------------------
+   Este archivo NO es la app movil. Redefine los tokens para lo que el
+   hardware puede hacer de verdad. Reglas que vienen del hardware:
+
+   1. TACTIL RESISTIVO -> un solo dedo, necesita PRESION, precision ~10px.
+      => nada de swipe/drag/pinch/long-press. Todo es un TOQUE en un boton.
+      => zona tactil minima 64px (no 44: la del movil no aplica aqui).
+   2. CAPA PLASTICA -> se come contraste y difumina.
+      => nada de texto gris claro, nada de lineas de 1px, nada por debajo de 12px.
+   3. RGB565 (16 bits de color) -> los degradados hacen BANDING visible.
+      => solo rellenos solidos. La dimension se da con el canto 2.5D, no con blur.
+   4. LVGL EN FLASH -> cada tamano de fuente es un bitmap compilado que ocupa
+      espacio. Por eso aqui SOLO existen 5 tamanos. No anadas un sexto.
+   5. SIN SOMBRAS BLANDAS -> el box-shadow con blur es caro de renderizar.
+      => el canto solido (0 Npx 0, sin blur) ya es el lenguaje de B+ y ademas
+         es literalmente un rectangulo mas en LVGL. Gratis.
+   ========================================================================== */
+
+.bp-device {
+  /* ---- Lienzo fisico ---- */
+  --dev-w: 320px;
+  --dev-h: 480px;
+
+  /* ---- Alturas fijas del chasis ---- */
+  --dev-header: 56px;   /* cabecera con boton atras */
+  --dev-tabs: 66px;     /* barra inferior: 64 de boton + 2 del borde superior.
+                           Si se pone 64, los botones quedan en 62 y se rompe
+                           el minimo tactil justo en lo que mas se pulsa. */
+  --dev-gutter: 12px;   /* margen lateral (el movil usa 20; aqui no sobra ancho) */
+
+  /* ---- Zona tactil ----
+     64px = ~13mm en este panel (165 ppi). Es el minimo para un dedo que
+     ademas tiene que HACER PRESION. Nada pulsable baja de aqui. */
+  --dev-tap: 64px;
+  --dev-tap-sm: 56px;   /* solo para atras/cerrar en la cabecera */
+
+  /* ---- Tipografia: EXACTAMENTE 5 TAMANOS ----
+     Cada uno = una fuente bitmap en el flash del ESP32. Anadir uno cuesta KB.
+     micro y body son Quicksand; title y display son Fraunces. */
+  --dev-micro: 12px;    /* etiquetas EN MAYUSCULA, unidades */
+  --dev-body: 16px;     /* texto normal, filas de lista */
+  --dev-emph: 20px;     /* enfasis, nombre de habito, botones */
+  --dev-title: 28px;    /* titulo de pantalla, numeros grandes */
+  --dev-display: 40px;  /* racha, contador heroe */
+
+  /* ---- Color: la paleta de B+ pero con el gris flojo eliminado ----
+     --ink-muted (#9893a5) da 2.8:1 sobre el papel: detras del plastico
+     resistivo es ilegible. Aqui el "apagado" mas claro permitido es ink-soft. */
+  --dev-paper: var(--paper);
+  --dev-surface: var(--card);
+  --dev-ink: var(--ink);
+  --dev-ink-soft: var(--ink-soft);      /* el mas claro permitido para texto */
+  --dev-line: var(--card-line);
+  --dev-edge: var(--card-edge);
+
+  /* ---- Radios (LVGL los soporta nativos) ---- */
+  --dev-r: 14px;
+  --dev-r-lg: 18px;
+  --dev-r-pill: 999px;
+
+  /* ---- Canto 2.5D: profundidad del boton en reposo ---- */
+  --dev-lift: 3px;
+
+  width: var(--dev-w);
+  height: var(--dev-h);
+  background: var(--dev-paper);
+  color: var(--dev-ink);
+  font-family: var(--font-sans);
+  font-size: var(--dev-body);
+  position: relative;
+  overflow: hidden;
+  /* El panel fisico no tiene seleccion de texto ni menu contextual */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Nunca hacer zoom ni desplazamiento por gesto: el resistivo no lo soporta */
+  touch-action: manipulation;
+}
+
+/* ---- Superficie pulsable: el patron unico de interaccion ----
+   En reposo asoma un canto solido debajo. Al pulsar, el elemento baja
+   --dev-lift y el canto desaparece: el boton "se hunde". Esto en LVGL son
+   dos rectangulos y una animacion de posicion. Portable 1:1. */
+.bp-tap {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  cursor: pointer;
+  border: 0;
+  font-family: inherit;
+  transition: transform 90ms ease-out, box-shadow 90ms ease-out, filter 90ms ease-out;
+  will-change: transform;
+}
+.bp-tap:active {
+  transform: translateY(var(--dev-lift));
+  box-shadow: none !important;
+  filter: brightness(0.96);
+}
+/* El resistivo no tiene hover. Se anula para que el prototipo en PC no mienta. */
+@media (hover: hover) {
+  .bp-tap:hover { transform: none; }
+}
+.bp-tap:disabled,
+.bp-tap[aria-disabled='true'] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ---- Scroll vertical de contenido ----
+   OJO: en el aparato real esto NO se arrastra con el dedo (el resistivo es
+   malisimo para arrastrar). Se mueve con los botones fisicos / flechas en
+   pantalla. Aqui se deja scrollable para poder probarlo comodo en el PC. */
+.bp-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.bp-scroll::-webkit-scrollbar { display: none; }
+
+/* ---- Marco de previsualizacion (SOLO para verlo en el PC) ----
+   Nada de esto existe en el aparato. Es la carcasa de mentira para que el
+   equipo vea el tamano real sin tener la pantalla en la mano. */
+.bp-device-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4);
+  min-height: 100vh;
+  background: var(--paper-dark);
+  font-family: var(--font-sans);
+}
+.bp-device-bezel {
+  padding: 14px;
+  background: #2f2b3a;
+  border-radius: 26px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.32);
+  flex: none;
+}
+.bp-device-note {
+  max-width: 420px;
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+/* Animacion de entrada de pantalla: un fundido corto.
+   LVGL hace opacidad sin problema; evitamos deslizamientos laterales porque
+   en 320px de ancho un slide completo cuesta redibujar todo el frame. */
+@keyframes bpFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.bp-fade { animation: bpFade 140ms ease-out; }
+
+/* Punto que late mientras el agente "piensa" (3 rectangulos en LVGL) */
+@keyframes bpDot {
+  0%, 60%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+}
+.bp-dot { animation: bpDot 1.1s infinite; }

@@ -3,5 +3,9 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "redirects": [{ "source": "/agenda.html", "destination": "/tareas?vista=calendario", "permanent": true }],
-  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/habitos", "destination": "/habitos/index.html" },
+    { "source": "/habitos/((?!assets/).*)", "destination": "/habitos/index.html" },
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ]
 }

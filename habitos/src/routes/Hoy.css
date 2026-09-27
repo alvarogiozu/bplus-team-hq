@@ -1,0 +1,430 @@
+/* overflow hidden EXPLICITO en ambos ejes. Ojo: "overflow-x: visible" junto a
+   overflow-y hidden computa a AUTO -> la pantalla se volvia un scroll container
+   horizontal y el compositor DESCARTABA las capas GPU de las cartas del flanco
+   izquierdo (will-change: transform) = "las tarjetas desaparecen al deslizar".
+   Las puntas laterales siguen asomando: el recorte coincide con el borde del
+   telefono (.app-phone ya recorta ahi).
+   El grano: tile SVG de fibra de papel (tinta --ink al ~4.5% via feColorMatrix) — material,
+   no decorado. Se rasteriza una sola vez y se repite: coste cero en runtime. */
+.hoy-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.341 0 0 0 0 0.322 0 0 0 0 0.475 0 0 0 0.045 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+/* Escenario: abanico completo. z-index por encima de la toolbar para que,
+   al subir la carta (validar), quede delante de la barra y no se esconda. */
+.hoy-stage {
+  position: relative;
+  z-index: 30;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-2);
+  overflow: visible;
+}
+
+/* Toolbar (progreso + 3 vistas): debajo del abanico cuando la carta sube. */
+.hoy-toolbar {
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  background: var(--paper);
+}
+
+/* Altura fija + overflow visible: las cartas laterales asoman sin cortarse. */
+.hoy-carousel {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+/* Dots + agregar: anclado abajo, z alto — tocable aunque el abanico asome. */
+.hoy-stage-foot {
+  position: relative;
+  z-index: 15;
+  flex-shrink: 0;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding-top: var(--space-2);
+  background: linear-gradient(to bottom, transparent, var(--paper) 40%);
+  pointer-events: auto;
+}
+
+.hoy-add-habit {
+  background: transparent;
+  border: none;
+  color: var(--ink-muted);
+  border-radius: var(--r-pill);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  min-height: var(--tap-min);
+  opacity: 0.38;
+  position: relative;
+  z-index: 16;
+  -webkit-tap-highlight-color: transparent;
+}
+.hoy-add-habit:active { opacity: 0.7; }
+
+/* Tamano fijo + escala GPU; origen al centro como el prototipo HTML.
+   SIN will-change fijo: creaba una capa GPU permanente por carta y el compositor
+   descartaba las del flanco izquierdo (cartas invisibles). framer-motion ya
+   promueve el elemento mientras anima; en reposo no hace falta capa. */
+.fan-card {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 200px;
+  height: 360px;
+  margin-left: -100px;
+  border-radius: var(--r-xl);
+  transform-origin: 50% 50%;
+}
+
+.fan-face {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-xl);
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  box-shadow: 0 5px 0 var(--card-edge), var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+/* Las traseras van ESCALADAS por GPU (0.72 / 0.58): el canto y el borde se encogen
+   con ellas y se veian planas. Se compensa la escala para que el grosor 2.5D LEA
+   igual que en la central (~4-5px visuales) — papel grueso a cualquier distancia. */
+.fan-side .fan-face { background: var(--card-2); border-width: 2.5px; box-shadow: 0 6px 0 var(--card-edge), var(--shadow-warm); }
+.fan-far .fan-face { border-width: 3px; box-shadow: 0 8px 0 var(--card-edge), var(--shadow-warm); }
+.card-front { z-index: 10; will-change: transform; }
+
+.fan-stripe { height: 6px; width: 100%; flex-shrink: 0; }
+/* Ritmo interno alineado al prototipo (172×318 → 200×360): menos aire arriba,
+   hint abajo con margin-top:auto — evita el "bloque arriba + vacío abajo". */
+.fan-time { font-size: var(--text-2xl); margin-top: var(--space-5); }
+.fan-circle {
+  width: 108px; height: 108px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px; margin: var(--space-5) 0 var(--space-4);
+}
+/* Con chips de meta/reto: un poco menos de aire para que quepa sin recortar */
+.fan-circle--compact {
+  width: 88px; height: 88px;
+  font-size: 32px;
+  margin: var(--space-4) 0 var(--space-3);
+}
+.fan-name { font-size: var(--text-lg); text-align: center; padding: 0 var(--space-3); line-height: 1.2; }
+.fan-tag {
+  font-size: var(--text-2xs); letter-spacing: 2px; margin-top: var(--space-2);
+  font-weight: 700; text-align: center; padding: 0 var(--space-3);
+}
+.fan-tag-type {
+  letter-spacing: 1px;
+  color: var(--ink-muted);
+  font-weight: 700;
+}
+.fan-hint {
+  margin-top: auto;
+  margin-bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  opacity: 0.45;
+  flex-shrink: 0;
+}
+.fan-hint-chevron {
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+}
+.fan-hint-text {
+  font-size: var(--text-3xs);
+  letter-spacing: 1.2px;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.fan-chips {
+  margin-top: var(--space-2);
+  width: 100%;
+  padding: 0 var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+.fan-chip {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--paper-alt);
+  border: 1.5px solid var(--card-line);
+  border-radius: var(--r-pill);
+  padding: 3px var(--space-2);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.fan-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.fan-chip--social {
+  border-color: color-mix(in srgb, var(--azure) 35%, var(--card-line));
+  color: var(--ink-soft);
+}
+.fan-chip--social i {
+  color: var(--azure);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.fan-chip-badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--azure);
+  font-weight: 800;
+  padding-left: 2px;
+}
+
+/* Lateral: punto de "viene de un reto" sin texto */
+.fan-social-dot {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--azure) 22%, var(--card));
+  color: var(--azure);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  z-index: 4;
+}
+
+/* --- Chip de habito cronogramado (pendiente) en cards laterales --- */
+.sched-chip {
+  position: absolute; bottom: var(--space-4); left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: var(--space-1); white-space: nowrap;
+  background: var(--amber-soft); border: 1.5px solid var(--amber); border-radius: var(--r-pill);
+  padding: var(--space-1) var(--space-2);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--amber) 45%, transparent);
+  font-size: var(--text-3xs); font-weight: 700; color: var(--amber);
+}
+
+/* --- Sello persistente de estado (validado / aplazado) --- */
+.card-state {
+  position: absolute; inset: 0; border-radius: var(--r-xl);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 8; pointer-events: none;
+}
+.card-state--photo { background: rgba(74, 124, 63, 0.10); }
+.card-state--check { background: rgba(138, 165, 74, 0.10); }
+.card-state--tomorrow { background: rgba(121, 117, 147, 0.42); }
+.card-state--validating {
+  background: color-mix(in srgb, var(--azure) 14%, transparent);
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.card-state--rejected {
+  /* Fondo solido: sin Face debajo, el mensaje respira y se lee. */
+  background: color-mix(in srgb, var(--berry) 10%, var(--card));
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  justify-content: center;
+}
+.card-state--interactive { pointer-events: auto; }
+.state-circle {
+  width: 88px; height: 88px; border-radius: 50%;
+  background: var(--card);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; box-shadow: 0 4px 0 var(--card-edge), var(--shadow-soft);
+  flex-shrink: 0;
+}
+/* Circulo mas chico en rechazo: deja aire a titulo + razon + botones */
+.card-state--rejected .state-circle {
+  width: 64px; height: 64px; font-size: 26px;
+  border-width: 3px;
+}
+.state-circle--photo { border: 4px solid var(--green-photo); color: var(--green-photo); }
+.state-circle--check { border: 4px dashed var(--olive); color: var(--olive); }
+.state-circle--tomorrow { border: 4px solid var(--coral); color: var(--coral); }
+.state-circle--validating { border: 4px solid var(--azure); color: var(--azure); }
+.state-circle--rejected { border: 4px solid var(--berry); color: var(--berry); }
+
+.state-caption--validating {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--azure);
+  text-align: center;
+}
+
+.state-reject-box {
+  width: 100%;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+.state-reject-title {
+  font-size: var(--text-lg);
+  color: var(--berry);
+  line-height: 1.2;
+}
+.state-reject-habit {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 var(--space-2);
+}
+.state-reject-reason {
+  font-size: var(--text-s);
+  color: var(--ink-soft);
+  line-height: 1.45;
+  padding: 0 var(--space-1);
+  /* Evita que un motivo largo empuje los botones fuera de la card */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+.state-reject-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+@keyframes cam-spin {
+  to { transform: rotate(360deg); }
+}
+.cam-spin {
+  display: inline-block;
+  animation: cam-spin 0.9s linear infinite;
+}
+
+.validating-pulse {
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(var(--r-xl) + 2px);
+  border: 2px solid color-mix(in srgb, var(--azure) 55%, transparent);
+  pointer-events: none;
+  animation: validating-glow 1.4s ease-in-out infinite;
+}
+@keyframes validating-glow {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.015); }
+}
+
+/* --- Paneles traseros (se revelan al deslizar el frente) --- */
+.card-back {
+  position: absolute; inset: 0; border-radius: var(--r-xl);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: var(--space-4); gap: var(--space-2); z-index: 5;
+}
+/* Los paneles traseros se ven "excavados": sombra interna en vez de canto */
+/* Velo TRANSLUCIDO a proposito (mismo valor en claro y oscuro): al subir o
+   bajar la carta se intuye la carta vecina detras, y el panel se siente una
+   capa de cristal sobre el abanico en vez de un bloque opaco. */
+.card-back--up { background: color-mix(in srgb, var(--green) 20%, transparent); border: 2px dashed var(--green); box-shadow: inset 0 3px 8px rgba(87, 82, 121, 0.08); }
+.card-back--down { background: color-mix(in srgb, var(--coral) 20%, transparent); border: 2px dashed var(--coral); box-shadow: inset 0 3px 8px rgba(87, 82, 121, 0.08); }
+.card-back-icon {
+  width: 54px; height: 54px; border-radius: 50%;
+  background: var(--green); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; margin-bottom: var(--space-1);
+}
+.card-back-icon--coral { background: var(--coral); }
+.card-back-title { font-size: var(--text-sm); text-align: center; }
+.card-back-note { font-size: var(--text-2xs); color: var(--ink-soft); text-align: center; line-height: 1.4; margin-bottom: var(--space-1); }
+
+/* Botones de validacion: 3D con canto propio; al pulsar bajan y lo aplastan */
+.btn-val {
+  --btn-edge: var(--edge-soft);
+  width: 100%; border: none; border-radius: var(--r-md); cursor: pointer;
+  padding: var(--space-2);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  box-shadow: 0 3px 0 var(--btn-edge);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  touch-action: manipulation;
+}
+.btn-val:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 0 0 var(--btn-edge); }
+.btn-val:disabled { box-shadow: none; }
+.btn-val--photo { background: var(--green-photo); --btn-edge: var(--green-photo-edge); }
+.btn-val--check { background: var(--card); border: 2px dashed var(--olive); --btn-edge: var(--card-edge); }
+.btn-val--confirm { background: var(--coral); --btn-edge: var(--coral-edge); }
+.btn-val-main { font-size: var(--text-s); font-weight: 700; display: flex; align-items: center; gap: var(--space-1); }
+.btn-val-sub { font-size: var(--text-2xs); }
+.btn-val--photo .btn-val-main, .btn-val--confirm .btn-val-main { color: #fff; }
+.btn-val--photo .btn-val-sub { color: rgba(255, 255, 255, 0.8); }
+.btn-val--check .btn-val-main { color: var(--olive); }
+.btn-val--check .btn-val-sub { color: var(--ink-muted); }
+
+/* --- Zona de compromiso: el panel de arriba avisa "suelta para sellar" --- */
+.commit-hint {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-2);
+}
+.commit-hint-circle {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--olive); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px;
+  box-shadow: 0 4px 0 var(--olive-edge);
+}
+
+/* --- Toast de XP flotante (nivel escenario: por encima de la carta lanzada, z 40) --- */
+.xp-toast {
+  position: absolute; top: var(--space-5); left: 50%;
+  font-size: var(--text-lg); font-weight: 700; z-index: 45; pointer-events: none;
+}
+
+/* --- Dots --- */
+/* La zona de toque es mas ancha que el dot visual (Fitts: 6px eran intocables
+   con el pulgar); el gap baja para conservar el ritmo visual de la fila. */
+.hoy-dots { display: flex; gap: var(--space-1); justify-content: center; align-items: center; margin: 0; flex-shrink: 0; }
+.hoy-dot-tap {
+  display: flex; align-items: center; justify-content: center;
+  min-height: var(--tap-min); min-width: 22px; cursor: pointer;
+}
+.hoy-dot { height: 6px; border-radius: 3px; }

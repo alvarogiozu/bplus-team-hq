@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { useCuadernoActions } from '../../cuaderno/data'
-import { toast, toastError } from '../../components/Toasts'
+import { toast } from '../../components/Toasts'
 import { timeAgo } from '../../lib/dates'
-import { humanError, supabase } from '../../lib/supabase'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 
 // Un solo chat con Rockie en la Agenda, el HQ y el Cuaderno: la conversación vive en
@@ -108,18 +108,12 @@ export function HandoffCard({ app, pedido, area }: { app: ChatApp; pedido: strin
       toast('Anotado en tu Cuaderno de hoy', { kind: 'ok', icon: 'check', action: { label: 'Abrir', onClick: () => nav('/cuaderno') } })
       return
     }
-    // Hábitos vive en B+ (otra app): se copia el pedido y se abre
-    try {
-      await navigator.clipboard?.writeText(pedido)
-    } catch (err) {
-      toastError(humanError(err))
-    }
-    window.open('https://rockie.plus', '_blank', 'noopener,noreferrer')
+    // Hábitos es otra página del mismo sitio (/habitos): su Rockie recibe el pedido al entrar
     setDone(true)
-    toast('Lo copié: pégalo en B+ al crear el hábito')
+    location.assign(`/habitos/hoy?rockie=${enc}`)
   }
 
-  const label = app === 'agenda' ? 'Llevar a la Agenda' : app === 'equipo' ? 'Llevar a Tareas' : app === 'cuaderno' ? 'Anotar en el Cuaderno' : 'Abrir en B+ Hábitos'
+  const label = app === 'agenda' ? 'Llevar a la Agenda' : app === 'equipo' ? 'Llevar a Tareas' : app === 'cuaderno' ? 'Anotar en el Cuaderno' : 'Llevar a Hábitos'
   return (
     <motion.div className={`handoff${done ? ' done' : ''}`} style={{ ['--hc' as string]: meta.color } as CSSProperties} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} layout>
       <div className="handoff-chips">

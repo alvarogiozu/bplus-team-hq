@@ -1,0 +1,78 @@
+/* Onboarding: en escritorio el contenido se centra y las opciones van en rejilla. */
+.onboarding-splash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px var(--space-10);
+  text-align: center;
+}
+
+.onboarding-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.onboarding-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.onboarding-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.onboarding-splash-col {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .onboarding-splash,
+  .onboarding-body {
+    max-width: 960px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .onboarding-splash {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-10);
+    padding: var(--space-10) var(--space-8);
+    text-align: left;
+  }
+
+  .onboarding-splash-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .onboarding-splash-col--cta {
+    flex: 0 0 min(360px, 38vw);
+    align-items: stretch;
+  }
+
+  .onboarding-options--grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+  }
+
+  .onboarding-fase {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}

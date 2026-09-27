@@ -1,0 +1,173 @@
+:root {
+  /* ---- Fondos / papel ---- */
+  --paper: #f0ebe5;
+  --paper-alt: #eee6dd;
+  --paper-dark: #dccfc5;
+  --paper-clean: #f8f6f3;
+  --paper-clean-2: #f6f5f3;
+  --card: #fdfbf7;
+  --card-2: #f7f3ec;
+  --card-3: #f2ede6;
+
+  /* ---- Texto (escala violeta-pizarra, Rose Pine Dawn) ---- */
+  --ink: #575279;
+  --ink-soft: #797593;
+  --ink-muted: #9893a5;
+  --ink-faint: #c9c4d3;
+
+  /* ---- Marca ---- */
+  --brand: #2a82ad;        /* azul Rockie: boton nav, badge nivel, acentos mascota */
+  --brand-logo: #4a8db3;   /* azul medio: logo */
+
+  /* ---- Acentos editoriales (tema academico Rose Pine Dawn del vault) ----
+     Semantica clara: coral = titulos · berry = enfasis/progreso · azure = pulsable/enlaces */
+  --title: #cf7358;        /* coral calido: TITULOS serif de pantalla (look academico) */
+  --title-soft: #f7e9e3;   /* fondo suave coral */
+  --berry: #b4637a;        /* frambuesa: enfasis, progreso, pills de formulario activos */
+  --berry-soft: #f6e8ec;   /* fondo suave del acento berry */
+  --azure: #2e88aa;        /* azul azure: controles pulsables (tabs, segmentado), enlaces, info */
+  --azure-soft: #e2eef3;   /* fondo suave azure */
+
+  /* ---- Acentos (celebracion / gamificacion) ---- */
+  --coral: #bd6c56;
+  --coral-soft: #fdf0ec;   /* fondo suave coral gamif. */
+  --amber: #eaa545;
+  --amber-soft: #fdf8ed;   /* fondo suave amber (crema calida) */
+  --olive: #8aa54a;
+  --olive-soft: #eef3e8;   /* fondo suave olive (pastel verde-amarillo) */
+
+  /* ---- Secundarios (reposo / apoyo) ---- */
+  --green: #73a58a;
+  --green-soft: #e8f2eb;   /* fondo suave green (menta) */
+  --green-photo: #4a7c3f;  /* verde oscuro: sello "validado con foto" (estado maximo) */
+  --teal-soft: #659ca5;
+  --purple: #a573a5;
+  --blue-soft: #4a6fa5;
+  --pink: #b97084;
+
+  /* ---- Sombras calidas (tintadas con la tinta violeta, no negras) ---- */
+  --shadow-soft: 0 3px 12px rgba(87, 82, 121, 0.11);
+  --shadow-card: 0 10px 24px rgba(87, 82, 121, 0.16);
+  --shadow-phone: 0 20px 60px rgba(0, 0, 0, 0.15);
+  --shadow-warm: 2px 5px 12px rgba(87, 82, 121, 0.15);
+
+  /* ---- Bordes suaves (divisores, contornos neutros) ---- */
+  --line: #dfdad9;
+
+  /* ---- Radios ---- */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-pill: 999px;
+
+  /* ---- Gamificacion: dimension 2.5D (canto inferior, estilo juego) ----
+     Cada acento tiene su "edge": el color del canto solido que asoma bajo
+     botones y superficies (sombra dura 0 Npx 0, sin blur). Al pulsar, el
+     elemento baja y el canto se aplasta. Cantos del mismo tono, nunca negros. */
+  --card-line: #e7ddcf;   /* borde de superficies claras */
+  --card-edge: #dbcfbc;   /* canto inferior de superficies claras */
+  --edge-soft: rgba(87, 82, 121, 0.16); /* canto universal sobre fondos suaves */
+  --brand-edge: #1d6489;
+  --brand-logo-edge: #35708f;
+  --azure-edge: #216b87;
+  --olive-edge: #6d833a;
+  --green-edge: #5c8871;
+  --green-photo-edge: #3a622f;
+  --coral-edge: #9d5541;
+  --amber-edge: #c8831e;
+  --berry-edge: #944d63;
+
+  /* ---- Espaciado: rejilla de 8pt (con medios pasos de 4) ----
+     REGLA: todo padding/margin/gap usa estos tokens. Nada de px sueltos. */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Margen lateral estandar de pantalla (gutter) — igual en TODAS las pantallas */
+  --screen-x: 20px;
+
+  /* ---- Escala tipografica (tamanos permitidos) ----
+     Subida global +1~2px (27 jul 2026: feedback "cuesta un poco leer";
+     el zoom del navegador esta bloqueado, la legibilidad sale de aqui). */
+  --text-3xs: 11px;   /* micro-labels */
+  --text-2xs: 12px;   /* labels en mayuscula, leyendas */
+  --text-xs: 13px;    /* captions, meta */
+  --text-s: 14px;     /* secundario pequeno */
+  --text-sm: 15px;    /* secundario */
+  --text-base: 17px;  /* cuerpo */
+  --text-md: 18px;    /* cuerpo enfatico */
+  --text-lg: 19px;    /* subtitulo */
+  --text-xl: 22px;    /* numero/stat */
+  --text-2xl: 26px;   /* subtitulo de pantalla */
+  --text-3xl: 29px;   /* titulo de pantalla */
+  --text-display: 44px; /* display grande (hero) */
+
+  /* ---- Zona tactil minima (Apple HIG 44pt / Material 48dp) ----
+     Cualquier elemento tocable debe medir al menos esto de alto/ancho. */
+  --tap-min: 44px;
+
+  /* ---- Tipografia ---- */
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Quicksand', system-ui, -apple-system, sans-serif;
+
+  /* ---- Ancho del lienzo movil ---- */
+  --app-max: 430px;
+}
+
+/* ==== Modo oscuro (Ajustes > Apariencia) ====
+   El tema claro es Rose Pine Dawn; este es su contraparte oscura (Rose Pine
+   Moon adaptada). Solo cambian papeles, tintas, superficies, lineas y sombras:
+   los ACENTOS (coral/amber/olive/berry/azure y sus edges) se mantienen — ya
+   funcionan sobre fondo oscuro y asi ninguna pantalla pierde su identidad.
+   Los fondos "-soft" pasan a translucidos del mismo tono (un pastel claro
+   sobre fondo oscuro deslumbraria). Se activa con data-theme en <html>
+   (lo pone el store segun la preferencia guardada). */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --paper: #232136;
+  --paper-alt: #2a273f;
+  --paper-dark: #1f1d31;
+  --paper-clean: #2a273f;
+  --paper-clean-2: #262339;
+  --card: #302c48;
+  --card-2: #2a273f;
+  --card-3: #262339;
+
+  --ink: #e0def4;
+  --ink-soft: #b5b1cf;
+  --ink-muted: #908caa;
+  --ink-faint: #55516e;
+
+  --title-soft: rgba(207, 115, 88, 0.18);
+  --berry-soft: rgba(180, 99, 122, 0.22);
+  --azure-soft: rgba(46, 136, 170, 0.26);
+  --coral-soft: rgba(189, 108, 86, 0.2);
+  --amber-soft: rgba(234, 165, 69, 0.16);
+  --olive-soft: rgba(138, 165, 74, 0.18);
+  --green-soft: rgba(115, 165, 138, 0.2);
+
+  /* Excepcion a "los acentos se mantienen": green-photo es tinta OSCURA (no un
+     acento medio) y sobre superficies oscuras desaparecia; se aclara conservando
+     el tono para que el sello de foto y los textos que lo usan sigan leyendose. */
+  --green-photo: #84bb72;
+
+  --shadow-soft: 0 3px 12px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 10px 24px rgba(0, 0, 0, 0.38);
+  --shadow-phone: 0 20px 60px rgba(0, 0, 0, 0.5);
+  --shadow-warm: 2px 5px 12px rgba(0, 0, 0, 0.34);
+
+  --line: #3b3852;
+  --card-line: #44405e;
+  --card-edge: #171522;
+  --edge-soft: rgba(0, 0, 0, 0.42);
+}

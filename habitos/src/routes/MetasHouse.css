@@ -1,0 +1,31 @@
+/* Vida en PC (>=900px): dos tarjetas fijas dentro de la pagina de escritorio
+   (styles/desk.css): la rueda de Areas | la lista (Metas o Habitos). Cada una
+   scrollea por dentro; los componentes embebidos usan su gutter normal. */
+.vida-desk {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(380px, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-6);
+}
+.vida-desk-col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.vida-desk-col--list { background: var(--paper-alt); }
+.vida-desk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--tap-min);
+  padding: var(--space-4) var(--space-5) var(--space-2);
+  flex-shrink: 0;
+}
+@media (max-width: 1099px) {
+  .vida-desk { grid-template-columns: minmax(0, 1fr) minmax(340px, 1fr); gap: var(--space-4); }
+}

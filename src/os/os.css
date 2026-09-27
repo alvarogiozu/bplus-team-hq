@@ -102,18 +102,81 @@
   color: var(--ink-muted);
 }
 
-.os-hello {
+/* ---------- tu Rockie (capas del arte de Hábitos) ---------- */
+.os-rockie { position: relative; display: inline-block; flex-shrink: 0; }
+.os-rockie img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; }
+.os-blink { transform-origin: 50% 45%; animation: os-blink 5.5s infinite; }
+@keyframes os-blink {
+  0%, 94%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+
+/* ---------- saludo: tu Rockie dentro del anillo de tu día ---------- */
+.os-hero {
   display: flex;
   align-items: center;
-  gap: var(--s4);
-  padding: var(--s4) var(--s5);
+  gap: var(--s6);
+  padding: var(--s6);
   border-radius: var(--r-xl);
   background: var(--card);
   border: 1.5px solid var(--card-line);
   box-shadow: 0 4px 0 var(--card-edge);
 }
-.os-hello h1 { margin: 0; font: 700 var(--t-xl) / 1.2 var(--serif); color: var(--ink); }
-.os-hello p { margin: var(--s1) 0 0; font-size: var(--t-s); font-weight: 600; color: var(--ink-soft); line-height: 1.45; }
+.os-hero-art { position: relative; width: 156px; height: 156px; flex-shrink: 0; }
+.os-hero-art::before {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand) 12%, var(--card));
+}
+.os-hero-art .os-ring { position: absolute; inset: 0; }
+.os-hero-art .os-rockie { animation: os-float 4s ease-in-out infinite; }
+@keyframes os-float { 50% { transform: translateY(-5px); } }
+.os-hero-badge {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  padding: 3px var(--s3);
+  border-radius: var(--r-pill);
+  background: var(--olive);
+  box-shadow: 0 2px 0 var(--olive-edge);
+  color: var(--on-color);
+  font-size: var(--t-2xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.os-hero-copy { flex: 1; min-width: 0; }
+.os-hero-copy h1 { margin: 0; font: 700 var(--t-3xl) / 1.12 var(--serif); color: var(--ink); }
+.os-hero-copy p { margin: var(--s2) 0 0; font-size: var(--t-base); font-weight: 600; color: var(--ink-soft); line-height: 1.5; }
+.os-hero-chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); }
+.os-hero-chips:empty { display: none; }
+.os-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 var(--s3);
+  border-radius: var(--r-pill);
+  background: var(--card-2);
+  border: 1.5px solid var(--card-line);
+  box-shadow: 0 2px 0 var(--card-edge);
+  font-size: var(--t-2xs);
+  font-weight: 700;
+  color: var(--ink);
+}
+.os-chip .ico { color: var(--app); }
+
+.os-ring { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; }
+.os-ring > svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+
+@media (max-width: 719px) {
+  .os-hero { flex-direction: column; text-align: center; gap: var(--s4); padding: var(--s5) var(--s4); }
+  .os-hero-copy h1 { font-size: var(--t-2xl); }
+  .os-hero-copy p { font-size: var(--t-sm); }
+  .os-hero-chips { justify-content: center; margin-top: var(--s3); }
+}
 
 .os-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
 @media (min-width: 900px) {
@@ -177,22 +240,6 @@
 }
 @keyframes os-pulse { 50% { opacity: 0.5; } }
 
-.os-said {
-  padding: var(--s4) var(--s5);
-  border-radius: var(--r-xl);
-  background: var(--card);
-  border: 1.5px solid var(--card-line);
-  box-shadow: 0 4px 0 var(--card-edge);
-}
-.os-said h2 {
-  margin: 0 0 var(--s2);
-  font-family: var(--sans);
-  font-size: var(--t-3xs);
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-}
 .os-said ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .os-said li { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) 0; }
 .os-said li + li { border-top: 1.5px solid var(--card-line); }
@@ -202,23 +249,90 @@
 .os-said-t small { font-size: var(--t-2xs); font-weight: 600; color: var(--ink-muted); }
 .os-empty { margin: 0; font-size: var(--t-s); font-weight: 600; color: var(--ink-soft); line-height: 1.5; }
 
-/* ---------- Hábitos mientras se muda ---------- */
-.os-moving {
-  min-height: 100dvh;
-  box-sizing: border-box;
+/* ---------- tarjetas de apps: anillo de Hábitos ---------- */
+.os-tile-ring { position: absolute; top: var(--s4); right: var(--s4); }
+
+/* ---------- columnas: tu día | lo último con Rockie ---------- */
+.os-cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: var(--s4); align-items: start; }
+@media (max-width: 899px) {
+  .os-cols { grid-template-columns: minmax(0, 1fr); }
+}
+.os-card {
+  padding: var(--s4) var(--s5);
+  border-radius: var(--r-xl);
+  background: var(--card);
+  border: 1.5px solid var(--card-line);
+  box-shadow: 0 4px 0 var(--card-edge);
+}
+.os-card h2 {
+  margin: 0 0 var(--s3);
+  font: 700 var(--t-3xs) var(--sans);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.os-day ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.os-day-row {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 52px;
+  padding: var(--s2);
+  border-radius: var(--r-lg);
+  color: var(--ink);
+  text-decoration: none;
+}
+.os-day-row:hover { background: var(--card-2); }
+.os-day-row:focus-visible { outline: 2px solid var(--app); outline-offset: 1px; }
+.os-day-t { width: 44px; flex-shrink: 0; font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.os-day-dot {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2.5px solid var(--app);
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--s4);
-  padding: var(--s6) var(--screen-x);
-  text-align: center;
+  color: var(--on-color);
 }
-.os-moving h1 { margin: 0; font: 700 var(--t-2xl) / 1.2 var(--serif); color: var(--ink); }
-.os-moving p { margin: 0; max-width: 420px; font-size: var(--t-sm); font-weight: 600; color: var(--ink-soft); line-height: 1.5; }
-.os-moving .row { display: flex; gap: var(--s3); flex-wrap: wrap; justify-content: center; }
+.os-day-dot .ico { width: 14px; height: 14px; stroke-width: 3; }
+.os-day-row.done .os-day-dot { background: var(--app); }
+.os-day-txt { display: flex; flex-direction: column; min-width: 0; }
+.os-day-txt b { font-size: var(--t-s); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.os-day-txt small { font-size: var(--t-2xs); font-weight: 600; color: var(--ink-muted); }
+.os-day-row.done .os-day-txt b { color: var(--ink-muted); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.os-now {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: 2px 0;
+  padding-left: var(--s2);
+  font-size: var(--t-3xs);
+  color: var(--coral);
+}
+.os-now::after { content: ''; flex: 1; height: 2px; border-radius: 2px; background: var(--coral); }
+.os-day-skel { display: flex; flex-direction: column; gap: var(--s4); padding: var(--s2) 0; }
+.os-day-skel .os-skel:nth-child(2) { width: 55%; }
+.os-day-skel .os-skel:nth-child(3) { width: 62%; }
+.os-connect {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  padding: var(--s3);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, #4a7c3f 12%, var(--card));
+  color: var(--ink);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  text-decoration: none;
+}
+.os-connect .ico { color: #4a7c3f; flex-shrink: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .os-menu, .os-skel { animation: none; }
+  .os-menu, .os-skel, .os-blink, .os-hero-art .os-rockie { animation: none; }
   .os-app { transition: none; }
 }

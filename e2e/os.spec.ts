@@ -43,14 +43,18 @@ test('al entrar se llega al Inicio con las cuatro apps', async ({ page }) => {
   await page.screenshot({ path: 'e2e/screens/os-selector-movil.png' })
 })
 
-test('Hábitos avisa que se está mudando y lleva a rockie.plus', async ({ page }) => {
-  await page.goto('/login?next=%2Fhabitos')
+test('Hábitos vive en /habitos del mismo sitio y los links de amistad llegan ahí', async ({ page }) => {
+  await page.goto('/login')
   await page.getByLabel('Usuario').fill('qa.alvaro')
   await page.getByLabel('Contraseña').fill(PASS)
   await page.getByRole('button', { name: 'Entrar' }).click()
-  await expect(page).toHaveURL(/\/habitos/)
-  await expect(page.getByRole('heading', { name: 'Hábitos se está mudando aquí' })).toBeVisible()
-  await expect(page.getByRole('link', { name: /Abrir mis hábitos/ })).toHaveAttribute('href', 'https://rockie.plus/hoy')
+  await expect(page).toHaveURL(/\/inicio$/)
+  await page.getByRole('link', { name: /^Hábitos/ }).first().click()
+  await expect(page).toHaveURL(/\/habitos\//)
+  await expect(page).toHaveTitle('Rockie · Hábitos')
+  // rockie.plus/invita/CODE (links ya compartidos) sigue funcionando
+  await page.goto('/invita/ABC123')
+  await expect(page).toHaveURL(/\/habitos\/invita\/ABC123/)
 })
 
 test('el menú del selector se cierra con Escape', async ({ page }) => {

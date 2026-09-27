@@ -1,0 +1,101 @@
+/* Login: pantalla completa en movil; en escritorio, dos columnas sin marco de telefono. */
+.login-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--screen-x);
+  gap: var(--space-6);
+  text-align: center;
+}
+
+.login-hero,
+.login-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.login-panel {
+  gap: var(--space-6);
+}
+
+.login-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 320px;
+  margin-top: var(--space-2);
+}
+
+.login-legal {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  margin: 0;
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.login-intro {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .login-screen {
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+    text-align: left;
+    gap: 0;
+  }
+
+  .login-hero {
+    flex: 1;
+    justify-content: center;
+    padding: var(--space-10);
+    background:
+      radial-gradient(circle at 18% 20%, rgba(74, 141, 179, 0.14), transparent 52%),
+      radial-gradient(circle at 82% 78%, rgba(189, 108, 86, 0.1), transparent 48%),
+      var(--paper-alt);
+    border-right: 2px solid var(--card-line);
+  }
+
+  .login-panel {
+    flex: 0 0 min(480px, 42vw);
+    justify-content: center;
+    padding: var(--space-10) var(--space-8);
+    background: var(--paper);
+  }
+
+  .login-actions {
+    max-width: none;
+    margin-top: 0;
+  }
+
+  .login-legal {
+    max-width: none;
+  }
+
+  .login-tagline {
+    max-width: 420px !important;
+  }
+
+  .login-intro {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    width: 100%;
+  }
+
+  .login-hero {
+    align-items: flex-start;
+    text-align: left;
+  }
+}

@@ -1,0 +1,42 @@
+/* Fueguito amigable: squash & stretch (respira/rebota como personaje Duolingo,
+   no titila como fuego realista). Cuerpo y nucleo con la MISMA respiracion pero
+   desfasada = vida interna sin nervio. Solo transform/opacity — GPU 60fps
+   (bplus-mobile-perf). prefers-reduced-motion lo apaga via global.css. */
+.flame { display: inline-flex; flex-shrink: 0; }
+
+.flame-l {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.flame-lit .flame-body { animation: flame-breathe 1.9s ease-in-out infinite; }
+.flame-lit .flame-core { animation: flame-breathe 1.9s ease-in-out -0.55s infinite; }
+
+/* Estira hacia arriba y se aplasta un pelin, con un balanceo minimo de la
+   puntita: cadencia calmada, amigable */
+@keyframes flame-breathe {
+  0%, 100% { transform: scaleX(1) scaleY(1) rotate(0deg); }
+  30% { transform: scaleX(0.955) scaleY(1.06) rotate(-1.6deg); }
+  62% { transform: scaleX(1.045) scaleY(0.95) rotate(1.2deg); }
+}
+
+/* Brillo de sticker: respira suave (solo opacity) */
+.flame-lit .flame-shine { animation: flame-shine 3.2s ease-in-out infinite; }
+@keyframes flame-shine {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.75; }
+}
+
+/* Chispas-estrella: titilan alternadas (aparecen, giran un poco y se van) */
+.flame-spark {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.flame-lit .flame-spark-1 { animation: flame-spark 2.8s ease-in-out 0.4s infinite; }
+.flame-lit .flame-spark-2 { animation: flame-spark 2.8s ease-in-out 1.8s infinite; }
+
+@keyframes flame-spark {
+  0%, 30%, 100% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  10% { opacity: 1; transform: scale(1) rotate(25deg); }
+  22% { opacity: 0; transform: scale(0.3) rotate(50deg); }
+}

@@ -1,0 +1,42 @@
+/* Switch Areas/Metas/Habitos: tres pildoras PAREJAS (mismo ancho/alto).
+   Inactivo = tarjeta blanca (como antes). Activo = azure fuerte + squeeze. */
+.mh-tabs {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  align-items: stretch;
+}
+.mh-tab {
+  --edge: var(--card-edge);
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tap-min);
+  text-align: center;
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--r-pill);
+  border: 2px solid var(--card-line);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1.2;
+  background: var(--card);
+  color: var(--ink-soft);
+  box-shadow: 0 3px 0 var(--edge);
+  touch-action: manipulation;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mh-tab.on {
+  background: var(--azure);
+  color: #fff;
+  border-color: transparent;
+  --edge: var(--azure-edge);
+  box-shadow: 0 3px 0 var(--edge);
+}
+/* Feedback tactil: al pulsar baja y el canto se aplasta */
+.mh-tab:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--edge);
+}

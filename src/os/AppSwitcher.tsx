@@ -21,17 +21,30 @@ export function AppList({ onPick }: { onPick?: () => void }) {
           <small>Todo tu día en un vistazo</small>
         </span>
       </Link>
-      {APPS.map((a) => (
-        <Link key={a.id} to={a.path} className={`os-row${current?.id === a.id ? ' on' : ''}`} style={tint(a)} onClick={onPick} aria-current={current?.id === a.id ? 'page' : undefined}>
-          <span className="os-tile">
-            <Icon name={a.icon} />
-          </span>
-          <span className="os-row-t">
-            <b>{a.name}</b>
-            <small>{a.blurb}</small>
-          </span>
-        </Link>
-      ))}
+      {APPS.map((a) => {
+        const inner = (
+          <>
+            <span className="os-tile">
+              <Icon name={a.icon} />
+            </span>
+            <span className="os-row-t">
+              <b>{a.name}</b>
+              <small>{a.blurb}</small>
+            </span>
+          </>
+        )
+        const cls = `os-row${current?.id === a.id ? ' on' : ''}`
+        // Hábitos es otra página del sitio: se abre con carga completa
+        return a.page ? (
+          <a key={a.id} href={a.path} className={cls} style={tint(a)} onClick={onPick}>
+            {inner}
+          </a>
+        ) : (
+          <Link key={a.id} to={a.path} className={cls} style={tint(a)} onClick={onPick} aria-current={current?.id === a.id ? 'page' : undefined}>
+            {inner}
+          </Link>
+        )
+      })}
     </nav>
   )
 }

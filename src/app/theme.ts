@@ -25,14 +25,26 @@ function apply(t: Theme) {
   emit()
 }
 
+/** Hábitos (/habitos) guarda su tema en sus preferencias: se mantienen iguales al cambiar de app. */
+function syncHabitos(t: Theme | 'system') {
+  try {
+    const p = JSON.parse(localStorage.getItem('bplus.prefs') || '{}') || {}
+    localStorage.setItem('bplus.prefs', JSON.stringify({ ...p, theme: t }))
+  } catch {
+    /* sin almacenamiento */
+  }
+}
+
 export function setTheme(t: Theme) {
   lsSet('hq.theme', t)
+  syncHabitos(t)
   apply(t)
 }
 
 export function setThemeMode(m: ThemeMode) {
   if (m === 'auto') {
     lsSet('hq.theme', '')
+    syncHabitos('system')
     apply(system())
   } else setTheme(m)
 }

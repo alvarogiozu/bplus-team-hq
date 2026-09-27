@@ -1,0 +1,164 @@
+/* Pantalla Progreso — remaster: SVG animado, selectores con pildora, mapa vivo */
+
+.prg-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* --- Tarjetas de resumen --- */
+.prg-stats {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--screen-x) 0;
+}
+
+.prg-stat {
+  flex: 1;
+  background: var(--card);
+  border-radius: var(--r-md);
+  padding: var(--space-3) var(--space-2);
+  text-align: center;
+  border: 2px solid var(--card-line);
+  box-shadow: 0 3px 0 var(--card-edge);
+  border-top: 3px solid transparent;
+}
+
+.prg-stat-num {
+  font-size: var(--text-xl);
+  line-height: 1.1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.prg-stat-label {
+  font-size: var(--text-3xs);
+  color: var(--ink-soft);
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* (el control segmentado es compartido: Segmented.jsx + .seg* en global.css) */
+
+/* --- Area del grafico (dentro de la seccion plegable "Ver en graficos") --- */
+.prg-chart-card {
+  background: var(--card);
+  border-radius: var(--r-lg);
+  padding: var(--space-4);
+  border: 2px solid var(--card-line);
+  box-shadow: 0 3px 0 var(--card-edge);
+}
+
+/* Mapa de puntos */
+.prg-dot {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  color: #fff;
+  padding: 0;
+}
+
+.prg-dot--future {
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+.prg-legend {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.prg-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-3xs);
+  color: var(--ink-soft);
+}
+
+.prg-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Barras */
+.prg-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: var(--space-2);
+  height: 190px;
+  padding-top: var(--space-4);
+}
+
+.prg-bar-col {
+  flex: 1;
+  max-width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.prg-bar-val {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.prg-bar-track {
+  flex: 1;
+  width: 100%;
+  max-width: 34px;
+  background: var(--paper-alt);
+  border: 1.5px solid var(--card-line);
+  border-radius: var(--r-pill);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.prg-bar-fill {
+  width: 100%;
+  border-radius: var(--r-pill);
+}
+
+.prg-bar-label {
+  margin-top: var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+/* --- Detalle de dia (sheet) --- */
+.prg-day-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--paper);
+  border: 2px solid var(--card-line);
+  border-radius: var(--r-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.prg-day-habit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--paper);
+}

@@ -13,10 +13,12 @@ export type OsApp = {
   color: string
   edge: string
   blurb: string
+  /** Página aparte (Hábitos): se entra con carga completa, no con el router de esta. */
+  page?: boolean
 }
 
 export const APPS: OsApp[] = [
-  { id: 'habitos', name: 'Hábitos', path: '/habitos', icon: 'flame', color: '#4a7c3f', edge: '#3a622f', blurb: 'Tu día, tus rachas y tu Rockie' },
+  { id: 'habitos', name: 'Hábitos', path: '/habitos/hoy', icon: 'flame', color: '#4a7c3f', edge: '#3a622f', blurb: 'Tu día, tus rachas y tu Rockie', page: true },
   { id: 'agenda', name: 'Agenda', path: '/agenda', icon: 'calendar', color: '#bd6c56', edge: '#9d5541', blurb: 'Tu tiempo y tus citas' },
   { id: 'equipo', name: 'Equipo', path: '/hoy', icon: 'team', color: '#2e88aa', edge: '#216b87', blurb: 'Tareas y metas con tu gente' },
   { id: 'cuaderno', name: 'Cuaderno', path: '/cuaderno', icon: 'notebook', color: '#b4637a', edge: '#944d63', blurb: 'Notas, ideas y repasos' },

@@ -1,0 +1,159 @@
+/* ============================================================
+   HQNav.css — Barra de navegacion y cabecera de Team HQ
+   Tokens de B+ (tokens.css): 2.5D solid edge, Fraunces serif, Quicksand
+   ============================================================ */
+
+.hq-nav-wrap {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: var(--space-4) var(--screen-x) var(--space-3);
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+/* Cabecera superior editorial */
+.hq-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.hq-kicker {
+  font-size: var(--text-2xs);
+  color: var(--ink-muted);
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hq-theme-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--azure);
+  box-shadow: 0 0 0 2px var(--azure-soft);
+}
+
+.hq-section-title {
+  font-family: var(--font-serif);
+  font-size: var(--text-2xl);
+  color: var(--title);
+  line-height: 1.15;
+  margin-top: 2px;
+  letter-spacing: -0.3px;
+}
+
+.hq-tagline-badge {
+  font-size: var(--text-2xs);
+  color: var(--ink-muted);
+  background: var(--paper);
+  padding: 4px var(--space-3);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fila de subpestañas: solo iconos, 5 botones parejos */
+.hq-subnav-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+}
+
+.hq-subnav-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--card-line);
+  background: var(--card);
+  color: var(--ink-soft);
+  box-shadow: 0 3px 0 var(--card-edge);
+  cursor: pointer;
+  padding: 0;
+  touch-action: manipulation;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  position: relative;
+}
+
+.hq-subnav-btn i {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* Estado activo: solido con canto 2.5D */
+.hq-subnav-btn.on {
+  background: var(--azure);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 3px 0 var(--azure-edge);
+}
+
+/* Feedback al presionar */
+.hq-subnav-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 transparent;
+}
+
+/* Contenedor de contenido sin scrollbar nativo visible */
+.hq-scroll-body {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hq-scroll-body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+  background: transparent;
+}
+
+/* ==== En computadora (>=900px): cabecera de pagina y pestanas con nombre ====
+   Mismo sistema que el resto de B+ en PC (styles/desk.css): margen amplio,
+   titulo editorial y pestanas compactas con icono + texto. El contenido
+   se lee en una columna comoda, no de borde a borde. */
+.hq-subnav-label { display: none; }
+@media (min-width: 900px) {
+  .desktop-shell .hq-nav-wrap {
+    background: var(--paper);
+    border-bottom: 2px solid var(--card-line);
+    padding: var(--space-8) var(--space-10) var(--space-4);
+    gap: var(--space-4);
+  }
+  .desktop-shell .hq-section-title { font-size: var(--text-3xl); }
+  .desktop-shell .hq-tagline-badge { max-width: 320px; font-size: var(--text-xs); }
+  .desktop-shell .hq-subnav-row { justify-content: flex-start; flex-wrap: wrap; }
+  .desktop-shell .hq-subnav-btn {
+    flex: 0 0 auto;
+    gap: var(--space-2);
+    padding: 0 var(--space-5);
+  }
+  .desktop-shell .hq-subnav-btn i { font-size: 18px; }
+  .desktop-shell .hq-subnav-label { display: inline; font-size: var(--text-sm); font-weight: 700; }
+  .desktop-shell .hq-subnav-btn:not(.on):hover { background: var(--card-2); color: var(--ink); }
+  .desktop-shell .hq-scroll-body > * {
+    max-width: 1180px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .desktop-shell .hq-scroll-body { scrollbar-width: thin; padding: 0 var(--space-6); }
+}

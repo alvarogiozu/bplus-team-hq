@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#f0ebe5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#232136" media="(prefers-color-scheme: dark)" />
+    <script>
+      // Tema ANTES del primer paint (mismo criterio que el store): si el celular
+      // esta en oscuro, los tokens dark se activan desde el frame 1. Sin esto,
+      // habia una ventana donde el fondo era claro y la tinta ya era dark (o al
+      // reves) y el texto quedaba invisible.
+      try {
+        var p = JSON.parse(localStorage.getItem('bplus.prefs') || '{}') || {}
+        var t = p.theme || 'system'
+        var d = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = d ? 'dark' : 'light'
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light'
+      }
+    </script>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Rockie" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css" />
+    <meta name="description" content="Convierte tus habitos en victorias reales, juntos. Sube tu prueba, la IA la valida y tu racha crece con Rockie." />
+    <meta name="author" content="B+" />
+    <meta property="og:title" content="B+ — Convierte tus habitos en victorias reales" />
+    <meta property="og:description" content="Convierte tus habitos en victorias reales, juntos. Sube tu prueba, la IA la valida y tu racha crece con Rockie." />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:site_name" content="B+" />
+    <meta property="og:image" content="/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="B+ — Convierte tus habitos en victorias reales" />
+    <meta name="twitter:description" content="Convierte tus habitos en victorias reales, juntos. Sube tu prueba, la IA la valida y tu racha crece con Rockie." />
+    <meta name="twitter:image" content="/icon-512.png" />
+    <title>Rockie · Hábitos</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/habitos/src/main.jsx"></script>
+  </body>
+</html>

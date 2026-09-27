@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { Rockie } from '../components/Rockie'
 import { haptic } from '../lib/fx'
@@ -47,6 +47,18 @@ export const CaptureBar = forwardRef<
   const pressAt = useRef(0)
   const voice = useVoice({ onFinal: (t) => void capture(t, 'voz') })
   const books = useBooks().data
+  // un pedido que llega desde otra app (?rockie=...) se anota solo al entrar
+  const [params, setParams] = useSearchParams()
+  const fromUrl = useRef(false)
+  useEffect(() => {
+    const incoming = params.get('rockie')
+    if (!incoming || fromUrl.current) return
+    fromUrl.current = true
+    const next = new URLSearchParams(params)
+    next.delete('rockie')
+    setParams(next, { replace: true })
+    void capture(incoming, 'texto')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // carpetas y cuadernos primero (hasta 3), luego páginas
   const results = useMemo(() => {
     const t = fold(text.trim())

@@ -1,0 +1,243 @@
+/* Detalle de PROGRESO de un habito (abre desde "Por habito" en Progreso).
+   Solo lectura: semana, calendario del mes, ritmo semanal y ficha. La gestion
+   (editar/pausar/eliminar) vive en Habitos. */
+
+.hps-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hps-name {
+  font-size: var(--text-lg);
+  color: var(--ink);
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hps-type {
+  display: inline-block;
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 2px var(--space-2);
+  border-radius: var(--r-pill);
+  margin-top: var(--space-1);
+}
+
+/* Trio de stats (mismo lenguaje que .prg-stat de la pantalla) */
+.hps-stats {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.hps-stat {
+  flex: 1;
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  border-top: 3px solid transparent;
+  box-shadow: 0 3px 0 var(--card-edge);
+  border-radius: var(--r-md);
+  padding: var(--space-2);
+  text-align: center;
+}
+
+.hps-stat-num {
+  font-size: var(--text-xl);
+  line-height: 1.1;
+}
+
+.hps-stat-label {
+  font-size: var(--text-3xs);
+  color: var(--ink-soft);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.hps-sec-title {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  margin-bottom: var(--space-2);
+}
+
+/* Semana: 7 columnas letra + celda + numero de dia */
+.hps-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+}
+
+.hps-week-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.hps-week-letter {
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+/* Circulo como el calendario del mes (una sola forma para el mismo dato);
+   relative + hidden para que la faceta de la gema quede recortada dentro */
+.hps-week-cell {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.hps-week-num {
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+/* Calendario del mes */
+.hps-cal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+}
+
+.hps-cal-h {
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.hps-cal-d {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.hps-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  justify-content: center;
+  margin-top: var(--space-2);
+}
+
+.hps-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-3xs);
+  color: var(--ink-soft);
+}
+
+.hps-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* Ritmo por semana: un punto-gema por sesion cerrada (sin barras ni %) */
+.hps-rhythm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.hps-rhythm-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 24px;
+}
+
+.hps-rhythm-label {
+  width: 96px;
+  font-size: var(--text-s);
+  font-weight: 700;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+
+.hps-rhythm-dots {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hps-rhythm-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.hps-rhythm-val {
+  min-width: 36px;
+  text-align: right;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+/* Ficha (propiedades tipo Notion) */
+.hps-props {
+  display: flex;
+  flex-direction: column;
+}
+
+.hps-prop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--paper);
+}
+
+.hps-prop:first-child { border-top: none; }
+
+.hps-prop-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+}
+
+.hps-prop-label {
+  flex: 1;
+  font-size: var(--text-s);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.hps-prop-val {
+  font-size: var(--text-s);
+  font-weight: 700;
+  color: var(--ink);
+  text-align: right;
+}

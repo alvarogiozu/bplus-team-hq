@@ -1,0 +1,15 @@
+/* ==== Ajustes en computadora ====
+   Las secciones fluyen en dos columnas (tipo tablero de preferencias); la
+   tarjeta de identidad ocupa todo el ancho arriba. */
+.aj-desk { max-width: 1180px; }
+.aj-desk .aj-sections {
+  columns: 2 360px;
+  column-gap: var(--space-6);
+}
+.aj-desk .aj-sections > * {
+  break-inside: avoid;
+  margin-bottom: var(--space-6);
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+.aj-desk .aj-sections > :first-child { column-span: all; }

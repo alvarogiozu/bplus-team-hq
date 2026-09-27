@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router'
 import { Rockie } from '../components/Rockie'
 import { useAuth } from '../features/auth/AuthProvider'
@@ -16,7 +16,6 @@ const SettingsPage = lazy(() => import('../features/settings/SettingsPage'))
 const AgendaApp = lazy(() => import('../agenda/AgendaApp'))
 const CuadernoApp = lazy(() => import('../cuaderno/CuadernoApp'))
 const HomePage = lazy(() => import('../os/HomePage'))
-const HabitosApp = lazy(() => import('../habitos/HabitosApp'))
 
 function Splash() {
   return (
@@ -46,6 +45,16 @@ function PublicOnly({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+/** Hábitos es otra página del mismo sitio (habitos/index.html): se entra con carga completa. */
+function ToHabitos() {
+  const loc = useLocation()
+  useEffect(() => {
+    const path = loc.pathname.startsWith('/habitos') ? loc.pathname : `/habitos${loc.pathname}`
+    location.replace(`${path}${loc.search}`)
+  }, [loc.pathname, loc.search])
+  return <Splash />
+}
+
 function SpaceShell() {
   return (
     <SpaceProvider fallback={<Splash />}>
@@ -61,6 +70,9 @@ export function App() {
         <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
         <Route path="/registro" element={<PublicOnly><RegisterPage /></PublicOnly>} />
         <Route path="/invitacion/:code" element={<InviteRoute />} />
+        {/* links de amistad de Hábitos (rockie.plus/invita/CODE) y cualquier /habitos que llegue aquí: los atiende Hábitos */}
+        <Route path="/invita/:code" element={<ToHabitos />} />
+        <Route path="/habitos/*" element={<ToHabitos />} />
         <Route path="/agenda.html" element={<Navigate to="/tareas?vista=calendario" replace />} />
         <Route element={<RequireAuth />}>
           <Route path="/cambiar-clave" element={<ChangePasswordPage />} />
@@ -71,14 +83,6 @@ export function App() {
             element={
               <Suspense fallback={<Splash />}>
                 <HomePage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/habitos/*"
-            element={
-              <Suspense fallback={<Splash />}>
-                <HabitosApp />
               </Suspense>
             }
           />
