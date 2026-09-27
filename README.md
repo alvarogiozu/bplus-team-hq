@@ -151,3 +151,21 @@ Configuración, una sola vez:
 ```bash
 npx supabase functions deploy agenda-google --no-verify-jwt --project-ref xhtxhmfohtkezhpobbcr
 ```
+
+### Rockie Cuaderno como conector de Claude (MCP)
+
+El cuaderno es un **servidor MCP remoto** con inicio de sesión OAuth, como los conectores oficiales: en Claude →
+Configuración → Conectores → *Agregar conector personalizado* → URL `https://bplus-team-hq.vercel.app/mcp` → **Permitir**.
+
+- Servidor: `supabase/functions/cuaderno-mcp` (MCP Streamable HTTP con respuestas JSON + OAuth 2.1 con PKCE S256,
+  Client ID Metadata Documents —así se identifica Claude— y registro dinámico para otras apps). Vercel reescribe
+  `/mcp`, `/oauth/token`, `/oauth/register` y `/.well-known/*` hacia la función; la pantalla "Permitir" es la ruta
+  `/oauth/authorize` de la app (con la sesión del usuario).
+- 11 herramientas: ver_cuaderno, buscar, leer_pagina, crear_pagina(s), editar_pagina, crear_carpeta, conectar_paginas,
+  crear_tarjetas, tarjetas_para_hoy, registrar_repaso. Ninguna borra. Una conexión de solo lectura no ve las que escriben.
+- Secret `MCP_ORIGINS`: los dominios públicos, el primero es el principal (`https://bplus-team-hq.vercel.app,https://hq.rockie.plus`).
+- Cada conexión (y cada llave personal para Claude Code u otras apps) se ve y se revoca en Cuaderno → Ajustes → Claude.
+
+```bash
+npx supabase functions deploy cuaderno-mcp --no-verify-jwt --project-ref xhtxhmfohtkezhpobbcr
+```

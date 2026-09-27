@@ -34,8 +34,8 @@ y llevar lo seleccionado a una subnota.
 - Color del título grande de la página (hoy se colorean los títulos 1–3 de adentro).
 - Dibujo: grosores que se adapten a la pantalla (en el celular la pluma fina queda muy delgada) y reglas o cuadrícula
   opcionales en la hoja.
-- **Conector de Claude (MCP)** cuando lo aprueben: la base ya tiene `cuaderno_tokens` y las funciones de service role;
-  falta la Edge Function MCP y la pantalla para crear/revocar el token.
+- Conector de Claude: publicarlo en el directorio oficial de conectores de Claude (revisión de Anthropic: pide política
+  de privacidad, logo y dominio propio, p. ej. hq.rockie.plus). Hoy se agrega como conector personalizado.
 - Audio resumen tipo NotebookLM; quizzes por voz y voz de ida y vuelta ("mañana a las 9 te pregunto por…").
 - Preguntarle al cuaderno entero ("¿qué aprendí sobre plazos?") y el grafo conversacional (elegir dos nodos y preguntar).
 - Reordenar páginas y secciones arrastrando en el árbol (hoy: orden de creación y mover por la ruta).

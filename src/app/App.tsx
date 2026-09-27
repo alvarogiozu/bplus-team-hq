@@ -14,6 +14,8 @@ const TeamPage = lazy(() => import('../features/team/TeamPage'))
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage'))
 const AgendaApp = lazy(() => import('../agenda/AgendaApp'))
 const CuadernoApp = lazy(() => import('../cuaderno/CuadernoApp'))
+// "Permitir" del conector de Claude (OAuth): Claude manda aquí a la persona para aprobar la conexión
+const AutorizarPage = lazy(() => import('../cuaderno/Conector'))
 
 function Splash() {
   return (
@@ -62,6 +64,14 @@ export function App() {
         <Route element={<RequireAuth />}>
           <Route path="/cambiar-clave" element={<ChangePasswordPage />} />
           <Route path="/bienvenida" element={<WelcomePage />} />
+          <Route
+            path="/oauth/authorize"
+            element={
+              <Suspense fallback={<Splash />}>
+                <AutorizarPage />
+              </Suspense>
+            }
+          />
           <Route
             path="/agenda/*"
             element={

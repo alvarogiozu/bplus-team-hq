@@ -394,3 +394,24 @@ puntos crudos, así los dibujos viejos también se ven con la tinta nueva. Mient
 copia y cada cuadro solo pinta el trazo nuevo (fluido en hojas llenas); el lápiz usa los puntos predichos del sistema
 para sentirse pegado a la tinta. Lienzos hasta 3x en pantallas densas, imagen guardada al doble, y en la hoja de dibujo
 los grosores son de pantalla (en el celular ya no sale una línea finísima).
+
+### Cuaderno v3.4 — conector de Claude (oct 2026)
+
+**Tu cuaderno se usa desde Claude**, como un conector oficial: en Claude → Conectores → Agregar conector personalizado →
+`https://<app>/mcp` → la pantalla **Permitir** del cuaderno (con tu sesión) → listo. Pensado para estudiar: "arma
+páginas con el vocabulario de alemán y créame tarjetas", "tómame examen con lo que me toca hoy".
+- **Servidor MCP propio** (`cuaderno-mcp`, Edge Function sin estado, respuestas JSON) detrás del dominio de la app
+  (reescrituras de Vercel), así Claude lo encuentra en `/mcp` y sus metadatos en `/.well-known/*`.
+- **OAuth 2.1 completo**: PKCE S256 obligatorio, Client ID Metadata Documents (Claude se identifica con una URL: no
+  se registra nada) y registro dinámico para otras apps; códigos de un solo uso (10 min); llave de acceso de 24 h y de
+  refresco de 90 días que rota en cada uso. Se guarda solo el hash de cada llave.
+- **Confianza**: la pantalla Permitir muestra el dominio verificable de la app (no el nombre que ella dice), avisa si la
+  conexión vuelve a esta computadora, deja elegir "solo leer", y **no existe ninguna herramienta para borrar**. Cada
+  conexión se ve y se desconecta en Ajustes (con "usado hace…"); desconectar corta el acceso al instante.
+- **11 herramientas** con anotaciones (solo lectura / crea / puede reemplazar): ver_cuaderno, buscar (por significado y
+  por palabras), leer_pagina, crear_pagina, crear_paginas (hasta 30, con subnotas y [[enlaces]] entre ellas),
+  editar_pagina (agregar o reemplazar), crear_carpeta, conectar_paginas, crear_tarjetas, tarjetas_para_hoy,
+  registrar_repaso (mueve la caja y cuenta para la racha). "Idiomas/Alemán" crea lo que falte; `[[Título]]` se vuelve
+  enlace + conexión en el mapa; las páginas nuevas se indexan para la búsqueda por significado.
+- **Llaves personales** (Ajustes → Avanzado) para apps sin inicio de sesión: se generan en el navegador, se muestran
+  una vez y viajan solo en el encabezado `Authorization` (nunca en la URL).

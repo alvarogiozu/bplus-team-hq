@@ -2,6 +2,45 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "redirects": [{ "source": "/agenda.html", "destination": "/tareas?vista=calendario", "permanent": true }],
-  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }]
+  "redirects": [
+    {
+      "source": "/agenda.html",
+      "destination": "/tareas?vista=calendario",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/mcp",
+      "destination": "https://xhtxhmfohtkezhpobbcr.supabase.co/functions/v1/cuaderno-mcp/mcp"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource/:rest*",
+      "destination": "https://xhtxhmfohtkezhpobbcr.supabase.co/functions/v1/cuaderno-mcp/.well-known/oauth-protected-resource"
+    },
+    {
+      "source": "/.well-known/oauth-protected-resource",
+      "destination": "https://xhtxhmfohtkezhpobbcr.supabase.co/functions/v1/cuaderno-mcp/.well-known/oauth-protected-resource"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server/:rest*",
+      "destination": "https://xhtxhmfohtkezhpobbcr.supabase.co/functions/v1/cuaderno-mcp/.well-known/oauth-authorization-server"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server",
+      "destination": "https://xhtxhmfohtkezhpobbcr.supabase.co/functions/v1/cuaderno-mcp/.well-known/oauth-authorization-server"
+    },
+    {
+      "source": "/oauth/register",
+      "destination": "https://xhtxhmfohtkezhpobbcr.supabase.co/functions/v1/cuaderno-mcp/oauth/register"
+    },
+    {
+      "source": "/oauth/token",
+      "destination": "https://xhtxhmfohtkezhpobbcr.supabase.co/functions/v1/cuaderno-mcp/oauth/token"
+    },
+    {
+      "source": "/((?!assets/).*)",
+      "destination": "/index.html"
+    }
+  ]
 }

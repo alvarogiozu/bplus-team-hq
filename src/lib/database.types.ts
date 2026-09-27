@@ -839,31 +839,123 @@ export type Database = {
           },
         ]
       }
+      cuaderno_oauth_clients: {
+        Row: {
+          client_id: string
+          client_name: string
+          created_at: string
+          fetched_at: string
+          kind: string
+          redirect_uris: string[]
+        }
+        Insert: {
+          client_id: string
+          client_name?: string
+          created_at?: string
+          fetched_at?: string
+          kind?: string
+          redirect_uris: string[]
+        }
+        Update: {
+          client_id?: string
+          client_name?: string
+          created_at?: string
+          fetched_at?: string
+          kind?: string
+          redirect_uris?: string[]
+        }
+        Relationships: []
+      }
+      cuaderno_oauth_codes: {
+        Row: {
+          client_id: string
+          client_name: string
+          code_challenge: string
+          code_hash: string
+          created_at: string
+          expires_at: string
+          redirect_uri: string
+          resource: string | null
+          scope: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          client_name?: string
+          code_challenge: string
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          redirect_uri: string
+          resource?: string | null
+          scope: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          client_name?: string
+          code_challenge?: string
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          redirect_uri?: string
+          resource?: string | null
+          scope?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_oauth_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cuaderno_tokens: {
         Row: {
+          client_id: string | null
           created_at: string
+          expires_at: string | null
           hint: string
           id: string
+          kind: string
           last_used_at: string | null
           name: string
+          refresh_expires_at: string | null
+          refresh_hash: string | null
+          scope: string
           token_hash: string
           user_id: string
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
+          expires_at?: string | null
           hint: string
           id?: string
+          kind?: string
           last_used_at?: string | null
           name?: string
+          refresh_expires_at?: string | null
+          refresh_hash?: string | null
+          scope?: string
           token_hash: string
           user_id?: string
         }
         Update: {
+          client_id?: string | null
           created_at?: string
+          expires_at?: string | null
           hint?: string
           id?: string
+          kind?: string
           last_used_at?: string | null
           name?: string
+          refresh_expires_at?: string | null
+          refresh_hash?: string | null
+          scope?: string
           token_hash?: string
           user_id?: string
         }
@@ -1926,7 +2018,6 @@ export type Database = {
           title: string
         }[]
       }
-      cuaderno_token_user: { Args: { p_hash: string }; Returns: string }
       demo_fill: { Args: { p_space: string }; Returns: undefined }
       gen_code: { Args: { n?: number }; Returns: string }
       hq_norm: { Args: { x: string }; Returns: string }

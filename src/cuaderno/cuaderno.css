@@ -2167,3 +2167,40 @@ textarea.cu-input { resize: none; }
 .cu-split-check input { width: var(--s5); height: var(--s5); accent-color: var(--green-photo); }
 .cu-split-title { width: 100%; min-height: 0; padding: 2px var(--s1); border: 0; border-bottom: 1.5px dashed var(--card-line); border-radius: 0; background: none; font-family: var(--serif); font-size: var(--t-md); font-weight: 700; color: var(--ink); }
 .cu-split-title:focus { outline: none; border-bottom-color: var(--accent); }
+
+/* ---------- conector de Claude: "Permitir" y Ajustes ---------- */
+.cu-oauth .authcard { width: min(480px, 100%); }
+.cu-oauth-pair { display: flex; align-items: center; justify-content: center; gap: var(--s3); }
+.cu-oauth-dots { display: inline-flex; gap: var(--s1); }
+.cu-oauth-dots i { width: var(--s2); height: var(--s2); border-radius: var(--r-pill); background: var(--card-line); animation: cu-oauth-dot 1.2s ease-in-out infinite; }
+.cu-oauth-dots i:nth-child(2) { animation-delay: 0.15s; }
+.cu-oauth-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes cu-oauth-dot { 0%, 100% { background: var(--card-line); } 50% { background: var(--accent); } }
+@media (prefers-reduced-motion: reduce) { .cu-oauth-dots i { animation: none; } }
+.cu-oauth-app { width: calc(var(--s12) + var(--s2)); height: calc(var(--s12) + var(--s2)); display: grid; place-items: center; border-radius: var(--r-lg); background: var(--accent); color: var(--on-color); font-family: var(--serif); font-size: var(--t-2xl); font-weight: 800; box-shadow: 0 4px 0 var(--accent-edge); }
+.cu-oauth-can { list-style: none; margin: var(--s4) 0; padding: var(--s3) var(--s4); display: flex; flex-direction: column; gap: var(--s2); border-radius: var(--r-md); background: var(--paper-alt); border: 1.5px solid var(--card-line); font-size: var(--t-sm); color: var(--ink); }
+.cu-oauth-can li { display: flex; align-items: flex-start; gap: var(--s2); }
+.cu-oauth-can li > svg { flex: none; margin-top: 3px; color: var(--green-photo); }
+.cu-oauth-can li.no { color: var(--ink-soft); }
+.cu-oauth-can li.no > svg { color: var(--coral-ink); }
+.cu-oauth-write { margin: 0 0 var(--s3); }
+.cu-oauth-warn { display: flex; gap: var(--s2); margin: 0 0 var(--s3); padding: var(--s3); border-radius: var(--r-md); background: var(--amber-soft); color: var(--ink); font-size: var(--t-xs); font-weight: 600; }
+.cu-oauth-warn > svg { flex: none; color: var(--amber-ink); }
+.cu-oauth-btns { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+.cu-steps { margin: 0; padding-left: var(--s5); display: flex; flex-direction: column; gap: var(--s2); font-size: var(--t-sm); color: var(--ink); }
+.cu-url { display: flex; align-items: center; gap: var(--s1); margin-top: var(--s1); max-width: 100%; padding: 2px 2px 2px var(--s3); border-radius: var(--r-md); background: var(--paper-alt); border: 1.5px solid var(--card-line); }
+.cu-url code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: var(--t-xs); background: none; }
+.cu-conns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.cu-conns li { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s3); border-radius: var(--r-md); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 2px 0 var(--card-edge); }
+.cu-conn-ico { width: var(--s8); height: var(--s8); flex: none; display: grid; place-items: center; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent-ink); }
+.cu-conn-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: var(--t-sm); color: var(--ink); }
+.cu-conn-txt small { font-size: var(--t-2xs); font-weight: 600; color: var(--ink-muted); }
+.cu-adv summary { cursor: pointer; font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); }
+.cu-adv[open] { display: flex; flex-direction: column; gap: var(--s2); }
+.cu-adv code { overflow-wrap: anywhere; }
+.cu-fresh { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); padding: var(--s3); border-radius: var(--r-md); background: var(--amber-soft); font-size: var(--t-xs); font-weight: 600; }
+.cu-fresh p { margin: 0; }
+.cu-fresh .cu-url { align-self: stretch; background: var(--card); }
+.cu-keyform { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.cu-keyform input { flex: 1 1 calc(var(--s12) * 4); min-height: var(--tap); font-size: var(--t-sm); }
+.cu-set a.btn { text-decoration: none; }
