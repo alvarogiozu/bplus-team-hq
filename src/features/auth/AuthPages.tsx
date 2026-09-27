@@ -6,7 +6,7 @@ import { humanError, supabase } from '../../lib/supabase'
 import { PALETTE } from '../../lib/colors'
 import { useAuth } from './AuthProvider'
 import {
-  changePassword, normalizeUsername, passwordStrength, signIn, signUp, usernameAvailable, usernameError,
+  changePassword, googleEnabled, normalizeUsername, passwordStrength, signIn, signInWithGoogle, signUp, usernameAvailable, usernameError,
 } from './credentials'
 
 function AuthShell({ title, lead, children, color }: { title: string; lead?: string; children: React.ReactNode; color?: string }) {
@@ -24,6 +24,52 @@ function AuthShell({ title, lead, children, color }: { title: string; lead?: str
   )
 }
 
+/** Entrar con Google (misma cuenta que rockie.plus). Solo aparece si el proveedor está encendido. */
+function GoogleButton({ path, label }: { path: string; label: string }) {
+  const [on, setOn] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let alive = true
+    googleEnabled().then((v) => alive && setOn(v))
+    return () => {
+      alive = false
+    }
+  }, [])
+  if (!on) return null
+  return (
+    <>
+      <button
+        type="button"
+        className="btn ghost block"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true)
+          setError('')
+          try {
+            await signInWithGoogle(path)
+          } catch (err) {
+            setError(humanError(err))
+            setBusy(false)
+          }
+        }}
+      >
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+          <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z" />
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+          <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+          <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z" />
+        </svg>
+        {busy ? 'Abriendo Google…' : label}
+      </button>
+      {error && <p className="formerror" role="alert">{error}</p>}
+      <p className="author">
+        <span>o con tu usuario</span>
+      </p>
+    </>
+  )
+}
+
 export function LoginPage() {
   const [params] = useSearchParams()
   const nav = useNavigate()
@@ -34,7 +80,6 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false)
   const invite = params.get('invitacion')
   const next = params.get('next') ?? ''
-  const agenda = next.startsWith('/agenda')
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -43,7 +88,7 @@ export function LoginPage() {
     try {
       await signIn(username, password, keep)
       if (invite) await supabase.rpc('join_space', { p_code: invite })
-      nav(params.get('next') || '/hoy', { replace: true })
+      nav(params.get('next') || '/inicio', { replace: true })
     } catch (err) {
       setError(humanError(err))
     } finally {
@@ -53,10 +98,10 @@ export function LoginPage() {
 
   return (
     <AuthShell
-      title={agenda ? 'Entra a tu agenda' : 'Entra al cuartel'}
-      lead={agenda ? 'Rockie Agenda: tu día, con tu misma cuenta de B+ HQ.' : 'Una tarea, un dueño, una fecha. Todo se valida.'}
-      color={agenda ? '#cf7358' : undefined}
+      title="Entra a Rockie"
+      lead="Tus hábitos, tu agenda, tu equipo y tu cuaderno, con una sola cuenta."
     >
+      <GoogleButton path={invite ? `/invitacion/${invite}` : next || '/inicio'} label="Entrar con Google" />
       <form onSubmit={submit} noValidate>
         <label className="lbl" htmlFor="u">Usuario</label>
         <input id="u" autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} required />
@@ -142,7 +187,7 @@ export function RegisterPage() {
         nav('/hoy', { replace: true })
       } else {
         const next = params.get('next') ?? ''
-        nav(next.startsWith('/agenda') ? next : '/bienvenida', { replace: true })
+        nav(next.startsWith('/') ? next : '/inicio', { replace: true })
       }
     } catch (err) {
       setError(humanError(err))
@@ -154,9 +199,10 @@ export function RegisterPage() {
   return (
     <AuthShell
       title={invite?.valid ? `Únete a ${invite.space_name}` : 'Crea tu cuenta'}
-      lead={invite?.valid ? 'Te invitaron al cuartel. Elige tu usuario y tu Rockie.' : 'Tu usuario y tu contraseña. Sin correos, sin vueltas.'}
+      lead={invite?.valid ? 'Te invitaron a su equipo. Elige tu usuario y tu Rockie.' : 'Una sola cuenta para tus hábitos, tu agenda, tu equipo y tu cuaderno.'}
       color={color}
     >
+      <GoogleButton path={code.trim().length >= 6 ? `/invitacion/${code.trim()}` : params.get('next') || '/inicio'} label="Crear cuenta con Google" />
       <form onSubmit={submit} noValidate>
         <label className="lbl" htmlFor="dn">Tu nombre</label>
         <input id="dn" value={displayName} maxLength={40} onChange={(e) => setDisplayName(e.target.value)} placeholder="Como te conoce el equipo" />
@@ -245,7 +291,7 @@ export function ChangePasswordPage() {
     try {
       await changePassword(pw)
       await qc.invalidateQueries({ queryKey: ['profile'] })
-      nav('/hoy', { replace: true })
+      nav('/inicio', { replace: true })
     } catch (err) {
       setError(humanError(err))
     } finally {

@@ -29,8 +29,32 @@ export function passwordStrength(pw: string): { score: number; label: string; co
   return { score, label: pw.length < 8 ? 'Mínimo 8 caracteres' : labels[score], color: colors[score] }
 }
 
-// Único punto donde se decide cómo se entra. Google OAuth se añade aquí (ver docs/DECISIONES.md).
-export const AUTH_PROVIDERS = ['password'] as const
+// Único punto donde se decide cómo se entra (ver docs/DECISIONES.md): usuario + contraseña,
+// y Google (la misma cuenta de rockie.plus) cuando el proveedor está encendido en Supabase.
+export const AUTH_PROVIDERS = ['password', 'google'] as const
+
+/** ¿Google está encendido en este proyecto? (el botón solo aparece si lo está) */
+export async function googleEnabled(): Promise<boolean> {
+  try {
+    const r = await fetch(`${env.supabaseUrl}/auth/v1/settings`, { headers: { apikey: env.supabaseAnonKey } })
+    if (!r.ok) return false
+    const s = (await r.json()) as { external?: Record<string, boolean> }
+    return Boolean(s.external?.google)
+  } catch {
+    return false
+  }
+}
+
+/** Entrar con Google: vuelve a `path` (por defecto el Inicio) ya con la sesión. */
+export async function signInWithGoogle(path: string) {
+  setKeepSession(true)
+  const safePath = path.startsWith('/') && !path.startsWith('//') ? path : '/inicio'
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${location.origin}${safePath}`, queryParams: { prompt: 'select_account' } },
+  })
+  if (error) throw error
+}
 
 export function emailFor(username: string) {
   return `${normalizeUsername(username)}@${env.authEmailDomain}`

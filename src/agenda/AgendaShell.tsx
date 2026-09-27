@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { useSearchParams } from 'react-router'
+import { AppSwitcher } from '../os/AppSwitcher'
 import { AnimatePresence, motion } from 'motion/react'
 import { Sheet } from '../components/Sheet'
 import { toast } from '../components/Toasts'
@@ -296,11 +297,7 @@ export function AgendaShell() {
             )}
           </AnimatePresence>
           <span className="spacer" />
-          {!mobile && (hq?.spaces.length ?? 0) > 0 && (
-            <Link className="ag-hqlink" to="/hoy">
-              <AIcon name="team" size={16} /> B+ HQ
-            </Link>
-          )}
+          <AppSwitcher compact={mobile} />
           {!wide && (
             <button className="ag-iconbtn" onClick={() => setCalsOpen(true)} aria-label="Calendarios" title="Calendarios">
               <AIcon name="calendar" size={19} />

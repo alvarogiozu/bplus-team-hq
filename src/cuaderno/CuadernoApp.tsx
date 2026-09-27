@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router'
 import { AnimatePresence, MotionConfig } from 'motion/react'
 import { Rockie } from '../components/Rockie'
+import { AppSwitcher } from '../os/AppSwitcher'
 import { useMe } from '../features/auth/AuthProvider'
 import { CuadernoSettings, useVaultAutoSync } from './Ajustes'
 import { AprenderDialog } from './Aprender'
@@ -163,12 +164,7 @@ function Sidebar({ badges }: { badges: Record<string, number> }) {
       <BookTree />
 
       <div className="cu-side-foot">
-        <Link className="cu-os" to="/hoy">
-          <CIcon name="team" size={17} /> B+ HQ
-        </Link>
-        <Link className="cu-os" to="/agenda">
-          <CIcon name="calendar" size={17} /> Mi agenda
-        </Link>
+        <AppSwitcher className="side-switch" />
         <button className="cu-os" onClick={() => openDialog({ kind: 'ajustes' })}>
           <CIcon name="settings" size={17} /> Ajustes
         </button>

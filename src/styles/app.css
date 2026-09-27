@@ -387,6 +387,8 @@ svg { display: block; }
 .checkline input { width: 20px; height: 20px; accent-color: var(--accent); }
 .formerror { color: var(--coral-ink); font-weight: 700; font-size: var(--t-s); margin-top: var(--s3); }
 .authfoot { text-align: center; margin-top: var(--s5); font-size: var(--t-s); color: var(--ink-soft); }
+.author { display: flex; align-items: center; gap: var(--s3); margin: var(--s4) 0 var(--s2); font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); }
+.author::before, .author::after { content: ""; flex: 1; height: 1.5px; background: var(--card-line); }
 
 /* ============================================================
    RESPONSIVE

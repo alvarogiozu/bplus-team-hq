@@ -1,0 +1,68 @@
+import { expect, test } from '@playwright/test'
+import { PASS } from './helpers'
+
+// Rockie OS: una sola cuenta, un Inicio con las cuatro apps y un selector en cada una.
+
+test('al entrar se llega al Inicio con las cuatro apps', async ({ page }) => {
+  await page.goto('/login')
+  await expect(page.getByRole('heading', { name: 'Entra a Rockie' })).toBeVisible()
+  await page.getByLabel('Usuario').fill('qa.alvaro')
+  await page.getByLabel('Contraseña').fill(PASS)
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page).toHaveURL(/\/inicio$/)
+  await expect(page.getByRole('heading', { name: /Buen(os|as) (días|tardes|noches), / })).toBeVisible()
+  for (const app of ['Hábitos', 'Agenda', 'Equipo', 'Cuaderno']) {
+    await expect(page.getByRole('link', { name: new RegExp(`^${app}`) })).toBeVisible()
+  }
+  // cada tarjeta trae lo de hoy (no se queda cargando)
+  await expect(page.locator('.os-skel')).toHaveCount(0, { timeout: 8000 })
+  await page.screenshot({ path: 'e2e/screens/os-inicio.png', fullPage: true })
+
+  // de Inicio a Agenda, y de Agenda a Cuaderno con el selector
+  await page.getByRole('link', { name: /^Agenda/ }).click()
+  await expect(page).toHaveURL(/\/agenda/)
+  await page.getByRole('button', { name: /Cambiar de app \(estás en Agenda\)/ }).click()
+  await page.getByRole('menu').getByRole('link', { name: /^Cuaderno/ }).click()
+  await expect(page).toHaveURL(/\/cuaderno/)
+
+  // del Cuaderno (PC) a Equipo, y de vuelta al Inicio
+  await page.getByRole('button', { name: /Cambiar de app \(estás en Cuaderno\)/ }).click()
+  await page.getByRole('menu').getByRole('link', { name: /^Equipo/ }).click()
+  await expect(page).toHaveURL(/\/hoy/)
+  await page.getByRole('button', { name: /Cambiar de app \(estás en Equipo\)/ }).first().click()
+  await page.getByRole('menu').getByRole('link', { name: /^Inicio/ }).click()
+  await expect(page).toHaveURL(/\/inicio$/)
+
+  // en el celular: dos columnas y el selector compacto en la Agenda
+  await page.setViewportSize({ width: 375, height: 812 })
+  await expect(page.locator('.os-skel')).toHaveCount(0, { timeout: 8000 })
+  await page.screenshot({ path: 'e2e/screens/os-inicio-movil.png', fullPage: true })
+  await page.goto('/agenda')
+  await page.getByRole('button', { name: /Cambiar de app \(estás en Agenda\)/ }).click()
+  await expect(page.getByRole('menu')).toBeVisible()
+  await page.screenshot({ path: 'e2e/screens/os-selector-movil.png' })
+})
+
+test('Hábitos avisa que se está mudando y lleva a rockie.plus', async ({ page }) => {
+  await page.goto('/login?next=%2Fhabitos')
+  await page.getByLabel('Usuario').fill('qa.alvaro')
+  await page.getByLabel('Contraseña').fill(PASS)
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page).toHaveURL(/\/habitos/)
+  await expect(page.getByRole('heading', { name: 'Hábitos se está mudando aquí' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Abrir mis hábitos/ })).toHaveAttribute('href', 'https://rockie.plus/hoy')
+})
+
+test('el menú del selector se cierra con Escape', async ({ page }) => {
+  await page.goto('/login?next=%2Finicio')
+  await page.getByLabel('Usuario').fill('qa.alvaro')
+  await page.getByLabel('Contraseña').fill(PASS)
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page).toHaveURL(/\/inicio$/)
+  await page.goto('/agenda')
+  const btn = page.getByRole('button', { name: /Cambiar de app/ })
+  await btn.click()
+  await expect(page.getByRole('menu')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menu')).toHaveCount(0)
+})

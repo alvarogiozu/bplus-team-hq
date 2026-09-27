@@ -423,3 +423,13 @@ puntos crudos, así los dibujos viejos también se ven con la tinta nueva. Mient
 copia y cada cuadro solo pinta el trazo nuevo (fluido en hojas llenas); el lápiz usa los puntos predichos del sistema
 para sentirse pegado a la tinta. Lienzos hasta 3x en pantallas densas, imagen guardada al doble, y en la hoja de dibujo
 los grosores son de pantalla (en el celular ya no sale una línea finísima).
+
+### Rockie OS — una sola app para Hábitos, Agenda, Equipo y Cuaderno (oct 2026)
+
+Este repo es la base de la app unificada (TypeScript, pruebas y tres de las cuatro apps ya adentro); Hábitos
+(B+, rockie.plus, otro Supabase) se muda aquí por tandas y sus datos pasan a este Supabase: una sola cuenta, un solo
+login y un solo chat con Rockie (`rockie_turns`). Cada app conserva su casa y su barra; las une un Inicio (`/inicio`,
+lo primero al entrar) con lo de hoy de cada app, y un selector «App ▾» (`src/os`) en la cabecera de cada una. Se entra
+con usuario y contraseña o con Google (la misma cuenta de rockie.plus); el botón de Google solo aparece si el proveedor
+está encendido en Supabase, y quien entra con Google recibe un usuario válido y único armado desde su correo
+(migración `rockie_os_cuentas`). Mientras Hábitos se muda, `/habitos` lleva a rockie.plus.

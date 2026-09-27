@@ -15,6 +15,8 @@ const TeamPage = lazy(() => import('../features/team/TeamPage'))
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage'))
 const AgendaApp = lazy(() => import('../agenda/AgendaApp'))
 const CuadernoApp = lazy(() => import('../cuaderno/CuadernoApp'))
+const HomePage = lazy(() => import('../os/HomePage'))
+const HabitosApp = lazy(() => import('../habitos/HabitosApp'))
 
 function Splash() {
   return (
@@ -34,13 +36,13 @@ function RequireAuth() {
   return <Outlet />
 }
 
-/** Login/registro: si ya había sesión al llegar, directo a Hoy (no reacciona al login en curso). */
+/** Login/registro: si ya había sesión al llegar, directo al Inicio (no reacciona al login en curso). */
 function PublicOnly({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth()
   const had = useRef<boolean | null>(null)
   if (loading) return <Splash />
   if (had.current === null) had.current = Boolean(session)
-  if (had.current) return <Navigate to="/hoy" replace />
+  if (had.current) return <Navigate to="/inicio" replace />
   return <>{children}</>
 }
 
@@ -63,6 +65,23 @@ export function App() {
         <Route element={<RequireAuth />}>
           <Route path="/cambiar-clave" element={<ChangePasswordPage />} />
           <Route path="/bienvenida" element={<WelcomePage />} />
+          <Route index element={<Navigate to="/inicio" replace />} />
+          <Route
+            path="/inicio"
+            element={
+              <Suspense fallback={<Splash />}>
+                <HomePage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/habitos/*"
+            element={
+              <Suspense fallback={<Splash />}>
+                <HabitosApp />
+              </Suspense>
+            }
+          />
           <Route
             path="/agenda/*"
             element={
@@ -80,7 +99,6 @@ export function App() {
             }
           />
           <Route element={<SpaceShell />}>
-            <Route index element={<Navigate to="/hoy" replace />} />
             <Route path="/hoy" element={<TodayPage />} />
             <Route path="/tareas" element={<TasksPage />} />
             <Route path="/proyectos" element={<ProjectsPage />} />
@@ -92,7 +110,7 @@ export function App() {
         </Route>
         {/* link público del equipo (hq.rockie.plus/teams): el tablero de hoy */}
         <Route path="/teams" element={<Navigate to="/hoy" replace />} />
-        <Route path="*" element={<Navigate to="/hoy" replace />} />
+        <Route path="*" element={<Navigate to="/inicio" replace />} />
       </Routes>
     </BrowserRouter>
   )

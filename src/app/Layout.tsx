@@ -23,6 +23,7 @@ import { openNewTask } from '../features/tasks/dialogs'
 import { setAccent, useTheme } from './theme'
 import { useAchievementWatcher } from '../features/team/achievements'
 import { AchievementDialog } from '../features/team/TeamAchievements'
+import { AppSwitcher } from '../os/AppSwitcher'
 
 type Dest = { to: string; label: string; icon: IconName; color: string }
 const DESKTOP: Dest[] = [
@@ -32,8 +33,6 @@ const DESKTOP: Dest[] = [
   { to: '/metas', label: 'Metas', icon: 'goal', color: 'var(--green-photo)' },
   { to: '/materiales', label: 'Materiales', icon: 'folder', color: 'var(--amber-ink)' },
   { to: '/equipo', label: 'Equipo', icon: 'team', color: 'var(--berry)' },
-  { to: '/agenda', label: 'Mi agenda', icon: 'calendar', color: 'var(--coral-ink)' },
-  { to: '/cuaderno', label: 'Mi cuaderno', icon: 'notebook', color: 'var(--accent-ink)' },
 ]
 
 export function Layout() {
@@ -86,6 +85,7 @@ export function Layout() {
           <Rockie color="var(--brand)" size={34} sleepy={night} reactive />
           <div className="logo hide-collapsed">B+<small>HQ · cuartel</small></div>
         </div>
+        <AppSwitcher compact={collapsed} className="side-switch" />
         {memberships.length > 1 && (
           <div className="hide-collapsed">
             <Select label="Espacio" size="sm" value={spaceId} onChange={setSpaceId} options={memberships.map((m) => ({ value: m.space_id, label: m.name, visual: <Icon name="team" className="sm" /> }))} />
@@ -129,8 +129,7 @@ export function Layout() {
 
       <div className="main">
         <header className="topbar">
-          <Rockie color="var(--brand)" size={30} sleepy={night} reactive />
-          <span className="logo">B+</span>
+          <AppSwitcher />
           <span className="sp">{memberships.find((m) => m.space_id === spaceId)?.name !== 'B+' ? memberships.find((m) => m.space_id === spaceId)?.name : 'HQ'}</span>
           <span className="spacer" />
           <button className="me-btn" style={{ width: 'auto' }} onClick={(e) => openMenu(e.currentTarget, false)} aria-haspopup="menu" aria-label="Tu perfil, equipo y ajustes">
@@ -206,8 +205,7 @@ function ProfileMenu({ at, onClose }: { at: { x: number; y: number }; onClose: (
       <button role="menuitem" className="mobile-flex" onClick={() => go('/materiales')}><Icon name="folder" /> Materiales</button>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/equipo')}><Icon name="team" /> Equipo</button>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/ajustes')}><Icon name="settings" /> Ajustes</button>
-      <button role="menuitem" onClick={() => go('/agenda')}><Icon name="calendar" /> Mi agenda (Rockie Agenda)</button>
-      <button role="menuitem" onClick={() => go('/cuaderno')}><Icon name="notebook" /> Mi cuaderno (Rockie Cuaderno)</button>
+      <button role="menuitem" onClick={() => go('/inicio')}><Icon name="home" /> Inicio de Rockie</button>
       <button role="menuitem" onClick={() => { toggle(); onClose() }}>
         <Icon name={theme === 'dark' ? 'sun' : 'moon'} /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}
       </button>

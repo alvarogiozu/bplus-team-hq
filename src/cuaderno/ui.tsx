@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router'
+import { AppList } from '../os/AppSwitcher'
 import { motion } from 'motion/react'
 import { Sheet } from '../components/Sheet'
 import { openDialog } from './bus'
@@ -38,14 +38,9 @@ export function OsMenu() {
       <button className="iconbtn" onClick={() => setOpen(true)} aria-label="Más opciones">
         <CIcon name="more" size={20} />
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Rockie OS">
+      <Sheet open={open} onClose={() => setOpen(false)} title="Tus apps">
         <div className="cu-osmenu">
-          <Link className="cu-os" to="/hoy">
-            <CIcon name="team" size={18} /> B+ HQ
-          </Link>
-          <Link className="cu-os" to="/agenda">
-            <CIcon name="calendar" size={18} /> Mi agenda
-          </Link>
+          <AppList onPick={() => setOpen(false)} />
           <button
             className="cu-os"
             onClick={() => {

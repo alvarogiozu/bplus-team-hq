@@ -4,7 +4,7 @@ import { login } from './helpers'
 test('sin sesión todo redirige a /login', async ({ page }) => {
   await page.goto('/tareas?vista=tablero')
   await expect(page).toHaveURL(/\/login\?next=/)
-  await expect(page.getByRole('heading', { name: 'Entra al cuartel' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Entra a Rockie' })).toBeVisible()
 })
 
 test('contraseña incorrecta da un mensaje humano', async ({ page }) => {

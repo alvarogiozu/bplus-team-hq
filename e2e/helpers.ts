@@ -4,7 +4,7 @@ export const PASS = 'qa-pass-1234'
 
 export async function login(page: Page, username = 'qa.alvaro', theme: 'light' | 'dark' = 'light') {
   await page.addInitScript((t) => localStorage.setItem('hq.theme', t), theme)
-  await page.goto('/login')
+  await page.goto('/login?next=%2Fhoy')
   await page.getByLabel('Usuario').fill(username)
   await page.getByLabel('Contraseña').fill(PASS)
   await page.getByRole('button', { name: 'Entrar' }).click()
@@ -16,7 +16,7 @@ export async function loginAgenda(page: Page, username = 'qa.alvaro', theme: 'li
   await page.addInitScript((t) => localStorage.setItem('hq.theme', t), theme)
   await page.goto('/agenda')
   await expect(page).toHaveURL(/\/login\?next=%2Fagenda/)
-  await expect(page.getByRole('heading', { name: 'Entra a tu agenda' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Entra a Rockie' })).toBeVisible()
   await page.getByLabel('Usuario').fill(username)
   await page.getByLabel('Contraseña').fill(PASS)
   await page.getByRole('button', { name: 'Entrar' }).click()
