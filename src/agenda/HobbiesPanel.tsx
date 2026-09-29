@@ -58,7 +58,7 @@ export function HobbiesPanel(p: {
           : `0 de ${stats.total}`
 
   return (
-    <section className="ag-hob" aria-label="Hobbies">
+    <section className={`ag-hob${form ? ' editing' : ''}`} aria-label="Hobbies">
       <header className="ag-hob-head">
         <DayBox boxRef={boxRef} fill={stats.fill} all={stats.all} count={stats.count} total={stats.total} />
         <div className="ag-hob-title">
@@ -163,6 +163,7 @@ function HobbyForm({ h, onDone }: { h?: Hobby; onDone: () => void }) {
   const guessed = guessIcon(name)
   const shownIcon = icon || (guessed === 'task' ? 'star' : guessed)
   const shownColor = color || h?.color || ITEM_COLORS[5]
+  const formRef = useRef<HTMLFormElement>(null)
 
   async function save(e: FormEvent) {
     e.preventDefault()
@@ -174,7 +175,17 @@ function HobbyForm({ h, onDone }: { h?: Hobby; onDone: () => void }) {
   }
 
   return (
-    <motion.form className="ag-grp-form" onSubmit={save} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ ['--c' as string]: shownColor } as CSSProperties}>
+    <motion.form
+      className="ag-grp-form"
+      onSubmit={save}
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      // al abrirse, que se vean los botones (el panel es chico y tapaba "Crear hobby")
+      onAnimationComplete={(def) => (def as { opacity?: number }).opacity === 1 && formRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}
+      ref={formRef}
+      style={{ ['--c' as string]: shownColor } as CSSProperties}
+    >
       <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Tocar guitarra" aria-label="Nombre del hobby" maxLength={40} />
       <span className="ag-grp-lbl">Cuánto le dedicas</span>
       <div className="ag-hob-durs" role="radiogroup" aria-label="Duración">
