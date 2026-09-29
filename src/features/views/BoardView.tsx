@@ -7,8 +7,9 @@ import {
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Icon } from '../../components/Icon'
+import { Prio } from '../../components/Prio'
 import { pointOf, type Point } from '../../lib/fx'
-import { STATUS_LABEL, type Status, type Task } from '../../lib/types'
+import { prioLevel, STATUS_LABEL, type Status, type Task } from '../../lib/types'
 import { useTaskActions } from '../tasks/actions'
 import { openValidate } from '../tasks/dialogs'
 import { DuePill, MemberAvatar, useLookup } from '../tasks/bits'
@@ -182,7 +183,7 @@ function CardBody({ task, dragging, overlay }: { task: Task; dragging?: boolean;
         <MemberAvatar member={member} size={22} />
         {member && <span>{member.profile.display_name.split(' ')[0]}</span>}
         <DuePill task={task} today={today} />
-        {task.priority === 'urgent' && !done && <span className="pill urgent">Urgente</span>}
+        {!done && <Prio level={prioLevel(task.priority)} label />}
       </div>
       {!done && !overlay && (
         <button

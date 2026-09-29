@@ -1,7 +1,14 @@
 import type { Tables } from './database.types'
 
 export type Status = 'todo' | 'doing' | 'done'
-export type Priority = 'normal' | 'urgent'
+// 'normal' = sin prioridad; low/medium/urgent = baja/media/alta (los cristales de <Prio>)
+export type Priority = 'normal' | 'low' | 'medium' | 'urgent'
+export const PRIORITY_BY_LEVEL: Priority[] = ['normal', 'low', 'medium', 'urgent']
+/** Nivel 0–3 de una prioridad del HQ (0 = sin prioridad). */
+export const prioLevel = (p: string | null | undefined): 0 | 1 | 2 | 3 => {
+  const i = PRIORITY_BY_LEVEL.indexOf(p as Priority)
+  return (i < 0 ? 0 : i) as 0 | 1 | 2 | 3
+}
 export type Validation = 'plain' | 'proof'
 
 export type Task = Omit<Tables<'tasks'>, 'status' | 'priority' | 'validation'> & {

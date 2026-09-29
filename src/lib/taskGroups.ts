@@ -1,5 +1,5 @@
 import { addDays, endOfWeek, startOfWeek } from './dates'
-import type { Task } from './types'
+import { prioLevel, type Task } from './types'
 
 export type GroupKey = 'overdue' | 'today' | 'week' | 'later' | 'nodate' | 'done'
 
@@ -46,7 +46,9 @@ export function sortInGroup(a: Task, b: Task): number {
   const da = a.due_date ?? '9999'
   const db = b.due_date ?? '9999'
   if (da !== db) return da < db ? -1 : 1
-  if (a.priority !== b.priority) return a.priority === 'urgent' ? -1 : 1
+  const pa = prioLevel(a.priority)
+  const pb = prioLevel(b.priority)
+  if (pa !== pb) return pb - pa
   return a.position - b.position
 }
 

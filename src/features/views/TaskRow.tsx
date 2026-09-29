@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSearchParams } from 'react-router'
 import { Icon } from '../../components/Icon'
+import { Prio } from '../../components/Prio'
 import { Rockie } from '../../components/Rockie'
 import { toast } from '../../components/Toasts'
 import { pointOf } from '../../lib/fx'
-import type { Task } from '../../lib/types'
+import { prioLevel, type Task } from '../../lib/types'
 import { useTaskActions } from '../tasks/actions'
 import { AreaDot, DuePill, MemberAvatar, useLookup } from '../tasks/bits'
 import { presenceStore } from '../team/presence'
@@ -76,7 +77,7 @@ export const TaskRow = forwardRef<HTMLDivElement, { task: Task; showAssignee?: b
         )}
       </span>
       <div className="meta">
-        {task.priority === 'urgent' && !done && <span className="pill urgent">Urgente</span>}
+        {!done && <Prio level={prioLevel(task.priority)} label />}
         {task.status === 'doing' && <span className="pill doing">En curso</span>}
         <DuePill task={task} today={today} />
         <AreaDot area={area} />

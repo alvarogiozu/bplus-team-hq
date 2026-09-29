@@ -11,6 +11,10 @@ export const COMPRESS_OVER = 90 // huecos de más de 90 min se comprimen
 export const COMPRESSED_H = 104
 export const PAD_TOP = 28
 export const PAD_BOTTOM = 56
+// El hueco donde está "ahora" se parte en dos: lo vivido se encoge y lo que queda tiene aire
+// para "¿Qué sigue?" y sus sugerencias (así nunca se enciman con la línea ni con el bloque siguiente).
+export const NOW_PAST_H = 64
+export const NOW_NEXT_H = 168
 
 export type Span = { key: string; start: number; end: number }
 
@@ -26,7 +30,7 @@ export type Seg = {
 
 export type Layout = { segs: Seg[]; height: number; from: number; to: number }
 
-export function buildLayout(spans: Span[], opts: { from: number; to: number; expanded: boolean }): Layout {
+export function buildLayout(spans: Span[], opts: { from: number; to: number; expanded: boolean; now?: number }): Layout {
   const sorted = spans
     .map((s) => ({ ...s, end: Math.max(s.start, s.end) }))
     .sort((a, b) => a.start - b.start || a.end - b.end)
@@ -52,6 +56,17 @@ export function buildLayout(spans: Span[], opts: { from: number; to: number; exp
   const pushGap = (m1: number) => {
     const gap = m1 - m
     if (gap <= 0) return
+    const now = opts.now
+    if (!opts.expanded && now != null && now > m && now < m1) {
+      const h0 = Math.min((now - m) * PX_PER_MIN, NOW_PAST_H)
+      segs.push({ m0: m, m1: now, y0: y, y1: y + h0, kind: 'gap', compressed: (now - m) * PX_PER_MIN > NOW_PAST_H })
+      y += h0
+      const h1 = Math.min((m1 - now) * PX_PER_MIN, NOW_NEXT_H)
+      segs.push({ m0: now, m1, y0: y, y1: y + h1, kind: 'gap', compressed: (m1 - now) * PX_PER_MIN > NOW_NEXT_H })
+      y += h1
+      m = m1
+      return
+    }
     const compressed = !opts.expanded && gap > COMPRESS_OVER
     const h = compressed ? COMPRESSED_H : gap * PX_PER_MIN
     segs.push({ m0: m, m1, y0: y, y1: y + h, kind: 'gap', compressed })

@@ -1162,3 +1162,26 @@ button.mission:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ca
 
 /* tema claro / oscuro / automático (compartido por HQ, Agenda y Cuaderno) */
 .theme-choice { max-width: 100%; flex-wrap: wrap; }
+
+/* prioridad = cristales de geoda (compartido por Equipo y Agenda): baja · media · alta */
+.prio { --prio: var(--ink-faint); display: inline-flex; align-items: center; gap: 4px; flex: none; vertical-align: middle; line-height: 1; }
+.prio.p1 { --prio: var(--brand-logo); }
+.prio.p2 { --prio: var(--amber); }
+.prio.p3 { --prio: var(--coral); }
+.prio svg { display: block; overflow: visible; }
+.prio .cr { fill: var(--ink-faint); opacity: .6; transition: fill .25s, opacity .25s; }
+.prio .fa { fill: #fff; opacity: 0; transition: opacity .25s; }
+.prio .on .cr { fill: var(--prio); opacity: 1; }
+.prio .on .fa { opacity: .32; }
+.prio .gl { fill: var(--amber); transform-box: fill-box; transform-origin: center; animation: prio-glint 2.8s ease-in-out infinite; }
+@keyframes prio-glint { 0%, 62%, 100% { transform: scale(0) rotate(0deg); opacity: 0; } 74% { transform: scale(1.15) rotate(45deg); opacity: 1; } 86% { transform: scale(.5) rotate(90deg); opacity: .6; } }
+.prio > span { font-size: var(--t-3xs); font-weight: 800; color: var(--prio); }
+.prio-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.prio-opt { --prio: var(--ink-muted); display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 12px; border-radius: 999px; border: 1.5px solid var(--card-line); background: var(--card); font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); box-shadow: 0 2px 0 var(--card-edge); transition: transform .15s var(--spring), border-color .15s, background .15s, color .15s; }
+.prio-opt.p1 { --prio: var(--brand-logo); }
+.prio-opt.p2 { --prio: var(--amber); }
+.prio-opt.p3 { --prio: var(--coral); }
+.prio-opt:hover { transform: translateY(-1px); }
+.prio-opt.on { border-color: var(--prio); color: var(--ink); background: color-mix(in srgb, var(--prio) 14%, var(--card)); }
+.prio-pick.compact .prio-opt { min-height: 30px; padding: 2px 10px; font-size: var(--t-2xs); }
+@media (prefers-reduced-motion: reduce) { .prio .gl { animation: none; opacity: 1; transform: none; } }

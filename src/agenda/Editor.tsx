@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import { AnimatePresence, motion, useDragControls } from 'motion/react'
 import { useQueryClient } from '@tanstack/react-query'
+import { PrioPick } from '../components/Prio'
 import { Rockie } from '../components/Rockie'
 import { toast, toastError } from '../components/Toasts'
 import { burst, celebrateRockie, haptic } from '../lib/fx'
@@ -15,6 +16,7 @@ import { akeys, useAgendaActions, useHq, useItems, usePrefs, type Subtask } from
 import { AIcon } from './icons'
 import { DatePop, StylePop, TimePop } from './Popovers'
 import { useCalendarMap } from './calendars'
+import { byPriority, useGroups } from './groups'
 import { fmtDur, hhmm, tsToMin } from './time'
 
 export type Draft = {
@@ -27,6 +29,8 @@ export type Draft = {
   notes: string
   subtasks: Subtask[]
   calendar_id?: string | null
+  group_id?: string | null
+  priority?: number
 }
 export type EditorState = { mode: 'new'; draft: Draft } | { mode: 'edit'; id: string } | { mode: 'event'; id: string } | { mode: 'task'; id: string } | null
 
@@ -115,7 +119,19 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
   const hq = useHq().data
   const { createItem, updateItem, deleteItem } = useAgendaActions()
   const init: Draft = item
-    ? { title: item.title, day: item.day, start: item.start_min, duration: item.duration_min, color: item.color, icon: item.icon, notes: item.notes, subtasks: item.subtasks, calendar_id: item.calendar_id }
+    ? {
+        title: item.title,
+        day: item.day,
+        start: item.start_min,
+        duration: item.duration_min,
+        color: item.color,
+        icon: item.icon,
+        notes: item.notes,
+        subtasks: item.subtasks,
+        calendar_id: item.calendar_id,
+        group_id: item.group_id,
+        priority: item.priority,
+      }
     : draft!
   const [f, setF] = useState<Draft>(init)
   const [pop, setPop] = useState<'time' | 'date' | 'style' | null>(null)
@@ -128,6 +144,8 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
   const { list: cals, byId: calById } = useCalendarMap()
   const cal = f.calendar_id ? calById.get(f.calendar_id) : undefined
   const color = cal?.color ?? f.color
+  const groupsData = useGroups().data
+  const groups = useMemo(() => (groupsData ?? []).slice().sort(byPriority), [groupsData])
 
   useEffect(() => {
     if (!item) setTimeout(() => titleRef.current?.focus(), 250)
@@ -145,7 +163,19 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
   async function save() {
     const title = f.title.trim()
     if (!title) return titleRef.current?.focus()
-    const row = { title, day: f.day, start_min: f.day ? f.start : null, duration_min: f.duration, color, icon: f.icon, notes: f.notes, subtasks: f.subtasks, calendar_id: f.calendar_id ?? null }
+    const row = {
+      title,
+      day: f.day,
+      start_min: f.day ? f.start : null,
+      duration_min: f.duration,
+      color,
+      icon: f.icon,
+      notes: f.notes,
+      subtasks: f.subtasks,
+      calendar_id: f.calendar_id ?? null,
+      group_id: f.group_id ?? null,
+      priority: f.priority ?? 0,
+    }
     if (item) await updateItem(item.id, row)
     else await createItem(row)
     close()
@@ -280,6 +310,44 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* grupo (tanda con nombre propio; manda el calendario) y prioridad en cristales */}
+            <div className="ag-card ag-ed-meta">
+              {!item?.hobby_id && groups.length > 0 && (
+                <>
+                  <span className="ag-card-t">Grupo</span>
+                  <div className="ag-calpick" role="radiogroup" aria-label="Grupo">
+                    <button type="button" role="radio" aria-checked={!f.group_id} className={`ag-chip${!f.group_id ? ' on' : ''}`} onClick={() => set({ group_id: null })}>
+                      Sin grupo
+                    </button>
+                    {groups.map((g) => {
+                      const gc = g.calendar_id ? calById.get(g.calendar_id) : undefined
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={g.id === f.group_id}
+                          className={`ag-chip ag-calchip${g.id === f.group_id ? ' on' : ''}`}
+                          style={{ ['--c' as string]: gc?.color ?? '#9893a5' } as CSSProperties}
+                          onClick={() => set({ group_id: g.id, ...(gc ? { calendar_id: gc.id, color: gc.color } : {}) })}
+                        >
+                          <i aria-hidden="true" /> {g.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+              <span className="ag-card-t">Prioridad</span>
+              <PrioPick value={f.priority ?? 0} onChange={(priority) => set({ priority })} />
+            </div>
+
+            {item?.hobby_id && (
+              <div className="ag-card ag-hqnote">
+                <AIcon name="star" size={16} /> Bloque de hobby: cuenta para tu casilla de hobbies de este día.
               </div>
             )}
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { blockRect, buildLayout, COMPRESSED_H, lanes, minToY, PX_PER_MIN, yToMin } from './geometry'
+import { blockRect, buildLayout, COMPRESSED_H, lanes, minToY, NOW_NEXT_H, NOW_PAST_H, PX_PER_MIN, yToMin } from './geometry'
+import { lastFreeSlot } from './blocks'
 import { fmtDur, hhmm, localToIso, parseHhmm, snapMin } from './time'
 import { localPropose } from './localAgent'
 
@@ -82,5 +83,53 @@ describe('intérprete local (respaldo sin IA)', () => {
   it('sin fecha va al Inbox', () => {
     const r = localPropose('comprar pilas', ctx)
     expect(r?.input).toMatchObject({ title: 'Comprar pilas', day: null, start: null })
+  })
+})
+
+describe('hueco de ahora', () => {
+  it('se parte en la línea: lo vivido se encoge y lo que queda tiene aire para "¿Qué sigue?"', () => {
+    // hueco largo 9:15–20:55 con "ahora" a las 15:01
+    const l = buildLayout(spans, { from: 480, to: 1320, expanded: false, now: 901 })
+    const past = l.segs.find((s) => s.kind === 'gap' && s.m1 === 901)!
+    const next = l.segs.find((s) => s.kind === 'gap' && s.m0 === 901)!
+    expect(past.y1 - past.y0).toBeLessThanOrEqual(NOW_PAST_H)
+    expect(next.y1 - next.y0).toBe(NOW_NEXT_H)
+    // la línea de ahora cae justo donde empieza el hueco que queda
+    expect(minToY(l, 901)).toBeCloseTo(next.y0)
+    // sigue siendo reversible
+    expect(yToMin(l, next.y0 + (next.y1 - next.y0) / 2)).toBeGreaterThan(901)
+  })
+  it('al arrastrar (escala real) no se parte', () => {
+    const l = buildLayout(spans, { from: 480, to: 1320, expanded: true, now: 901 })
+    expect(l.segs.some((s) => s.m0 === 901 || s.m1 === 901)).toBe(false)
+  })
+})
+
+describe('hobbies: hueco antes de ahora', () => {
+  const busy = [
+    { start: 600, duration: 120 }, // 10:00–12:00
+    { start: 780, duration: 60 }, // 13:00–14:00
+  ]
+  it('lo pone justo antes de ahora si cabe', () => {
+    expect(lastFreeSlot(busy, { end: 901, wake: 480, dur: 30 })).toBe(870) // 14:30–15:00
+  })
+  it('esquiva lo que ya está ocupado', () => {
+    expect(lastFreeSlot(busy, { end: 830, wake: 480, dur: 30 })).toBe(750) // 12:30–13:00, pegado a lo de las 13:00
+  })
+  it('null si no cabe antes de despertar', () => {
+    expect(lastFreeSlot([{ start: 480, duration: 300 }], { end: 700, wake: 480, dur: 30 })).toBeNull()
+  })
+})
+
+describe('prioridad dictada', () => {
+  const ctx = { today: '2026-09-24', defaultDuration: 15, people: [] }
+  it('"prioridad alta" sale del título y queda como alta', () => {
+    expect(localPropose('pagar la luz prioridad alta', ctx)?.input).toMatchObject({ title: 'Pagar la luz', priority: 'alta' })
+  })
+  it('"baja prioridad"', () => {
+    expect(localPropose('ordenar el cuarto baja prioridad', ctx)?.input).toMatchObject({ title: 'Ordenar el cuarto', priority: 'baja' })
+  })
+  it('sin prioridad no agrega la clave', () => {
+    expect(localPropose('comprar pilas', ctx)?.input).not.toHaveProperty('priority')
   })
 })

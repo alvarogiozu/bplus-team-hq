@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { Prio } from '../components/Prio'
 import { Rockie } from '../components/Rockie'
 import { isNight } from '../lib/dates'
 import type { Block } from './blocks'
@@ -38,7 +39,8 @@ export function Timeline(p: Props) {
   const expanded = Boolean(active)
 
   const spans = useMemo(() => p.blocks.map((b) => ({ key: b.key, start: b.start, end: b.start + b.duration })), [p.blocks])
-  const layout = useMemo(() => buildLayout(spans, { from: p.wake, to: p.sleep, expanded }), [spans, p.wake, p.sleep, expanded])
+  const nowAt = isToday ? p.nowMin : undefined
+  const layout = useMemo(() => buildLayout(spans, { from: p.wake, to: p.sleep, expanded, now: nowAt }), [spans, p.wake, p.sleep, expanded, nowAt])
   const laneOf = useMemo(() => lanes(spans.filter((s) => s.end > s.start)), [spans])
 
   // soltar sobre la línea: el minuto sale de la escala real (los huecos se abrieron al levantar)
@@ -65,6 +67,15 @@ export function Timeline(p: Props) {
   )
 
   const nowY = isToday ? minToY(layout, p.nowMin) : p.day < p.today ? layout.height : 0
+  // Si "ahora" cae dentro de un bloque, Rockie se hace a un lado (a la derecha) para no taparlo;
+  // si además está a la altura de la casilla del bloque, se corre a su izquierda.
+  const nowSide = useMemo(() => {
+    if (!isToday) return null
+    const inside = p.blocks.find((b) => b.kind !== 'anchor' && b.duration > 0 && b.start <= p.nowMin && p.nowMin < b.start + b.duration)
+    if (!inside) return null
+    const top = blockRect(layout, inside.key, inside.start, inside.start + inside.duration).top
+    return inside.kind === 'item' && nowY - top < 60 ? 'dodge' : 'side'
+  }, [isToday, p.blocks, p.nowMin, layout, nowY])
 
   return (
     <div
@@ -159,9 +170,9 @@ export function Timeline(p: Props) {
             exit={{ opacity: 0 }}
             transition={{ type: 'spring', stiffness: 700, damping: 40 }}
           >
-            <span className="tl-preview-time">
-              {hhmm(preview.min)} – {hhmm(preview.min + preview.dur)}
-            </span>
+            {/* las horas van a la izquierda de la línea: la tarjeta que arrastras nunca las tapa */}
+            <span className="tl-preview-time">{hhmm(preview.min)}</span>
+            <span className="tl-preview-time end">{hhmm(preview.min + preview.dur)}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -173,10 +184,13 @@ export function Timeline(p: Props) {
       )}
 
       {isToday && (
-        <motion.div className="tl-now" initial={false} animate={{ y: nowY }} transition={{ type: 'spring', stiffness: 120, damping: 20 }}>
+        <motion.div className={`tl-now${nowSide ? ` at-side${nowSide === 'dodge' ? ' at-dodge' : ''}` : ''}`} initial={false} animate={{ y: nowY }} transition={{ type: 'spring', stiffness: 120, damping: 20 }}>
           <span className="tl-now-time">{hhmm(p.nowMin)}</span>
           <span className="tl-now-rockie">
-            <Rockie color="#cf7358" size={26} sleepy={isNight(Math.floor(p.nowMin / 60))} reactive />
+            {/* al cambiar de lado, Rockie "salta" a su nuevo sitio */}
+            <motion.span key={nowSide ?? 'axis'} style={{ display: 'block' }} initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 520, damping: 24 }}>
+              <Rockie color="#cf7358" size={26} sleepy={isNight(Math.floor(p.nowMin / 60))} reactive />
+            </motion.span>
           </span>
           <span className="tl-now-line" />
         </motion.div>
@@ -203,7 +217,8 @@ function GapHints(p: Props & { layout: Layout; isToday: boolean }) {
     const len = s.m1 - s.m0
     if (s.kind !== 'gap' || len < 15 || s.y1 - s.y0 < 44) continue
     if (p.isToday ? s.m1 <= p.nowMin : p.day < p.today) continue // lo pasado no necesita comentario
-    const nowIn = p.isToday && p.nowMin > s.m0 && p.nowMin < s.m1
+    // el hueco de "ahora" empieza justo en la línea (geometry lo parte ahí)
+    const nowIn = p.isToday && p.nowMin >= s.m0 && p.nowMin < s.m1
     const past = p.isToday ? s.m1 <= p.nowMin : p.day < p.today
     const freeFrom = nowIn ? Math.ceil(p.nowMin / 15) * 15 : s.m0
     const free = s.m1 - freeFrom
@@ -216,18 +231,20 @@ function GapHints(p: Props & { layout: Layout; isToday: boolean }) {
     else text = `Hueco de ${fmtDur(len)}.`
     hints.push(
       <motion.div
-        key={`gap${s.m0}`}
+        key={nowIn ? 'gap-now' : `gap${s.m0}`}
         className={`tl-gap${past ? ' past' : ''}${nowIn ? ' now' : ''}`}
+        style={{ maxHeight: s.y1 - s.y0 - (nowIn ? 18 : 8) }}
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1, y: (s.y0 + s.y1) / 2 - (fits.length ? 26 : 12) }}
+        // "¿Qué sigue?" va debajo de la línea de ahora; los demás, al centro de su hueco
+        animate={{ opacity: 1, y: nowIn ? s.y0 + 14 : (s.y0 + s.y1) / 2 - (fits.length ? 26 : 12) }}
         transition={SPRING}
       >
         <span>{text}</span>
         {fits.length > 0 && (
           <span className="tl-sugs">
             {fits.map((it) => (
-              <button key={it.id} className="tl-sug" style={{ ['--c' as string]: it.color } as CSSProperties} onClick={() => p.onSuggest(it, freeFrom)}>
-                <AIcon name={it.icon} size={14} /> {it.title} · {fmtDur(it.duration_min)}
+              <button key={it.id} className="tl-sug" style={{ ['--c' as string]: it.color } as CSSProperties} onClick={() => p.onSuggest(it, freeFrom)} title={it.title}>
+                <AIcon name={it.icon} size={14} /> <span>{it.title}</span> · {fmtDur(it.duration_min)}
               </button>
             ))}
           </span>
@@ -286,6 +303,7 @@ function BlockRow(props: {
         <small>
           {anchor ? (b.anchor === 'wake' ? 'Buen día' : 'Hasta mañana') : `${hhmm(b.start)} – ${hhmm(b.start + b.duration)} (${fmtDur(b.duration)})`}
           {b.sub ? ` · ${b.sub}` : ''}
+          {b.priority ? <Prio level={b.priority} size={11} style={{ marginLeft: 6 }} /> : null}
         </small>
         <b>{b.title}</b>
       </button>

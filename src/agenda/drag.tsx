@@ -9,13 +9,13 @@ import { fmtDur } from './time'
 // vuela a su lugar. Mouse: arranca al mover 5 px. Táctil: mantener 230 ms (si no, es scroll).
 
 export type DragPayload = {
-  kind: 'item' | 'task' | 'event'
+  kind: 'item' | 'task' | 'event' | 'hobby'
   id: string
   title: string
   color: string
   icon: string
   duration: number
-  from: 'inbox' | 'timeline' | 'allday'
+  from: 'inbox' | 'timeline' | 'allday' | 'hobbies'
 }
 export type Pt = { x: number; y: number }
 export type DropResult = { land: Pt; shrink?: boolean } | null

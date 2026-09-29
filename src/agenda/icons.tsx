@@ -55,6 +55,12 @@ const P: Record<string, ReactNode> = {
       <circle cx="17" cy="16" r="3" />
     </>
   ),
+  chess: (
+    <>
+      <circle cx="12" cy="6" r="2.5" />
+      <path d="M9.5 10.5h5M10.5 10.5 9 17.5h6l-1.5-7M6.5 20.5h11l-1-3h-9z" />
+    </>
+  ),
   heart: <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />,
   shop: <path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2" />,
   travel: <path d="M21 15l-8-4V5.5a1.5 1.5 0 0 0-3 0V11l-8 4v2l8-2v4l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-4l8 2z" />,

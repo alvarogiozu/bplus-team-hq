@@ -199,6 +199,98 @@ export type Database = {
           },
         ]
       }
+      agenda_groups: {
+        Row: {
+          calendar_id: string | null
+          collapsed: boolean
+          created_at: string
+          id: string
+          name: string
+          position: number
+          priority: number
+          user_id: string
+        }
+        Insert: {
+          calendar_id?: string | null
+          collapsed?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          priority?: number
+          user_id?: string
+        }
+        Update: {
+          calendar_id?: string | null
+          collapsed?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          priority?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_groups_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_calendars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_groups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_hobbies: {
+        Row: {
+          archived: boolean
+          color: string
+          created_at: string
+          duration_min: number
+          icon: string
+          id: string
+          name: string
+          position: number
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          duration_min?: number
+          icon?: string
+          id?: string
+          name: string
+          position?: number
+          user_id?: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          duration_min?: number
+          icon?: string
+          id?: string
+          name?: string
+          position?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_hobbies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agenda_items: {
         Row: {
           calendar_id: string | null
@@ -207,11 +299,14 @@ export type Database = {
           day: string | null
           done_at: string | null
           duration_min: number
+          group_id: string | null
+          hobby_id: string | null
           hq_task_id: string | null
           icon: string
           id: string
           notes: string
           position: number
+          priority: number
           start_min: number | null
           subtasks: Json
           title: string
@@ -225,11 +320,14 @@ export type Database = {
           day?: string | null
           done_at?: string | null
           duration_min?: number
+          group_id?: string | null
+          hobby_id?: string | null
           hq_task_id?: string | null
           icon?: string
           id?: string
           notes?: string
           position?: number
+          priority?: number
           start_min?: number | null
           subtasks?: Json
           title: string
@@ -243,11 +341,14 @@ export type Database = {
           day?: string | null
           done_at?: string | null
           duration_min?: number
+          group_id?: string | null
+          hobby_id?: string | null
           hq_task_id?: string | null
           icon?: string
           id?: string
           notes?: string
           position?: number
+          priority?: number
           start_min?: number | null
           subtasks?: Json
           title?: string
@@ -260,6 +361,20 @@ export type Database = {
             columns: ["calendar_id"]
             isOneToOne: false
             referencedRelation: "agenda_calendars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_items_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_items_hobby_id_fkey"
+            columns: ["hobby_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_hobbies"
             referencedColumns: ["id"]
           },
           {
