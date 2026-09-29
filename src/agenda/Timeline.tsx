@@ -49,7 +49,7 @@ export function Timeline(p: Props) {
     return snapMin(yToMin(layout, pt.y - r.top))
   }
   // El recuadro de soltar mide los minutos de verdad (15 min no hereda la altura mínima del bloque).
-  const slotH = (min: number, dur: number) => Math.max(12, minToY(layout, min + dur) - minToY(layout, min))
+  const slotH = (_min: number, dur: number) => (dur <= 0 ? 12 : Math.max(18, dur * PX_PER_MIN))
   useDropTarget(
     {
       id: 'timeline',
@@ -139,6 +139,7 @@ export function Timeline(p: Props) {
             top={r.top}
             height={r.height}
             lane={lane?.lane ?? 0}
+            lanesOf={lane?.of ?? 1}
             index={i}
             past={isToday ? b.start + b.duration <= p.nowMin : p.day < p.today}
             landed={landedKey === b.key}
@@ -276,23 +277,27 @@ function BlockRow(props: {
   top: number
   height: number
   lane: number
+  /** cuántos carriles tiene su grupo (para que los textos terminen antes de las casillas) */
+  lanesOf: number
   index: number
   past: boolean
   landed: boolean
   onOpen: () => void
   onToggle: (at: Pt) => void
 }) {
-  const { b, top, height, lane, index, past, landed } = props
+  const { b, top, height, lane, lanesOf, index, past, landed } = props
   const payload: DragPayload | null =
-    b.kind === 'anchor' || b.kind === 'gcal' ? null : { kind: b.kind === 'event' ? 'event' : 'item', id: b.id, title: b.title, color: b.color, icon: b.icon, duration: b.duration, from: 'timeline' }
+    b.kind === 'gcal'
+      ? null
+      : { kind: b.kind === 'event' ? 'event' : b.kind === 'anchor' ? 'anchor' : 'item', id: b.kind === 'anchor' ? b.anchor! : b.id, title: b.title, color: b.color, icon: b.icon, duration: b.duration, from: 'timeline' }
   const { onPointerDown, isDragging } = useDraggable(payload)
   const anchor = b.kind === 'anchor'
   const long = b.duration >= 30
-  const style = { ['--c' as string]: b.color, ['--lane' as string]: lane } as CSSProperties
+  const style = { ['--c' as string]: b.color, ['--lane' as string]: lane, ['--of' as string]: lanesOf } as CSSProperties
 
   return (
     <motion.div
-      className={`tl-block${anchor ? ' anchor' : ''}${b.done ? ' done' : ''}${past && !b.done ? ' past' : ''}${isDragging ? ' lifted' : ''}${b.kind === 'event' || b.kind === 'gcal' ? ' event' : ''}${b.kind === 'gcal' ? ' gcal' : ''}`}
+      className={`tl-block${anchor ? ' anchor' : ''}${!anchor && height < 60 ? ' short' : ''}${b.done ? ' done' : ''}${past && !b.done ? ' past' : ''}${isDragging ? ' lifted' : ''}${b.kind === 'event' || b.kind === 'gcal' ? ' event' : ''}${b.kind === 'gcal' ? ' gcal' : ''}`}
       style={style}
       initial={{ opacity: 0, y: top - 16, height }}
       animate={
@@ -308,7 +313,7 @@ function BlockRow(props: {
       </span>
       <button
         className="tl-node"
-        style={{ height: anchor ? 48 : Math.max(48, height - 10) }}
+        style={{ height: anchor ? 48 : Math.max(42, height - 10) }}
         onPointerDown={onPointerDown}
         onClick={props.onOpen}
         aria-label={`${b.title}, ${hhmm(b.start)}`}

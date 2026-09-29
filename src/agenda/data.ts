@@ -6,6 +6,7 @@ import { addDays, todayIn } from '../lib/dates'
 import type { Project, Task } from '../lib/types'
 import { toast, toastError } from '../components/Toasts'
 import { useAuth } from '../features/auth/AuthProvider'
+import { queueGoogle } from './gsync'
 import { localToIso } from './time'
 
 // ---------- tipos ----------
@@ -177,11 +178,14 @@ export function useAgendaActions() {
       }
       const item = data as unknown as AgendaItem
       patchItem(qc, uid, item)
+      queueGoogle(qc, uid, [item.id])
       return {
         item,
         undo: async () => {
+          const cur = itemsNow().find((x) => x.id === item.id)
           dropItem(qc, uid, item.id)
           await supabase.from('agenda_items').delete().eq('id', item.id)
+          queueGoogle(qc, uid, [], [cur?.gcal_event_id])
         },
       }
     },
@@ -204,11 +208,14 @@ export function useAgendaActions() {
         return null
       }
       patchItem(qc, uid, data as unknown as AgendaItem)
+      queueGoogle(qc, uid, [id])
       return async () => {
         if (!prev) return
-        const { id: _id, user_id: _u, created_at: _c, updated_at: _up, ...back } = prev
+        // el enlace con Google no se deshace (lo maneja la sincronización)
+        const { id: _id, user_id: _u, created_at: _c, updated_at: _up, gcal_event_id: _g, ...back } = prev
         patchItem(qc, uid, prev)
         await supabase.from('agenda_items').update(back as TablesUpdate<'agenda_items'>).eq('id', id)
+        queueGoogle(qc, uid, [id])
       }
     },
     [qc, uid, itemsNow],
@@ -216,6 +223,7 @@ export function useAgendaActions() {
 
   const deleteItem = useCallback(
     async (item: AgendaItem, opts: { quiet?: boolean } = {}): Promise<Undo | null> => {
+      const gid = (itemsNow().find((x) => x.id === item.id) ?? item).gcal_event_id
       dropItem(qc, uid, item.id)
       const { error } = await supabase.from('agenda_items').delete().eq('id', item.id)
       if (error) {
@@ -223,15 +231,17 @@ export function useAgendaActions() {
         toastError(humanError(error))
         return null
       }
+      queueGoogle(qc, uid, [], [gid])
       const undo: Undo = async () => {
         const { created_at: _c, updated_at: _u, user_id: _uid, ...rest } = item
-        const { data } = await supabase.from('agenda_items').insert(rest as TablesInsert<'agenda_items'>).select('*').single()
+        const { data } = await supabase.from('agenda_items').insert({ ...rest, gcal_event_id: gid } as TablesInsert<'agenda_items'>).select('*').single()
         if (data) patchItem(qc, uid, data as unknown as AgendaItem)
+        queueGoogle(qc, uid, [item.id])
       }
       if (!opts.quiet) toast(`Borraste «${item.title}»`, { action: { label: 'Deshacer', onClick: () => void undo() } })
       return undo
     },
-    [qc, uid],
+    [qc, uid, itemsNow],
   )
 
   const savePrefs = useCallback(

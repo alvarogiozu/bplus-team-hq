@@ -5,6 +5,9 @@ import { AccentPicker } from '../components/AccentPicker'
 import { ThemeChoice } from '../components/ThemeChoice'
 import { useMe } from '../features/auth/AuthProvider'
 import { signOut } from '../features/auth/credentials'
+import type { Json } from '../lib/database.types'
+import { WEEKDAY_NAMES } from '../lib/dates'
+import type { Routine } from './blocks'
 import { useAgendaActions, usePrefs } from './data'
 import { AIcon } from './icons'
 import { fmtDur, hhmm, parseHhmm } from './time'
@@ -17,6 +20,19 @@ export function AgendaSettings({ open, onClose, anchors }: { open: boolean; onCl
   const { savePrefs } = useAgendaActions()
   const [add, setAdd] = useState('')
   const presets = prefs?.presets?.length ? prefs.presets : [15, 30, 45, 60, 90]
+  const routine = (prefs?.routine ?? {}) as Routine
+  const defWake = prefs?.wake_min ?? anchors.wake
+  const defSleep = prefs?.sleep_min ?? anchors.sleep
+  function setRoutine(dow: number, patch: { wake?: number | null; sleep?: number | null }) {
+    const next = { ...routine }
+    const cur = { ...next[String(dow)], ...patch }
+    const clean: { wake?: number; sleep?: number } = {}
+    if (cur.wake != null) clean.wake = cur.wake
+    if (cur.sleep != null) clean.sleep = cur.sleep
+    if (clean.wake == null && clean.sleep == null) delete next[String(dow)]
+    else next[String(dow)] = clean
+    void savePrefs({ routine: next as unknown as Json })
+  }
 
   function addPreset(e: FormEvent) {
     e.preventDefault()
@@ -29,7 +45,7 @@ export function AgendaSettings({ open, onClose, anchors }: { open: boolean; onCl
   return (
     <Sheet open={open} onClose={onClose} title="Ajustes de la agenda">
       <section className="ag-set">
-        <b className="ag-card-t">Tu día</b>
+        <b className="ag-card-t">Tu día · lo de siempre</b>
         <div className="ag-set-row">
           <label>
             <AIcon name="sun" size={18} /> Despertar
@@ -53,6 +69,61 @@ export function AgendaSettings({ open, onClose, anchors }: { open: boolean; onCl
               }}
             />
           </label>
+        </div>
+      </section>
+
+      <section className="ag-set">
+        <b className="ag-card-t">Tu rutina de la semana</b>
+        <p className="hint" style={{ margin: '0 0 10px' }}>
+          ¿No te levantas igual todos los días? Pon la hora de cada día; si no la cambias, usa lo de siempre. Para un día puntual, arrastra el sol o la luna en tu agenda.
+        </p>
+        <div className="ag-routine" role="table" aria-label="Rutina por día de la semana">
+          <div className="ag-routine-row head" role="row">
+            <span />
+            <span>
+              <AIcon name="sun" size={14} /> Despertar
+            </span>
+            <span>
+              <AIcon name="moon" size={14} /> Dormir
+            </span>
+            <span />
+          </div>
+          {[1, 2, 3, 4, 5, 6, 0].map((dow) => {
+            const r = routine[String(dow)] ?? {}
+            const name = WEEKDAY_NAMES[dow]
+            return (
+              <div key={dow} className="ag-routine-row" role="row">
+                <b>{name[0].toUpperCase() + name.slice(1)}</b>
+                <input
+                  type="time"
+                  className={r.wake == null ? 'inherit' : ''}
+                  value={hhmm(r.wake ?? defWake)}
+                  aria-label={`Despertar el ${name}`}
+                  onChange={(e) => {
+                    const v = parseHhmm(e.target.value)
+                    if (v != null) setRoutine(dow, { wake: v === defWake ? null : v })
+                  }}
+                />
+                <input
+                  type="time"
+                  className={r.sleep == null ? 'inherit' : ''}
+                  value={hhmm(r.sleep ?? defSleep)}
+                  aria-label={`Dormir el ${name}`}
+                  onChange={(e) => {
+                    const v = parseHhmm(e.target.value)
+                    if (v != null) setRoutine(dow, { sleep: v === defSleep ? null : v })
+                  }}
+                />
+                {r.wake != null || r.sleep != null ? (
+                  <button className="ag-x" aria-label={`${name}: volver a lo de siempre`} title="Volver a lo de siempre" onClick={() => setRoutine(dow, { wake: null, sleep: null })}>
+                    <AIcon name="undo" size={14} />
+                  </button>
+                ) : (
+                  <span />
+                )}
+              </div>
+            )
+          })}
         </div>
       </section>
 

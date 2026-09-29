@@ -5,7 +5,8 @@
 // Todo el mapeo minuto <-> píxel es lineal por tramos: monótono y reversible.
 
 export const PX_PER_MIN = 1.6 // 96 px por hora
-export const MIN_BLOCK_H = 64
+// 15 min se ve compacto (no como una hora): 52 px deja leer hora + título en una línea
+export const MIN_BLOCK_H = 52
 export const ANCHOR_H = 64
 export const COMPRESS_OVER = 90 // huecos de más de 90 min se comprimen
 export const COMPRESSED_H = 104

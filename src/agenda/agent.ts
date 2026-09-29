@@ -7,7 +7,9 @@ import { TEAM_COLOR } from './blocks'
 import type { Group, useGroupActions } from './groups'
 import type { Hobby, useHobbyActions } from './hobbies'
 import { guessIcon, type Proposal } from './localAgent'
-import { lastFreeSlot } from './blocks'
+import { anchorsOf, lastFreeSlot, type DayAnchors, type Routine } from './blocks'
+import type { useDayActions } from './days'
+import type { Json } from '../lib/database.types'
 import type { Ghost } from './Timeline'
 import { fmtDur, hhmm, parseHhmm, tsToMin } from './time'
 
@@ -15,7 +17,11 @@ export type { Proposal }
 export type Turn = { role: 'user' | 'assistant'; text: string }
 export type AgentReply = { say: string; proposals: Proposal[]; basic?: boolean; error?: string }
 /** Lo que Rockie puede hacer al confirmar: la agenda + grupos y hobbies (opcionales). */
-type Actions = ReturnType<typeof useAgendaActions> & { groups?: ReturnType<typeof useGroupActions>; hobbies?: ReturnType<typeof useHobbyActions> }
+type Actions = ReturnType<typeof useAgendaActions> & {
+  groups?: ReturnType<typeof useGroupActions>
+  hobbies?: ReturnType<typeof useHobbyActions>
+  days?: ReturnType<typeof useDayActions>
+}
 
 // Prioridad de la voz ('baja'...) <-> cristales 0–3
 const PRIO_WORDS = ['ninguna', 'baja', 'media', 'alta'] as const
@@ -37,6 +43,7 @@ export type Look = {
   wake: number
   groups: Map<string, Group>
   hobbies: Map<string, Hobby>
+  routine: Routine
 }
 
 export function makeLook(p: {
@@ -65,6 +72,7 @@ export function makeLook(p: {
     cals: new Map((p.cals ?? []).map((c) => [c.id, c])),
     groups: new Map((p.groups ?? []).map((g) => [g.id, g])),
     hobbies: new Map((p.hobbies ?? []).filter((h) => !h.archived).map((h) => [h.id, h])),
+    routine: (p.prefs?.routine ?? {}) as Routine,
   }
 }
 
@@ -81,7 +89,10 @@ export function buildContext(p: {
   google?: { title: string; start: string; end: string; allDay: boolean; calName: string }[]
   groups?: Group[]
   hobbies?: Hobby[]
+  days?: Map<string, DayAnchors>
 }) {
+  const hoy = anchorsOf(p.prefs, p.today, p.days?.get(p.today))
+  const routine = (p.prefs?.routine ?? {}) as Routine
   const lo = addDays(p.today, -3)
   const hi = addDays(p.today, 14)
   const items = p.items
@@ -99,6 +110,7 @@ export function buildContext(p: {
       ...(i.group_id ? { group_id: i.group_id } : {}),
       ...(i.priority ? { priority: PRIO_WORDS[i.priority] } : {}),
       ...(i.hobby_id ? { hobby_id: i.hobby_id } : {}),
+      ...(i.end_day ? { end_day: i.end_day } : {}),
     }))
   const hq = p.hq
   const people = new Map((hq?.people ?? []).map((x) => [x.id, x.name]))
@@ -108,8 +120,11 @@ export function buildContext(p: {
     ahora: hhmm(p.nowMin),
     zona: p.tz,
     yo: { id: p.profile.id, nombre: p.profile.display_name },
-    despertar: hhmm(p.prefs?.wake_min ?? 480),
-    dormir: hhmm(p.prefs?.sleep_min ?? 1320),
+    despertar: hhmm(hoy.wake),
+    dormir: hhmm(hoy.sleep),
+    rutina: Object.fromEntries(
+      Object.entries(routine).map(([dow, r]) => [WEEKDAY_NAMES[Number(dow)], { ...(r.wake != null ? { despertar: hhmm(r.wake) } : {}), ...(r.sleep != null ? { dormir: hhmm(r.sleep) } : {}) }]),
+    ),
     duracion_por_defecto: p.prefs?.default_duration ?? 15,
     items,
     hq_tasks: (hq?.tasks ?? []).slice(0, 60).map((t) => ({ id: t.id, title: t.title, due: t.due_date, status: t.status, space_id: t.space_id })),
@@ -184,7 +199,7 @@ export function describe(p: Proposal, look: Look): Card {
         icon: str(i.icon) ?? 'task',
         color: cal?.color ?? '#cf7358',
         title: `Nuevo: «${i.title}»`,
-        detail: `${when(str(i.day), str(i.start), look.today)} · ${fmtDur(num(i.duration_min) ?? look.defaultDuration)}${g ? ` · en «${g.name}»` : cal ? ` · ${cal.name}` : ''}${pr ? ` · prioridad ${PRIO_LABEL[pr].toLowerCase()}` : ''}`,
+        detail: `${str(i.end_day) && str(i.day) ? `${fmtDay(String(i.day))} → ${fmtDay(String(i.end_day))} · todo el día` : `${when(str(i.day), str(i.start), look.today)} · ${fmtDur(num(i.duration_min) ?? look.defaultDuration)}`}${g ? ` · en «${g.name}»` : cal ? ` · ${cal.name}` : ''}${pr ? ` · prioridad ${PRIO_LABEL[pr].toLowerCase()}` : ''}`,
       }
     }
     case 'mover_item': {
@@ -220,6 +235,16 @@ export function describe(p: Proposal, look: Look): Card {
       const day = str(i.day) ?? look.today
       const dur = num(i.duration_min) ?? h?.duration_min ?? 30
       return { icon: h?.icon ?? 'star', color: h?.color ?? '#8a6fb3', title: `Hobby: «${h?.name ?? '?'}»`, detail: `${when(day, str(i.start), look.today).replace(' · todo el día', '')} · ${fmtDur(dur)} · marca tu casilla` }
+    }
+    case 'ajustar_dia': {
+      const bits = [str(i.wake) ? `despertar ${i.wake}` : '', str(i.sleep) ? `dormir ${i.sleep}` : ''].filter(Boolean).join(' · ')
+      const dow = weekday(String(i.day))
+      return {
+        icon: str(i.wake) ? 'sun' : 'moon',
+        color: str(i.wake) ? '#cf7358' : '#3c5d73',
+        title: i.siempre ? `Rutina de los ${WEEKDAY_NAMES[dow]}${WEEKDAY_NAMES[dow].endsWith('s') ? '' : 's'}` : `Tu ${fmtRelative(String(i.day), look.today)}`,
+        detail: `${bits}${i.siempre ? ' · todas las semanas' : ' · solo ese día'}`,
+      }
     }
     case 'crear_hobby':
       return { icon: str(i.icon) ?? 'star', color: '#8a6fb3', title: `Hobby nuevo: «${i.name}»`, detail: `${fmtDur(num(i.duration_min) ?? 30)} al día · en tu panel de hobbies` }
@@ -315,8 +340,25 @@ export async function applyProposal(p: Proposal, a: Actions, look: Look): Promis
         ...(calId ? { calendar_id: calId } : {}),
         ...(g ? { group_id: g.id } : {}),
         ...(pr ? { priority: pr } : {}),
+        ...(str(i.end_day) && str(i.day) && !str(i.start) && String(i.end_day) > String(i.day) ? { end_day: String(i.end_day) } : {}),
       })
       return r?.undo ?? null
+    }
+    case 'ajustar_dia': {
+      const day = String(i.day)
+      const wake = at(i.wake)
+      const sleep = at(i.sleep)
+      if (i.siempre) {
+        const dow = String(weekday(day))
+        const prev = look.routine
+        const next = { ...prev, [dow]: { ...prev[dow], ...(wake != null ? { wake } : {}), ...(sleep != null ? { sleep } : {}) } }
+        if (!(await a.savePrefs({ routine: next as unknown as Json }))) return null
+        return async () => {
+          await a.savePrefs({ routine: prev as unknown as Json })
+        }
+      }
+      if (!a.days) return null
+      return a.days.setDay(day, { ...(wake != null ? { wake_min: wake } : {}), ...(sleep != null ? { sleep_min: sleep } : {}) })
     }
     case 'mover_item': {
       const it = look.items.get(String(i.item_id))

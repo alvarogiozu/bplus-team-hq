@@ -8,7 +8,7 @@ import { Rockie } from '../components/Rockie'
 import { toast, toastError } from '../components/Toasts'
 import { burst, celebrateRockie, haptic } from '../lib/fx'
 import { createStore } from '../lib/store'
-import { dayOfTs, fmtDay, fmtRelative } from '../lib/dates'
+import { dayOfTs, daysBetween, fmtDay, fmtRelative } from '../lib/dates'
 import { humanError, supabase } from '../lib/supabase'
 import { useAuth } from '../features/auth/AuthProvider'
 import { TEAM_COLOR } from './blocks'
@@ -29,6 +29,8 @@ export type Draft = {
   notes: string
   subtasks: Subtask[]
   calendar_id?: string | null
+  /** último día (incluido) si es de todo el día y dura varios días */
+  end_day?: string | null
   group_id?: string | null
   priority?: number
 }
@@ -130,11 +132,12 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
         subtasks: item.subtasks,
         calendar_id: item.calendar_id,
         group_id: item.group_id,
+        end_day: item.end_day,
         priority: item.priority,
       }
     : draft!
   const [f, setF] = useState<Draft>(init)
-  const [pop, setPop] = useState<'time' | 'date' | 'style' | null>(null)
+  const [pop, setPop] = useState<'time' | 'date' | 'end' | 'style' | null>(null)
   const [sub, setSub] = useState('')
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const task = item?.hq_task_id ? hq?.tasks.find((t) => t.id === item.hq_task_id) : undefined
@@ -175,6 +178,8 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
       calendar_id: f.calendar_id ?? null,
       group_id: f.group_id ?? null,
       priority: f.priority ?? 0,
+      // varios días solo para lo de todo el día (y siempre después del primer día)
+      end_day: f.day && f.start == null && f.end_day && f.end_day > f.day ? f.end_day : null,
     }
     if (item) await updateItem(item.id, row)
     else await createItem(row)
@@ -269,7 +274,30 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
                 day={f.day}
                 today={today}
                 onChange={(day) => {
-                  set({ day, start: day ? (f.start ?? (prefs?.wake_min ?? 480) + 60) : null })
+                  set({ day, start: day ? (f.start ?? (prefs?.wake_min ?? 480) + 60) : null, end_day: day && f.end_day && f.end_day > day ? f.end_day : null })
+                  setPop(null)
+                }}
+              />
+              {f.day && allDay && (
+                <div className="ag-prow">
+                  <button className="ag-pbtn" onClick={() => setPop(pop === 'end' ? null : 'end')}>
+                    <AIcon name="calendar" size={18} />
+                    {f.end_day && f.end_day > f.day ? `Hasta el ${fmtDay(f.end_day)} (${daysBetween(f.day, f.end_day) + 1} días)` : 'Varios días… elige hasta cuándo'}
+                  </button>
+                  {f.end_day && f.end_day > f.day && (
+                    <button className="ag-x" aria-label="Solo un día" title="Solo un día" onClick={() => set({ end_day: null })}>
+                      <AIcon name="close" size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+              <DatePop
+                open={pop === 'end'}
+                onClose={() => setPop(null)}
+                day={f.end_day ?? f.day}
+                today={today}
+                onChange={(d) => {
+                  set({ end_day: d && f.day && d > f.day ? d : null })
                   setPop(null)
                 }}
               />
@@ -347,7 +375,7 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
 
             {item?.hobby_id && (
               <div className="ag-card ag-hqnote">
-                <AIcon name="star" size={16} /> Bloque de hobby: cuenta para tu casilla de hobbies de este día.
+                <AIcon name="star" size={16} /> Mismo hobby de la lista. Se marca hecho solo con este check, y la lista lo refleja.
               </div>
             )}
 

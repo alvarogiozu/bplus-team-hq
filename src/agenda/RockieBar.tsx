@@ -9,6 +9,7 @@ import { useCalendarMap, type GEvent } from './calendars'
 import { useAgendaActions, useHq, useItems, usePrefs, type Undo } from './data'
 import { useGroupActions, useGroups } from './groups'
 import { useHobbies, useHobbyActions } from './hobbies'
+import { useDayActions, useDayMap } from './days'
 import { openEditor } from './Editor'
 import { AIcon } from './icons'
 import { localPropose } from './localAgent'
@@ -42,7 +43,9 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
     const agendaActions = useAgendaActions()
     const groupActions = useGroupActions()
     const hobbyActions = useHobbyActions()
-    const actions = useMemo(() => ({ ...agendaActions, groups: groupActions, hobbies: hobbyActions }), [agendaActions, groupActions, hobbyActions])
+    const dayActions = useDayActions()
+    const dayMap = useDayMap()
+    const actions = useMemo(() => ({ ...agendaActions, groups: groupActions, hobbies: hobbyActions, days: dayActions }), [agendaActions, groupActions, hobbyActions, dayActions])
     const tz = profile?.timezone ?? 'America/Lima'
     const { list: cals } = useCalendarMap()
     const groups = useGroups().data
@@ -70,7 +73,7 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
       setOpen(true)
       setThinking(true)
       setThread((x) => [...x, { id: uid(), who: 'user' as const, text: t, voice: byVoice }].slice(-24))
-      const ctx = buildContext({ today: p.today, nowMin: p.nowMin, tz, profile, prefs, items, hq, cals, google: p.google, groups, hobbies })
+      const ctx = buildContext({ today: p.today, nowMin: p.nowMin, tz, profile, prefs, items, hq, cals, google: p.google, groups, hobbies, days: dayMap })
       const people = (hq?.people ?? []).map((x) => ({ id: x.id, name: x.name, username: x.username }))
       const reply = await askRockie(t, turns, ctx, () => localPropose(t, { today: p.today, defaultDuration: prefs?.default_duration ?? 15, people }))
       setThinking(false)

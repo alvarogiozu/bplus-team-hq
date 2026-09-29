@@ -2,15 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { Link, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { Sheet } from '../components/Sheet'
-import { toast } from '../components/Toasts'
-import { addDays, fmtDay, MONTH_NAMES, todayIn } from '../lib/dates'
+import { toast, toastError } from '../components/Toasts'
+import { addDays, daysBetween, fmtDay, MONTH_NAMES, todayIn } from '../lib/dates'
 import { burst, celebrateRockie, haptic } from '../lib/fx'
 import { useMe } from '../features/auth/AuthProvider'
 import { anchorsOf, dayContent, dotsFor, lastFreeSlot, type Block } from './blocks'
+import { anchorOk, AnchorSheet, type AnchorEdit } from './AnchorSheet'
 import { CalendarsPanel } from './CalendarsPanel'
-import { useCalendarMap, useCalendarsRealtime, useGoogleCalendars, useGoogleEvents, useGoogleReturn, useGoogleStatus } from './calendars'
+import { useCalendarMap, useCalendarsRealtime, useGoogleCalendars, useGoogleEvents, useGoogleReturn, useGoogleStatus, useGoogleSync } from './calendars'
 import { useAgendaActions, useAgendaRealtime, useHq, useItems, usePrefs } from './data'
 import { DayStrip } from './DayStrip'
+import { useDayActions, useDayMap, useDaysRealtime } from './days'
 import { useDrag, useDraggable, type DragPayload } from './drag'
 import { EditorHost, openEditor, type Draft } from './Editor'
 import { useGroupsRealtime, type Group } from './groups'
@@ -23,6 +25,7 @@ import { RockieBar } from './RockieBar'
 import { AgendaSettings } from './Settings'
 import { hhmm, nowMinIn } from './time'
 import { Timeline, type Ghost } from './Timeline'
+import { WeekBars } from './WeekBars'
 
 function useClock(tz: string) {
   const [t, setT] = useState(() => ({ today: todayIn(tz), nowMin: nowMinIn(tz) }))
@@ -86,6 +89,10 @@ export function AgendaShell() {
   useCalendarsRealtime()
   useGroupsRealtime()
   useHobbiesRealtime()
+  useDaysRealtime()
+  const dayMap = useDayMap()
+  const dayActions = useDayActions()
+  const [anchorEdit, setAnchorEdit] = useState<AnchorEdit>(null)
   const hobbies = useHobbies().data
   const hobbyActions = useHobbyActions()
   const mobile = useIsMobile()
@@ -95,6 +102,7 @@ export function AgendaShell() {
   const { byId: calById, fallback: calDefault } = useCalendarMap()
   const gstatus = useGoogleStatus().data
   const gcals = useGoogleCalendars(Boolean(gstatus?.connected)).data
+  useGoogleSync(Boolean(gstatus?.connected && gstatus.canWrite))
   const gIds = useMemo(() => {
     const hidden = new Set(prefs?.google_hidden ?? [])
     return (gcals ?? []).filter((g) => !hidden.has(g.id)).map((g) => g.id)
@@ -158,7 +166,7 @@ export function AgendaShell() {
   }, [day, today, setDay])
 
   const gEvents = useGoogleEvents(day, tz, gIds).data
-  const view = useMemo(() => ({ cals: calById, google: gIds.length ? gEvents ?? [] : [] }), [calById, gEvents, gIds.length])
+  const view = useMemo(() => ({ cals: calById, google: gIds.length ? gEvents ?? [] : [], days: dayMap }), [calById, gEvents, gIds.length, dayMap])
   const { blocks, allDay, wake, sleep } = useMemo(() => dayContent({ day, items, hq, prefs, tz, view }), [day, items, hq, prefs, tz, view])
   const inboxItems = useMemo(() => items.filter((i) => !i.day && !i.done_at).sort((a, b) => a.position - b.position), [items])
   const teamTasks = useMemo(() => {
@@ -186,13 +194,30 @@ export function AgendaShell() {
   }
 
   // ---------- soltar ----------
+  /** Soltar el sol o la luna: cambia el despertar o el dormir SOLO de ese día. */
+  async function moveAnchor(which: 'wake' | 'sleep', min: number, d: string) {
+    const a = anchorsOf(prefs, d, dayMap.get(d))
+    if (!anchorOk(which, min, which === 'wake' ? a.sleep : a.wake)) {
+      toastError(which === 'wake' ? 'El despertar tiene que ser antes de tu hora de dormir.' : 'La hora de dormir tiene que ser después de despertar.')
+      return
+    }
+    const undo = await dayActions.setDay(d, which === 'wake' ? { wake_min: min } : { sleep_min: min })
+    if (undo)
+      toast(`${which === 'wake' ? 'Te despiertas' : 'Te duermes'} a las ${hhmm(min)} ${d === today ? 'hoy' : `el ${fmtDay(d)}`} (solo ese día)`, {
+        action: { label: 'Deshacer', onClick: () => void undo() },
+      })
+  }
+
   async function dropAt(p: DragPayload, min: number, d = day) {
-    if (p.kind === 'hobby') {
+    if (p.kind === 'anchor') {
+      await moveAnchor(p.id === 'sleep' ? 'sleep' : 'wake', min, d)
+    } else if (p.kind === 'hobby') {
       const h = hobbies?.find((x) => x.id === p.id)
       if (h) await placeHobby(h, min, d)
     } else if (p.kind === 'item') {
       const it = items.find((x) => x.id === p.id)
-      await actions.updateItem(p.id, { day: d, start_min: min, duration_min: it?.duration_min ?? p.duration })
+      // con hora deja de ser "de varios días"
+      await actions.updateItem(p.id, { day: d, start_min: min, duration_min: it?.duration_min ?? p.duration, end_day: null })
     } else if (p.kind === 'task') {
       const t = hq?.tasks.find((x) => x.id === p.id)
       if (t) await actions.scheduleTask(t, d, min, p.duration)
@@ -205,6 +230,12 @@ export function AgendaShell() {
   }
   function dropDay(p: DragPayload, d: string) {
     const it = p.kind === 'item' ? items.find((x) => x.id === p.id) : undefined
+    // algo de todo el día se muda entero (si duraba 3 días, sigue durando 3)
+    if (it && it.day && it.start_min == null) {
+      void actions.updateItem(it.id, { day: d, end_day: it.end_day ? addDays(d, daysBetween(it.day, it.end_day)) : null })
+      if (d !== day) toast(`Movido al ${fmtDay(d)}`, { action: { label: 'Ver', onClick: () => setDay(d) } })
+      return
+    }
     const keep = it?.start_min ?? (p.kind === 'event' ? blocks.find((b) => b.key === `event:${p.id}`)?.start : undefined)
     void dropAt(p, keep ?? (p.kind === 'hobby' ? hobbySlot(p.duration, d) : slot(p.duration, d)), d)
     if (d !== day && p.kind !== 'hobby') toast(`Movido al ${fmtDay(d)}`, { action: { label: 'Ver', onClick: () => setDay(d) } })
@@ -220,7 +251,7 @@ export function AgendaShell() {
     } else haptic(8)
   }
   function open(b: Block) {
-    if (b.kind === 'anchor') return setSettingsOpen(true)
+    if (b.kind === 'anchor') return setAnchorEdit({ which: b.anchor ?? 'wake', day })
     if (b.kind === 'gcal') {
       if (b.gcal?.link) window.open(b.gcal.link, '_blank', 'noopener')
       return
@@ -362,6 +393,7 @@ export function AgendaShell() {
         </header>
 
         <DayStrip day={day} today={today} dots={dots} onPick={setDay} onDropDay={dropDay} />
+        <WeekBars day={day} items={items} google={view.google} cals={calById} onOpen={(it) => openEditor({ mode: 'edit', id: it.id })} />
 
         {allDay.length > 0 && (
           <div className="ag-allday" aria-label="Todo el día">
@@ -445,6 +477,14 @@ export function AgendaShell() {
         </Sheet>
       )}
       <AgendaSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} anchors={anchorsOf(prefs)} />
+      <AnchorSheet
+        edit={anchorEdit}
+        onClose={() => setAnchorEdit(null)}
+        onRoutine={() => {
+          setAnchorEdit(null)
+          setSettingsOpen(true)
+        }}
+      />
     </div>
   )
 }

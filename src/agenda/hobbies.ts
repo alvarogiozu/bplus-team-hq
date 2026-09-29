@@ -8,8 +8,8 @@ import { useAgendaActions, type AgendaItem, type Undo } from './data'
 import { ITEM_COLORS } from './icons'
 
 // Hobbies: prácticas de tiempo libre sin hora fija (dibujar 30 min, guitarra, ajedrez).
-// Ponerlo en el día crea un bloque con hobby_id: con uno, la casilla del día se marca;
-// con cada hobby más se intensifica, hasta brillar si hiciste todos.
+// Ponerlo en el día crea un bloque con hobby_id. La casilla sube solo cuando
+// marcas ese bloque en el calendario; la lista muestra el mismo check.
 export type Hobby = Tables<'agenda_hobbies'>
 
 export const hkeys = {
@@ -56,10 +56,12 @@ export function hobbyDay(items: AgendaItem[], hobbies: Hobby[], day: string) {
     blocks.set(it.hobby_id, [...(blocks.get(it.hobby_id) ?? []), it])
   }
   const count = blocks.size
+  let done = 0
+  for (const list of blocks.values()) if (list.some((it) => it.done_at)) done++
   const total = active.length
-  // 1 hobby ya marca la casilla (35 %); cada uno más la sube, y todos = 100 %
-  const fill = count === 0 ? 0 : total <= 1 || count >= total ? 1 : 0.35 + (0.65 * (count - 1)) / (total - 1)
-  return { active, blocks, count, total, fill, all: total > 0 && count >= total }
+  // La casilla solo sube con el check del calendario: 1 hobby hecho = 35 %; todos = 100 %.
+  const fill = done === 0 ? 0 : total <= 1 || done >= total ? 1 : 0.35 + (0.65 * (done - 1)) / (total - 1)
+  return { active, blocks, count, done, total, fill, all: total > 0 && done >= total }
 }
 
 export function useHobbyActions() {
@@ -118,10 +120,9 @@ export function useHobbyActions() {
     [updateHobby],
   )
 
-  /** Pone el hobby en el día como un bloque propio. Si ya empezó (o el día pasó), cuenta como hecho. */
+  /** Pone el hobby en el día como un bloque propio. Hecho solo si lo marcas en el calendario. */
   const logHobby = useCallback(
     async (h: Hobby, day: string, start: number, opts: { today: string; nowMin: number; duration?: number }): Promise<Undo | null> => {
-      const started = day < opts.today || (day === opts.today && start <= opts.nowMin)
       const res = await createItem({
         title: h.name,
         icon: h.icon,
@@ -131,7 +132,7 @@ export function useHobbyActions() {
         day,
         start_min: start,
         duration_min: opts.duration ?? h.duration_min,
-        done_at: started ? new Date().toISOString() : null,
+        done_at: null,
       })
       return res?.undo ?? null
     },

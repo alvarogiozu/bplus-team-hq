@@ -14,8 +14,8 @@ const HOBBY_ICONS = ['design', 'music', 'chess', 'book', 'run', 'gym', 'code', '
 const DURS = [15, 30, 45, 60, 90]
 
 // Panel de hobbies (abajo de Tareas): lo que practicas en tu tiempo libre, sin hora fija.
-// Arrastras al día lo que hiciste (o tocas +) y queda como un bloque propio en tu agenda.
-// La casilla del día se marca con 1 hobby y se intensifica con cada uno más; si haces todos, brilla.
+// Arrastras al día (o tocas +) y queda como un bloque en el calendario.
+// Se marca hecho solo con el check de ese bloque; la lista refleja el mismo estado.
 export function HobbiesPanel(p: {
   day: string
   today: string
@@ -35,8 +35,8 @@ export function HobbiesPanel(p: {
   const seen = useRef<{ day: string; count: number } | null>(null)
   useEffect(() => {
     const prev = seen.current
-    seen.current = { day: p.day, count: stats.count }
-    if (!prev || prev.day !== p.day || !hobbiesData || stats.count <= prev.count) return
+    seen.current = { day: p.day, count: stats.done }
+    if (!prev || prev.day !== p.day || !hobbiesData || stats.done <= prev.count) return
     const r = boxRef.current?.getBoundingClientRect()
     if (r) burst(r.left + r.width / 2, r.top + r.height / 2, stats.all ? 34 : 16)
     haptic(stats.all ? [10, 40, 10, 40, 14] : [8, 24, 8])
@@ -45,22 +45,24 @@ export function HobbiesPanel(p: {
       celebrateRockie()
       toast(stats.total > 1 ? `¡Hiciste tus ${stats.total} hobbies${isToday ? ' de hoy' : ''}! Así se evita el burnout.` : '¡Hobby del día hecho!')
     }
-  }, [p.day, stats.count, stats.all, stats.total, hobbiesData, isToday])
+  }, [p.day, stats.done, stats.all, stats.total, hobbiesData, isToday])
 
   const sub = !stats.total
     ? 'Tu tiempo libre también cuenta'
     : stats.all
-      ? '¡Todos hechos! Día completo'
-      : stats.count
-        ? `${stats.count} de ${stats.total} · arrastra otro a tu día`
-        : isToday
-          ? 'Arrastra a tu día lo que hiciste'
-          : `0 de ${stats.total}`
+      ? '¡Todos hechos! El check del calendario y esta lista van juntos'
+      : stats.done
+        ? `${stats.done} de ${stats.total} hechos en el calendario`
+        : stats.count
+          ? `${stats.count} en el calendario · márcalos ahí al cumplirlos`
+          : isToday
+            ? 'Arrástralos a tu día y márcalos en el calendario'
+            : `0 de ${stats.total}`
 
   return (
     <section className={`ag-hob${form ? ' editing' : ''}`} aria-label="Hobbies">
       <header className="ag-hob-head">
-        <DayBox boxRef={boxRef} fill={stats.fill} all={stats.all} count={stats.count} total={stats.total} />
+        <DayBox boxRef={boxRef} fill={stats.fill} all={stats.all} count={stats.done} total={stats.total} />
         <div className="ag-hob-title">
           <b>{isToday ? 'Hobbies de hoy' : `Hobbies · ${fmtDay(p.day)}`}</b>
           <small>{sub}</small>
@@ -118,11 +120,12 @@ function DayBox({ boxRef, fill, all, count, total }: { boxRef: React.Ref<HTMLSpa
 function HobbyRow({ h, placed, onPlace, onOpenPlaced, onEdit, onDragStart }: { h: Hobby; placed: AgendaItem[]; onPlace: () => void; onOpenPlaced: () => void; onEdit: () => void; onDragStart?: () => void }) {
   const payload: DragPayload = { kind: 'hobby', id: h.id, title: h.name, color: h.color, icon: h.icon, duration: h.duration_min, from: 'hobbies' }
   const { onPointerDown, isDragging } = useDraggable(payload, { onStart: onDragStart })
-  const done = placed.length > 0
+  const onCal = placed.length > 0
+  const done = placed.some((it) => it.done_at)
   return (
     <motion.li
       layout
-      className={`ag-hob-row${done ? ' done' : ''}`}
+      className="ag-hob-row"
       style={{ ['--c' as string]: h.color, opacity: isDragging ? 0.3 : 1 } as CSSProperties}
       onPointerDown={onPointerDown}
       onClick={onEdit}
@@ -140,14 +143,14 @@ function HobbyRow({ h, placed, onPlace, onOpenPlaced, onEdit, onDragStart }: { h
       <button
         className={`ag-hob-add${done ? ' on' : ''}`}
         data-nodrag
-        aria-label={done ? `Ver «${h.name}» en tu día` : `Lo hice: poner «${h.name}» en mi día`}
+        aria-label={done ? `«${h.name}» hecho: mismo check del calendario` : onCal ? `«${h.name}» está en el calendario; márcalo ahí` : `Poner «${h.name}» en mi día`}
         onClick={(e) => {
           e.stopPropagation()
-          if (done) onOpenPlaced()
+          if (onCal) onOpenPlaced()
           else onPlace()
         }}
       >
-        <AIcon name={done ? 'check' : 'plus'} size={16} strokeWidth={done ? 2.6 : 2} />
+        {done ? <AIcon name="check" size={16} strokeWidth={2.6} /> : null}
       </button>
     </motion.li>
   )

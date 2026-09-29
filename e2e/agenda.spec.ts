@@ -23,6 +23,8 @@ test('arrastrar del Inbox a la línea del día lo programa', async ({ page }) =>
 
 test('Rockie entiende, propone y se confirma (modo básico sin clave de IA)', async ({ page }) => {
   await loginAgenda(page)
+  // sin IA de verdad: el servidor dice que la voz no está configurada y responde el intérprete local
+  await page.route('**/functions/v1/agenda-agent', (r) => r.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'voz-sin-configurar' }) }))
   const bar = page.getByRole('textbox', { name: 'Pídele algo a Rockie' })
   await bar.fill('correr mañana a las 6 de la mañana por 30 minutos')
   await bar.press('Enter')
