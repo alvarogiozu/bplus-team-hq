@@ -50,8 +50,11 @@ test('sol y luna: solo este día, volver a la rutina y arrastrar', async ({ page
 
   // arrastrar la luna encima de "Leer 20 páginas" (21:30) la mueve solo hoy
   const moon = tl.locator('.tl-block.anchor', { hasText: 'A dormir' }).locator('.tl-node')
+  // la agenda se centra sola en «ahora» al cargar: se espera a que termine antes de mover la vista
+  await page.waitForTimeout(1200)
   await tl.getByText('Leer 20 páginas').evaluate((el) => el.scrollIntoView({ block: 'center' }))
-  await page.waitForTimeout(400)
+  await page.waitForTimeout(500)
+  await moon.hover()
   const m = (await moon.boundingBox())!
   const target = (await tl.getByText('Leer 20 páginas').boundingBox())!
   await page.mouse.move(m.x + m.width / 2, m.y + m.height / 2)
@@ -119,7 +122,7 @@ test('15 minutos se ven cortos y los números más grandes', async ({ page }) =>
   const hs = (await short.locator('.tl-node').boundingBox())!.height
   const hl = (await long.locator('.tl-node').boundingBox())!.height
   expect(hl).toBeGreaterThan(hs * 1.6)
-  const fs = await page.locator('.tl-time').first().evaluate('(el) => parseFloat(getComputedStyle(el).fontSize)') as number
+  const fs = await page.locator('.tl-time').first().evaluate((el) => parseFloat(el.ownerDocument.defaultView!.getComputedStyle(el).fontSize))
   expect(fs).toBeGreaterThanOrEqual(14)
   await short.scrollIntoViewIfNeeded()
   await page.waitForTimeout(500)
