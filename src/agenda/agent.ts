@@ -1,20 +1,30 @@
 import { addDays, dayOfTs, fmtDay, fmtRelative, WEEKDAY_NAMES, weekday } from '../lib/dates'
 import { humanError, supabase } from '../lib/supabase'
 import type { Profile, Project, Task } from '../lib/types'
+import { PRIO_LABEL } from '../components/Prio'
 import type { AgendaItem, HqData, HqEvent, Prefs, Undo, useAgendaActions } from './data'
 import { TEAM_COLOR } from './blocks'
-import type { Proposal } from './localAgent'
+import type { Group, useGroupActions } from './groups'
+import type { Hobby, useHobbyActions } from './hobbies'
+import { guessIcon, type Proposal } from './localAgent'
+import { lastFreeSlot } from './blocks'
 import type { Ghost } from './Timeline'
 import { fmtDur, hhmm, parseHhmm, tsToMin } from './time'
 
 export type { Proposal }
 export type Turn = { role: 'user' | 'assistant'; text: string }
 export type AgentReply = { say: string; proposals: Proposal[]; basic?: boolean; error?: string }
-type Actions = ReturnType<typeof useAgendaActions>
+/** Lo que Rockie puede hacer al confirmar: la agenda + grupos y hobbies (opcionales). */
+type Actions = ReturnType<typeof useAgendaActions> & { groups?: ReturnType<typeof useGroupActions>; hobbies?: ReturnType<typeof useHobbyActions> }
+
+// Prioridad de la voz ('baja'...) <-> cristales 0–3
+const PRIO_WORDS = ['ninguna', 'baja', 'media', 'alta'] as const
+const prioOf = (v: unknown): number | null => (typeof v === 'string' && PRIO_WORDS.includes(v as never) ? PRIO_WORDS.indexOf(v as never) : null)
 
 export type Look = {
   today: string
   tz: string
+  nowMin: number
   defaultDuration: number
   items: Map<string, AgendaItem>
   events: Map<string, HqEvent>
@@ -22,12 +32,30 @@ export type Look = {
   tasks: Map<string, Task>
   people: Map<string, { id: string; name: string }>
   cals: Map<string, { name: string; color: string }>
+  /** calendario por defecto (el primero visible) */
+  defaultCal: string | null
+  wake: number
+  groups: Map<string, Group>
+  hobbies: Map<string, Hobby>
 }
 
-export function makeLook(p: { today: string; tz: string; prefs: Prefs | null | undefined; items: AgendaItem[]; hq: HqData | undefined; cals?: { id: string; name: string; color: string }[] }): Look {
+export function makeLook(p: {
+  today: string
+  tz: string
+  nowMin?: number
+  prefs: Prefs | null | undefined
+  items: AgendaItem[]
+  hq: HqData | undefined
+  cals?: { id: string; name: string; color: string; hidden?: boolean }[]
+  groups?: Group[]
+  hobbies?: Hobby[]
+}): Look {
   return {
     today: p.today,
     tz: p.tz,
+    nowMin: p.nowMin ?? 0,
+    defaultCal: (p.cals?.find((c) => !c.hidden) ?? p.cals?.[0])?.id ?? null,
+    wake: p.prefs?.wake_min ?? 480,
     defaultDuration: p.prefs?.default_duration ?? 15,
     items: new Map(p.items.map((i) => [i.id, i])),
     events: new Map((p.hq?.events ?? []).map((e) => [e.id, e])),
@@ -35,6 +63,8 @@ export function makeLook(p: { today: string; tz: string; prefs: Prefs | null | u
     tasks: new Map((p.hq?.tasks ?? []).map((t) => [t.id, t])),
     people: new Map((p.hq?.people ?? []).map((x) => [x.id, x])),
     cals: new Map((p.cals ?? []).map((c) => [c.id, c])),
+    groups: new Map((p.groups ?? []).map((g) => [g.id, g])),
+    hobbies: new Map((p.hobbies ?? []).filter((h) => !h.archived).map((h) => [h.id, h])),
   }
 }
 
@@ -49,6 +79,8 @@ export function buildContext(p: {
   hq: HqData | undefined
   cals?: { id: string; name: string; hidden: boolean }[]
   google?: { title: string; start: string; end: string; allDay: boolean; calName: string }[]
+  groups?: Group[]
+  hobbies?: Hobby[]
 }) {
   const lo = addDays(p.today, -3)
   const hi = addDays(p.today, 14)
@@ -64,6 +96,9 @@ export function buildContext(p: {
       done: Boolean(i.done_at),
       calendar_id: i.calendar_id,
       ...(i.hq_task_id ? { hq_task_id: i.hq_task_id } : {}),
+      ...(i.group_id ? { group_id: i.group_id } : {}),
+      ...(i.priority ? { priority: PRIO_WORDS[i.priority] } : {}),
+      ...(i.hobby_id ? { hobby_id: i.hobby_id } : {}),
     }))
   const hq = p.hq
   const people = new Map((hq?.people ?? []).map((x) => [x.id, x.name]))
@@ -92,6 +127,9 @@ export function buildContext(p: {
     spaces: hq?.spaces ?? [],
     // Calendarios propios (cada ítem vive en uno) y Google Calendar (solo lectura, para responder)
     calendars: (p.cals ?? []).map((c) => ({ id: c.id, name: c.name, oculto: c.hidden })),
+    // Grupos de tareas (tanda con nombre propio) y hobbies (tiempo libre, sin hora fija)
+    groups: (p.groups ?? []).map((g) => ({ id: g.id, name: g.name, calendar_id: g.calendar_id, priority: PRIO_WORDS[g.priority] ?? 'ninguna' })),
+    hobbies: (p.hobbies ?? []).filter((h) => !h.archived).map((h) => ({ id: h.id, name: h.name, dur: h.duration_min })),
     google_events: (p.google ?? []).slice(0, 60).map((g) =>
       g.allDay
         ? { title: g.title, day: g.start.slice(0, 10), todo_el_dia: true, calendario: g.calName }
@@ -127,6 +165,7 @@ export async function askRockie(text: string, history: Turn[], context: unknown,
 }
 
 // ---------- tarjetas ----------
+const cap = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t)
 const str = (v: unknown) => (typeof v === 'string' ? v : null)
 const num = (v: unknown) => (typeof v === 'number' ? v : null)
 const when = (day: string | null, start: string | null, today: string) =>
@@ -138,22 +177,52 @@ export function describe(p: Proposal, look: Look): Card {
   const i = p.input
   switch (p.tool) {
     case 'crear_item': {
-      const cal = str(i.calendar_id) ? look.cals.get(String(i.calendar_id)) : undefined
+      const g = str(i.group_id) ? look.groups.get(String(i.group_id)) : undefined
+      const cal = str(i.calendar_id) ? look.cals.get(String(i.calendar_id)) : g?.calendar_id ? look.cals.get(g.calendar_id) : undefined
+      const pr = prioOf(i.priority)
       return {
         icon: str(i.icon) ?? 'task',
         color: cal?.color ?? '#cf7358',
         title: `Nuevo: «${i.title}»`,
-        detail: `${when(str(i.day), str(i.start), look.today)} · ${fmtDur(num(i.duration_min) ?? look.defaultDuration)}${cal ? ` · ${cal.name}` : ''}`,
+        detail: `${when(str(i.day), str(i.start), look.today)} · ${fmtDur(num(i.duration_min) ?? look.defaultDuration)}${g ? ` · en «${g.name}»` : cal ? ` · ${cal.name}` : ''}${pr ? ` · prioridad ${PRIO_LABEL[pr].toLowerCase()}` : ''}`,
       }
     }
     case 'mover_item': {
       const it = look.items.get(String(i.item_id))
+      const onlyMeta = !str(i.day) && !str(i.start) && num(i.duration_min) == null && !i.to_inbox
       const before = it ? when(it.day, it.start_min != null ? hhmm(it.start_min) : null, look.today) : ''
       const after = i.to_inbox ? 'al Inbox' : when(str(i.day) ?? it?.day ?? null, str(i.start) ?? (it?.start_min != null ? hhmm(it.start_min) : null), look.today)
       const dur = num(i.duration_min)
       const cal = str(i.calendar_id) ? look.cals.get(String(i.calendar_id)) : undefined
-      return { icon: it?.icon ?? 'task', color: cal?.color ?? it?.color ?? '#cf7358', title: `Mover «${it?.title ?? '?'}»`, detail: `${before} → ${after}${dur ? ` · ${fmtDur(dur)}` : ''}${cal ? ` · a ${cal.name}` : ''}` }
+      const g = str(i.group_id) ? look.groups.get(String(i.group_id)) : undefined
+      const pr = prioOf(i.priority)
+      const bits = [cal ? `a ${cal.name}` : '', g ? `al grupo «${g.name}»` : '', pr != null ? (pr ? `prioridad ${PRIO_LABEL[pr].toLowerCase()}` : 'sin prioridad') : ''].filter(Boolean).join(' · ')
+      return {
+        icon: it?.icon ?? 'task',
+        color: cal?.color ?? it?.color ?? '#cf7358',
+        title: onlyMeta ? `Cambiar «${it?.title ?? '?'}»` : `Mover «${it?.title ?? '?'}»`,
+        detail: onlyMeta ? bits : `${before} → ${after}${dur ? ` · ${fmtDur(dur)}` : ''}${bits ? ` · ${bits}` : ''}`,
+      }
     }
+    case 'crear_grupo': {
+      const cal = str(i.calendar_id) ? look.cals.get(String(i.calendar_id)) : undefined
+      const tareas = Array.isArray(i.tareas) ? (i.tareas as string[]) : []
+      const pr = prioOf(i.priority)
+      return {
+        icon: 'inbox',
+        color: cal?.color ?? '#9893a5',
+        title: `Grupo nuevo: «${i.name}»`,
+        detail: `${cal ? cal.name : 'calendario por defecto'}${pr ? ` · prioridad ${PRIO_LABEL[pr].toLowerCase()}` : ''}${tareas.length ? ` · ${tareas.length} ${tareas.length === 1 ? 'tarea' : 'tareas'}: ${tareas.join(', ')}` : ''}`,
+      }
+    }
+    case 'registrar_hobby': {
+      const h = look.hobbies.get(String(i.hobby_id))
+      const day = str(i.day) ?? look.today
+      const dur = num(i.duration_min) ?? h?.duration_min ?? 30
+      return { icon: h?.icon ?? 'star', color: h?.color ?? '#8a6fb3', title: `Hobby: «${h?.name ?? '?'}»`, detail: `${when(day, str(i.start), look.today).replace(' · todo el día', '')} · ${fmtDur(dur)} · marca tu casilla` }
+    }
+    case 'crear_hobby':
+      return { icon: str(i.icon) ?? 'star', color: '#8a6fb3', title: `Hobby nuevo: «${i.name}»`, detail: `${fmtDur(num(i.duration_min) ?? 30)} al día · en tu panel de hobbies` }
     case 'completar_item': {
       const it = look.items.get(String(i.item_id))
       return { icon: 'check', color: '#4a7c3f', title: `Completar «${it?.title ?? '?'}»`, detail: 'Marcar como hecho' }
@@ -217,6 +286,10 @@ export function ghostOf(p: Proposal, look: Look, day: string, key: string): Ghos
     const dur = num(i.duration_min) ?? Math.round((new Date(ev.ends_at).getTime() - new Date(ev.starts_at).getTime()) / 60000)
     return { key, start: s, duration: dur, title: ev.title, color: TEAM_COLOR, icon: 'meeting', from: d0 === day ? s0 : undefined }
   }
+  if (p.tool === 'registrar_hobby' && (str(i.day) ?? look.today) === day && at(i.start) != null) {
+    const h = look.hobbies.get(String(i.hobby_id))
+    return { key, start: at(i.start)!, duration: num(i.duration_min) ?? h?.duration_min ?? 30, title: h?.name ?? 'Hobby', color: h?.color ?? '#8a6fb3', icon: h?.icon ?? 'star' }
+  }
   if ((p.tool === 'crear_reunion' || p.tool === 'agendar_tarea_hq') && i.day === day && at(i.start) != null) {
     const title = p.tool === 'crear_reunion' ? String(i.title) : (look.tasks.get(String(i.task_id))?.title ?? 'Tarea')
     return { key, start: at(i.start)!, duration: num(i.duration_min) ?? 30, title, color: TEAM_COLOR, icon: p.tool === 'crear_reunion' ? 'meeting' : 'flag' }
@@ -230,26 +303,71 @@ export async function applyProposal(p: Proposal, a: Actions, look: Look): Promis
   const at = (s: unknown) => (typeof s === 'string' ? parseHhmm(s) : null)
   switch (p.tool) {
     case 'crear_item': {
+      const g = str(i.group_id) ? look.groups.get(String(i.group_id)) : undefined
+      const calId = str(i.calendar_id) && look.cals.has(String(i.calendar_id)) ? String(i.calendar_id) : (g?.calendar_id ?? null)
+      const pr = prioOf(i.priority)
       const r = await a.createItem({
         title: String(i.title),
         day: str(i.day),
         start_min: str(i.day) ? at(i.start) : null,
         duration_min: num(i.duration_min) ?? look.defaultDuration,
         icon: str(i.icon) ?? 'task',
-        ...(str(i.calendar_id) && look.cals.has(String(i.calendar_id)) ? { calendar_id: String(i.calendar_id) } : {}),
+        ...(calId ? { calendar_id: calId } : {}),
+        ...(g ? { group_id: g.id } : {}),
+        ...(pr ? { priority: pr } : {}),
       })
       return r?.undo ?? null
     }
     case 'mover_item': {
       const it = look.items.get(String(i.item_id))
       if (!it) return null
-      const cal = str(i.calendar_id) && look.cals.has(String(i.calendar_id)) ? { calendar_id: String(i.calendar_id) } : {}
-      if (i.to_inbox) return a.updateItem(it.id, { day: null, start_min: null, ...cal })
-      // solo cambiar de calendario: no se toca la hora
-      if (!str(i.day) && !str(i.start) && num(i.duration_min) == null && 'calendar_id' in cal) return a.updateItem(it.id, cal)
+      const g = str(i.group_id) ? look.groups.get(String(i.group_id)) : undefined
+      const pr = prioOf(i.priority)
+      const calId = str(i.calendar_id) && look.cals.has(String(i.calendar_id)) ? String(i.calendar_id) : g?.calendar_id
+      const meta = { ...(calId ? { calendar_id: calId } : {}), ...(g ? { group_id: g.id } : {}), ...(pr != null ? { priority: pr } : {}) }
+      if (i.to_inbox) return a.updateItem(it.id, { day: null, start_min: null, ...meta })
+      // solo cambiar calendario, grupo o prioridad: no se toca la hora
+      if (!str(i.day) && !str(i.start) && num(i.duration_min) == null && Object.keys(meta).length) return a.updateItem(it.id, meta)
       const day = str(i.day) ?? it.day ?? look.today
       const start = at(i.start) ?? it.start_min
-      return a.updateItem(it.id, { day, start_min: start, duration_min: num(i.duration_min) ?? it.duration_min, ...cal })
+      return a.updateItem(it.id, { day, start_min: start, duration_min: num(i.duration_min) ?? it.duration_min, ...meta })
+    }
+    case 'crear_grupo': {
+      if (!a.groups) return null
+      const calId = str(i.calendar_id) && look.cals.has(String(i.calendar_id)) ? String(i.calendar_id) : look.defaultCal
+      const g = await a.groups.createGroup({ name: cap(String(i.name)), calendar_id: calId, priority: prioOf(i.priority) ?? 0 })
+      if (!g) return null
+      const made: Undo[] = []
+      for (const t of Array.isArray(i.tareas) ? (i.tareas as string[]) : []) {
+        if (!t.trim()) continue
+        const r = await a.createItem({ title: cap(t.trim()), icon: guessIcon(t), day: null, start_min: null, duration_min: look.defaultDuration, group_id: g.id, ...(g.calendar_id ? { calendar_id: g.calendar_id } : {}) })
+        if (r) made.push(r.undo)
+      }
+      return async () => {
+        for (const u of made) await u()
+        await a.groups?.deleteGroup(g, { quiet: true })
+      }
+    }
+    case 'registrar_hobby': {
+      const h = look.hobbies.get(String(i.hobby_id))
+      if (!h || !a.hobbies) return null
+      const day = str(i.day) ?? look.today
+      const dur = num(i.duration_min) ?? h.duration_min
+      const busy = [...look.items.values()].filter((x) => x.day === day && x.start_min != null).map((x) => ({ start: x.start_min!, duration: x.duration_min }))
+      // sin hora: si ya pasó (hoy o antes), justo antes de ahora; si es otro día, a las 18:00
+      const start = at(i.start) ?? (day <= look.today ? lastFreeSlot(busy, { end: day === look.today ? look.nowMin : 22 * 60, wake: look.wake, dur }) : null) ?? 18 * 60
+      return a.hobbies.logHobby(h, day, start, { today: look.today, nowMin: look.nowMin, duration: dur })
+    }
+    case 'crear_hobby': {
+      if (!a.hobbies) return null
+      const name = cap(String(i.name).trim())
+      const guessed = guessIcon(name)
+      const h = await a.hobbies.createHobby({ name, duration_min: num(i.duration_min) ?? 30, icon: str(i.icon) ?? (guessed === 'task' ? 'star' : guessed) })
+      if (!h) return null
+      const hob = a.hobbies
+      return async () => {
+        await hob.updateHobby(h.id, { archived: true })
+      }
     }
     case 'completar_item': {
       const it = look.items.get(String(i.item_id))

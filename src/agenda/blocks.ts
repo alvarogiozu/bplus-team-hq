@@ -1,5 +1,5 @@
 import { dayOfTs } from '../lib/dates'
-import type { Project, Task } from '../lib/types'
+import { prioLevel, type Project, type Task } from '../lib/types'
 import type { AgendaItem, HqData, HqEvent, Prefs } from './data'
 import type { Calendar, GEvent } from './calendars'
 import { tsToMin } from './time'
@@ -15,6 +15,8 @@ export type Block = {
   icon: string
   done: boolean
   sub?: string
+  /** 0–3 (cristales): solo ítems personales y tareas del HQ */
+  priority?: number
   item?: AgendaItem
   event?: HqEvent
   task?: Task
@@ -82,7 +84,8 @@ export function dayContent(p: { day: string; items: AgendaItem[]; hq: HqData | u
       color: colorIn(it, cals),
       icon: it.icon,
       done: Boolean(it.done_at) || Boolean(task?.validation),
-      sub: task ? 'Del HQ' : it.subtasks.length ? `${it.subtasks.filter((s) => s.done).length}/${it.subtasks.length}` : undefined,
+      sub: task ? 'Del HQ' : it.hobby_id ? 'Hobby' : it.subtasks.length ? `${it.subtasks.filter((s) => s.done).length}/${it.subtasks.length}` : undefined,
+      priority: task ? prioLevel(task.priority) : it.priority,
       item: it,
       task,
     })
@@ -145,6 +148,18 @@ export function dayContent(p: { day: string; items: AgendaItem[]; hq: HqData | u
 
   blocks.sort((a, b) => a.start - b.start || a.duration - b.duration)
   return { blocks, allDay, wake, sleep }
+}
+
+/** Último hueco libre que termina antes de `end` (para anotar algo que ya hiciste). null si no cabe. */
+export function lastFreeSlot(blocks: { start: number; duration: number }[], opts: { end: number; wake: number; dur: number }) {
+  const busy = blocks.filter((b) => b.duration > 0)
+  let t = Math.floor((opts.end - opts.dur) / 15) * 15
+  for (;;) {
+    if (t < opts.wake) return null
+    const hit = busy.find((b) => b.start < t + opts.dur && b.start + b.duration > t)
+    if (!hit) return t
+    t = Math.floor((hit.start - opts.dur) / 15) * 15
+  }
 }
 
 /** Colores de lo que hay cada día (para los puntitos de la tira de la semana). */

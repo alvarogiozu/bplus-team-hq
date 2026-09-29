@@ -1,7 +1,7 @@
 import { addDays, fmtRelative, WEEKDAY_NAMES, weekday } from '../../lib/dates'
 import { fold, parseQuickTask, type PersonLite } from '../../lib/quickParse'
 import { humanError, supabase } from '../../lib/supabase'
-import type { Area, Member, Project, Task } from '../../lib/types'
+import { PRIORITY_BY_LEVEL, type Area, type Member, type Priority, type Project, type Task } from '../../lib/types'
 import type { useTaskActions } from '../tasks/actions'
 
 // Rockie en el HQ: entiende órdenes de tareas (escritas o dictadas) con IA (Edge Function
@@ -111,6 +111,8 @@ export function describeHq(p: HqProposal, look: HqLook): HqCard | null {
     const who = s(i.assignee_id) ?? look.userId
     const bits = [`para ${who === look.userId ? 'ti' : nameOf(look, who)}`, s(i.due) ? fmtRelative(String(i.due), look.today) : 'sin fecha']
     if (i.priority === 'urgent') bits.push('urgente')
+    if (i.priority === 'medium') bits.push('prioridad media')
+    if (i.priority === 'low') bits.push('prioridad baja')
     if (s(i.project_id)) bits.push(look.projectById.get(String(i.project_id))?.name ?? '')
     const area = s(i.area_id) ? look.areaById.get(String(i.area_id)) : undefined
     return { title: `Nueva tarea: «${i.title}»`, detail: bits.filter(Boolean).join(' · '), color: area?.color ?? 'var(--accent)', who }
@@ -124,7 +126,9 @@ export function describeHq(p: HqProposal, look: HqLook): HqCard | null {
     if (i.sin_fecha) bits.push('sin fecha')
     else if (s(i.due)) bits.push(`para ${fmtRelative(String(i.due), look.today)}`)
     if (i.priority === 'urgent') bits.push('urgente')
-    if (i.priority === 'normal') bits.push('ya no urgente')
+    if (i.priority === 'medium') bits.push('prioridad media')
+    if (i.priority === 'low') bits.push('prioridad baja')
+    if (i.priority === 'normal') bits.push('sin prioridad')
     if (i.status === 'doing') bits.push('en curso')
     if (i.status === 'todo') bits.push('por hacer')
     if (s(i.project_id)) bits.push(`al proyecto ${look.projectById.get(String(i.project_id))?.name ?? ''}`)
@@ -144,7 +148,7 @@ export async function applyHq(p: HqProposal, look: HqLook, a: Actions, dropCreat
         title: String(i.title).slice(0, 200),
         assignee_id: s(i.assignee_id) ?? look.userId,
         due_date: s(i.due),
-        priority: i.priority === 'urgent' ? 'urgent' : 'normal',
+        priority: PRIORITY_BY_LEVEL.includes(i.priority as Priority) ? (i.priority as Priority) : 'normal',
         project_id: s(i.project_id),
         area_id: s(i.area_id),
       },
@@ -165,7 +169,7 @@ export async function applyHq(p: HqProposal, look: HqLook, a: Actions, dropCreat
     if (s(i.assignee_id)) put('assignee_id', String(i.assignee_id))
     if (i.sin_fecha) put('due_date', null)
     else if (s(i.due)) put('due_date', String(i.due))
-    if (i.priority === 'urgent' || i.priority === 'normal') put('priority', i.priority)
+    if (PRIORITY_BY_LEVEL.includes(i.priority as Priority)) put('priority', i.priority as Priority)
     if ((i.status === 'doing' || i.status === 'todo') && t.status !== 'done') put('status', i.status)
     if (s(i.project_id)) put('project_id', String(i.project_id))
     if (s(i.area_id)) put('area_id', String(i.area_id))

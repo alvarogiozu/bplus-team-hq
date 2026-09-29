@@ -29,8 +29,10 @@ const LIMIT_PER_HOUR = 60
 
 export const ICONS = [
   'task', 'sun', 'moon', 'coffee', 'food', 'gym', 'run', 'book', 'study', 'work', 'meeting', 'call',
-  'code', 'design', 'music', 'heart', 'shop', 'travel', 'home', 'clean', 'pill', 'star', 'flag', 'idea',
+  'code', 'design', 'music', 'heart', 'shop', 'travel', 'home', 'clean', 'pill', 'star', 'flag', 'idea', 'chess',
 ]
+// Prioridad de lo personal (cristales en la app): ninguna = quitarla
+const PRIO_AG = ['ninguna', 'baja', 'media', 'alta']
 
 const str = { type: 'string' }
 const nul = { type: 'null' }
@@ -44,11 +46,12 @@ const obj = (properties: Record<string, unknown>) => ({
 })
 
 // Todas estrictas: la entrada siempre respeta el esquema. Los campos opcionales van como null.
+const PRIO_P = { anyOf: [{ type: 'string', enum: PRIO_AG }, nul] }
 const TOOLS = [
   {
     name: 'crear_item',
     description:
-      'Crea algo en la agenda PERSONAL (gimnasio, estudiar, almorzar, una tarea propia). day null = va al Inbox sin fecha. start null con day = todo el día. calendar_id = id de uno de "calendars" (null = el de por defecto).',
+      'Crea algo en la agenda PERSONAL (gimnasio, estudiar, almorzar, una tarea propia). day null = va al Inbox sin fecha. start null con day = todo el día. calendar_id = id de uno de "calendars" (null = el de por defecto). group_id = id de uno de "groups" si es de ese grupo de tareas (null = suelta). priority = baja/media/alta o null.',
     strict: true,
     input_schema: obj({
       title: str,
@@ -57,14 +60,36 @@ const TOOLS = [
       duration_min: optInt,
       icon: { anyOf: [{ type: 'string', enum: ICONS }, nul] },
       calendar_id: { ...optStr, description: 'id de calendars o null' },
+      group_id: { ...optStr, description: 'id de groups o null' },
+      priority: PRIO_P,
     }),
   },
   {
     name: 'mover_item',
     description:
-      'Mueve o cambia un ítem PERSONAL existente. Solo cambian los campos no null. to_inbox true lo saca del día y lo devuelve al Inbox. calendar_id lo pasa a otro calendario (Personal, Estudio...).',
+      'Mueve o cambia un ítem PERSONAL existente. Solo cambian los campos no null. to_inbox true lo saca del día y lo devuelve al Inbox. calendar_id lo pasa a otro calendario (Personal, Estudio...). group_id lo mete a un grupo de tareas. priority cambia su prioridad (ninguna = quitarla).',
     strict: true,
-    input_schema: obj({ item_id: str, day: optStr, start: optStr, duration_min: optInt, to_inbox: { type: 'boolean' }, calendar_id: optStr }),
+    input_schema: obj({ item_id: str, day: optStr, start: optStr, duration_min: optInt, to_inbox: { type: 'boolean' }, calendar_id: optStr, group_id: optStr, priority: PRIO_P }),
+  },
+  {
+    name: 'crear_grupo',
+    description:
+      'Crea un GRUPO de tareas: una tanda con nombre propio (ej. «Terminar carro») que vive en un calendario de "calendars" (le da el color; null = el de por defecto). tareas = títulos de las tareas que van dentro (puede ser []). priority = prioridad del grupo.',
+    strict: true,
+    input_schema: obj({ name: str, calendar_id: optStr, priority: PRIO_P, tareas: { type: 'array', items: str } }),
+  },
+  {
+    name: 'registrar_hobby',
+    description:
+      'Pone en el día un HOBBY de "hobbies" (lo hizo o lo va a hacer): queda como un bloque propio y marca su casilla de hobbies. day null = hoy. start null = la app lo ubica (si ya lo hizo, justo antes de ahora). duration_min null = la duración del hobby.',
+    strict: true,
+    input_schema: obj({ hobby_id: str, day: optStr, start: optStr, duration_min: optInt }),
+  },
+  {
+    name: 'crear_hobby',
+    description: 'Agrega un hobby nuevo a su lista de hobbies (una práctica de tiempo libre sin hora fija: guitarra, dibujar, ajedrez). duration_min = cuánto le dedica (null = 30).',
+    strict: true,
+    input_schema: obj({ name: str, duration_min: optInt, icon: { anyOf: [{ type: 'string', enum: ICONS }, nul] } }),
   },
   {
     name: 'completar_item',
@@ -142,13 +167,17 @@ Tu trabajo es convertir cada orden en PROPUESTAS usando las herramientas. Nunca 
 - Lo personal (gimnasio, estudiar, comer, una tarea propia) va a la agenda personal. Una reunión con gente del equipo es crear_reunion. Mover reuniones o proyectos afecta a todo el equipo: hazlo solo si lo piden claramente.
 - Sin duración: usa la duración por defecto del contexto. Sin día ni hora: va al Inbox (day null).
 - Cada ítem personal vive en un calendario ("calendars": Personal, Estudio, Trabajo, Salud...). Si dicen "en estudio" o "de trabajo", usa ese calendar_id; si no lo dicen, null.
+- "groups" son grupos de tareas con nombre propio (ej. «Terminar carro» en el calendario Automotriz). Si la tarea es de un grupo («para lo del carro», «en el grupo X»), usa su group_id. Para armar un grupo nuevo usa crear_grupo y pon sus tareas en «tareas» (no las crees aparte).
+- Prioridad: «urgente», «importante» o «alta prioridad» = alta; «prioridad media» = media; «baja prioridad» o «cuando pueda» = baja. Si no la dicen, null. Vale para ítems y grupos.
+- "hobbies" son prácticas de tiempo libre sin hora fija (guitarra, dibujar, ajedrez). «Toqué guitarra», «hice mis partidas de ajedrez a las 6» o «anota que dibujé» es registrar_hobby con su hobby_id. Agregar uno nuevo a su lista es crear_hobby. Los hobbies son de la agenda: no uses otra_app para ellos.
 - "google_events" son eventos de Google Calendar: solo lectura. Úsalos para responder o para no chocar horarios, pero nunca los muevas ni los borres.
 - Para preguntas usa responder con un texto breve y natural.
 - Títulos cortos, como los diría la persona, con mayúscula inicial y sin la fecha ni la hora dentro.
 - Antes de las herramientas puedes escribir una frase corta y cálida resumiendo lo que propones.`
 
 // ---------- Modo HQ: tareas del equipo (scope: 'hq') ----------
-const PRIO = { anyOf: [{ type: 'string', enum: ['normal', 'urgent'] }, nul] }
+// normal = sin prioridad; low/medium/urgent = baja/media/alta
+const PRIO = { anyOf: [{ type: 'string', enum: ['normal', 'low', 'medium', 'urgent'] }, nul] }
 const TOOLS_HQ = [
   {
     name: 'crear_tarea',
@@ -184,7 +213,7 @@ Convierte cada orden en PROPUESTAS con las herramientas. Nunca ejecutas nada: la
 - Responde siempre con herramientas. Una orden puede ser varias llamadas: "pásale a Andrea todo lo de firmware" es un cambiar_tarea por cada tarea.
 - Usa solo ids del contexto. Personas por nombre o usuario en "people" ("yo" es la persona que habla). Si un nombre calza con varias o ninguna, usa preguntar con opciones concretas.
 - Fechas AAAA-MM-DD en la zona del contexto; "el viernes" es el próximo viernes; "hoy" y "mañana" desde "hoy" del contexto.
-- "urgente" es priority urgent. "Empecé", "estoy en" o "en curso" es status doing.
+- Prioridad: «urgente», «importante» o «alta prioridad» es priority urgent; «prioridad media» es medium; «baja prioridad» o «sin apuro» es low; «quítale la prioridad» es normal. "Empecé", "estoy en" o "en curso" es status doing.
 - Para preguntas ("¿qué tiene Mariana esta semana?", "¿qué está atrasado?") usa responder con un texto breve y los ids de las tareas en refs.
 - Títulos cortos y claros, como los diría la persona, con mayúscula inicial, sin la fecha ni la persona dentro.
 - Antes de las herramientas puedes escribir una frase corta y cálida.`
@@ -199,6 +228,8 @@ type Ctx = {
   calendars?: { id: string }[]
   tasks?: { id: string }[]
   areas?: { id: string }[]
+  groups?: { id: string }[]
+  hobbies?: { id: string }[]
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -211,7 +242,16 @@ function valid(name: string, input: Record<string, unknown>, ctx: Ctx): boolean 
   const timeOk = (v: unknown) => v == null || (typeof v === 'string' && TIME.test(v))
   const durOk = (v: unknown) => v == null || (typeof v === 'number' && v >= 1 && v <= 720)
   const calOk = (v: unknown) => v == null || has(ctx.calendars, v)
+  const groupOk = (v: unknown) => v == null || has(ctx.groups, v)
+  const prioOk = (v: unknown) => v == null || PRIO_AG.includes(String(v))
+  const nameOk = (v: unknown) => typeof v === 'string' && v.trim() !== ''
   switch (name) {
+    case 'crear_grupo':
+      return nameOk(input.name) && calOk(input.calendar_id) && prioOk(input.priority) && Array.isArray(input.tareas) && input.tareas.every((t) => typeof t === 'string')
+    case 'registrar_hobby':
+      return has(ctx.hobbies, input.hobby_id) && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min)
+    case 'crear_hobby':
+      return nameOk(input.name) && durOk(input.duration_min) && (input.icon == null || ICONS.includes(String(input.icon)))
     case 'crear_tarea':
       return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.due) &&
         (input.assignee_id == null || has(ctx.people, input.assignee_id)) &&
@@ -222,9 +262,9 @@ function valid(name: string, input: Record<string, unknown>, ctx: Ctx): boolean 
         (input.project_id == null || has(ctx.projects, input.project_id)) && (input.area_id == null || has(ctx.areas, input.area_id)) &&
         (input.title == null || (typeof input.title === 'string' && input.title.trim() !== ''))
     case 'crear_item':
-      return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id)
+      return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id) && groupOk(input.group_id) && prioOk(input.priority)
     case 'mover_item':
-      return has(ctx.items, input.item_id) && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id)
+      return has(ctx.items, input.item_id) && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id) && groupOk(input.group_id) && prioOk(input.priority)
     case 'completar_item':
     case 'borrar_item':
       return has(ctx.items, input.item_id)

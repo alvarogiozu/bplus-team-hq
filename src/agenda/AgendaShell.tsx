@@ -6,19 +6,22 @@ import { toast } from '../components/Toasts'
 import { addDays, fmtDay, MONTH_NAMES, todayIn } from '../lib/dates'
 import { burst, celebrateRockie, haptic } from '../lib/fx'
 import { useMe } from '../features/auth/AuthProvider'
-import { anchorsOf, dayContent, dotsFor, type Block } from './blocks'
+import { anchorsOf, dayContent, dotsFor, lastFreeSlot, type Block } from './blocks'
 import { CalendarsPanel } from './CalendarsPanel'
 import { useCalendarMap, useCalendarsRealtime, useGoogleCalendars, useGoogleEvents, useGoogleReturn, useGoogleStatus } from './calendars'
 import { useAgendaActions, useAgendaRealtime, useHq, useItems, usePrefs } from './data'
 import { DayStrip } from './DayStrip'
 import { useDrag, useDraggable, type DragPayload } from './drag'
 import { EditorHost, openEditor, type Draft } from './Editor'
+import { useGroupsRealtime, type Group } from './groups'
+import { HobbiesPanel } from './HobbiesPanel'
+import { useHobbies, useHobbiesRealtime, useHobbyActions, type Hobby } from './hobbies'
 import { AIcon } from './icons'
 import { Inbox } from './Inbox'
 import { DatePop } from './Popovers'
 import { RockieBar } from './RockieBar'
 import { AgendaSettings } from './Settings'
-import { nowMinIn } from './time'
+import { hhmm, nowMinIn } from './time'
 import { Timeline, type Ghost } from './Timeline'
 
 function useClock(tz: string) {
@@ -81,6 +84,10 @@ export function AgendaShell() {
   const actions = useAgendaActions()
   useAgendaRealtime()
   useCalendarsRealtime()
+  useGroupsRealtime()
+  useHobbiesRealtime()
+  const hobbies = useHobbies().data
+  const hobbyActions = useHobbyActions()
   const mobile = useIsMobile()
   // Panel de calendarios fijo a la derecha solo si hay ancho; si no, se abre con un botón
   const wide = useMedia('(min-width: 1280px)')
@@ -163,9 +170,27 @@ export function AgendaShell() {
   const slot = (dur: number, d = day) =>
     nextFreeSlot(d === day ? blocks : dayContent({ day: d, items, hq, prefs, tz, view }).blocks, { isToday: d === today, nowMin, wake, sleep, dur })
 
+  // ---------- hobbies: quedan en el día como un bloque propio ----------
+  function hobbySlot(dur: number, d: string) {
+    const bl = d === day ? blocks : dayContent({ day: d, items, hq, prefs, tz, view }).blocks
+    if (d > today) return nextFreeSlot(bl, { isToday: false, nowMin, wake, sleep, dur })
+    // hoy o un día pasado: lo pones donde "ya pasó" (justo antes de ahora), si cabe
+    return lastFreeSlot(bl, { end: d === today ? nowMin : sleep, wake, dur }) ?? nextFreeSlot(bl, { isToday: d === today, nowMin, wake, sleep, dur })
+  }
+  async function placeHobby(h: Hobby, min?: number, d = day) {
+    const start = min ?? hobbySlot(h.duration_min, d)
+    const undo = await hobbyActions.logHobby(h, d, start, { today, nowMin })
+    if (!undo) return
+    haptic(10)
+    toast(`«${h.name}» quedó ${d === today ? 'hoy' : `el ${fmtDay(d)}`} a las ${hhmm(start)}`, { action: { label: 'Deshacer', onClick: () => void undo() } })
+  }
+
   // ---------- soltar ----------
   async function dropAt(p: DragPayload, min: number, d = day) {
-    if (p.kind === 'item') {
+    if (p.kind === 'hobby') {
+      const h = hobbies?.find((x) => x.id === p.id)
+      if (h) await placeHobby(h, min, d)
+    } else if (p.kind === 'item') {
       const it = items.find((x) => x.id === p.id)
       await actions.updateItem(p.id, { day: d, start_min: min, duration_min: it?.duration_min ?? p.duration })
     } else if (p.kind === 'task') {
@@ -181,8 +206,8 @@ export function AgendaShell() {
   function dropDay(p: DragPayload, d: string) {
     const it = p.kind === 'item' ? items.find((x) => x.id === p.id) : undefined
     const keep = it?.start_min ?? (p.kind === 'event' ? blocks.find((b) => b.key === `event:${p.id}`)?.start : undefined)
-    void dropAt(p, keep ?? slot(p.duration, d), d)
-    if (d !== day) toast(`Movido al ${fmtDay(d)}`, { action: { label: 'Ver', onClick: () => setDay(d) } })
+    void dropAt(p, keep ?? (p.kind === 'hobby' ? hobbySlot(p.duration, d) : slot(p.duration, d)), d)
+    if (d !== day && p.kind !== 'hobby') toast(`Movido al ${fmtDay(d)}`, { action: { label: 'Ver', onClick: () => setDay(d) } })
   }
   function toggle(b: Block, at: { x: number; y: number }) {
     if (b.kind !== 'item' || !b.item) return
@@ -225,7 +250,17 @@ export function AgendaShell() {
       teamTasks={teamTasks}
       today={today}
       defaultDuration={prefs?.default_duration ?? 15}
-      onAdd={(title, icon) => void actions.createItem({ title, icon, day: null, start_min: null, duration_min: prefs?.default_duration ?? 15 })}
+      onAdd={(title, icon, group?: Group) =>
+        void actions.createItem({
+          title,
+          icon,
+          day: null,
+          start_min: null,
+          duration_min: prefs?.default_duration ?? 15,
+          // en un grupo: la tarea vive en el calendario del grupo (y toma su color)
+          ...(group ? { group_id: group.id, ...(group.calendar_id ? { calendar_id: group.calendar_id } : {}) } : {}),
+        })
+      }
       onOpen={(it) => openEditor({ mode: 'edit', id: it.id })}
       onOpenTask={(t) => openEditor({ mode: 'task', id: t.id })}
       onQuick={(p) => {
@@ -233,6 +268,20 @@ export function AgendaShell() {
         haptic(10)
       }}
       onUnschedule={(p) => void actions.updateItem(p.id, { day: null, start_min: null })}
+      onDragStart={mobile ? () => setInboxOpen(false) : undefined}
+    />
+  )
+  const hobbyPanel = (
+    <HobbiesPanel
+      day={day}
+      today={today}
+      items={items}
+      onPlace={(h) => void placeHobby(h)}
+      onOpenItem={(it) => {
+        if (mobile) setInboxOpen(false)
+        if (it.day && it.day !== day) setDay(it.day)
+        openEditor({ mode: 'edit', id: it.id })
+      }}
       onDragStart={mobile ? () => setInboxOpen(false) : undefined}
     />
   )
@@ -247,7 +296,8 @@ export function AgendaShell() {
             </span>
             <small>{inboxItems.length || ''}</small>
           </div>
-          {inbox}
+          <div className="ag-inbox-scroll">{inbox}</div>
+          {hobbyPanel}
         </aside>
       )}
 
@@ -386,6 +436,7 @@ export function AgendaShell() {
       {mobile && (
         <Sheet open={inboxOpen} onClose={() => setInboxOpen(false)} title="Inbox">
           {inbox}
+          {hobbyPanel}
         </Sheet>
       )}
       {!wide && (

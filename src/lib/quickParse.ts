@@ -16,7 +16,8 @@ export type ParsedTask = {
   title: string
   assignee: AssigneeGuess
   due: string | null
-  priority: 'normal' | 'urgent'
+  /** normal = sin prioridad; low/medium/urgent = baja/media/alta */
+  priority: 'normal' | 'low' | 'medium' | 'urgent'
 }
 
 const FOLD: Record<string, string> = {
@@ -80,8 +81,14 @@ export function parseQuickTask(input: string, people: PersonLite[], today: strin
   let due: string | null = null
   let assignee: AssigneeGuess = { kind: 'none' }
 
-  // prioridad
-  let m = find(/\b(urgente|urgent)\b|(?:^|\s)(!+)(?=\s|$)/)
+  // prioridad: "prioridad alta/media/baja" (o al revés) y "urgente" / "!"
+  let m = find(/\b(?:(?:con|de)\s+)?(?:prioridad\s+(alta|media|baja)|(alta|media|baja)\s+prioridad)\b/)
+  if (m) {
+    const lvl = m[1] ?? m[2]
+    priority = lvl === 'alta' ? 'urgent' : lvl === 'media' ? 'medium' : 'low'
+    cut(m.index, m.index + m[0].length)
+  }
+  m = find(/\b(urgente|urgent)\b|(?:^|\s)(!+)(?=\s|$)/)
   if (m) {
     priority = 'urgent'
     cut(m.index, m.index + m[0].length)

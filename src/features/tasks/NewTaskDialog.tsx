@@ -5,6 +5,8 @@ import { useTaskActions } from './actions'
 import { closeNewTask, newTaskStore } from './dialogs'
 import { useLookup } from './bits'
 import { Select } from '../../components/Select'
+import { PrioPick } from '../../components/Prio'
+import { prioLevel, PRIORITY_BY_LEVEL } from '../../lib/types'
 import { PersonPicker } from '../team/PersonPicker'
 
 export function NewTaskDialog() {
@@ -17,7 +19,7 @@ export function NewTaskDialog() {
   const [due, setDue] = useState('')
   const [area, setArea] = useState('')
   const [project, setProject] = useState('')
-  const [urgent, setUrgent] = useState(false)
+  const [prio, setPrio] = useState(0)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -28,7 +30,7 @@ export function NewTaskDialog() {
     setDue(p.due_date ?? '')
     setArea(p.area_id ?? '')
     setProject(p.project_id ?? '')
-    setUrgent(p.priority === 'urgent')
+    setPrio(prioLevel(p.priority))
   }, [state, userId])
 
   if (!state) return null
@@ -44,7 +46,7 @@ export function NewTaskDialog() {
         due_date: due || null,
         area_id: area || null,
         project_id: project || null,
-        priority: urgent ? 'urgent' : 'normal',
+        priority: PRIORITY_BY_LEVEL[prio],
         status: state?.prefill.status ?? 'todo',
       })
       closeNewTask()
@@ -100,9 +102,8 @@ export function NewTaskDialog() {
             />
           </div>
         </div>
-        <label className="checkline">
-          <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} /> Urgente (coral)
-        </label>
+        <span className="lbl">Prioridad</span>
+        <PrioPick value={prio} onChange={setPrio} />
       </form>
     </Sheet>
   )

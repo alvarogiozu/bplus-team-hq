@@ -19,6 +19,8 @@ const ICON_WORDS: [RegExp, string][] = [
   [/\b(codigo|programar|deploy|firmware|bug)\b/, 'code'],
   [/\b(disenar|diseno|boceto|figma)\b/, 'design'],
   [/\b(musica|guitarra|piano|cantar)\b/, 'music'],
+  [/\b(ajedrez|chess)\b/, 'chess'],
+  [/\b(dibujar|dibujo|pintar|pintura|acuarela)\b/, 'design'],
   [/\b(medicina|pastilla|doctor|medico)\b/, 'pill'],
   [/\b(viaje|vuelo|aeropuerto|viajar)\b/, 'travel'],
   [/\b(limpiar|lavar|ordenar)\b/, 'clean'],
@@ -78,6 +80,7 @@ export function localPropose(input: string, ctx: Ctx): Proposal | null {
   const parsed = parseQuickTask(text, ctx.people, ctx.today)
   if (!parsed.title) return null
   const day = parsed.due ?? (start != null ? ctx.today : null)
+  const priority = { normal: null, low: 'baja', medium: 'media', urgent: 'alta' }[parsed.priority]
   return {
     tool: 'crear_item',
     input: {
@@ -86,6 +89,7 @@ export function localPropose(input: string, ctx: Ctx): Proposal | null {
       start: start != null ? hhmm(start) : null,
       duration_min: duration ?? ctx.defaultDuration,
       icon: guessIcon(input),
+      ...(priority ? { priority } : {}),
     },
   }
 }

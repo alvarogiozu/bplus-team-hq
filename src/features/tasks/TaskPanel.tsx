@@ -5,7 +5,8 @@ import { Sheet } from '../../components/Sheet'
 import { Icon } from '../../components/Icon'
 import { supabase } from '../../lib/supabase'
 import { dayOfTs, fmtDay, fmtTime, timeAgo } from '../../lib/dates'
-import { STATUS_LABEL, type Status, type Task } from '../../lib/types'
+import { prioLevel, PRIORITY_BY_LEVEL, STATUS_LABEL, type Status, type Task } from '../../lib/types'
+import { Prio, PRIO_LABEL } from '../../components/Prio'
 import { pointOf } from '../../lib/fx'
 import { useActivity, useTasks } from '../data/queries'
 import { useTaskActions } from './actions'
@@ -90,7 +91,7 @@ function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
       />
       <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
         {task.validation && <span className="pill done"><Icon name="check" className="sm" /> {task.validation === 'proof' ? 'Validada con prueba' : 'Validada'}</span>}
-        {task.priority === 'urgent' && task.status !== 'done' && <span className="pill urgent">Urgente</span>}
+        {task.status !== 'done' && <Prio level={prioLevel(task.priority)} label />}
         {late && <span className="pill late">Atrasada</span>}
         {noDate && <span className="pill">Sin fecha</span>}
       </div>
@@ -122,10 +123,7 @@ function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
           variant="field"
           value={task.priority}
           onChange={(v) => update(task.id, { priority: v })}
-          options={[
-            { value: 'normal', label: 'Normal', color: 'var(--ink-faint)' },
-            { value: 'urgent', label: 'Urgente', color: 'var(--coral)' },
-          ]}
+          options={PRIORITY_BY_LEVEL.map((value, l) => ({ value, label: PRIO_LABEL[l], visual: <Prio level={l} showEmpty size={13} /> }))}
         />
         <span>Inicio</span>
         <input type="date" value={task.start_date ?? ''} max={task.due_date ?? undefined} onChange={(e) => update(task.id, { start_date: e.target.value || null })} />

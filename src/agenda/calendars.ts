@@ -6,6 +6,7 @@ import { addDays, startOfWeek } from '../lib/dates'
 import { toast, toastError } from '../components/Toasts'
 import { useAuth } from '../features/auth/AuthProvider'
 import { akeys, type AgendaItem, type Undo } from './data'
+import { gkeys, type Group } from './groups'
 import { localToIso } from './time'
 
 // ---------- Calendarios propios ----------
@@ -137,6 +138,12 @@ export function useCalendarActions() {
         }
         qc.setQueryData<AgendaItem[]>(akeys.items(uid), (old) => old?.map((i) => (moved.includes(i.id) ? { ...i, calendar_id: to.id } : i)))
       }
+      // los grupos de ese calendario se van con sus tareas
+      const groupsMoved = (qc.getQueryData<Group[]>(gkeys.groups(uid)) ?? []).filter((g) => g.calendar_id === cal.id).map((g) => g.id)
+      if (groupsMoved.length) {
+        await supabase.from('agenda_groups').update({ calendar_id: to.id }).in('id', groupsMoved)
+        qc.invalidateQueries({ queryKey: gkeys.groups(uid) })
+      }
       put(list.filter((c) => c.id !== cal.id))
       const { error } = await supabase.from('agenda_calendars').delete().eq('id', cal.id)
       if (error) {
@@ -152,6 +159,8 @@ export function useCalendarActions() {
           return
         }
         if (moved.length) await supabase.from('agenda_items').update({ calendar_id: cal.id }).in('id', moved)
+        if (groupsMoved.length) await supabase.from('agenda_groups').update({ calendar_id: cal.id }).in('id', groupsMoved)
+        qc.invalidateQueries({ queryKey: gkeys.groups(uid) })
         qc.invalidateQueries({ queryKey: ckeys.cals(uid) })
         qc.invalidateQueries({ queryKey: akeys.items(uid) })
       }
