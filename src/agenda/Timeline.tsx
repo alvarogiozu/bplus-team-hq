@@ -31,7 +31,7 @@ type Props = {
 const SPRING = { type: 'spring' as const, stiffness: 420, damping: 36, mass: 0.9 }
 
 export function Timeline(p: Props) {
-  const { active, landedKey } = useDrag()
+  const { active, landedKey, dockCenter } = useDrag()
   const ref = useRef<HTMLDivElement>(null)
   const [preview, setPreview] = useState<{ min: number; dur: number; color: string } | null>(null)
   const [hoverMin, setHoverMin] = useState<number | null>(null)
@@ -48,13 +48,29 @@ export function Timeline(p: Props) {
     const r = ref.current!.getBoundingClientRect()
     return snapMin(yToMin(layout, pt.y - r.top))
   }
+  // El recuadro de soltar mide los minutos de verdad (15 min no hereda la altura mínima del bloque).
+  const slotH = (min: number, dur: number) => Math.max(12, minToY(layout, min + dur) - minToY(layout, min))
   useDropTarget(
     {
       id: 'timeline',
       priority: 1,
       accepts: () => true,
-      hover: (payload, pt) => setPreview({ min: minAt(pt), dur: payload.duration, color: payload.color }),
-      leave: () => setPreview(null),
+      hover: (payload, pt) => {
+        const min = minAt(pt)
+        // solo re-dibuja al cambiar de franja (no en cada pixel): menos trabajo = arrastre fluido
+        setPreview((prev) => (prev && prev.min === min && prev.dur === payload.duration && prev.color === payload.color ? prev : { min, dur: payload.duration, color: payload.color }))
+        const r = ref.current!.getBoundingClientRect()
+        const axis = parseFloat(getComputedStyle(ref.current!).getPropertyValue('--tl-axis')) || 106
+        const boxLeft = r.left + axis - 30
+        const boxRight = r.right - 16
+        const boxTop = r.top + minToY(layout, min)
+        const boxH = slotH(min, payload.duration)
+        dockCenter({ x: (boxLeft + boxRight) / 2, y: boxTop + boxH / 2 })
+      },
+      leave: () => {
+        setPreview(null)
+        dockCenter(null)
+      },
       drop: (payload, pt) => {
         const min = minAt(pt)
         setPreview(null)
@@ -164,7 +180,7 @@ export function Timeline(p: Props) {
         {preview && (
           <motion.div
             className="tl-preview"
-            style={{ ['--c' as string]: preview.color, height: Math.max(MIN_BLOCK_H, preview.dur * PX_PER_MIN) } as CSSProperties}
+            style={{ ['--c' as string]: preview.color, height: slotH(preview.min, preview.dur) } as CSSProperties}
             initial={{ opacity: 0, y: minToY(layout, preview.min) }}
             animate={{ opacity: 1, y: minToY(layout, preview.min) }}
             exit={{ opacity: 0 }}
@@ -172,7 +188,7 @@ export function Timeline(p: Props) {
           >
             {/* las horas van a la izquierda de la línea: la tarjeta que arrastras nunca las tapa */}
             <span className="tl-preview-time">{hhmm(preview.min)}</span>
-            <span className="tl-preview-time end">{hhmm(preview.min + preview.dur)}</span>
+            {slotH(preview.min, preview.dur) >= 44 && <span className="tl-preview-time end">{hhmm(preview.min + preview.dur)}</span>}
           </motion.div>
         )}
       </AnimatePresence>
