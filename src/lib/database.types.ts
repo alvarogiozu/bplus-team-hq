@@ -170,23 +170,64 @@ export type Database = {
           },
         ]
       }
+      agenda_days: {
+        Row: {
+          day: string
+          sleep_min: number | null
+          updated_at: string
+          user_id: string
+          wake_min: number | null
+        }
+        Insert: {
+          day: string
+          sleep_min?: number | null
+          updated_at?: string
+          user_id?: string
+          wake_min?: number | null
+        }
+        Update: {
+          day?: string
+          sleep_min?: number | null
+          updated_at?: string
+          user_id?: string
+          wake_min?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_days_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agenda_google: {
         Row: {
           connected_at: string
           email: string | null
           refresh_token: string
+          rockie_cal_id: string | null
+          scopes: string | null
+          sync_token: string | null
           user_id: string
         }
         Insert: {
           connected_at?: string
           email?: string | null
           refresh_token: string
+          rockie_cal_id?: string | null
+          scopes?: string | null
+          sync_token?: string | null
           user_id: string
         }
         Update: {
           connected_at?: string
           email?: string | null
           refresh_token?: string
+          rockie_cal_id?: string | null
+          scopes?: string | null
+          sync_token?: string | null
           user_id?: string
         }
         Relationships: [
@@ -299,6 +340,8 @@ export type Database = {
           day: string | null
           done_at: string | null
           duration_min: number
+          end_day: string | null
+          gcal_event_id: string | null
           group_id: string | null
           hobby_id: string | null
           hq_task_id: string | null
@@ -320,6 +363,8 @@ export type Database = {
           day?: string | null
           done_at?: string | null
           duration_min?: number
+          end_day?: string | null
+          gcal_event_id?: string | null
           group_id?: string | null
           hobby_id?: string | null
           hq_task_id?: string | null
@@ -341,6 +386,8 @@ export type Database = {
           day?: string | null
           done_at?: string | null
           duration_min?: number
+          end_day?: string | null
+          gcal_event_id?: string | null
           group_id?: string | null
           hobby_id?: string | null
           hq_task_id?: string | null
@@ -401,6 +448,7 @@ export type Database = {
           hide_team: boolean
           onboarded_at: string | null
           presets: number[]
+          routine: Json
           sleep_min: number
           updated_at: string
           user_id: string
@@ -413,6 +461,7 @@ export type Database = {
           hide_team?: boolean
           onboarded_at?: string | null
           presets?: number[]
+          routine?: Json
           sleep_min?: number
           updated_at?: string
           user_id?: string
@@ -425,6 +474,7 @@ export type Database = {
           hide_team?: boolean
           onboarded_at?: string | null
           presets?: number[]
+          routine?: Json
           sleep_min?: number
           updated_at?: string
           user_id?: string

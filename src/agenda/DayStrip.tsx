@@ -38,7 +38,8 @@ function DayCell({ d, day, today, dots, onPick, onDropDay }: { d: string; day: s
     {
       id: `day:${d}`,
       priority: 2,
-      accepts: () => true,
+      // el sol y la luna solo se mueven dentro del día (no se "mudan" a otro)
+      accepts: (pl) => pl.kind !== 'anchor',
       hover: () => setOver(true),
       leave: () => setOver(false),
       drop: (pl) => {
@@ -64,7 +65,7 @@ function DayCell({ d, day, today, dots, onPick, onDropDay }: { d: string; day: s
     >
       <small>{WEEKDAY_NAMES[weekday(d)].slice(0, 3)}</small>
       <span className="ag-day-num">
-        {sel && <motion.span layoutId="ag-day-sel" className="ag-day-sel" transition={{ type: 'spring', stiffness: 520, damping: 34 }} />}
+        {sel && <span className="ag-day-sel" />}
         <b>{Number(d.slice(8))}</b>
       </span>
       <span className="ag-dots" aria-hidden="true">

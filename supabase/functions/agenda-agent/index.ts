@@ -62,6 +62,7 @@ const TOOLS = [
       calendar_id: { ...optStr, description: 'id de calendars o null' },
       group_id: { ...optStr, description: 'id de groups o null' },
       priority: PRIO_P,
+      end_day: { ...optStr, description: 'último día (AAAA-MM-DD) si es de todo el día y dura varios días; si no, null' },
     }),
   },
   {
@@ -70,6 +71,13 @@ const TOOLS = [
       'Mueve o cambia un ítem PERSONAL existente. Solo cambian los campos no null. to_inbox true lo saca del día y lo devuelve al Inbox. calendar_id lo pasa a otro calendario (Personal, Estudio...). group_id lo mete a un grupo de tareas. priority cambia su prioridad (ninguna = quitarla).',
     strict: true,
     input_schema: obj({ item_id: str, day: optStr, start: optStr, duration_min: optInt, to_inbox: { type: 'boolean' }, calendar_id: optStr, group_id: optStr, priority: PRIO_P }),
+  },
+  {
+    name: 'ajustar_dia',
+    description:
+      'Cambia a qué hora se despierta (wake) o se duerme (sleep) la persona. day = el día (AAAA-MM-DD). siempre true = es su rutina para ESE día de la semana (ej. «los sábados me levanto a las 9»); false = solo ese día (ej. «mañana me levanto a las 6»). Solo cambian los no null.',
+    strict: true,
+    input_schema: obj({ day: str, wake: optStr, sleep: optStr, siempre: { type: 'boolean' } }),
   },
   {
     name: 'crear_grupo',
@@ -182,6 +190,8 @@ Tu trabajo es convertir cada orden en PROPUESTAS usando las herramientas. Nunca 
 - Cada ítem personal vive en un calendario ("calendars": Personal, Estudio, Trabajo, Salud...). Si dicen "en estudio" o "de trabajo", usa ese calendar_id; si no lo dicen, null.
 - "groups" son grupos de tareas con nombre propio (ej. «Terminar carro» en el calendario Automotriz). Si la tarea es de un grupo («para lo del carro», «en el grupo X»), usa su group_id. Para armar un grupo nuevo usa crear_grupo y pon sus tareas en «tareas» (no las crees aparte).
 - Prioridad: «urgente», «importante» o «alta prioridad» = alta; «prioridad media» = media; «baja prioridad» o «cuando pueda» = baja. Si no la dicen, null. Vale para ítems y grupos.
+- Algo de todo el día que dura varios días (un viaje, un congreso, «del miércoles al sábado»): crear_item con day = primer día, start null y end_day = último día.
+- «Mañana me levanto a las 6» o «hoy me duermo a las 12» es ajustar_dia (siempre false). «Los sábados me levanto a las 9» o «entre semana me despierto a las 6» es ajustar_dia con siempre true (uno por cada día de la semana, con un day de esa semana). "despertar"/"dormir" del contexto son los de hoy y "rutina" los de cada día de la semana.
 - "hobbies" son prácticas de tiempo libre sin hora fija (guitarra, dibujar, ajedrez). «Toqué guitarra», «hice mis partidas de ajedrez a las 6» o «anota que dibujé» es registrar_hobby con su hobby_id. Agregar uno nuevo a su lista es crear_hobby. Los hobbies son de la agenda: no uses otra_app para ellos.
 - "google_events" son eventos de Google Calendar: solo lectura. Úsalos para responder o para no chocar horarios, pero nunca los muevas ni los borres.
 - Para preguntas usa responder con un texto breve y natural.
@@ -260,6 +270,8 @@ function valid(name: string, input: Record<string, unknown>, ctx: Ctx): boolean 
   const prioOk = (v: unknown) => v == null || PRIO_AG.includes(String(v))
   const nameOk = (v: unknown) => typeof v === 'string' && v.trim() !== ''
   switch (name) {
+    case 'ajustar_dia':
+      return typeof input.day === 'string' && DATE.test(input.day) && timeOk(input.wake) && timeOk(input.sleep) && (input.wake != null || input.sleep != null)
     case 'crear_grupo':
       return nameOk(input.name) && calOk(input.calendar_id) && prioOk(input.priority) && Array.isArray(input.tareas) && input.tareas.every((t) => typeof t === 'string')
     case 'registrar_hobby':
@@ -276,7 +288,8 @@ function valid(name: string, input: Record<string, unknown>, ctx: Ctx): boolean 
         (input.project_id == null || has(ctx.projects, input.project_id)) && (input.area_id == null || has(ctx.areas, input.area_id)) &&
         (input.title == null || (typeof input.title === 'string' && input.title.trim() !== ''))
     case 'crear_item':
-      return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id) && groupOk(input.group_id) && prioOk(input.priority)
+      return typeof input.title === 'string' && input.title.trim() !== '' && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id) && groupOk(input.group_id) && prioOk(input.priority) &&
+        dateOk(input.end_day) && (input.end_day == null || (typeof input.day === 'string' && String(input.end_day) >= input.day))
     case 'mover_item':
       return has(ctx.items, input.item_id) && dateOk(input.day) && timeOk(input.start) && durOk(input.duration_min) && calOk(input.calendar_id) && groupOk(input.group_id) && prioOk(input.priority)
     case 'completar_item':

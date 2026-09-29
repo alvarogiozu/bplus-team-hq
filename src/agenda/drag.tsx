@@ -9,7 +9,7 @@ import { fmtDur } from './time'
 // vuela a su lugar. Mouse: arranca al mover 5 px. Táctil: mantener 230 ms (si no, es scroll).
 
 export type DragPayload = {
-  kind: 'item' | 'task' | 'event' | 'hobby'
+  kind: 'item' | 'task' | 'event' | 'hobby' | 'anchor'
   id: string
   title: string
   color: string
@@ -228,7 +228,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
             </span>
             <span className="ag-ghost-txt">
               <b>{ghost.title}</b>
-              <small>{fmtDur(ghost.duration)}</small>
+              <small>{ghost.kind === 'anchor' ? 'Suéltalo en tu nueva hora' : fmtDur(ghost.duration)}</small>
             </span>
           </motion.div>,
           document.body,

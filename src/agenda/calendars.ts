@@ -177,7 +177,8 @@ export function useCalendarActions() {
 // ---------- Google Calendar (solo lectura, vía la Edge Function agenda-google) ----------
 export type GCal = { id: string; name: string; color: string; primary: boolean }
 export type GEvent = { id: string; cal: string; calName: string; title: string; start: string; end: string; allDay: boolean; color: string; link: string | null }
-type GStatus = { configured: boolean; connected: boolean; email: string | null }
+/** canWrite: se conectó con permiso para el calendario «Rockie» (ida y vuelta). */
+type GStatus = { configured: boolean; connected: boolean; email: string | null; canWrite?: boolean }
 
 async function callGoogle<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke('agenda-google', { body })
@@ -238,6 +239,39 @@ export function useGoogleEvents(day: string, tz: string, ids: string[]) {
         })
       ).events ?? [],
   })
+}
+
+/**
+ * Ida y vuelta con el calendario «Rockie» de Google: al abrir, cada 2 min y al volver a la
+ * pestaña se trae lo que cambiaste allá (la primera vez crea «Rockie» y sube tu agenda).
+ */
+export function useGoogleSync(enabled: boolean) {
+  const qc = useQueryClient()
+  const { userId } = useAuth()
+  useEffect(() => {
+    if (!enabled || !userId) return
+    let alive = true
+    let last = 0
+    const run = async () => {
+      if (Date.now() - last < 45_000) return
+      last = Date.now()
+      try {
+        const r = await callGoogle<{ changed?: number }>({ action: 'sync' })
+        if (alive && r.changed) qc.invalidateQueries({ queryKey: akeys.items(userId) })
+      } catch {
+        // sin red o Google caído: se intenta en la próxima vuelta
+      }
+    }
+    void run()
+    const id = setInterval(() => void run(), 120_000)
+    const onFocus = () => void run()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      alive = false
+      clearInterval(id)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [enabled, userId, qc])
 }
 
 export function useGoogleActions() {

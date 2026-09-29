@@ -8,7 +8,7 @@ import { AIcon, CAL_COLORS } from './icons'
 
 // Panel derecho de Rockie Agenda: el mes para saltar de día, tus calendarios (cada
 // actividad vive en uno; la casilla lo muestra u oculta), lo del equipo y Google
-// Calendar en solo lectura. Minimalista a propósito: nombre, color y nada más.
+// Calendar de ida y vuelta (tu agenda vive en un calendario «Rockie» de tu Google). Minimalista a propósito: nombre, color y nada más.
 export function CalendarsPanel(p: { day: string; today: string; onPick: (d: string) => void; hasTeam: boolean }) {
   return (
     <div className="ag-cals-body">
@@ -54,7 +54,7 @@ function MiniMonth({ day, today, onPick }: { day: string; today: string; onPick:
             aria-label={d}
             aria-pressed={d === day}
           >
-            {Number(d.slice(8))}
+            <span>{Number(d.slice(8))}</span>
           </button>
         ))}
       </div>
@@ -236,7 +236,7 @@ function GoogleSection() {
         <small className="ag-gmail">Revisando la conexión…</small>
       ) : !connected ? (
         <div className="ag-gconnect">
-          <p>Tus eventos de Google aparecen en tu día (solo lectura).</p>
+          <p>Tus eventos de Google aparecen en tu día, y lo que creas aquí aparece en tu Google, en un calendario «Rockie».</p>
           <button className="ag-gbtn" onClick={() => void connect()} disabled={!status.configured} title={status.configured ? undefined : 'Falta configurar Google en el servidor'}>
             <AIcon name="globe" size={16} /> Conectar Google Calendar
           </button>
@@ -244,6 +244,18 @@ function GoogleSection() {
       ) : (
         <>
           {status.email && <small className="ag-gmail">{status.email}</small>}
+          {status.canWrite ? (
+            <small className="ag-gmail ag-gsync">
+              <AIcon name="repeat" size={12} /> Tu agenda se copia en «Rockie» de Google y vuelve si la cambias allá.
+            </small>
+          ) : (
+            <div className="ag-gconnect">
+              <p>Ahora la agenda también puede escribir en tu Google. Reconecta para darle permiso.</p>
+              <button className="ag-gbtn" onClick={() => void connect()}>
+                <AIcon name="repeat" size={16} /> Reconectar con ida y vuelta
+              </button>
+            </div>
+          )}
           {gcals.isLoading && <small className="ag-gmail">Cargando tus calendarios…</small>}
           {gcals.isError && <small className="ag-gmail">No pude leer tus calendarios de Google.</small>}
           {(gcals.data ?? []).map((g) => {

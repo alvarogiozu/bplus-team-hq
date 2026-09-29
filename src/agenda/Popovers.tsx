@@ -175,7 +175,7 @@ export function DatePop(p: { open: boolean; onClose: () => void; day: string | n
               aria-pressed={sel}
               aria-label={d}
             >
-              {sel && <motion.span layoutId="ag-cal-sel" className="ag-cal-sel" transition={{ type: 'spring', stiffness: 520, damping: 34 }} />}
+              {sel && <span className="ag-cal-sel" />}
               <span>{Number(d.slice(8))}</span>
             </button>
           )
