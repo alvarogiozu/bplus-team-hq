@@ -88,12 +88,15 @@ test('grupos con nombre propio, prioridad y voz', async ({ page }) => {
 })
 
 test('hobbies: la casilla se marca y se intensifica', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 700 })
   await loginAgenda(page)
   const hob = page.locator('.ag-hob')
   await expect(hob).toBeVisible()
   for (const name of ['Tocar guitarra', 'Ajedrez']) {
     await hob.getByRole('button', { name: 'Nuevo hobby' }).click()
     await hob.getByLabel('Nombre del hobby').fill(name)
+    // con uno ya creado el panel es chico: el botón tiene que verse sin alejar el zoom
+    await expect(hob.getByRole('button', { name: 'Crear hobby' })).toBeInViewport({ ratio: 1 })
     await hob.getByRole('button', { name: 'Crear hobby' }).click()
     await expect(hob.locator('.ag-hob-row', { hasText: name })).toBeVisible()
   }
