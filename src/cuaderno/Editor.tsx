@@ -8,6 +8,8 @@ import { Placeholder, TrailingNode } from '@tiptap/extensions'
 import { Image } from '@tiptap/extension-image'
 import { TableKit } from '@tiptap/extension-table'
 import { Markdown } from '@tiptap/markdown'
+import { Collaboration, isChangeOrigin } from '@tiptap/extension-collaboration'
+import { CollaborationCaret } from '@tiptap/extension-collaboration-caret'
 import { useAuth } from '../features/auth/AuthProvider'
 import { haptic } from '../lib/fx'
 import { BoardEmbed } from './BoardEmbed'
@@ -36,6 +38,7 @@ import {
   type WikiKeys,
 } from './extensions'
 import { BOARD_SRC, isBoardSrc, isStored, resolveSrc, shrinkImage, srcOf, upload } from './files'
+import type { CollabUser, NoteSync } from './collab'
 import { CIcon } from './icons'
 import { subnoteName } from './text'
 import { Popover } from './ui'
@@ -101,11 +104,17 @@ const CuImage = Image.extend({
         current = src
         if (isStored(src)) {
           fig.classList.add('loading')
-          void resolveSrc(src).then((u) => {
+          const load = async (tries: number) => {
+            const u = await resolveSrc(src)
             if (current !== src) return
+            if (!u && tries < 4) {
+              setTimeout(() => void load(tries + 1), 1500)
+              return
+            }
             img.src = u
             fig.classList.remove('loading')
-          })
+          }
+          void load(0)
         } else img.src = src
       }
       set(node)
@@ -152,7 +161,10 @@ export function useNoteEditor(p: {
   onOpenNote?: (id: string) => void
   /** las teclas de la lista de [[ (la maneja WikiSuggest) */
   wikiKeys?: WikiKeys
+  /** nota compartida: el texto vive en un documento Yjs y se edita a la vez con el equipo */
+  collab?: { sync: NoteSync; user: CollabUser } | null
 }) {
+  const collab = p.collab ?? null
   const { userId } = useAuth()
   const uidRef = useRef(userId)
   uidRef.current = userId
@@ -171,7 +183,34 @@ export function useNoteEditor(p: {
           heading: { levels: [1, 2, 3] },
           // cuaderno:// = enlaces a tus propias páginas ([[…]])
           link: { openOnClick: false, autolink: true, defaultProtocol: 'https', protocols: ['cuaderno'] },
+          // en una nota compartida deshacer es de cada quien (lo maneja la colaboración)
+          ...(collab ? { undoRedo: false as const } : {}),
         }),
+        ...(collab
+          ? [
+              Collaboration.configure({ document: collab.sync.doc, field: 'default' }),
+              CollaborationCaret.configure({
+                provider: collab.sync,
+                user: collab.user,
+                render: (u: Record<string, string>) => {
+                  const caret = document.createElement('span')
+                  caret.className = 'collaboration-carets__caret'
+                  caret.style.setProperty('--cc', u.color)
+                  const label = document.createElement('span')
+                  label.className = 'collaboration-carets__label'
+                  label.textContent = u.name
+                  caret.append(label)
+                  return caret
+                },
+                selectionRender: (u: Record<string, string>) => ({
+                  nodeName: 'span',
+                  class: 'collaboration-carets__selection',
+                  style: `--cc: ${u.color}`,
+                  'data-user': u.name,
+                }),
+              }),
+            ]
+          : []),
         TaskList,
         TaskItem.configure({ nested: true }),
         ObsidianTasks,
@@ -191,9 +230,14 @@ export function useNoteEditor(p: {
         }),
         Markdown,
       ],
-      content: p.body,
-      contentType: 'markdown',
-      onUpdate: ({ editor: ed }) => {
+      // compartida: el contenido llega del documento en vivo (y se puede escribir cuando ya cargó)
+      ...(collab ? { editable: false } : { content: p.body, contentType: 'markdown' as const }),
+      onUpdate: ({ editor: ed, transaction }) => {
+        // lo que escribió otra persona lo guarda ella: aquí solo se sigue su texto
+        if (collab && isChangeOrigin(transaction)) {
+          lastMd.current = ed.getMarkdown()
+          return
+        }
         const md = ed.getMarkdown()
         // al abrir, el editor puede sumar un párrafo vacío al final (o espacios): eso no es un cambio
         const same = md.trimEnd() === lastMd.current.trimEnd()
@@ -232,17 +276,18 @@ export function useNoteEditor(p: {
         },
       },
     },
-    [p.noteId],
+    [p.noteId, collab?.sync],
   )
   const editorRef = useRef<Editor | null>(null)
   editorRef.current = editor
 
   // si la página cambia desde fuera (Rockie la amplió, deshacer), el editor la sigue — salvo mientras escribes
+  // (compartida: los cambios de fuera rehacen el documento en vivo, no pasan por aquí)
   useEffect(() => {
-    if (!editor || p.body === lastMd.current || editor.isFocused) return
+    if (!editor || collab || p.body === lastMd.current || editor.isFocused) return
     lastMd.current = p.body
     editor.commands.setContent(p.body, { contentType: 'markdown', emitUpdate: false })
-  }, [editor, p.body])
+  }, [editor, p.body, collab])
 
   // reeditar un dibujo (doble clic o "Editar dibujo")
   useEffect(() => {
@@ -287,7 +332,7 @@ function Btn(p: { icon?: string; label: string; on?: boolean; disabled?: boolean
   )
 }
 
-export function Toolbar({ editor, onDictate, dictating, note }: { editor: Editor | null; onDictate?: () => void; dictating?: boolean; note?: Note }) {
+export function Toolbar({ editor, onDictate, dictating, note, lite }: { editor: Editor | null; onDictate?: () => void; dictating?: boolean; note?: Note; lite?: boolean }) {
   const { userId } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const s = useEditorState({
@@ -405,7 +450,7 @@ export function Toolbar({ editor, onDictate, dictating, note }: { editor: Editor
       <Btn icon="divider" label="Separador" onClick={() => c().setHorizontalRule().run()} />
       <span className="cu-tb-sep" />
       <Btn icon="image" label="Imagen" onClick={() => fileRef.current?.click()} />
-      <Btn icon="pen" label="Dibujar (la hoja crece hacia abajo)" onClick={draw} />
+      {!lite && <Btn icon="pen" label="Dibujar (la hoja crece hacia abajo)" onClick={draw} />}
       {note && (
         <button
           type="button"
@@ -711,7 +756,7 @@ const ASKS: { modo: AskMode; label: string }[] = [
   { modo: 'pregunta', label: 'Hazme una pregunta' },
 ]
 
-export function SelectionMenu({ editor, onAsk, onExtract }: { editor: Editor | null; onAsk: (r: AskRequest) => void; onExtract?: (sel: Extracted) => void }) {
+export function SelectionMenu({ editor, onAsk, onExtract }: { editor: Editor | null; onAsk?: (r: AskRequest) => void; onExtract?: (sel: Extracted) => void }) {
   const [mode, setMode] = useState<'fmt' | 'ask' | 'link' | 'color' | 'mark' | 'more'>('fmt')
   const [text, setText] = useState('')
   // lo activo se lee del estado del editor (si no, la burbuja mostraría lo de la selección anterior)
@@ -751,7 +796,7 @@ export function SelectionMenu({ editor, onAsk, onExtract }: { editor: Editor | n
     const sel = selected()
     if (!sel.text) return
     haptic(8)
-    onAsk({ ...sel, modo, pregunta })
+    onAsk?.({ ...sel, modo, pregunta })
     // la selección ya viaja en la pregunta: se suelta para que la burbuja no quede flotando sobre la respuesta
     editor.chain().setTextSelection(sel.to).blur().run()
     setMode('fmt')
@@ -796,11 +841,15 @@ export function SelectionMenu({ editor, onAsk, onExtract }: { editor: Editor | n
           <Btn icon="clearfmt" label="Quitar formato" className="cu-wide-only" onClick={clear} />
           {onExtract && <Btn icon="section" label="Llevar a una subnota (aquí queda un enlace)" className="cu-wide-only" onClick={extract} />}
           <Btn icon="more" label="Más" className="cu-narrow-only" onClick={() => setMode('more')} />
-          <span className="cu-tb-sep" />
-          <button type="button" className="cu-bubble-rockie" onMouseDown={(e) => e.preventDefault()} onClick={() => setMode('ask')}>
-            <CIcon name="sparkle" size={15} /> <span className="cu-ask-long">Pregúntale a Rockie</span>
-            <span className="cu-ask-short">Preguntar</span>
-          </button>
+          {onAsk && (
+            <>
+              <span className="cu-tb-sep" />
+              <button type="button" className="cu-bubble-rockie" onMouseDown={(e) => e.preventDefault()} onClick={() => setMode('ask')}>
+                <CIcon name="sparkle" size={15} /> <span className="cu-ask-long">Pregúntale a Rockie</span>
+                <span className="cu-ask-short">Preguntar</span>
+              </button>
+            </>
+          )}
         </>
       )}
       {mode === 'more' && (

@@ -24,6 +24,8 @@ import { ProposalList } from './Proposals'
 import { SubnotesSection } from './Subnotas'
 import { WikiSuggest } from './WikiSuggest'
 import { useHasPanel, useIsMobile } from './ui'
+import { useNoteSync } from './collab'
+import { LiveWait } from './Compartir'
 
 // la pizarra (trazos, notas adhesivas, flechas) solo se descarga si abres una
 const Pizarra = lazy(() => import('./Pizarra'))
@@ -56,14 +58,19 @@ export default function NotaPage() {
         <Pizarra key={note.id} note={note} mobile={mobile} />
       </Suspense>
     )
-  return <NoteView key={note.id} note={note} mobile={mobile} />
+  // compartir, dejar de compartir o un cambio de fuera rehacen el documento en vivo: la vista vuelve a nacer
+  return <NoteView key={`${note.id}:${note.ydoc_epoch ?? 0}`} note={note} mobile={mobile} />
 }
 
 function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
   const actions = useCuadernoActions()
   const [params, setParams] = useSearchParams()
-  const { profile } = useMe()
+  const { userId, profile } = useMe()
   const today = useToday(profile.timezone)
+  // compartida con el equipo: se escribe a la vez (cursores con nombre) y el texto vive en un documento en vivo
+  const shared = Boolean(note.space_id)
+  const me = useMemo(() => ({ id: userId, name: profile.display_name, color: profile.color }), [userId, profile.display_name, profile.color])
+  const live = useNoteSync(shared ? note.id : null, note.ydoc_epoch ?? 0, me, Boolean(note.body.trim()))
   const [title, setTitle] = useState(note.title)
   const [saved, setSaved] = useState<'ok' | 'saving'>('ok')
   const [ask, setAsk] = useState<AskRequest | null>(null)
@@ -83,7 +90,11 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
     pending.current = {}
     if (patch.title === undefined && patch.body === undefined) return
     if (patch.title !== undefined && !patch.title.trim()) patch.title = 'Página sin título'
-    await actions.updateNote(note.id, patch)
+    if (shared) {
+      // el texto sale del documento en vivo (no rehace el de los demás); el título, como siempre
+      if (patch.body !== undefined) await actions.saveSharedBody(note.id, patch.body)
+      if (patch.title !== undefined) await actions.updateNote(note.id, { title: patch.title })
+    } else await actions.updateNote(note.id, patch)
     setSaved('ok')
     clearTimeout(embedTimer.current)
     embedTimer.current = setTimeout(() => embedNotes([note.id]), 4000)
@@ -104,7 +115,35 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
     onChange: (md) => queue({ body: md }),
     onOpenNote: (id) => nav(`/cuaderno/nota/${id}`),
     wikiKeys,
+    collab: live.sync ? { sync: live.sync, user: me } : null,
   })
+
+  // el documento en vivo aún no existía: este cliente lo arma desde el Markdown (una sola vez)
+  const initDone = useRef(0)
+  useEffect(() => {
+    if (!editor || !live.initNeeded || initDone.current === live.initNeeded) return
+    if (!editor.extensionManager.extensions.some((x) => x.name === 'collaboration')) return
+    initDone.current = live.initNeeded
+    editor.commands.setContent(note.body, { contentType: 'markdown' })
+  }, [editor, live.initNeeded, note.body])
+  useEffect(() => {
+    if (editor && shared) editor.setEditable(live.status === 'ready')
+  }, [editor, shared, live.status])
+  // el título que escribe otra persona aparece aquí (salvo mientras escribes el tuyo)
+  useEffect(() => {
+    if (live.remoteTitle == null || document.activeElement === titleRef.current) return
+    setTitle(live.remoteTitle)
+  }, [live.remoteTitle])
+  // otra persona tiene una versión más nueva: se vuelve a leer la nota (y se reconecta)
+  const refreshNote = actions.refreshNote
+  const restart = live.restart
+  useEffect(() => {
+    if (!live.stale) return
+    void refreshNote(note.id).then((n) => {
+      if (!n || (n.ydoc_epoch ?? 0) === (note.ydoc_epoch ?? 0)) restart()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live.stale])
 
   // una pizarra metida en la página se abre desde su vista previa
   useEffect(() => {
@@ -161,6 +200,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
           note={note}
           mobile={mobile}
           saved={saved}
+          peers={live.peers}
           onBeforeRemove={() => {
             clearTimeout(timer.current)
             pending.current = {}
@@ -187,6 +227,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
               const v = e.target.value.replace(/\n/g, ' ')
               setTitle(v)
               queue({ title: v })
+              live.sync?.sendTitle(v)
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -217,7 +258,8 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
               </select>
             </label>
           </p>
-          <EditorContent editor={editor} />
+          {shared && live.status !== 'ready' && <LiveWait status={live.status} onRetry={live.restart} />}
+          <EditorContent editor={editor} className={shared && live.status !== 'ready' ? 'cu-live-hide' : undefined} />
           <SelectionMenu editor={editor} onAsk={(r) => setAsk(r)} onExtract={(sel) => void extract(sel)} />
           <WikiSuggest editor={editor} note={note} keys={wikiKeys} />
           <div className="cu-end" />

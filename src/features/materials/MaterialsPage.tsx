@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { Icon } from '../../components/Icon'
@@ -9,6 +9,7 @@ import { PALETTE } from '../../lib/colors'
 import { fmtDay, timeAgo } from '../../lib/dates'
 import { useSpaceRow } from '../data/queries'
 import { MemberAvatar, useLookup } from '../tasks/bits'
+import { NotePick } from './NotePick'
 import {
   fileKind,
   fmtBytes,
@@ -47,6 +48,20 @@ export default function MaterialsPage() {
   const [dropping, setDropping] = useState(false)
   const [folderDialog, setFolderDialog] = useState<{ edit?: Folder } | null>(null)
   const [linkOpen, setLinkOpen] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
+  // una nota del Cuaderno compartida se abre encima (la URL manda: ?nota=<id>)
+  const notaId = params.get('nota')
+  const openNote = (id: string) => {
+    const next = new URLSearchParams(params)
+    next.set('nota', id)
+    next.delete('material')
+    setParams(next)
+  }
+  const closeNote = () => {
+    const next = new URLSearchParams(params)
+    next.delete('nota')
+    setParams(next)
+  }
   const fileInput = useRef<HTMLInputElement>(null)
   const dragDepth = useRef(0)
 
@@ -142,6 +157,9 @@ export default function MaterialsPage() {
           <Meter used={used} limit={limit} />
           <button className="btn ghost sm" onClick={() => setFolderDialog({})}>
             <Icon name="folder" className="sm" /> Carpeta
+          </button>
+          <button className="btn ghost sm" onClick={() => setNoteOpen(true)}>
+            <Icon name="notebook" className="sm" /> Nota
           </button>
           <button className="btn ghost sm" onClick={() => setLinkOpen(true)}>
             <Icon name="link" className="sm" /> Enlace
@@ -245,7 +263,12 @@ export default function MaterialsPage() {
               ))}
               <AnimatePresence initial={false}>
                 {shownItems.map((m) => (
-                  <Card key={m.id} m={m} folder={needle && m.folder_id ? folders.find((f) => f.id === m.folder_id) : undefined} onOpen={() => openDetails(m.id)} />
+                  <Card
+                    key={m.id}
+                    m={m}
+                    folder={needle && m.folder_id ? folders.find((f) => f.id === m.folder_id) : undefined}
+                    onOpen={() => (m.kind === 'note' && m.note_id ? openNote(m.note_id) : openDetails(m.id))}
+                  />
                 ))}
               </AnimatePresence>
             </section>
@@ -280,6 +303,14 @@ export default function MaterialsPage() {
       <MaterialSheet folders={folders} materials={materials} />
       {folderDialog && <FolderDialog edit={folderDialog.edit} parentId={folderId} folders={folders} onClose={() => setFolderDialog(null)} onDeleted={() => go(folderDialog.edit?.parent_id ?? null)} />}
       {linkOpen && <LinkDialog folderId={folderId} onClose={() => setLinkOpen(false)} />}
+      {noteOpen && <NotePick folderId={folderId} onClose={() => setNoteOpen(false)} onOpen={openNote} />}
+      <AnimatePresence>
+        {notaId && (
+          <Suspense key={notaId} fallback={null}>
+            <SharedNoteView noteId={notaId} onClose={closeNote} />
+          </Suspense>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -299,9 +330,27 @@ function Meter({ used, limit }: { used: number; limit: number }) {
   )
 }
 
+// el editor compartido (TipTap + Yjs) solo se descarga si abres una nota
+const SharedNoteView = lazy(() => import('./SharedNote').then((x) => ({ default: x.SharedNoteView })))
+
 function Thumb({ m }: { m: Material }) {
   const kind = m.kind === 'file' ? fileKind(m) : null
   const url = useSignedUrl(kind === 'image' ? m.storage_path : null)
+  if (m.kind === 'note') {
+    return (
+      <div className="mthumb note">
+        <span className="mnote-page" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className="mbadge note">
+          <Icon name="notebook" />
+        </span>
+      </div>
+    )
+  }
   if (m.kind === 'link') {
     const s = serviceOf(m.url ?? '')
     return (
@@ -338,7 +387,7 @@ function Card({ m, folder, onOpen }: { m: Material; folder?: Folder; onOpen: () 
       className="mcard"
       role="button"
       tabIndex={0}
-      aria-label={`${m.name}: ver detalles`}
+      aria-label={m.kind === 'note' ? `${m.name}: abrir la nota` : `${m.name}: ver detalles`}
       draggable
       // arrastre nativo (motion usa onDragStart para sus gestos): se engancha en captura
       onDragStartCapture={(e: DragEvent<HTMLDivElement>) => {
@@ -346,7 +395,7 @@ function Card({ m, folder, onOpen }: { m: Material; folder?: Folder; onOpen: () 
         e.dataTransfer.effectAllowed = 'move'
       }}
       onClick={onOpen}
-      onDoubleClick={() => void openMaterial(m)}
+      onDoubleClick={() => (m.kind === 'note' ? onOpen() : void openMaterial(m))}
       onKeyDown={(e) => e.key === 'Enter' && onOpen()}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -357,7 +406,7 @@ function Card({ m, folder, onOpen }: { m: Material; folder?: Folder; onOpen: () 
       <div className="mmeta">
         <b title={m.name}>{m.name}</b>
         <small>
-          {m.kind === 'link' ? serviceOf(m.url ?? '').name : `${KIND_LABEL[kind ?? 'other']} · ${fmtBytes(Number(m.size_bytes))}`}
+          {m.kind === 'note' ? 'Nota del cuaderno · editan todos' : m.kind === 'link' ? serviceOf(m.url ?? '').name : `${KIND_LABEL[kind ?? 'other']} · ${fmtBytes(Number(m.size_bytes))}`}
           {folder ? ` · en ${folder.name}` : ''}
         </small>
       </div>
@@ -370,7 +419,8 @@ function Card({ m, folder, onOpen }: { m: Material; folder?: Folder; onOpen: () 
           title="Abrir"
           onClick={(e) => {
             e.stopPropagation()
-            void openMaterial(m)
+            if (m.kind === 'note') onOpen()
+            else void openMaterial(m)
           }}
         >
           <Icon name="arrow" className="sm" />

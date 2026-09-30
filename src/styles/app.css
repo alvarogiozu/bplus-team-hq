@@ -1103,14 +1103,59 @@ button.mission:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ca
 .mprop { font-size: var(--t-xs); font-weight: 600; color: var(--ink-soft); overflow-wrap: anywhere; }
 .mlink-svc { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; }
 .mlink-svc .mbadge { width: 26px; height: 26px; border-radius: 8px; font-size: var(--t-xs); box-shadow: 0 2px 0 color-mix(in oklab, var(--kc) 65%, black); }
+/* notas del Cuaderno compartidas: una hoja con renglones y el sello del cuaderno */
+.mthumb.note { --kc: var(--accent); position: relative; justify-content: flex-end; }
+.mnote-page { position: absolute; inset: 16px 20% 0; display: flex; flex-direction: column; gap: 9px; padding: 16px 14px 0; border-radius: 10px 10px 0 0; background: var(--card); border: 1.5px solid var(--card-line); border-bottom: 0; }
+.mnote-page i { display: block; height: 5px; border-radius: 999px; background: var(--paper-dark); }
+.mnote-page i:nth-child(1) { width: 70%; height: 7px; background: color-mix(in oklab, var(--accent) 35%, var(--paper-dark)); }
+.mnote-page i:nth-child(3) { width: 85%; }
+.mnote-page i:nth-child(4) { width: 55%; }
+.mbadge.note { position: absolute; right: 12px; bottom: 10px; width: 36px; height: 36px; border-radius: 11px; }
+.mbadge.note .ico { width: 18px; height: 18px; }
+.mnote { position: fixed; inset: 0; z-index: 65; display: flex; flex-direction: column; background: var(--paper); --cu-note-w: 900px; }
+.mnote-head { flex: none; display: flex; align-items: center; gap: var(--s2); padding: var(--s3) var(--s8); border-bottom: 1.5px solid var(--card-line); background: var(--paper); }
+.mnote-kicker { min-width: 0; display: inline-flex; align-items: center; gap: 6px; overflow: hidden; font-size: var(--t-xs); font-weight: 800; color: var(--ink-muted); white-space: nowrap; text-overflow: ellipsis; }
+.mnote-sure { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); }
+.mnote-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--s8) 160px; }
+.mnote-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: var(--s8); text-align: center; }
+.mnote-empty > .ico { width: 44px; height: 44px; color: var(--accent); }
+.mnote-empty h3 { color: var(--ink); }
+.mnotepick { display: flex; flex-direction: column; gap: var(--s3); }
+.mnotepick-new { display: flex; gap: 8px; }
+.mnotepick-new input { flex: 1; min-width: 0; }
+.mnotepick-lbl { margin-top: var(--s2); font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.mnotepick .msearch { min-width: 0; }
+.mnotepick-list { list-style: none; margin: 0; padding: 2px 2px 4px; display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.mnotepick-list button { width: 100%; min-height: 52px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 8px; border-radius: var(--r-md); text-align: left; background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 2px 0 var(--card-edge); transition: border-color 0.2s, transform 0.15s var(--spring); }
+.mnotepick-list button:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.mnotepick-ic { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: color-mix(in oklab, var(--accent) 14%, var(--paper-alt)); color: var(--accent-ink); }
+.mnotepick-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mnotepick-txt b { overflow: hidden; font-size: var(--t-sm); white-space: nowrap; text-overflow: ellipsis; }
+.mnotepick-txt small { font-size: var(--t-3xs); font-weight: 700; color: var(--ink-muted); }
+.mnotepick-go { font-size: var(--t-3xs); font-weight: 800; color: var(--accent-ink); }
 @media (max-width: 700px) {
   .msearch { min-width: 0; width: 100%; }
   .mgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
   .mfolders { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5) var(--s3); }
   .mthumb { height: 96px; }
   .mmeter { width: 100%; }
+  .mnote-head { padding: var(--s2) var(--s3); }
+  .mnote-scroll { padding: 0 var(--s4) 140px; }
+  .mnote-mine span { display: none; }
 }
 .linkish { padding: 0; font: inherit; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+/* ---------- Equipo: disponibilidad (quién está libre y buscar hueco) ---------- */
+.tavail { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-bottom: var(--s5); padding: var(--s4) var(--s5); }
+.tavail-ic { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--accent); color: var(--on-color); box-shadow: 0 3px 0 color-mix(in oklab, var(--accent) 60%, black); }
+.tavail-txt { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 2px; }
+.tavail-txt b { font-family: var(--serif); font-size: var(--t-lg); color: var(--ink); }
+.tavail-txt small { font-size: var(--t-xs); font-weight: 600; color: var(--ink-muted); line-height: 1.4; }
+.mstat { display: inline-flex; align-items: center; gap: 6px; margin: 2px auto 0; font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); }
+.mstat i { width: 8px; height: 8px; border-radius: 999px; background: var(--ink-faint); }
+.mstat.st-free { color: var(--green-edge); }
+.mstat.st-free i { background: var(--green); }
+.mstat.st-busy { color: var(--coral-ink); }
+.mstat.st-busy i { background: var(--coral); }
 
 /* ---------- Logros configurables ---------- */
 .ach.custom .aic, .goalach .aic, .achpreview .aic { background: var(--ac); box-shadow: 0 3px 0 color-mix(in oklab, var(--ac) 62%, black); }

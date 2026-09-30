@@ -4,6 +4,8 @@ import { haptic } from '../lib/fx'
 import { chainOf, colorOf, noteColorOf, spine, type BookColor } from './books'
 import { openDialog } from './bus'
 import { NONE, useBooks, useCuadernoActions, type Note } from './data'
+import type { Peer } from './collab'
+import { ShareButton } from './Compartir'
 import { CIcon, ItemIcon } from './icons'
 import { ColorPick, IconPick } from './pickers'
 import { BookPicker, Popover } from './ui'
@@ -19,7 +21,7 @@ export function SavedTag({ saved }: { saved: 'ok' | 'saving' }) {
   )
 }
 
-export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'saving'; onBeforeRemove?: () => void; className?: string }) {
+export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'saving'; onBeforeRemove?: () => void; className?: string; peers?: Peer[] }) {
   const { note, mobile } = p
   const actions = useCuadernoActions()
   const nav = useNavigate()
@@ -89,6 +91,7 @@ export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'savi
       </Popover>
       {!mobile && <SavedTag saved={p.saved} />}
       <span className="spacer" />
+      {note.kind === 'pagina' && <ShareButton note={note} mobile={mobile} peers={p.peers ?? []} />}
       {mobile ? (
         // en el celular no cabe todo: Profundizar queda como el botón de Rockie; mapa y borrar, en el ⋯
         <>

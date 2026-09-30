@@ -327,9 +327,206 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "agenda_hobbies_reserve_id_fkey"
+            columns: ["reserve_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_reserves"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "agenda_hobbies_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_items: {
+        Row: {
+          calendar_id: string | null
+          color: string
+          created_at: string
+          day: string | null
+          done_at: string | null
+          duration_min: number
+          end_day: string | null
+          gcal_event_id: string | null
+          group_id: string | null
+          hobby_id: string | null
+          hq_task_id: string | null
+          icon: string
+          id: string
+          in_reserve: string | null
+          is_reserve: boolean
+          notes: string
+          position: number
+          priority: number
+          reserve_id: string | null
+          start_min: number | null
+          subtasks: Json
+          title: string
+          updated_at: string
+          user_id: string
+          visibility: string | null
+        }
+        Insert: {
+          calendar_id?: string | null
+          color?: string
+          created_at?: string
+          day?: string | null
+          done_at?: string | null
+          duration_min?: number
+          end_day?: string | null
+          gcal_event_id?: string | null
+          group_id?: string | null
+          hobby_id?: string | null
+          hq_task_id?: string | null
+          icon?: string
+          id?: string
+          in_reserve?: string | null
+          is_reserve?: boolean
+          notes?: string
+          position?: number
+          priority?: number
+          reserve_id?: string | null
+          start_min?: number | null
+          subtasks?: Json
+          title: string
+          updated_at?: string
+          user_id?: string
+          visibility?: string | null
+        }
+        Update: {
+          calendar_id?: string | null
+          color?: string
+          created_at?: string
+          day?: string | null
+          done_at?: string | null
+          duration_min?: number
+          end_day?: string | null
+          gcal_event_id?: string | null
+          group_id?: string | null
+          hobby_id?: string | null
+          hq_task_id?: string | null
+          icon?: string
+          id?: string
+          in_reserve?: string | null
+          is_reserve?: boolean
+          notes?: string
+          position?: number
+          priority?: number
+          reserve_id?: string | null
+          start_min?: number | null
+          subtasks?: Json
+          title?: string
+          updated_at?: string
+          user_id?: string
+          visibility?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_items_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_calendars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_items_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_items_hobby_id_fkey"
+            columns: ["hobby_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_hobbies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_items_hq_task_id_fkey"
+            columns: ["hq_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_items_in_reserve_fkey"
+            columns: ["in_reserve"]
+            isOneToOne: false
+            referencedRelation: "agenda_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_items_reserve_id_fkey"
+            columns: ["reserve_id"]
+            isOneToOne: false
+            referencedRelation: "agenda_reserves"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_prefs: {
+        Row: {
+          availability: Json
+          created_at: string
+          default_duration: number
+          google_hidden: string[]
+          hide_team: boolean
+          onboarded_at: string | null
+          presets: number[]
+          routine: Json
+          share_level: string
+          sleep_min: number
+          updated_at: string
+          user_id: string
+          wake_min: number
+        }
+        Insert: {
+          availability?: Json
+          created_at?: string
+          default_duration?: number
+          google_hidden?: string[]
+          hide_team?: boolean
+          onboarded_at?: string | null
+          presets?: number[]
+          routine?: Json
+          share_level?: string
+          sleep_min?: number
+          updated_at?: string
+          user_id?: string
+          wake_min?: number
+        }
+        Update: {
+          availability?: Json
+          created_at?: string
+          default_duration?: number
+          google_hidden?: string[]
+          hide_team?: boolean
+          onboarded_at?: string | null
+          presets?: number[]
+          routine?: Json
+          share_level?: string
+          sleep_min?: number
+          updated_at?: string
+          user_id?: string
+          wake_min?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_prefs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -374,173 +571,6 @@ export type Database = {
             foreignKeyName: "agenda_reserves_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      agenda_items: {
-        Row: {
-          calendar_id: string | null
-          color: string
-          created_at: string
-          day: string | null
-          done_at: string | null
-          duration_min: number
-          end_day: string | null
-          gcal_event_id: string | null
-          group_id: string | null
-          hobby_id: string | null
-          hq_task_id: string | null
-          icon: string
-          id: string
-          in_reserve: string | null
-          is_reserve: boolean
-          notes: string
-          position: number
-          priority: number
-          reserve_id: string | null
-          start_min: number | null
-          subtasks: Json
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          calendar_id?: string | null
-          color?: string
-          created_at?: string
-          day?: string | null
-          done_at?: string | null
-          duration_min?: number
-          end_day?: string | null
-          gcal_event_id?: string | null
-          group_id?: string | null
-          hobby_id?: string | null
-          hq_task_id?: string | null
-          icon?: string
-          id?: string
-          in_reserve?: string | null
-          is_reserve?: boolean
-          notes?: string
-          position?: number
-          priority?: number
-          reserve_id?: string | null
-          start_min?: number | null
-          subtasks?: Json
-          title: string
-          updated_at?: string
-          user_id?: string
-        }
-        Update: {
-          calendar_id?: string | null
-          color?: string
-          created_at?: string
-          day?: string | null
-          done_at?: string | null
-          duration_min?: number
-          end_day?: string | null
-          gcal_event_id?: string | null
-          group_id?: string | null
-          hobby_id?: string | null
-          hq_task_id?: string | null
-          icon?: string
-          id?: string
-          in_reserve?: string | null
-          is_reserve?: boolean
-          notes?: string
-          position?: number
-          priority?: number
-          reserve_id?: string | null
-          start_min?: number | null
-          subtasks?: Json
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agenda_items_calendar_id_fkey"
-            columns: ["calendar_id"]
-            isOneToOne: false
-            referencedRelation: "agenda_calendars"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agenda_items_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "agenda_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agenda_items_hobby_id_fkey"
-            columns: ["hobby_id"]
-            isOneToOne: false
-            referencedRelation: "agenda_hobbies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agenda_items_hq_task_id_fkey"
-            columns: ["hq_task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agenda_items_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      agenda_prefs: {
-        Row: {
-          created_at: string
-          default_duration: number
-          google_hidden: string[]
-          hide_team: boolean
-          onboarded_at: string | null
-          presets: number[]
-          routine: Json
-          sleep_min: number
-          updated_at: string
-          user_id: string
-          wake_min: number
-        }
-        Insert: {
-          created_at?: string
-          default_duration?: number
-          google_hidden?: string[]
-          hide_team?: boolean
-          onboarded_at?: string | null
-          presets?: number[]
-          routine?: Json
-          sleep_min?: number
-          updated_at?: string
-          user_id?: string
-          wake_min?: number
-        }
-        Update: {
-          created_at?: string
-          default_duration?: number
-          google_hidden?: string[]
-          hide_team?: boolean
-          onboarded_at?: string | null
-          presets?: number[]
-          routine?: Json
-          sleep_min?: number
-          updated_at?: string
-          user_id?: string
-          wake_min?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agenda_prefs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -949,6 +979,45 @@ export type Database = {
           },
         ]
       }
+      cuaderno_note_updates: {
+        Row: {
+          created_at: string
+          data: string
+          id: number
+          note_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          id?: never
+          note_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: never
+          note_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_note_updates_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuaderno_note_updates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cuaderno_notes: {
         Row: {
           area: string
@@ -964,9 +1033,14 @@ export type Database = {
           kind: string
           parent_note_id: string | null
           position: number
+          shared_at: string | null
+          space_id: string | null
           title: string
           updated_at: string
           user_id: string
+          ydoc_claim: string | null
+          ydoc_claim_at: string | null
+          ydoc_epoch: number
         }
         Insert: {
           area?: string
@@ -982,9 +1056,14 @@ export type Database = {
           kind?: string
           parent_note_id?: string | null
           position?: number
+          shared_at?: string | null
+          space_id?: string | null
           title: string
           updated_at?: string
           user_id?: string
+          ydoc_claim?: string | null
+          ydoc_claim_at?: string | null
+          ydoc_epoch?: number
         }
         Update: {
           area?: string
@@ -1000,9 +1079,14 @@ export type Database = {
           kind?: string
           parent_note_id?: string | null
           position?: number
+          shared_at?: string | null
+          space_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
+          ydoc_claim?: string | null
+          ydoc_claim_at?: string | null
+          ydoc_epoch?: number
         }
         Relationships: [
           {
@@ -1027,7 +1111,88 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cuaderno_notes_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cuaderno_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuaderno_oauth_clients: {
+        Row: {
+          client_id: string
+          client_name: string
+          created_at: string
+          fetched_at: string
+          kind: string
+          redirect_uris: string[]
+        }
+        Insert: {
+          client_id: string
+          client_name?: string
+          created_at?: string
+          fetched_at?: string
+          kind?: string
+          redirect_uris: string[]
+        }
+        Update: {
+          client_id?: string
+          client_name?: string
+          created_at?: string
+          fetched_at?: string
+          kind?: string
+          redirect_uris?: string[]
+        }
+        Relationships: []
+      }
+      cuaderno_oauth_codes: {
+        Row: {
+          client_id: string
+          client_name: string
+          code_challenge: string
+          code_hash: string
+          created_at: string
+          expires_at: string
+          redirect_uri: string
+          resource: string | null
+          scope: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          client_name?: string
+          code_challenge: string
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          redirect_uri: string
+          resource?: string | null
+          scope: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          client_name?: string
+          code_challenge?: string
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          redirect_uri?: string
+          resource?: string | null
+          scope?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuaderno_oauth_codes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1037,29 +1202,47 @@ export type Database = {
       }
       cuaderno_tokens: {
         Row: {
+          client_id: string | null
           created_at: string
+          expires_at: string | null
           hint: string
           id: string
+          kind: string
           last_used_at: string | null
           name: string
+          refresh_expires_at: string | null
+          refresh_hash: string | null
+          scope: string
           token_hash: string
           user_id: string
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
+          expires_at?: string | null
           hint: string
           id?: string
+          kind?: string
           last_used_at?: string | null
           name?: string
+          refresh_expires_at?: string | null
+          refresh_hash?: string | null
+          scope?: string
           token_hash: string
           user_id?: string
         }
         Update: {
+          client_id?: string | null
           created_at?: string
+          expires_at?: string | null
           hint?: string
           id?: string
+          kind?: string
           last_used_at?: string | null
           name?: string
+          refresh_expires_at?: string | null
+          refresh_hash?: string | null
+          scope?: string
           token_hash?: string
           user_id?: string
         }
@@ -1524,6 +1707,7 @@ export type Database = {
           mime: string
           name: string
           note: string
+          note_id: string | null
           project_id: string | null
           size_bytes: number
           space_id: string
@@ -1541,6 +1725,7 @@ export type Database = {
           mime?: string
           name: string
           note?: string
+          note_id?: string | null
           project_id?: string | null
           size_bytes?: number
           space_id: string
@@ -1558,6 +1743,7 @@ export type Database = {
           mime?: string
           name?: string
           note?: string
+          note_id?: string | null
           project_id?: string | null
           size_bytes?: number
           space_id?: string
@@ -1579,6 +1765,13 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "material_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "cuaderno_notes"
             referencedColumns: ["id"]
           },
           {
@@ -2077,7 +2270,16 @@ export type Database = {
     Functions: {
       agenda_agent_bump: { Args: never; Returns: number }
       agenda_seed_calendars: { Args: never; Returns: undefined }
+      can_edit_note: { Args: { nid: string }; Returns: boolean }
       check_achievements: { Args: { sid: string }; Returns: string[] }
+      claim_note_ydoc: {
+        Args: { nid: string; p_epoch: number; p_token: string }
+        Returns: boolean
+      }
+      compact_note_updates: {
+        Args: { nid: string; p_snapshot: string; p_upto: number }
+        Returns: undefined
+      }
       create_invite: {
         Args: { p_space: string }
         Returns: {
@@ -2098,6 +2300,7 @@ export type Database = {
         }
       }
       create_space: { Args: { p_name?: string }; Returns: string }
+      cuaderno_file_shared: { Args: { path: string }; Returns: boolean }
       cuaderno_set_embedding: {
         Args: { emb: string; note: string }
         Returns: undefined
@@ -2122,7 +2325,6 @@ export type Database = {
           title: string
         }[]
       }
-      cuaderno_token_user: { Args: { p_hash: string }; Returns: string }
       demo_fill: { Args: { p_space: string }; Returns: undefined }
       gen_code: { Args: { n?: number }; Returns: string }
       hq_norm: { Args: { x: string }; Returns: string }
@@ -2133,9 +2335,35 @@ export type Database = {
       is_owner: { Args: { sid: string }; Returns: boolean }
       join_space: { Args: { p_code: string }; Returns: string }
       materials_room_left: { Args: { sid_text: string }; Returns: boolean }
+      save_shared_note: {
+        Args: { nid: string; p_body?: string; p_title?: string }
+        Returns: string
+      }
+      share_note: {
+        Args: { nid: string; p_folder?: string; p_space: string }
+        Returns: string
+      }
+      shared_note: {
+        Args: { nid: string }
+        Returns: {
+          body: string
+          id: string
+          owner_name: string
+          space_id: string
+          title: string
+          updated_at: string
+          user_id: string
+          ydoc_epoch: number
+        }[]
+      }
       shares_space: { Args: { uid: string }; Returns: boolean }
+      team_availability: {
+        Args: { p_from: string; p_space: string; p_to: string }
+        Returns: Json
+      }
       team_streak: { Args: { sid: string }; Returns: number }
       unlock_team_achievement: { Args: { p_id: string }; Returns: boolean }
+      unshare_note: { Args: { nid: string }; Returns: undefined }
       user_today: { Args: { uid?: string }; Returns: string }
       username_available: { Args: { p_username: string }; Returns: boolean }
       validate_task: {

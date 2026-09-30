@@ -2167,3 +2167,30 @@ textarea.cu-input { resize: none; }
 .cu-split-check input { width: var(--s5); height: var(--s5); accent-color: var(--green-photo); }
 .cu-split-title { width: 100%; min-height: 0; padding: 2px var(--s1); border: 0; border-bottom: 1.5px dashed var(--card-line); border-radius: 0; background: none; font-family: var(--serif); font-size: var(--t-md); font-weight: 700; color: var(--ink); }
 .cu-split-title:focus { outline: none; border-bottom-color: var(--accent); }
+
+/* ============================================================
+   Notas compartidas con el equipo: compartir, quién está y cursores con nombre (como Google Docs)
+   ============================================================ */
+.cu-sharebtn { gap: 6px; }
+.cu-sharebtn.on { color: var(--accent-ink); border-color: color-mix(in oklab, var(--accent) 45%, var(--card-line)); background: color-mix(in oklab, var(--accent) 10%, var(--card)); }
+.cu-peers { display: inline-flex; align-items: center; padding-left: 6px; }
+.cu-peers i { width: 28px; height: 28px; margin-left: -6px; display: grid; place-items: center; border-radius: 999px; border: 2px solid var(--paper); background: var(--pc, var(--ink-muted)); color: var(--on-color); font-size: var(--t-3xs); font-style: normal; font-weight: 800; box-shadow: 0 2px 0 color-mix(in oklab, var(--pc, var(--ink)) 60%, black); }
+.cu-peers i.more { background: var(--paper-dark); color: var(--ink-soft); box-shadow: none; }
+.cu-share { display: flex; flex-direction: column; gap: var(--s3); }
+.cu-share-state { display: flex; align-items: flex-start; gap: var(--s3); margin: 0; }
+.cu-share-state b { display: block; color: var(--ink); }
+.cu-share-state small { display: block; margin-top: 2px; font-size: var(--t-xs); font-weight: 600; line-height: 1.45; color: var(--ink-muted); }
+.cu-share-ico { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--accent); color: var(--on-color); box-shadow: 0 3px 0 color-mix(in oklab, var(--accent) 60%, black); }
+.cu-share-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.cu-share-lbl { font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.cu-share-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cu-share-chips button { min-height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--card-line); background: var(--card); font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); box-shadow: 0 2px 0 var(--card-edge); }
+.cu-share-chips button[aria-checked='true'] { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--card)); color: var(--accent-ink); }
+.cu-share-dot { width: 9px; height: 9px; border-radius: 999px; background: var(--fc, var(--ink-faint)); }
+.cu-live-wait { display: flex; align-items: center; gap: var(--s2); margin: var(--s4) 0; font-size: var(--t-sm); font-weight: 700; color: var(--ink-muted); }
+.cu-live-wait.err { color: var(--coral-ink); }
+.cu-live-hide { display: none; }
+/* el cursor de cada persona: una raya de su color con su nombre arriba */
+.collaboration-carets__caret { position: relative; margin-left: -1px; margin-right: -1px; border-left: 2px solid var(--cc); border-right: 0; word-break: normal; pointer-events: none; }
+.collaboration-carets__label { position: absolute; left: -2px; bottom: 100%; padding: 1px 6px 2px; border-radius: 6px 6px 6px 0; background: var(--cc); color: var(--on-color); font-family: var(--sans); font-size: 11px; font-style: normal; font-weight: 800; line-height: 1.35; white-space: nowrap; user-select: none; pointer-events: none; }
+.collaboration-carets__selection { background: color-mix(in srgb, var(--cc) 24%, transparent); }

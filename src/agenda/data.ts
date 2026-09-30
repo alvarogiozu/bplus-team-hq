@@ -14,7 +14,7 @@ export type Subtask = { id: string; t: string; done: boolean }
 export type AgendaItem = Omit<Tables<'agenda_items'>, 'subtasks'> & { subtasks: Subtask[] }
 export type Prefs = Tables<'agenda_prefs'>
 export type HqEvent = Tables<'events'> & { attendees: { user_id: string; response: string }[] }
-export type Person = { id: string; name: string; username: string; color: string }
+export type Person = { id: string; name: string; username: string; color: string; /** equipos que compartes con esa persona */ spaces?: string[] }
 export type HqData = {
   spaces: { id: string; name: string }[]
   people: Person[]
@@ -86,7 +86,10 @@ export function useHq() {
       const people = new Map<string, Person>()
       for (const r of rows) {
         if (r.user_id === userId && r.space) spaces.set(r.space.id, r.space.name)
-        if (r.profile) people.set(r.user_id, { id: r.user_id, name: r.profile.display_name, username: r.profile.username, color: r.profile.color })
+        if (r.profile) {
+          const had = people.get(r.user_id)?.spaces ?? []
+          people.set(r.user_id, { id: r.user_id, name: r.profile.display_name, username: r.profile.username, color: r.profile.color, spaces: [...had, r.space_id] })
+        }
       }
       const events = ((ev.data ?? []) as unknown as { event: HqEvent }[])
         .map((x) => x.event)

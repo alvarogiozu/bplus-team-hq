@@ -15,6 +15,7 @@ import { useMe } from '../auth/AuthProvider'
 import { useSpace } from '../spaces/SpaceProvider'
 import { keys, useAreas, useMembers, useXp } from '../data/queries'
 import { TeamAchievements } from './TeamAchievements'
+import { MemberStatus, TeamAvailability } from './TeamAvailability'
 import { presenceStore } from './presence'
 
 export default function TeamPage() {
@@ -72,6 +73,7 @@ export default function TeamPage() {
       </header>
 
       <InviteBox isOwner={isOwner} />
+      <TeamAvailability />
 
       {membersQ.isLoading ? (
         <ListSkeleton rows={3} />
@@ -90,6 +92,7 @@ export default function TeamPage() {
                 <h3>{m.profile.display_name}{me ? ' · tú' : ''}</h3>
                 <RoleTag member={m} editable={me || isOwner} />
                 {online.has(m.user_id) && <span className="mlive"><i /> En línea · {online.get(m.user_id)?.page}</span>}
+                <MemberStatus userId={m.user_id} />
                 <p className="job">{m.job_description}</p>
                 <div className="xp">{total} <small>XP</small></div>
                 <span className="lvlpill">Nivel {lp.level} · {lp.rank}</span>
