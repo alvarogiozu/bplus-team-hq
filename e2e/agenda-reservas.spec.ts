@@ -29,6 +29,12 @@ test('reservar tiempo y llenarlo con opciones', async ({ page }) => {
   await expect(panel).toContainText('Reservar tiempo')
   await expect(panel.locator('.ag-rsv-main')).toContainText(/Apartar\s*1 h$/)
   await expect(panel.locator('.ag-rsv')).toHaveCount(0) // ya no hay plantillas por grupo
+  // plegado de entrada: solo "Reservar tiempo" + Apartar; las opciones se abren tocando el título
+  const toggle = panel.getByRole('button', { name: 'Opciones para llenarlo' })
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(panel.getByRole('button', { name: 'Opción', exact: true })).toHaveCount(0)
+  await shot(page, 'pc-plegado')
+  await toggle.click()
   await newOption(page, 'Tocar guitarra')
   await newOption(page, 'Ajedrez')
   await page.waitForTimeout(300)
