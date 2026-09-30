@@ -106,7 +106,7 @@ export function useReserveActions() {
     async (r: Reserve | null, day: string, start: number, opts: { duration?: number; title?: string } = {}): Promise<{ item: AgendaItem; undo: Undo } | null> =>
       createItem({
         title: opts.title ?? r?.name ?? 'Reservado',
-        icon: r?.icon ?? 'star',
+        icon: r?.icon ?? 'clock',
         color: r?.color ?? '#8a6fb3',
         calendar_id: null,
         is_reserve: true,

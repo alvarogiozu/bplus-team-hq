@@ -18,7 +18,7 @@ import { EditorHost, openEditor, type Draft } from './Editor'
 import { useGroupsRealtime, type Group } from './groups'
 import { FillSheet } from './FillSheet'
 import { ReservesPanel } from './ReservesPanel'
-import { fitInReserve, reserveUsage, useReserveActions, useReserves, useReservesRealtime, type Reserve } from './reserves'
+import { fitInReserve, reserveUsage, useReserveActions, useReservesRealtime } from './reserves'
 import { useHobbies, useHobbiesRealtime, useHobbyActions, type Hobby } from './hobbies'
 import { AIcon } from './icons'
 import { Inbox } from './Inbox'
@@ -98,7 +98,6 @@ export function AgendaShell() {
   const hobbies = useHobbies().data
   const hobbyActions = useHobbyActions()
   useReservesRealtime()
-  const reserves = useReserves().data
   const reserveActions = useReserveActions()
   const [fillId, setFillId] = useState<string | null>(null)
   const mobile = useIsMobile()
@@ -245,10 +244,10 @@ export function AgendaShell() {
     haptic([6, 20, 6])
     return true
   }
-  async function reserveTime(r: Reserve | null, d: string, min?: number) {
-    const dur = r?.duration_min ?? 60
+  // una sola forma de reservar: apartas cuánto quieras y lo llenas después
+  async function reserveTime(dur: number, d: string, min?: number) {
     const start = min ?? slot(dur, d)
-    const res = await reserveActions.reserveBlock(r, d, start)
+    const res = await reserveActions.reserveBlock(null, d, start, { duration: dur, title: 'Tiempo reservado' })
     if (!res) return
     haptic(10)
     toast(`Reservaste «${res.item.title}» ${d === today ? 'hoy' : `el ${fmtDay(d)}`} a las ${hhmm(start)}`, { action: { label: 'Deshacer', onClick: () => void res.undo() } })
@@ -264,7 +263,7 @@ export function AgendaShell() {
   async function dropAt(p: DragPayload, min: number, d = day) {
     const moving = p.kind === 'item' ? items.find((x) => x.id === p.id) : undefined
     if (moving?.is_reserve) return moveReserve(moving, min, d)
-    if (p.kind === 'reserve') return reserveTime(reserves?.find((r) => r.id === p.id) ?? null, d, min)
+    if (p.kind === 'reserve') return reserveTime(p.duration, d, min)
     // soltarlo encima de un espacio reservado = llenarlo
     if (p.kind === 'item' || p.kind === 'hobby' || p.kind === 'task') {
       const host = reserveAt(d, min, p.id)
@@ -371,17 +370,12 @@ export function AgendaShell() {
       day={day}
       today={today}
       items={items}
-      onReserve={(r) => void reserveTime(r, day)}
-      onPlaceOption={(h, r) => {
-        // si ya reservaste ese tiempo hoy, la opción entra ahí; si no, va sola a tu día
-        const host = r ? items.find((i) => i.is_reserve && i.reserve_id === r.id && i.day === day && reserveUsage(i, items).free >= h.duration_min) : undefined
+      onReserve={(dur) => void reserveTime(dur, day)}
+      onPlaceOption={(h) => {
+        // si ya reservaste tiempo ese día y cabe, la opción entra ahí; si no, va sola a tu día
+        const host = items.find((i) => i.is_reserve && i.day === day && reserveUsage(i, items).free >= h.duration_min)
         if (host) void fillReserve(host, { kind: 'hobby', id: h.id, title: h.name, color: h.color, icon: h.icon, duration: h.duration_min, from: 'hobbies' })
         else void placeHobby(h)
-      }}
-      onOpenItem={(it) => {
-        if (mobile) setInboxOpen(false)
-        if (it.day && it.day !== day) setDay(it.day)
-        openEditor({ mode: 'edit', id: it.id })
       }}
       onDragStart={mobile ? () => setInboxOpen(false) : undefined}
     />

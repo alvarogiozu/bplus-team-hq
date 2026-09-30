@@ -8,97 +8,53 @@ import { useDraggable, type DragPayload } from './drag'
 import { hobbyDay, useHobbies, useHobbyActions, type Hobby } from './hobbies'
 import { AIcon, ITEM_COLORS } from './icons'
 import { guessIcon } from './localAgent'
-import { useReserveActions, useReserves, type Reserve } from './reserves'
 import { fmtDur } from './time'
 import { DurStep } from './TimePick'
 
-// Reservar tiempo (abajo a la izquierda; en el celular, en la hoja del Inbox): apartas un espacio
-// ("Hobbies 1 h", "Estudio 2 h") sin decidir todavía qué harás, y después lo llenas con sus
-// opciones o con tareas del Inbox. Cada reserva con opciones tiene su casilla del día: se marca
-// con el check del calendario y se intensifica hasta brillar si hiciste todas.
+// Reservar tiempo (abajo a la izquierda; en el celular, en la hoja del Inbox): UNA sola forma de
+// apartar tiempo, sin plantillas. Eliges cuánto (− / +), lo arrastras a tu día (o tocas +) y queda
+// un espacio punteado que llenas después con tus opciones (guitarra, ajedrez…) o con tareas.
+// La casilla del día se marca con el check del calendario y brilla si hiciste todas las opciones.
 const ICONS = ['star', 'music', 'design', 'chess', 'book', 'study', 'work', 'code', 'run', 'gym', 'heart', 'idea', 'food', 'travel', 'home', 'coffee', 'clean', 'call']
 const OPT_DURS = [15, 30, 45, 60, 90]
+const DUR_KEY = 'ag.reserva.min'
+
+function savedDur() {
+  try {
+    const n = Number(localStorage.getItem(DUR_KEY))
+    return n >= 15 && n <= 720 ? n : 60
+  } catch {
+    return 60
+  }
+}
 
 export function ReservesPanel(p: {
   day: string
   today: string
   items: AgendaItem[]
-  onReserve: (r: Reserve) => void
-  onPlaceOption: (h: Hobby, r: Reserve | null) => void
-  onOpenItem: (it: AgendaItem) => void
+  onReserve: (duration: number) => void
+  onPlaceOption: (h: Hobby) => void
   onDragStart?: () => void
 }) {
-  const reservesData = useReserves().data
   const hobbiesData = useHobbies().data
-  const reserves = useMemo(() => (reservesData ?? []).filter((r) => !r.archived), [reservesData])
-  const hobbies = useMemo(() => (hobbiesData ?? []).filter((h) => !h.archived), [hobbiesData])
-  const loose = hobbies.filter((h) => !h.reserve_id || !reserves.some((r) => r.id === h.reserve_id))
-  const [form, setForm] = useState<Reserve | 'new' | null>(null)
-  const [open, setOpen] = useState<string | null>(null)
-  const isToday = p.day === p.today
-
-  return (
-    <section className={`ag-hob ag-rsvs${form ? ' editing' : ''}`} aria-label="Reservar tiempo">
-      <header className="ag-hob-head">
-        <span className="ag-rsvs-ico" aria-hidden="true">
-          <AIcon name="clock" size={18} />
-        </span>
-        <div className="ag-hob-title">
-          <b>Reservar tiempo</b>
-          <small>{isToday ? 'Para hoy' : `Para el ${fmtDay(p.day)}`} · decide después con qué llenarlo</small>
-        </div>
-        <button className="ag-grp-edit" onClick={() => setForm(form === 'new' ? null : 'new')} aria-label="Nueva reserva" aria-expanded={form === 'new'}>
-          <AIcon name="plus" size={16} />
-        </button>
-      </header>
-
-      <AnimatePresence initial={false}>{form && <ReserveForm key={form === 'new' ? 'new' : form.id} r={form === 'new' ? undefined : form} onDone={() => setForm(null)} />}</AnimatePresence>
-
-      {reserves.length === 0 && loose.length === 0 && !form ? (
-        <p className="ag-hob-empty">Aparta tiempo sin decidir aún qué harás: «Hobbies 1 h», «Estudio 2 h»… Arrástralo a tu día y llénalo después con sus opciones o tus tareas.</p>
-      ) : (
-        <ul className="ag-rsv-list">
-          {reserves.map((r) => (
-            <ReserveCard
-              key={r.id}
-              r={r}
-              options={hobbies.filter((h) => h.reserve_id === r.id)}
-              {...p}
-              open={open === r.id}
-              onToggle={() => setOpen(open === r.id ? null : r.id)}
-              onEdit={() => setForm(r)}
-            />
-          ))}
-          {loose.length > 0 && (
-            <ReserveCard key="loose" r={null} options={loose} {...p} open={open === 'loose'} onToggle={() => setOpen(open === 'loose' ? null : 'loose')} onEdit={() => {}} />
-          )}
-        </ul>
-      )}
-    </section>
-  )
-}
-
-function ReserveCard(p: {
-  r: Reserve | null
-  options: Hobby[]
-  day: string
-  today: string
-  items: AgendaItem[]
-  open: boolean
-  onToggle: () => void
-  onEdit: () => void
-  onReserve: (r: Reserve) => void
-  onPlaceOption: (h: Hobby, r: Reserve | null) => void
-  onOpenItem: (it: AgendaItem) => void
-  onDragStart?: () => void
-}) {
-  const { r } = p
-  const payload: DragPayload | null = r ? { kind: 'reserve', id: r.id, title: r.name, color: r.color, icon: r.icon, duration: r.duration_min, from: 'hobbies' } : null
-  const { onPointerDown, isDragging } = useDraggable(payload, { onStart: p.onDragStart })
-  const stats = useMemo(() => hobbyDay(p.items, p.options, p.day), [p.items, p.options, p.day])
+  const options = useMemo(() => (hobbiesData ?? []).filter((h) => !h.archived), [hobbiesData])
+  const stats = useMemo(() => hobbyDay(p.items, options, p.day), [p.items, options, p.day])
+  const [dur, setDurState] = useState(savedDur)
+  const setDur = (d: number) => {
+    setDurState(d)
+    try {
+      localStorage.setItem(DUR_KEY, String(d))
+    } catch {
+      /* sin almacenamiento: se queda solo en esta pestaña */
+    }
+  }
   const [editing, setEditing] = useState(false)
   const [optForm, setOptForm] = useState<Hobby | 'new' | null>(null)
   const boxRef = useRef<HTMLSpanElement>(null)
+  const isToday = p.day === p.today
+
+  const payload: DragPayload = { kind: 'reserve', id: 'reserva', title: 'Tiempo reservado', color: '#8a6fb3', icon: 'clock', duration: dur, from: 'hobbies' }
+  const { onPointerDown, isDragging } = useDraggable(payload, { onStart: p.onDragStart })
 
   // celebrar solo cuando la casilla sube en vivo (no al cargar ni al cambiar de día)
   const seen = useRef<{ day: string; done: number } | null>(null)
@@ -111,26 +67,20 @@ function ReserveCard(p: {
     haptic(stats.all ? [10, 40, 10, 40, 14] : [8, 24, 8])
     if (stats.all) {
       celebrateRockie()
-      toast(stats.total > 1 ? `¡Hiciste todo lo de «${r?.name ?? 'tus actividades'}»! Así se evita el burnout.` : '¡Hecho!')
+      toast(stats.total > 1 ? '¡Hiciste todas tus opciones del día! Así se evita el burnout.' : '¡Hecho!')
     }
-  }, [p.day, stats.done, stats.all, stats.total, r?.name])
+  }, [p.day, stats.done, stats.all, stats.total])
 
-  const color = r?.color ?? '#9893a5'
   return (
-    <motion.li layout className={`ag-rsv${p.open ? ' open' : ''}`} style={{ ['--c' as string]: color, opacity: isDragging ? 0.35 : 1 } as CSSProperties}>
-      <div className="ag-rsv-head" onPointerDown={r ? onPointerDown : undefined}>
-        <button type="button" className="ag-rsv-toggle" onClick={p.onToggle} aria-expanded={p.open} aria-label={`${p.open ? 'Ocultar' : 'Ver'} las opciones de «${r?.name ?? 'Actividades sueltas'}»`}>
-          <span className="ag-rsv-tile">
-            <AIcon name={r?.icon ?? 'star'} size={17} />
-          </span>
-          <span className="ag-rsv-txt">
-            <b>{r?.name ?? 'Actividades sueltas'}</b>
-            <small>
-              {r ? fmtDur(r.duration_min) : 'sin reserva'}
-              {p.options.length ? ` · ${p.options.length} ${p.options.length === 1 ? 'opción' : 'opciones'}` : ''}
-            </small>
-          </span>
-        </button>
+    <section className={`ag-hob ag-rsvs${optForm ? ' editing' : ''}`} aria-label="Reservar tiempo">
+      <header className="ag-hob-head">
+        <span className="ag-rsvs-ico" aria-hidden="true">
+          <AIcon name="clock" size={18} />
+        </span>
+        <div className="ag-hob-title">
+          <b>Reservar tiempo</b>
+          <small>{isToday ? 'Para hoy' : `Para el ${fmtDay(p.day)}`} · lo llenas después</small>
+        </div>
         {stats.total > 0 && (
           <span className={`ag-rsv-box${stats.done ? ' on' : ''}${stats.all ? ' all' : ''}`} ref={boxRef} role="img" aria-label={`Hecho hoy: ${stats.done} de ${stats.total}`} style={{ ['--fill' as string]: stats.fill } as CSSProperties}>
             <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
@@ -143,66 +93,38 @@ function ReserveCard(p: {
             </small>
           </span>
         )}
-        {r && (
-          <button
-            className="ag-rsv-add"
-            data-nodrag
-            aria-label={`Reservar «${r.name}» en mi día`}
-            title="Reservar en el próximo hueco"
-            onClick={(e) => {
-              e.stopPropagation()
-              p.onReserve(r)
-            }}
-          >
-            <AIcon name="plus" size={16} />
-          </button>
-        )}
-        <span className="ag-rsv-chev" aria-hidden="true" onClick={p.onToggle}>
-          <AIcon name="down" size={14} />
-        </span>
+      </header>
+
+      {/* el bloque para apartar: eliges cuánto ahí mismo; se arrastra al día o se toca + */}
+      <div className="ag-rsv-main" style={{ opacity: isDragging ? 0.35 : 1 }} onPointerDown={onPointerDown} title="Arrástralo a tu día o toca +">
+        <b className="ag-rsv-lbl">Apartar</b>
+        <div className="ag-rsv-step" data-nodrag>
+          <DurStep value={dur} onChange={setDur} min={15} max={720} />
+        </div>
+        <button className="ag-rsv-add" data-nodrag aria-label="Reservar tiempo en mi día" title="Reservar en el próximo hueco" onClick={() => p.onReserve(dur)}>
+          <AIcon name="plus" size={16} />
+        </button>
       </div>
 
-      <AnimatePresence initial={false}>
-        {p.open && (
-          <motion.div className="ag-rsv-body" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ type: 'spring', stiffness: 420, damping: 38 }}>
-            <small className="ag-rsv-hint">{editing ? 'Toca una opción para cambiarla.' : 'Arrástrala a su espacio reservado (o tócala) para llenarlo.'}</small>
-            <div className="ag-rsv-opts">
-              {p.options.map((h) => (
-                <OptionChip
-                  key={h.id}
-                  h={h}
-                  placed={stats.blocks.get(h.id) ?? []}
-                  editing={editing}
-                  onTap={() => (editing ? setOptForm(h) : p.onPlaceOption(h, r))}
-                  onDragStart={p.onDragStart}
-                />
-              ))}
-              {r && (
-                <button className="ag-rsv-newopt" onClick={() => setOptForm(optForm === 'new' ? null : 'new')} aria-expanded={optForm === 'new'}>
-                  <AIcon name="plus" size={14} /> Opción
-                </button>
-              )}
-            </div>
-            <AnimatePresence initial={false}>
-              {optForm && <OptionForm key={optForm === 'new' ? 'new' : optForm.id} h={optForm === 'new' ? undefined : optForm} reserveId={r?.id ?? null} onDone={() => setOptForm(null)} />}
-            </AnimatePresence>
-            <div className="ag-rsv-acts">
-              {p.options.length > 0 && (
-                <button className="ag-linkbtn" onClick={() => setEditing(!editing)}>
-                  {editing ? 'Listo' : 'Editar opciones'}
-                </button>
-              )}
-              <span className="spacer" />
-              {r && (
-                <button className="ag-linkbtn" onClick={p.onEdit}>
-                  <AIcon name="pencil" size={12} /> Editar reserva
-                </button>
-              )}
-            </div>
-          </motion.div>
+      <div className="ag-rsv-optshead">
+        <span className="ag-grp-lbl">Opciones para llenarlo</span>
+        {options.length > 0 && (
+          <button className="ag-linkbtn" onClick={() => setEditing(!editing)}>
+            {editing ? 'Listo' : 'Editar'}
+          </button>
         )}
-      </AnimatePresence>
-    </motion.li>
+      </div>
+      {options.length === 0 && !optForm && <p className="ag-hob-empty">Guitarra, dibujar, ajedrez… lo que quieras hacer en ese tiempo.</p>}
+      <div className="ag-rsv-opts">
+        {options.map((h) => (
+          <OptionChip key={h.id} h={h} placed={stats.blocks.get(h.id) ?? []} editing={editing} onTap={() => (editing ? setOptForm(h) : p.onPlaceOption(h))} onDragStart={p.onDragStart} />
+        ))}
+        <button className="ag-rsv-newopt" onClick={() => setOptForm(optForm === 'new' ? null : 'new')} aria-expanded={optForm === 'new'}>
+          <AIcon name="plus" size={14} /> Opción
+        </button>
+      </div>
+      <AnimatePresence initial={false}>{optForm && <OptionForm key={optForm === 'new' ? 'new' : optForm.id} h={optForm === 'new' ? undefined : optForm} onDone={() => setOptForm(null)} />}</AnimatePresence>
+    </section>
   )
 }
 
@@ -227,69 +149,8 @@ function OptionChip({ h, placed, editing, onTap, onDragStart }: { h: Hobby; plac
   )
 }
 
-/** Crear o editar una reserva: nombre, cuánto tiempo aparta, ícono y color. */
-function ReserveForm({ r, onDone }: { r?: Reserve; onDone: () => void }) {
-  const { createReserve, updateReserve, archiveReserve } = useReserveActions()
-  const [name, setName] = useState(r?.name ?? '')
-  const [dur, setDur] = useState(r?.duration_min ?? 60)
-  const [icon, setIcon] = useState(r?.icon ?? '')
-  const [color, setColor] = useState(r?.color ?? '')
-  const guessed = guessIcon(name)
-  const shownIcon = icon || (guessed === 'task' ? 'star' : guessed)
-  const shownColor = color || r?.color || ITEM_COLORS[2]
-  const formRef = useRef<HTMLFormElement>(null)
-
-  async function save(e: FormEvent) {
-    e.preventDefault()
-    const clean = name.trim()
-    if (!clean) return
-    if (r) await updateReserve(r.id, { name: clean, duration_min: dur, icon: shownIcon, color: shownColor })
-    else await createReserve({ name: clean, duration_min: dur, icon: shownIcon, color: color || undefined })
-    onDone()
-  }
-
-  return (
-    <motion.form
-      ref={formRef}
-      className="ag-grp-form"
-      onSubmit={save}
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: 'auto' }}
-      exit={{ opacity: 0, height: 0 }}
-      onAnimationComplete={(def) => (def as { opacity?: number }).opacity === 1 && formRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })} style={{ ['--c' as string]: shownColor } as CSSProperties}>
-      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Hobbies, Estudio, Tiempo para mí" aria-label="Nombre de la reserva" maxLength={40} />
-      <span className="ag-grp-lbl">Cuánto tiempo aparta</span>
-      <DurStep value={dur} onChange={setDur} min={15} max={720} />
-      <span className="ag-grp-lbl">Ícono y color</span>
-      <IconColor icon={shownIcon} color={shownColor} onIcon={setIcon} onColor={setColor} />
-      <div className="ag-caledit-acts">
-        {r && (
-          <button
-            type="button"
-            className="ag-trash sm"
-            aria-label={`Quitar la reserva «${r.name}»`}
-            onClick={() => {
-              onDone()
-              void archiveReserve(r)
-            }}
-          >
-            <AIcon name="trash" size={15} />
-          </button>
-        )}
-        <span className="spacer" />
-        <button type="button" className="ag-chip" onClick={onDone}>
-          Cancelar
-        </button>
-        <button className="ag-chip on" disabled={!name.trim()}>
-          {r ? 'Guardar' : 'Crear reserva'}
-        </button>
-      </div>
-    </motion.form>
-  )
-}
-
-/** Una opción para llenar la reserva (guitarra 30 min, repasar física 45 min…). */
-function OptionForm({ h, reserveId, onDone }: { h?: Hobby; reserveId: string | null; onDone: () => void }) {
+/** Una opción para llenar el tiempo reservado (guitarra 30 min, repasar física 45 min…). */
+function OptionForm({ h, onDone }: { h?: Hobby; onDone: () => void }) {
   const { createHobby, updateHobby, archiveHobby } = useHobbyActions()
   const [name, setName] = useState(h?.name ?? '')
   const [dur, setDur] = useState(h?.duration_min ?? 30)
@@ -305,7 +166,7 @@ function OptionForm({ h, reserveId, onDone }: { h?: Hobby; reserveId: string | n
     const clean = name.trim()
     if (!clean) return
     if (h) await updateHobby(h.id, { name: clean, duration_min: dur, icon: shownIcon, color: shownColor })
-    else await createHobby({ name: clean, duration_min: dur, icon: shownIcon, color: color || undefined, reserve_id: reserveId })
+    else await createHobby({ name: clean, duration_min: dur, icon: shownIcon, color: color || undefined })
     onDone()
   }
 
@@ -317,7 +178,9 @@ function OptionForm({ h, reserveId, onDone }: { h?: Hobby; reserveId: string | n
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ opacity: 0, height: 0 }}
-      onAnimationComplete={(def) => (def as { opacity?: number }).opacity === 1 && formRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })} style={{ ['--c' as string]: shownColor } as CSSProperties}>
+      onAnimationComplete={(def) => (def as { opacity?: number }).opacity === 1 && formRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}
+      style={{ ['--c' as string]: shownColor } as CSSProperties}
+    >
       <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Tocar guitarra" aria-label="Nombre de la opción" maxLength={40} />
       <span className="ag-grp-lbl">Cuánto dura</span>
       <div className="ag-hob-durs" role="radiogroup" aria-label="Duración">
@@ -328,7 +191,18 @@ function OptionForm({ h, reserveId, onDone }: { h?: Hobby; reserveId: string | n
         ))}
       </div>
       <span className="ag-grp-lbl">Ícono y color</span>
-      <IconColor icon={shownIcon} color={shownColor} onIcon={setIcon} onColor={setColor} />
+      <div className="ag-hob-icons">
+        {ICONS.map((i) => (
+          <button key={i} type="button" className={`ag-icon${i === shownIcon ? ' on' : ''}`} aria-label={`Ícono ${i}`} aria-pressed={i === shownIcon} onClick={() => setIcon(i)}>
+            <AIcon name={i} size={18} />
+          </button>
+        ))}
+      </div>
+      <div className="ag-calcolors">
+        {ITEM_COLORS.map((c) => (
+          <button key={c} type="button" className="ag-sw sm" style={{ background: c }} aria-label={`Color ${c}`} aria-pressed={c === shownColor} onClick={() => setColor(c)} />
+        ))}
+      </div>
       <div className="ag-caledit-acts">
         {h && (
           <button
@@ -352,24 +226,5 @@ function OptionForm({ h, reserveId, onDone }: { h?: Hobby; reserveId: string | n
         </button>
       </div>
     </motion.form>
-  )
-}
-
-function IconColor({ icon, color, onIcon, onColor }: { icon: string; color: string; onIcon: (i: string) => void; onColor: (c: string) => void }) {
-  return (
-    <>
-      <div className="ag-hob-icons">
-        {ICONS.map((i) => (
-          <button key={i} type="button" className={`ag-icon${i === icon ? ' on' : ''}`} aria-label={`Ícono ${i}`} aria-pressed={i === icon} onClick={() => onIcon(i)}>
-            <AIcon name={i} size={18} />
-          </button>
-        ))}
-      </div>
-      <div className="ag-calcolors">
-        {ITEM_COLORS.map((c) => (
-          <button key={c} type="button" className="ag-sw sm" style={{ background: c }} aria-label={`Color ${c}`} aria-pressed={c === color} onClick={() => onColor(c)} />
-        ))}
-      </div>
-    </>
   )
 }
