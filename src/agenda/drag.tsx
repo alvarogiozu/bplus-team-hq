@@ -68,7 +68,8 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const register = useCallback((t: DropTarget) => {
     targets.current.set(t.id, t)
     return () => {
-      targets.current.delete(t.id)
+      // al cambiar de día conviven dos líneas un instante: la que se va no puede borrar a la nueva
+      if (targets.current.get(t.id) === t) targets.current.delete(t.id)
     }
   }, [])
   const setScroller = useCallback((el: HTMLElement | null) => {
