@@ -5,6 +5,7 @@ import { TEAM_COLOR } from './blocks'
 import { useCalendarActions, useCalendarMap, useGoogleActions, useGoogleCalendars, useGoogleStatus, type Calendar } from './calendars'
 import { useAgendaActions, usePrefs } from './data'
 import { AIcon, CAL_COLORS } from './icons'
+import { PeopleSection } from './People'
 
 // Panel derecho de Rockie Agenda: el mes para saltar de día, tus calendarios (cada
 // actividad vive en uno; la casilla lo muestra u oculta), lo del equipo y Google
@@ -14,6 +15,7 @@ export function CalendarsPanel(p: { day: string; today: string; onPick: (d: stri
     <div className="ag-cals-body">
       <MiniMonth day={p.day} today={p.today} onPick={p.onPick} />
       <MyCalendars />
+      {p.hasTeam && <PeopleSection />}
       {p.hasTeam && <TeamRow />}
       <GoogleSection />
     </div>

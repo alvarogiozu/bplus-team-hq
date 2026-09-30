@@ -9,6 +9,7 @@ import type { Json } from '../lib/database.types'
 import { WEEKDAY_NAMES } from '../lib/dates'
 import type { Routine } from './blocks'
 import { useAgendaActions, usePrefs } from './data'
+import { AvailabilityEditor } from './AvailabilityEditor'
 import { AIcon } from './icons'
 import { fmtDur } from './time'
 import { TimePick } from './TimePick'
@@ -98,6 +99,14 @@ export function AgendaSettings({ open, onClose, anchors }: { open: boolean; onCl
             )
           })}
         </div>
+      </section>
+
+      <section className="ag-set" id="disponibilidad">
+        <b className="ag-card-t">Tu disponibilidad para el equipo</b>
+        <p className="hint" style={{ margin: '0 0 10px' }}>
+          Como el horario laboral de Google Calendar: tu equipo ve cuándo estás disponible y te agenda reuniones ahí. En tu día queda una raya finita a la derecha que lo marca.
+        </p>
+        <AvailabilityEditor />
       </section>
 
       <section className="ag-set">

@@ -13,6 +13,8 @@ import { humanError, supabase } from '../lib/supabase'
 import { useAuth } from '../features/auth/AuthProvider'
 import { TEAM_COLOR } from './blocks'
 import { akeys, useAgendaActions, useHq, useItems, usePrefs, type Subtask } from './data'
+import type { ShareLevel, Visibility } from './availability'
+import { SeePick } from './AvailabilityEditor'
 import { AIcon } from './icons'
 import { DatePop, StylePop, TimePop } from './Popovers'
 import { useCalendarMap } from './calendars'
@@ -33,6 +35,8 @@ export type Draft = {
   end_day?: string | null
   group_id?: string | null
   priority?: number
+  /** qué ve tu equipo de este evento (null = lo de siempre) */
+  visibility?: Visibility | null
 }
 export type EditorState = { mode: 'new'; draft: Draft } | { mode: 'edit'; id: string } | { mode: 'event'; id: string } | { mode: 'task'; id: string } | null
 
@@ -134,6 +138,7 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
         group_id: item.group_id,
         end_day: item.end_day,
         priority: item.priority,
+        visibility: (item.visibility as Visibility | null) ?? null,
       }
     : draft!
   const [f, setF] = useState<Draft>(init)
@@ -178,6 +183,7 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
       calendar_id: f.calendar_id ?? null,
       group_id: f.group_id ?? null,
       priority: f.priority ?? 0,
+      visibility: f.visibility ?? null,
       // varios días solo para lo de todo el día (y siempre después del primer día)
       end_day: f.day && f.start == null && f.end_day && f.end_day > f.day ? f.end_day : null,
     }
@@ -372,6 +378,12 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
               )}
               <span className="ag-card-t">Prioridad</span>
               <PrioPick value={f.priority ?? 0} onChange={(priority) => set({ priority })} />
+              {f.day != null && f.start != null && (
+                <>
+                  <span className="ag-card-t">Tu equipo ve</span>
+                  <SeePick value={f.visibility ?? null} level={(prefs?.share_level as ShareLevel | undefined) ?? 'busy'} onChange={(visibility) => set({ visibility })} />
+                </>
+              )}
             </div>
             )}
 

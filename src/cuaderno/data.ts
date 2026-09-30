@@ -52,7 +52,15 @@ export type Entry = Omit<Tables<'cuaderno_entries'>, 'proposals' | 'source' | 's
 }
 /** Una página se escribe (Markdown) o es una pizarra infinita (su escena vive en cuaderno_boards). */
 export type NoteKind = 'pagina' | 'pizarra'
-export type Note = Omit<Tables<'cuaderno_notes'>, 'embedding' | 'area' | 'kind' | 'color'> & { area: Area; kind: NoteKind; color: BookColor | null }
+export type Note = Omit<Tables<'cuaderno_notes'>, 'embedding' | 'area' | 'kind' | 'color' | 'space_id' | 'ydoc_epoch' | 'shared_at' | 'ydoc_claim' | 'ydoc_claim_at'> & {
+  area: Area
+  kind: NoteKind
+  color: BookColor | null
+  /** compartida con este equipo (se edita a la vez, como Google Docs) */
+  space_id?: string | null
+  /** sube cuando el documento en vivo se rehace desde el Markdown */
+  ydoc_epoch?: number
+}
 export type Link = Tables<'cuaderno_links'>
 export type Card = Tables<'cuaderno_cards'>
 export type DayLog = Tables<'cuaderno_days'>
@@ -73,7 +81,7 @@ export const AREAS: { id: Area; label: string; icon: string; hint: string }[] = 
 export const areaOf = (id: string) => AREAS.find((a) => a.id === id) ?? AREAS[4]
 
 // sin la columna embedding: pesa y el cliente no la usa
-const NOTE_COLS = 'id, user_id, title, body, area, kind, color, icon, entry_id, book_id, parent_note_id, position, embedded_at, created_at, updated_at'
+const NOTE_COLS = 'id, user_id, title, body, area, kind, color, icon, entry_id, book_id, parent_note_id, position, embedded_at, created_at, updated_at, space_id, ydoc_epoch'
 
 export const ckeys = {
   notes: (u: string | null) => ['cu-notes', u] as const,

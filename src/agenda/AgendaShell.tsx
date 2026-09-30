@@ -8,6 +8,7 @@ import { burst, celebrateRockie, haptic } from '../lib/fx'
 import { useMe } from '../features/auth/AuthProvider'
 import { anchorsOf, dayContent, dotsFor, lastFreeSlot, type Block } from './blocks'
 import { anchorOk, AnchorSheet, type AnchorEdit } from './AnchorSheet'
+import { cleanAvail, personDay, rangesOn } from './availability'
 import { CalendarsPanel } from './CalendarsPanel'
 import { useCalendarMap, useCalendarsRealtime, useGoogleCalendars, useGoogleEvents, useGoogleReturn, useGoogleStatus, useGoogleSync } from './calendars'
 import { useAgendaActions, useAgendaRealtime, useHq, useItems, usePrefs, type AgendaItem } from './data'
@@ -22,11 +23,12 @@ import { fitInReserve, reserveUsage, useReserveActions, useReservesRealtime } fr
 import { useHobbies, useHobbiesRealtime, useHobbyActions, type Hobby } from './hobbies'
 import { AIcon } from './icons'
 import { Inbox } from './Inbox'
+import { usePeopleOverlay } from './People'
 import { DatePop } from './Popovers'
 import { RockieBar } from './RockieBar'
 import { AgendaSettings } from './Settings'
 import { fmtDur, hhmm, nowMinIn } from './time'
-import { Timeline, type Ghost } from './Timeline'
+import { Timeline, type Ghost, type Lane } from './Timeline'
 import { WeekBars } from './WeekBars'
 
 function useClock(tz: string) {
@@ -77,6 +79,7 @@ export function nextFreeSlot(blocks: Block[], opts: { isToday: boolean; nowMin: 
 
 export function AgendaShell() {
   const { profile } = useMe()
+  // personas del equipo que miras (Buscar personas) y tu horario para el equipo
   const tz = profile.timezone
   const { today, nowMin } = useClock(tz)
   const [params, setParams] = useSearchParams()
@@ -87,6 +90,16 @@ export function AgendaShell() {
   const hq = useHq().data
   const prefs = usePrefs().data
   const actions = useAgendaActions()
+  const overlay = usePeopleOverlay(day, today)
+  const lanes = useMemo<Lane[]>(
+    () =>
+      overlay.people.map((x) => {
+        const d = personDay(overlay.avail, x.id, day, tz)
+        return { id: x.id, name: x.name, color: x.color, busy: d.busy, hours: d.hours }
+      }),
+    [overlay.people, overlay.avail, day, tz],
+  )
+  const myAvail = useMemo(() => rangesOn(cleanAvail(prefs?.availability), day), [prefs?.availability, day])
   useAgendaRealtime()
   useCalendarsRealtime()
   useGroupsRealtime()
@@ -508,6 +521,8 @@ export function AgendaShell() {
                   }}
                   onGapClick={(min) => openEditor({ mode: 'new', draft: newDraft(min) })}
                   onFill={(b) => setFillId(b.id)}
+                  avail={myAvail}
+                  people={lanes}
                 />
               </motion.div>
             </AnimatePresence>
