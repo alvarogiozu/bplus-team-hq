@@ -18,6 +18,7 @@ import { DurStep } from './TimePick'
 const ICONS = ['star', 'music', 'design', 'chess', 'book', 'study', 'work', 'code', 'run', 'gym', 'heart', 'idea', 'food', 'travel', 'home', 'coffee', 'clean', 'call']
 const OPT_DURS = [15, 30, 45, 60, 90]
 const DUR_KEY = 'ag.reserva.min'
+const OPEN_KEY = 'ag.reserva.abierto'
 
 function savedDur() {
   try {
@@ -48,6 +49,25 @@ export function ReservesPanel(p: {
       /* sin almacenamiento: se queda solo en esta pestaña */
     }
   }
+  const [open, setOpenState] = useState(() => {
+    try {
+      return localStorage.getItem(OPEN_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const setOpen = (o: boolean) => {
+    setOpenState(o)
+    if (!o) {
+      setEditing(false)
+      setOptForm(null)
+    }
+    try {
+      localStorage.setItem(OPEN_KEY, o ? '1' : '0')
+    } catch {
+      /* sin almacenamiento */
+    }
+  }
   const [editing, setEditing] = useState(false)
   const [optForm, setOptForm] = useState<Hobby | 'new' | null>(null)
   const boxRef = useRef<HTMLSpanElement>(null)
@@ -73,13 +93,14 @@ export function ReservesPanel(p: {
 
   return (
     <section className={`ag-hob ag-rsvs${optForm ? ' editing' : ''}`} aria-label="Reservar tiempo">
-      <header className="ag-hob-head">
+      {/* plegado por defecto: solo "Reservar tiempo" + Apartar; las opciones se abren tocando el título */}
+      <button className="ag-hob-head ag-rsvs-toggle" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Opciones para llenarlo">
         <span className="ag-rsvs-ico" aria-hidden="true">
           <AIcon name="clock" size={18} />
         </span>
         <div className="ag-hob-title">
           <b>Reservar tiempo</b>
-          <small>{isToday ? 'Para hoy' : `Para el ${fmtDay(p.day)}`} · lo llenas después</small>
+          <small>{isToday ? 'Para hoy' : `Para el ${fmtDay(p.day)}`} · {options.length ? `${options.length} ${options.length === 1 ? 'opción' : 'opciones'}` : 'lo llenas después'}</small>
         </div>
         {stats.total > 0 && (
           <span className={`ag-rsv-box${stats.done ? ' on' : ''}${stats.all ? ' all' : ''}`} ref={boxRef} role="img" aria-label={`Hecho hoy: ${stats.done} de ${stats.total}`} style={{ ['--fill' as string]: stats.fill } as CSSProperties}>
@@ -93,7 +114,10 @@ export function ReservesPanel(p: {
             </small>
           </span>
         )}
-      </header>
+        <span className="ag-rsvs-chev" aria-hidden="true">
+          <AIcon name="down" size={16} />
+        </span>
+      </button>
 
       {/* el bloque para apartar: eliges cuánto ahí mismo; se arrastra al día o se toca + */}
       <div className="ag-rsv-main" style={{ opacity: isDragging ? 0.35 : 1 }} onPointerDown={onPointerDown} title="Arrástralo a tu día o toca +">
@@ -106,24 +130,37 @@ export function ReservesPanel(p: {
         </button>
       </div>
 
-      <div className="ag-rsv-optshead">
-        <span className="ag-grp-lbl">Opciones para llenarlo</span>
-        {options.length > 0 && (
-          <button className="ag-linkbtn" onClick={() => setEditing(!editing)}>
-            {editing ? 'Listo' : 'Editar'}
-          </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="opts"
+            className="ag-rsv-more"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 38 }}
+          >
+            <div className="ag-rsv-optshead">
+              <span className="ag-grp-lbl">Opciones para llenarlo</span>
+              {options.length > 0 && (
+                <button className="ag-linkbtn" onClick={() => setEditing(!editing)}>
+                  {editing ? 'Listo' : 'Editar'}
+                </button>
+              )}
+            </div>
+            {options.length === 0 && !optForm && <p className="ag-hob-empty">Guitarra, dibujar, ajedrez… lo que quieras hacer en ese tiempo.</p>}
+            <div className="ag-rsv-opts">
+              {options.map((h) => (
+                <OptionChip key={h.id} h={h} placed={stats.blocks.get(h.id) ?? []} editing={editing} onTap={() => (editing ? setOptForm(h) : p.onPlaceOption(h))} onDragStart={p.onDragStart} />
+              ))}
+              <button className="ag-rsv-newopt" onClick={() => setOptForm(optForm === 'new' ? null : 'new')} aria-expanded={optForm === 'new'}>
+                <AIcon name="plus" size={14} /> Opción
+              </button>
+            </div>
+            <AnimatePresence initial={false}>{optForm && <OptionForm key={optForm === 'new' ? 'new' : optForm.id} h={optForm === 'new' ? undefined : optForm} onDone={() => setOptForm(null)} />}</AnimatePresence>
+          </motion.div>
         )}
-      </div>
-      {options.length === 0 && !optForm && <p className="ag-hob-empty">Guitarra, dibujar, ajedrez… lo que quieras hacer en ese tiempo.</p>}
-      <div className="ag-rsv-opts">
-        {options.map((h) => (
-          <OptionChip key={h.id} h={h} placed={stats.blocks.get(h.id) ?? []} editing={editing} onTap={() => (editing ? setOptForm(h) : p.onPlaceOption(h))} onDragStart={p.onDragStart} />
-        ))}
-        <button className="ag-rsv-newopt" onClick={() => setOptForm(optForm === 'new' ? null : 'new')} aria-expanded={optForm === 'new'}>
-          <AIcon name="plus" size={14} /> Opción
-        </button>
-      </div>
-      <AnimatePresence initial={false}>{optForm && <OptionForm key={optForm === 'new' ? 'new' : optForm.id} h={optForm === 'new' ? undefined : optForm} onDone={() => setOptForm(null)} />}</AnimatePresence>
+      </AnimatePresence>
     </section>
   )
 }
