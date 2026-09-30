@@ -1019,7 +1019,8 @@ button.mission:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ca
 .tavail-txt { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 2px; }
 .tavail-txt b { font-family: var(--serif); font-size: var(--t-lg); color: var(--ink); }
 .tavail-txt small { font-size: var(--t-xs); font-weight: 600; color: var(--ink-muted); line-height: 1.4; }
-.mstat { display: inline-flex; align-items: center; gap: 6px; margin: 2px auto 0; font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); }
+.mstat { display: inline-flex; align-items: center; gap: 6px; margin: 2px auto 0; padding: 3px 8px; border: 0; border-radius: 999px; background: none; font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); cursor: pointer; transition: background .15s; }
+.mstat:hover { background: var(--paper-alt); }
 .mstat i { width: 8px; height: 8px; border-radius: 999px; background: var(--ink-faint); }
 .mstat.st-free { color: var(--green-edge); }
 .mstat.st-free i { background: var(--green); }

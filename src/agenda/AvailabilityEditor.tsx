@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { Sheet } from '../components/Sheet'
 import type { Json } from '../lib/database.types'
 import { haptic } from '../lib/fx'
 import { WORK_DEFAULT, cleanAvail, hasAvail, type Avail, type ShareLevel, type Visibility } from './availability'
@@ -24,6 +25,18 @@ export function useMyAvailability() {
   const prefs = usePrefs().data
   const avail = useMemo(() => cleanAvail(prefs?.availability), [prefs?.availability])
   return { avail, level: ((prefs?.share_level as ShareLevel | undefined) ?? 'busy') as ShareLevel }
+}
+
+/** Tu horario en una hoja (desde Personas, la vista de disponibilidad o el Equipo). */
+export function MyHoursSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Tu horario para el equipo">
+      <p className="hint" style={{ margin: '0 0 10px' }}>
+        Como el horario laboral de Google Calendar: fuera de estas horas tu equipo te ve «no disponible» (rayado), aunque no tengas eventos.
+      </p>
+      <AvailabilityEditor />
+    </Sheet>
+  )
 }
 
 export function AvailabilityEditor() {
