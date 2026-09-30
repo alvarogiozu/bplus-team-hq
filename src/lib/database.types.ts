@@ -298,6 +298,53 @@ export type Database = {
           id: string
           name: string
           position: number
+          reserve_id: string | null
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          duration_min?: number
+          icon?: string
+          id?: string
+          name: string
+          position?: number
+          reserve_id?: string | null
+          user_id?: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          duration_min?: number
+          icon?: string
+          id?: string
+          name?: string
+          position?: number
+          reserve_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_hobbies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_reserves: {
+        Row: {
+          archived: boolean
+          color: string
+          created_at: string
+          duration_min: number
+          icon: string
+          id: string
+          name: string
+          position: number
           user_id: string
         }
         Insert: {
@@ -324,7 +371,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "agenda_hobbies_user_id_fkey"
+            foreignKeyName: "agenda_reserves_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -347,9 +394,12 @@ export type Database = {
           hq_task_id: string | null
           icon: string
           id: string
+          in_reserve: string | null
+          is_reserve: boolean
           notes: string
           position: number
           priority: number
+          reserve_id: string | null
           start_min: number | null
           subtasks: Json
           title: string
@@ -370,9 +420,12 @@ export type Database = {
           hq_task_id?: string | null
           icon?: string
           id?: string
+          in_reserve?: string | null
+          is_reserve?: boolean
           notes?: string
           position?: number
           priority?: number
+          reserve_id?: string | null
           start_min?: number | null
           subtasks?: Json
           title: string
@@ -393,9 +446,12 @@ export type Database = {
           hq_task_id?: string | null
           icon?: string
           id?: string
+          in_reserve?: string | null
+          is_reserve?: boolean
           notes?: string
           position?: number
           priority?: number
+          reserve_id?: string | null
           start_min?: number | null
           subtasks?: Json
           title?: string

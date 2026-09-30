@@ -48,3 +48,19 @@ describe('varios días', () => {
     expect(allDay[0].title).toBe('Congreso · día 2 de 4')
   })
 })
+
+describe('reservar tiempo: dónde cabe', () => {
+  const win = { start: 600, end: 660 } // 10:00–11:00
+  it('respeta dónde lo soltaste si cabe', async () => {
+    const { fitInReserve } = await import('./blocks')
+    expect(fitInReserve(win, [], 30, 615)).toBe(615)
+  })
+  it('si no cabe ahí, va al primer hueco', async () => {
+    const { fitInReserve } = await import('./blocks')
+    expect(fitInReserve(win, [{ start: 600, duration: 30 }], 30, 610)).toBe(630)
+  })
+  it('null si ya no cabe', async () => {
+    const { fitInReserve } = await import('./blocks')
+    expect(fitInReserve(win, [{ start: 600, duration: 45 }], 30)).toBeNull()
+  })
+})

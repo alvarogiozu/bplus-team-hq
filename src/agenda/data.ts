@@ -349,10 +349,10 @@ export function useAgendaActions() {
 
   /** Bloque de tiempo en mi día para una tarea del HQ (la tarea del equipo no cambia). */
   const scheduleTask = useCallback(
-    async (t: Task, day: string, start: number, duration: number): Promise<Undo | null> => {
+    async (t: Task, day: string, start: number, duration: number, extra: ItemPatch = {}): Promise<Undo | null> => {
       const existing = itemsNow().find((x) => x.hq_task_id === t.id)
-      if (existing) return updateItem(existing.id, { day, start_min: start, duration_min: duration })
-      const res = await createItem({ title: t.title, hq_task_id: t.id, day, start_min: start, duration_min: duration, color: '#2e88aa', icon: 'flag' })
+      if (existing) return updateItem(existing.id, { day, start_min: start, duration_min: duration, in_reserve: null, ...extra })
+      const res = await createItem({ title: t.title, hq_task_id: t.id, day, start_min: start, duration_min: duration, color: '#2e88aa', icon: 'flag', ...extra })
       return res?.undo ?? null
     },
     [itemsNow, updateItem, createItem],

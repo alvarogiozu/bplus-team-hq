@@ -9,6 +9,7 @@ import type { Hobby, useHobbyActions } from './hobbies'
 import { guessIcon, type Proposal } from './localAgent'
 import { anchorsOf, lastFreeSlot, type DayAnchors, type Routine } from './blocks'
 import type { useDayActions } from './days'
+import type { Reserve, useReserveActions } from './reserves'
 import type { Json } from '../lib/database.types'
 import type { Ghost } from './Timeline'
 import { fmtDur, hhmm, parseHhmm, tsToMin } from './time'
@@ -21,6 +22,7 @@ type Actions = ReturnType<typeof useAgendaActions> & {
   groups?: ReturnType<typeof useGroupActions>
   hobbies?: ReturnType<typeof useHobbyActions>
   days?: ReturnType<typeof useDayActions>
+  reserves?: ReturnType<typeof useReserveActions>
 }
 
 // Prioridad de la voz ('baja'...) <-> cristales 0–3
@@ -44,6 +46,7 @@ export type Look = {
   groups: Map<string, Group>
   hobbies: Map<string, Hobby>
   routine: Routine
+  reserves: Map<string, Reserve>
 }
 
 export function makeLook(p: {
@@ -56,6 +59,7 @@ export function makeLook(p: {
   cals?: { id: string; name: string; color: string; hidden?: boolean }[]
   groups?: Group[]
   hobbies?: Hobby[]
+  reserves?: Reserve[]
 }): Look {
   return {
     today: p.today,
@@ -73,6 +77,7 @@ export function makeLook(p: {
     groups: new Map((p.groups ?? []).map((g) => [g.id, g])),
     hobbies: new Map((p.hobbies ?? []).filter((h) => !h.archived).map((h) => [h.id, h])),
     routine: (p.prefs?.routine ?? {}) as Routine,
+    reserves: new Map((p.reserves ?? []).filter((r) => !r.archived).map((r) => [r.id, r])),
   }
 }
 
@@ -90,6 +95,7 @@ export function buildContext(p: {
   groups?: Group[]
   hobbies?: Hobby[]
   days?: Map<string, DayAnchors>
+  reserves?: Reserve[]
 }) {
   const hoy = anchorsOf(p.prefs, p.today, p.days?.get(p.today))
   const routine = (p.prefs?.routine ?? {}) as Routine
@@ -111,6 +117,7 @@ export function buildContext(p: {
       ...(i.priority ? { priority: PRIO_WORDS[i.priority] } : {}),
       ...(i.hobby_id ? { hobby_id: i.hobby_id } : {}),
       ...(i.end_day ? { end_day: i.end_day } : {}),
+      ...(i.is_reserve ? { reservado: true } : {}),
     }))
   const hq = p.hq
   const people = new Map((hq?.people ?? []).map((x) => [x.id, x.name]))
@@ -145,6 +152,8 @@ export function buildContext(p: {
     // Grupos de tareas (tanda con nombre propio) y hobbies (tiempo libre, sin hora fija)
     groups: (p.groups ?? []).map((g) => ({ id: g.id, name: g.name, calendar_id: g.calendar_id, priority: PRIO_WORDS[g.priority] ?? 'ninguna' })),
     hobbies: (p.hobbies ?? []).filter((h) => !h.archived).map((h) => ({ id: h.id, name: h.name, dur: h.duration_min })),
+    // reservas: tiempo que se aparta sin decidir qué (se llena después con sus opciones o tareas)
+    reserves: (p.reserves ?? []).filter((r) => !r.archived).map((r) => ({ id: r.id, name: r.name, dur: r.duration_min })),
     google_events: (p.google ?? []).slice(0, 60).map((g) =>
       g.allDay
         ? { title: g.title, day: g.start.slice(0, 10), todo_el_dia: true, calendario: g.calName }
@@ -236,6 +245,11 @@ export function describe(p: Proposal, look: Look): Card {
       const dur = num(i.duration_min) ?? h?.duration_min ?? 30
       return { icon: h?.icon ?? 'star', color: h?.color ?? '#8a6fb3', title: `Hobby: «${h?.name ?? '?'}»`, detail: `${when(day, str(i.start), look.today).replace(' · todo el día', '')} · ${fmtDur(dur)} · marca tu casilla` }
     }
+    case 'reservar': {
+      const r = str(i.reserve_id) ? look.reserves.get(String(i.reserve_id)) : undefined
+      const dur = num(i.duration_min) ?? r?.duration_min ?? 60
+      return { icon: r?.icon ?? 'clock', color: r?.color ?? '#8a6fb3', title: `Reservar «${r?.name ?? i.title}»`, detail: `${when(String(i.day), str(i.start) ?? '18:00', look.today)} · ${fmtDur(dur)} · lo llenas después` }
+    }
     case 'ajustar_dia': {
       const bits = [str(i.wake) ? `despertar ${i.wake}` : '', str(i.sleep) ? `dormir ${i.sleep}` : ''].filter(Boolean).join(' · ')
       const dow = weekday(String(i.day))
@@ -311,6 +325,10 @@ export function ghostOf(p: Proposal, look: Look, day: string, key: string): Ghos
     const dur = num(i.duration_min) ?? Math.round((new Date(ev.ends_at).getTime() - new Date(ev.starts_at).getTime()) / 60000)
     return { key, start: s, duration: dur, title: ev.title, color: TEAM_COLOR, icon: 'meeting', from: d0 === day ? s0 : undefined }
   }
+  if (p.tool === 'reservar' && i.day === day) {
+    const r = str(i.reserve_id) ? look.reserves.get(String(i.reserve_id)) : undefined
+    return { key, start: at(i.start) ?? 18 * 60, duration: num(i.duration_min) ?? r?.duration_min ?? 60, title: `Reservado · ${r?.name ?? i.title}`, color: r?.color ?? '#8a6fb3', icon: r?.icon ?? 'clock' }
+  }
   if (p.tool === 'registrar_hobby' && (str(i.day) ?? look.today) === day && at(i.start) != null) {
     const h = look.hobbies.get(String(i.hobby_id))
     return { key, start: at(i.start)!, duration: num(i.duration_min) ?? h?.duration_min ?? 30, title: h?.name ?? 'Hobby', color: h?.color ?? '#8a6fb3', icon: h?.icon ?? 'star' }
@@ -343,6 +361,12 @@ export async function applyProposal(p: Proposal, a: Actions, look: Look): Promis
         ...(str(i.end_day) && str(i.day) && !str(i.start) && String(i.end_day) > String(i.day) ? { end_day: String(i.end_day) } : {}),
       })
       return r?.undo ?? null
+    }
+    case 'reservar': {
+      if (!a.reserves) return null
+      const r = str(i.reserve_id) ? (look.reserves.get(String(i.reserve_id)) ?? null) : null
+      const res = await a.reserves.reserveBlock(r, String(i.day), at(i.start) ?? 18 * 60, { duration: num(i.duration_min) ?? undefined, title: r ? undefined : cap(String(i.title ?? 'Reservado')) })
+      return res?.undo ?? null
     }
     case 'ajustar_dia': {
       const day = String(i.day)

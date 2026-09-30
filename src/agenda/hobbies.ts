@@ -73,7 +73,7 @@ export function useHobbyActions() {
   const put = (list: Hobby[]) => qc.setQueryData(hkeys.hobbies(uid), list)
 
   const createHobby = useCallback(
-    async (p: { name: string; duration_min: number; icon: string; color?: string }): Promise<Hobby | null> => {
+    async (p: { name: string; duration_min: number; icon: string; color?: string; reserve_id?: string | null }): Promise<Hobby | null> => {
       const name = p.name.trim().slice(0, 40)
       if (!name) return null
       const list = now()
@@ -81,7 +81,7 @@ export function useHobbyActions() {
       const color = p.color ?? ITEM_COLORS[(list.length + 5) % ITEM_COLORS.length]
       const { data, error } = await supabase
         .from('agenda_hobbies')
-        .insert({ name, duration_min: p.duration_min, icon: p.icon, color, position })
+        .insert({ name, duration_min: p.duration_min, icon: p.icon, color, position, reserve_id: p.reserve_id ?? null })
         .select('*')
         .single()
       if (error) {
@@ -122,7 +122,7 @@ export function useHobbyActions() {
 
   /** Pone el hobby en el día como un bloque propio. Hecho solo si lo marcas en el calendario. */
   const logHobby = useCallback(
-    async (h: Hobby, day: string, start: number, opts: { today: string; nowMin: number; duration?: number }): Promise<Undo | null> => {
+    async (h: Hobby, day: string, start: number, opts: { today: string; nowMin: number; duration?: number; inReserve?: string | null }): Promise<Undo | null> => {
       const res = await createItem({
         title: h.name,
         icon: h.icon,
@@ -133,6 +133,7 @@ export function useHobbyActions() {
         start_min: start,
         duration_min: opts.duration ?? h.duration_min,
         done_at: null,
+        in_reserve: opts.inReserve ?? null,
       })
       return res?.undo ?? null
     },

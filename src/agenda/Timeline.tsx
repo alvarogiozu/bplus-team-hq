@@ -26,12 +26,14 @@ type Props = {
   onDropAt: (p: DragPayload, min: number) => void
   onSuggest: (item: AgendaItem, min: number) => void
   onGapClick: (min: number) => void
+  /** tocar "Llenar" en un espacio reservado */
+  onFill: (b: Block) => void
 }
 
 const SPRING = { type: 'spring' as const, stiffness: 420, damping: 36, mass: 0.9 }
 
 export function Timeline(p: Props) {
-  const { active, landedKey, dockCenter } = useDrag()
+  const { active, landedKey } = useDrag()
   const ref = useRef<HTMLDivElement>(null)
   const [preview, setPreview] = useState<{ min: number; dur: number; color: string } | null>(null)
   const [hoverMin, setHoverMin] = useState<number | null>(null)
@@ -41,12 +43,15 @@ export function Timeline(p: Props) {
   const spans = useMemo(() => p.blocks.map((b) => ({ key: b.key, start: b.start, end: b.start + b.duration })), [p.blocks])
   const nowAt = isToday ? p.nowMin : undefined
   const layout = useMemo(() => buildLayout(spans, { from: p.wake, to: p.sleep, expanded, now: nowAt }), [spans, p.wake, p.sleep, expanded, nowAt])
-  const laneOf = useMemo(() => lanes(spans.filter((s) => s.end > s.start)), [spans])
+  // los espacios reservados van detrás (no ocupan carril): lo que los llena queda en su lugar
+  const reserveKeys = useMemo(() => new Set(p.blocks.filter((b) => b.kind === 'reserve').map((b) => b.key)), [p.blocks])
+  const laneOf = useMemo(() => lanes(spans.filter((s) => s.end > s.start && !reserveKeys.has(s.key))), [spans, reserveKeys])
 
-  // soltar sobre la línea: el minuto sale de la escala real (los huecos se abrieron al levantar)
-  const minAt = (pt: Pt) => {
+  // soltar sobre la línea: el minuto sale de la escala real (los huecos se abrieron al levantar).
+  // Se mide con el borde de arriba de la TARJETA (no el dedo): el recuadro queda alineado con ella.
+  const minAt = (card: Pt) => {
     const r = ref.current!.getBoundingClientRect()
-    return snapMin(yToMin(layout, pt.y - r.top))
+    return snapMin(yToMin(layout, card.y - r.top))
   }
   // El recuadro de soltar mide los minutos de verdad (15 min no hereda la altura mínima del bloque).
   const slotH = (_min: number, dur: number) => (dur <= 0 ? 12 : Math.max(18, dur * PX_PER_MIN))
@@ -55,24 +60,14 @@ export function Timeline(p: Props) {
       id: 'timeline',
       priority: 1,
       accepts: () => true,
-      hover: (payload, pt) => {
-        const min = minAt(pt)
+      hover: (payload, _pt, card) => {
+        const min = minAt(card)
         // solo re-dibuja al cambiar de franja (no en cada pixel): menos trabajo = arrastre fluido
         setPreview((prev) => (prev && prev.min === min && prev.dur === payload.duration && prev.color === payload.color ? prev : { min, dur: payload.duration, color: payload.color }))
-        const r = ref.current!.getBoundingClientRect()
-        const axis = parseFloat(getComputedStyle(ref.current!).getPropertyValue('--tl-axis')) || 106
-        const boxLeft = r.left + axis - 30
-        const boxRight = r.right - 16
-        const boxTop = r.top + minToY(layout, min)
-        const boxH = slotH(min, payload.duration)
-        dockCenter({ x: (boxLeft + boxRight) / 2, y: boxTop + boxH / 2 })
       },
-      leave: () => {
-        setPreview(null)
-        dockCenter(null)
-      },
-      drop: (payload, pt) => {
-        const min = minAt(pt)
+      leave: () => setPreview(null),
+      drop: (payload, _pt, card) => {
+        const min = minAt(card)
         setPreview(null)
         p.onDropAt(payload, min)
         const r = ref.current!.getBoundingClientRect()
@@ -129,7 +124,34 @@ export function Timeline(p: Props) {
 
       {!expanded && <GapHints layout={layout} {...p} isToday={isToday} />}
 
+      {p.blocks
+        .filter((b) => b.kind === 'reserve')
+        .map((b) => {
+          const r = blockRect(layout, b.key, b.start, b.start + b.duration)
+          // dónde terminan (dibujados) los bloques que caen dentro: la etiqueta nunca se les encima
+          const kids = p.blocks
+            .filter((k) => k.kind !== 'reserve' && k.duration > 0 && k.start < b.start + b.duration && k.start + k.duration > b.start)
+            .map((k) => {
+              const kr = blockRect(layout, k.key, k.start, k.start + k.duration)
+              return { start: k.start, bottom: kr.top + kr.height }
+            })
+          return (
+            <ReserveBand
+              key={b.key}
+              b={b}
+              kids={kids}
+              layout={layout}
+              top={r.top}
+              height={r.height}
+              past={isToday ? b.start + b.duration <= p.nowMin : p.day < p.today}
+              onOpen={() => p.onOpen(b)}
+              onFill={() => p.onFill(b)}
+            />
+          )
+        })}
+
       {p.blocks.map((b, i) => {
+        if (b.kind === 'reserve') return null
         const r = blockRect(layout, b.key, b.start, b.start + b.duration)
         const lane = laneOf.get(b.key)
         return (
@@ -270,6 +292,76 @@ function GapHints(p: Props & { layout: Layout; isToday: boolean }) {
     )
   }
   return <>{hints}</>
+}
+
+/**
+ * Un espacio reservado: franja punteada detrás de lo que lo llena. Vacío se ve como un bloque
+ * con "Llenar"; con cosas dentro, muestra en su hueco cuánto queda libre (o "lleno" en el borde).
+ */
+function ReserveBand(p: { b: Block; kids: { start: number; bottom: number }[]; layout: Layout; top: number; height: number; past: boolean; onOpen: () => void; onFill: () => void }) {
+  const { b, top, height } = p
+  const info = b.reserve!
+  const payload: DragPayload = { kind: 'item', id: b.id, title: b.title, color: b.color, icon: b.icon, duration: b.duration, from: 'timeline', isReserve: true }
+  const { onPointerDown, isDragging } = useDraggable(payload)
+  const empty = info.used === 0
+  // la etiqueta va en el primer hueco donde quepa, debajo de lo que ya está dibujado
+  const tagY = (() => {
+    for (const g of info.gaps) {
+      const y = Math.max(minToY(p.layout, g.start), ...p.kids.filter((k) => k.start < g.end).map((k) => k.bottom)) - top + 6
+      if (y + 30 <= height) return y
+    }
+    return null
+  })()
+  const end = b.start + b.duration
+  return (
+    <motion.div
+      data-title={b.title}
+      className={`tl-reserve${empty ? ' empty' : ''}${info.free === 0 ? ' full' : ''}${p.past ? ' past' : ''}`}
+      style={{ ['--c' as string]: b.color } as CSSProperties}
+      initial={{ opacity: 0, y: top, height }}
+      animate={{ opacity: isDragging ? 0.3 : 1, y: top, height }}
+      transition={SPRING}
+    >
+      {empty ? (
+        <>
+          <span className="tl-time">
+            {hhmm(b.start)}
+            {b.duration >= 30 && <em style={{ top: height - 22 }}>{hhmm(end)}</em>}
+          </span>
+          <button className="tl-node rsv" style={{ height: Math.max(42, height - 10) }} onPointerDown={onPointerDown} onClick={p.onOpen} aria-label={`Espacio reservado «${b.title}», ${hhmm(b.start)}`}>
+            <AIcon name={b.icon} size={20} />
+          </button>
+          <button className="tl-body rsv" onPointerDown={onPointerDown} onClick={p.onOpen}>
+            <small>
+              Reservado · {hhmm(b.start)} – {hhmm(end)} ({fmtDur(b.duration)})
+            </small>
+            <b>{b.title}</b>
+          </button>
+          <button className="tl-fill" data-nodrag onClick={p.onFill} aria-label={`Llenar «${b.title}»`}>
+            <AIcon name="plus" size={14} /> Llenar
+          </button>
+        </>
+      ) : tagY == null ? null : (
+        <button
+          className="tl-rsv-tag"
+          style={{ top: tagY }}
+          onPointerDown={onPointerDown}
+          onClick={info.free ? p.onFill : p.onOpen}
+          aria-label={info.free ? `Llenar «${b.title}»: quedan ${fmtDur(info.free)}` : `«${b.title}» está lleno`}
+        >
+          <AIcon name={b.icon} size={13} />
+          <b>{b.title}</b>
+          {info.free ? (
+            <>
+              · {fmtDur(info.free)} libres · <u>Llenar</u>
+            </>
+          ) : (
+            <> · lleno</>
+          )}
+        </button>
+      )}
+    </motion.div>
+  )
 }
 
 function BlockRow(props: {

@@ -51,7 +51,7 @@ export function Inbox(p: {
     {
       id: 'inbox',
       priority: 1,
-      accepts: (pl) => pl.kind === 'item' && pl.from === 'timeline',
+      accepts: (pl) => pl.kind === 'item' && pl.from === 'timeline' && !pl.isReserve,
       hover: () => setOver(true),
       leave: () => setOver(false),
       drop: (pl) => {
@@ -159,7 +159,7 @@ function GroupSection({
     {
       id: `group:${g.id}`,
       priority: 2,
-      accepts: (pl) => pl.kind === 'item' && (pl.from !== 'inbox' || inboxItems.find((i) => i.id === pl.id)?.group_id !== g.id),
+      accepts: (pl) => pl.kind === 'item' && !pl.isReserve && (pl.from !== 'inbox' || inboxItems.find((i) => i.id === pl.id)?.group_id !== g.id),
       hover: () => setOver(true),
       leave: () => setOver(false),
       drop: (pl) => {

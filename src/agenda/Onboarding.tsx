@@ -7,7 +7,8 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { useAgendaActions } from './data'
 import { AIcon } from './icons'
 import { guessIcon } from './localAgent'
-import { hhmm, nowMinIn, parseHhmm } from './time'
+import { hhmm, nowMinIn } from './time'
+import { TimePick } from './TimePick'
 
 const STEPS = 6
 const spring = { type: 'spring' as const, stiffness: 380, damping: 34 }
@@ -289,17 +290,15 @@ function DragScene(p: { title: React.ReactNode; value: number; onChange: (m: num
           <span className="ob-pin-ico">
             <AIcon name={p.kind === 'sun' ? 'sun' : 'moon'} size={20} />
           </span>
-          <input
-            type="time"
-            value={hhmm(p.value)}
-            aria-label={p.kind === 'sun' ? 'Hora de despertar' : 'Hora de dormir'}
-            onChange={(e) => {
-              const v = parseHhmm(e.target.value)
-              if (v != null) {
-                lastSnap.current = Math.max(p.min, Math.min(p.max, v))
-                p.onChange(lastSnap.current)
-                animate(y, toY(lastSnap.current), spring)
-              }
+          <TimePick
+            size="sm"
+            className="ob-time"
+            label={p.kind === 'sun' ? 'Hora de despertar' : 'Hora de dormir'}
+            value={p.value}
+            onChange={(v) => {
+              lastSnap.current = Math.max(p.min, Math.min(p.max, v))
+              p.onChange(lastSnap.current)
+              animate(y, toY(lastSnap.current), spring)
             }}
           />
           <button className="ag-x" onClick={() => nudge(15)} aria-label="15 minutos después">
