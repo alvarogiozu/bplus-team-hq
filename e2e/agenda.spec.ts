@@ -73,3 +73,22 @@ test('calendarios: ocultar uno saca sus actividades y el editor las cambia de ca
   await panel.getByRole('button', { name: 'Crear' }).click()
   await expect(panel.getByRole('button', { name: 'Universidad', exact: true })).toBeVisible()
 })
+
+// al cambiar de día conviven dos líneas un instante; la que se va borraba el destino de la nueva
+test('arrastrar después de cambiar de día', async ({ page }) => {
+  await loginAgenda(page)
+  await page.waitForTimeout(1200)
+  await page.getByRole('button', { name: 'Día siguiente' }).click()
+  await page.waitForTimeout(1200)
+  const row = page.locator('.ag-inbox-row', { hasText: 'Idea: modo foco con Rockie' })
+  const a = (await row.boundingBox())!
+  await page.mouse.move(a.x + 60, a.y + a.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(a.x + 90, a.y + 40, { steps: 5 })
+  await page.mouse.move(760, 450, { steps: 12 })
+  await page.waitForTimeout(300)
+  await expect(page.locator('.tl-preview')).toHaveCount(1)
+  await page.mouse.up()
+  await page.waitForTimeout(800)
+  await expect(page.locator('.tl-block', { hasText: 'Idea: modo foco' })).toHaveCount(1)
+})
