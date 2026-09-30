@@ -6,7 +6,7 @@ import { tsToMin } from './time'
 
 export type Block = {
   key: string
-  kind: 'item' | 'event' | 'anchor' | 'gcal'
+  kind: 'item' | 'event' | 'anchor' | 'gcal' | 'reserve'
   id: string
   title: string
   start: number
@@ -17,6 +17,8 @@ export type Block = {
   sub?: string
   /** 0–3 (cristales): solo ítems personales y tareas del HQ */
   priority?: number
+  /** espacio reservado: cuánto queda libre y en qué tramos (para llenarlo) */
+  reserve?: { free: number; used: number; tpl: string | null; gaps: { start: number; end: number }[] }
   item?: AgendaItem
   event?: HqEvent
   task?: Task
@@ -101,6 +103,30 @@ export function dayContent(p: { day: string; items: AgendaItem[]; hq: HqData | u
       continue
     }
     if (it.day !== day) continue
+    if (it.is_reserve) {
+      const u = reserveUsage(it, p.items)
+      const gaps: { start: number; end: number }[] = []
+      let t = u.start
+      for (const b of u.inside.slice().sort((a, b) => a.start_min! - b.start_min!)) {
+        if (b.start_min! > t) gaps.push({ start: t, end: Math.min(b.start_min!, u.end) })
+        t = Math.max(t, b.start_min! + b.duration_min)
+      }
+      if (t < u.end) gaps.push({ start: t, end: u.end })
+      blocks.push({
+        key: `item:${it.id}`,
+        kind: 'reserve',
+        id: it.id,
+        title: it.title,
+        start: it.start_min,
+        duration: it.duration_min,
+        color: colorIn(it, cals),
+        icon: it.icon,
+        done: false,
+        item: it,
+        reserve: { free: u.free, used: u.used, tpl: it.reserve_id, gaps },
+      })
+      continue
+    }
     blocks.push({
       key: `item:${it.id}`,
       kind: 'item',
@@ -111,7 +137,13 @@ export function dayContent(p: { day: string; items: AgendaItem[]; hq: HqData | u
       color: colorIn(it, cals),
       icon: it.icon,
       done: Boolean(it.done_at) || Boolean(task?.validation),
-      sub: task ? 'Del HQ' : it.hobby_id ? 'Hobby' : it.subtasks.length ? `${it.subtasks.filter((s) => s.done).length}/${it.subtasks.length}` : undefined,
+      sub: task
+        ? 'Del HQ'
+        : it.in_reserve && p.items.find((r) => r.id === it.in_reserve)
+          ? `en «${p.items.find((r) => r.id === it.in_reserve)!.title}»`
+          : it.hobby_id
+            ? 'Hobby'
+            : it.subtasks.length ? `${it.subtasks.filter((s) => s.done).length}/${it.subtasks.length}` : undefined,
       priority: task ? prioLevel(task.priority) : it.priority,
       item: it,
       task,
@@ -197,3 +229,39 @@ export function dotsFor(day: string, items: AgendaItem[], hq: HqData | undefined
   for (const g of view?.google ?? []) if (g.allDay ? g.start <= day && day < g.end : dayOfTs(g.start, tz) === day) out.push(g.color)
   return out.slice(0, 4)
 }
+
+// ---------- espacios reservados ----------
+type Span = { start: number; duration: number }
+
+/**
+ * Dónde cabe algo de `dur` minutos dentro de la ventana reservada, sin pisar lo que ya hay.
+ * Si `prefer` cabe tal cual, se respeta; si no, el primer hueco desde el inicio. null = no cabe.
+ */
+export function fitInReserve(win: { start: number; end: number }, busy: Span[], dur: number, prefer?: number): number | null {
+  const taken = busy.filter((b) => b.duration > 0 && b.start < win.end && b.start + b.duration > win.start).sort((a, b) => a.start - b.start)
+  const free = (s: number) => s >= win.start && s + dur <= win.end && !taken.some((b) => b.start < s + dur && b.start + b.duration > s)
+  if (prefer != null && free(prefer)) return prefer
+  let t = win.start
+  for (const b of taken) {
+    if (b.start - t >= dur) break
+    t = Math.max(t, b.start + b.duration)
+  }
+  return t + dur <= win.end ? t : null
+}
+
+/** Cuánto de un bloque reservado ya está ocupado (por lo que lo llena y por lo que cae dentro). */
+export function reserveUsage(res: AgendaItem, items: AgendaItem[]) {
+  const start = res.start_min ?? 0
+  const end = start + res.duration_min
+  const inside = items.filter((i) => i.id !== res.id && !i.is_reserve && i.day === res.day && i.start_min != null && i.start_min < end && i.start_min + i.duration_min > start)
+  let used = 0
+  let t = start
+  for (const b of inside.slice().sort((a, b) => a.start_min! - b.start_min!)) {
+    const s = Math.max(t, b.start_min!)
+    const e = Math.min(end, b.start_min! + b.duration_min)
+    if (e > s) used += e - s
+    t = Math.max(t, e)
+  }
+  return { start, end, used, free: Math.max(0, res.duration_min - used), inside }
+}
+

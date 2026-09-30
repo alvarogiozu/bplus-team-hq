@@ -7,7 +7,8 @@ import { anchorsOf, type Routine } from './blocks'
 import { useAgendaActions, usePrefs } from './data'
 import { useDayActions, useDayMap } from './days'
 import { AIcon } from './icons'
-import { hhmm, parseHhmm } from './time'
+import { hhmm } from './time'
+import { TimePick } from './TimePick'
 
 // Tocar el sol o la luna de un día: cambiar SOLO ese día, volverlo tu rutina de ese día de la
 // semana ("todos los sábados") o regresar a la rutina. Arrastrarlos hace lo mismo que "solo este día".
@@ -37,8 +38,7 @@ function AnchorBody({ edit, onClose, onRoutine }: { edit: NonNullable<AnchorEdit
   const key = wake ? 'wake_min' : 'sleep_min'
   const custom = wake ? a.custom.wake : a.custom.sleep
   const base = wake ? a.base.wake : a.base.sleep
-  const [t, setT] = useState(hhmm(wake ? a.wake : a.sleep))
-  const min = parseHhmm(t)
+  const [min, setMin] = useState<number | null>(wake ? a.wake : a.sleep)
   const ok = min != null && anchorOk(edit.which, min, wake ? a.sleep : a.wake)
   const dow = weekday(edit.day)
 
@@ -67,10 +67,9 @@ function AnchorBody({ edit, onClose, onRoutine }: { edit: NonNullable<AnchorEdit
       <p className="hint" style={{ margin: 0 }}>
         {wake ? '¿A qué hora te levantas' : '¿A qué hora te vas a dormir'} el {fmtDay(edit.day)}?{custom ? ` Tu rutina de los ${pluralDay(dow)} dice ${hhmm(base)}.` : ''}
       </p>
-      <label className="ag-anchor-time">
-        <AIcon name={wake ? 'sun' : 'moon'} size={22} />
-        <input type="time" value={t} onChange={(e) => setT(e.target.value)} aria-label={wake ? 'Hora de despertar' : 'Hora de dormir'} />
-      </label>
+      <div className="ag-anchor-time">
+        <TimePick size="lg" icon={wake ? 'sun' : 'moon'} label={wake ? 'Hora de despertar' : 'Hora de dormir'} value={min ?? 0} onChange={setMin} />
+      </div>
       {min != null && !ok && <p className="rk-err">{wake ? 'Tiene que ser antes de tu hora de dormir.' : 'Tiene que ser después de tu hora de despertar.'}</p>}
       <div className="ag-anchor-acts">
         <button className="btn" disabled={!ok} onClick={() => void onlyThisDay()}>

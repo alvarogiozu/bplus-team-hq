@@ -13,6 +13,17 @@ function limaToday() {
 const plus = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 const dow = (iso: string) => new Date(`${iso}T12:00:00Z`).getUTCDay()
 
+/** El selector de hora de la app (nunca el nativo): botón -> hora -> minutos -> Listo. */
+async function pickTime(page: Page, label: RegExp, hh: string, mm: string) {
+  await page.getByRole('button', { name: label }).click()
+  const pop = page.locator('.tp-pop')
+  await expect(pop).toBeVisible()
+  await pop.getByRole('listbox', { name: 'Hora' }).getByRole('option', { name: hh, exact: true }).click()
+  await pop.getByRole('listbox', { name: 'Minutos' }).getByRole('option', { name: mm, exact: true }).click()
+  await pop.getByRole('button', { name: 'Listo' }).click()
+  await expect(pop).toHaveCount(0)
+}
+
 async function rockie(page: Page, text: string, proposals: unknown[]) {
   await page.unroute('**/functions/v1/agenda-agent')
   await page.route('**/functions/v1/agenda-agent', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ say: 'Esto te propongo:', proposals }) }))
@@ -33,7 +44,14 @@ test('sol y luna: solo este día, volver a la rutina y arrastrar', async ({ page
   await tl.locator('.tl-block.anchor', { hasText: 'Despertar' }).locator('.tl-body').click()
   const sheet = page.getByRole('dialog', { name: /Despertar ·/ })
   await expect(sheet).toBeVisible()
-  await sheet.getByLabel('Hora de despertar').fill('06:15')
+  await sheet.getByRole('button', { name: /^Hora de despertar:/ }).click()
+  await expect(page.locator('.tp-pop')).toBeVisible()
+  await expect(page.locator('input[type="time"]')).toHaveCount(0) // nada de tablas nativas
+  await page.waitForTimeout(300)
+  await shot(page, 'pc-selector-hora')
+  await page.locator('.tp-pop').getByRole('listbox', { name: 'Hora' }).getByRole('option', { name: '06', exact: true }).click()
+  await page.locator('.tp-pop').getByRole('listbox', { name: 'Minutos' }).getByRole('option', { name: '15', exact: true }).click()
+  await page.locator('.tp-pop').getByRole('button', { name: 'Listo' }).click()
   await page.waitForTimeout(300)
   await shot(page, 'pc-sol')
   await sheet.getByRole('button', { name: 'Solo este día' }).click()
@@ -71,7 +89,7 @@ test('rutina de la semana: los sábados me levanto a las 9', async ({ page }) =>
   await loginAgenda(page)
   await page.getByRole('button', { name: 'Ajustes de la agenda' }).click()
   const set = page.getByRole('dialog', { name: 'Ajustes de la agenda' })
-  await set.getByLabel('Despertar el sábado').fill('09:00')
+  await pickTime(page, /^Despertar el sábado:/, '09', '00')
   await expect(set.getByRole('button', { name: 'sábado: volver a lo de siempre' })).toBeVisible()
   await set.getByText('Tu rutina de la semana').scrollIntoViewIfNeeded()
   await page.waitForTimeout(300)
@@ -149,4 +167,18 @@ test('Google: conectar pide leer tus calendarios y escribir en «Rockie»', asyn
   expect(scope).toContain('calendar.readonly')
   expect(scope).toContain('calendar.app.created')
   expect(new URL(url).searchParams.get('redirect_uri')).toMatch(/functions\/v1\/agenda-google$/)
+})
+
+test('el calendario de fechas tiene los números centrados', async ({ page }) => {
+  await loginAgenda(page)
+  await page.getByRole('button', { name: 'Nuevo', exact: true }).click()
+  const panel = page.getByRole('dialog', { name: 'Nuevo' })
+  await panel.locator('.ag-pbtn').first().click()
+  const sel = page.locator('.ag-cal-day.sel')
+  await expect(sel).toBeVisible()
+  const box = (await sel.boundingBox())!
+  const num = (await sel.locator('span').last().boundingBox())!
+  expect(Math.abs(box.x + box.width / 2 - (num.x + num.width / 2))).toBeLessThan(2)
+  await page.waitForTimeout(300)
+  await shot(page, 'pc-calendario')
 })

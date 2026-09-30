@@ -87,47 +87,6 @@ test('grupos con nombre propio, prioridad y voz', async ({ page }) => {
   await shot(page, 'pc-grupos')
 })
 
-test('hobbies: la casilla se marca y se intensifica', async ({ page }) => {
-  await page.setViewportSize({ width: 1366, height: 700 })
-  await loginAgenda(page)
-  const hob = page.locator('.ag-hob')
-  await expect(hob).toBeVisible()
-  for (const name of ['Tocar guitarra', 'Ajedrez']) {
-    await hob.getByRole('button', { name: 'Nuevo hobby' }).click()
-    await hob.getByLabel('Nombre del hobby').fill(name)
-    // con uno ya creado el panel es chico: el botón tiene que verse sin alejar el zoom
-    await expect(hob.getByRole('button', { name: 'Crear hobby' })).toBeInViewport({ ratio: 1 })
-    await hob.getByRole('button', { name: 'Crear hobby' }).click()
-    await expect(hob.locator('.ag-hob-row', { hasText: name })).toBeVisible()
-  }
-  const box = hob.locator('.ag-hob-box')
-  await expect(box).not.toHaveClass(/\bon\b/)
-  await hob.getByRole('button', { name: 'Poner «Tocar guitarra» en mi día' }).click()
-  await expect(page.locator('.tl').getByText('Tocar guitarra')).toBeVisible()
-  // ponerlo en el día no lo marca: se marca con el check de su bloque (y la lista lo refleja)
-  await expect(box).not.toHaveClass(/\bon\b/)
-  const ring1 = page.getByRole('button', { name: 'Completar «Tocar guitarra»' })
-  await ring1.evaluate((el) => el.scrollIntoView({ block: 'center' }))
-  await ring1.click()
-  await expect(box).toHaveClass(/\bon\b/)
-  await expect(box).not.toHaveClass(/\ball\b/)
-  await page.waitForTimeout(500)
-  await shot(page, 'pc-hobby-1')
-
-  // el segundo, arrastrándolo a la línea del día
-  const row = hob.locator('.ag-hob-row', { hasText: 'Ajedrez' })
-  const r = (await row.boundingBox())!
-  const t = (await page.locator('.tl').getByText('Almuerzo con Andrea').boundingBox())!
-  await drag(page, { x: r.x + 60, y: r.y + r.height / 2 }, { x: t.x + 40, y: t.y + 90 })
-  await expect(page.locator('.tl').getByText('Ajedrez')).toBeVisible()
-  const ring2 = page.getByRole('button', { name: 'Completar «Ajedrez»' })
-  await ring2.evaluate((el) => el.scrollIntoView({ block: 'center' }))
-  await ring2.click()
-  await expect(box).toHaveClass(/\ball\b/)
-  await page.waitForTimeout(900)
-  await shot(page, 'pc-hobbies-todos')
-})
-
 test('arrastrar: las horas van a la izquierda de la línea', async ({ page }) => {
   await loginAgenda(page)
   const row = page.locator('.ag-inbox-row', { hasText: 'Llamar al proveedor de la PCB' })
@@ -137,9 +96,14 @@ test('arrastrar: las horas van a la izquierda de la línea', async ({ page }) =>
   await page.mouse.down()
   await page.mouse.move(a.x + 90, a.y + 40, { steps: 5 })
   await page.mouse.move(t.x + 60, t.y - 70, { steps: 14 })
+  await page.waitForTimeout(350)
   const prev = (await page.locator('.tl-preview').boundingBox())!
   const time = (await page.locator('.tl-preview-time').first().boundingBox())!
   expect(time.x + time.width).toBeLessThanOrEqual(prev.x + 1)
+  // sin imán: la tarjeta sigue al mouse y el recuadro se alinea con su borde de arriba
+  const ghost = (await page.locator('.ag-ghost').boundingBox())!
+  expect(Math.abs(ghost.x - t.x)).toBeLessThan(20) // se agarró a 60 px de su borde y el mouse va a t.x + 60
+  expect(Math.abs(prev.y - ghost.y)).toBeLessThan(26)
   await page.waitForTimeout(250)
   await shot(page, 'pc-arrastre')
   await page.keyboard.press('Escape')

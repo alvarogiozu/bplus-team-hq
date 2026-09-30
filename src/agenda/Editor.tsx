@@ -322,7 +322,7 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
               )}
             </div>
 
-            {cals.length > 0 && (
+            {cals.length > 0 && !item?.is_reserve && (
               <div className="ag-card">
                 <div className="ag-calpick" role="radiogroup" aria-label="Calendario">
                   {cals.map((c) => (
@@ -342,6 +342,7 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
             )}
 
             {/* grupo (tanda con nombre propio; manda el calendario) y prioridad en cristales */}
+            {!item?.is_reserve && (
             <div className="ag-card ag-ed-meta">
               {!item?.hobby_id && groups.length > 0 && (
                 <>
@@ -372,6 +373,13 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
               <span className="ag-card-t">Prioridad</span>
               <PrioPick value={f.priority ?? 0} onChange={(priority) => set({ priority })} />
             </div>
+            )}
+
+            {item?.is_reserve && (
+              <div className="ag-card ag-hqnote">
+                <AIcon name="clock" size={16} /> Tiempo reservado: llénalo con sus opciones o con tareas. Si lo borras, lo que tiene adentro se queda en tu día.
+              </div>
+            )}
 
             {item?.hobby_id && (
               <div className="ag-card ag-hqnote">

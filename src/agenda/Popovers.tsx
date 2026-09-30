@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { addDays, MONTH_NAMES, startOfWeek, weekday } from '../lib/dates'
 import { AIcon, ITEM_COLORS, ITEM_ICONS } from './icons'
-import { fmtDur, hhmm, parseHhmm } from './time'
+import { fmtDur } from './time'
+import { DurStep, TimePick } from './TimePick'
 
 /** Popover anclado a su fila: aparece con resorte desde arriba y se cierra al tocar fuera. */
 export function Pop({ open, onClose, title, children, extra }: { open: boolean; onClose: () => void; title: string; children: ReactNode; extra?: ReactNode }) {
@@ -76,42 +77,13 @@ export function TimePop(p: {
       }
     >
       <div className="ag-timerow">
-        <input
-          type="time"
-          aria-label="Empieza"
-          value={hhmm(p.start)}
-          onChange={(e) => {
-            const v = parseHhmm(e.target.value)
-            if (v != null) set(v, p.duration)
-          }}
-        />
+        <TimePick label="Empieza" value={p.start} onChange={(v) => set(v, p.duration)} />
         <AIcon name="right" size={18} />
-        <input
-          type="time"
-          aria-label="Termina"
-          value={hhmm(Math.min(end, 1439))}
-          onChange={(e) => {
-            const v = parseHhmm(e.target.value)
-            if (v != null && v > p.start) set(p.start, v - p.start)
-          }}
-        />
+        <TimePick label="Termina" value={Math.min(end, 1439)} onChange={(v) => v > p.start && set(p.start, v - p.start)} />
       </div>
       <div className="ag-durrow">
         <span>Duración</span>
-        <select aria-label="Horas" value={Math.floor(p.duration / 60)} onChange={(e) => set(p.start, Number(e.target.value) * 60 + (p.duration % 60))}>
-          {Array.from({ length: 13 }, (_, h) => (
-            <option key={h} value={h}>
-              {h} h
-            </option>
-          ))}
-        </select>
-        <select aria-label="Minutos" value={p.duration % 60} onChange={(e) => set(p.start, Math.floor(p.duration / 60) * 60 + Number(e.target.value))}>
-          {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => (
-            <option key={m} value={m}>
-              {m} min
-            </option>
-          ))}
-        </select>
+        <DurStep value={p.duration} onChange={(d) => set(p.start, d)} />
       </div>
       <div className="ag-presets" role="group" aria-label="Duraciones rápidas">
         {p.presets.map((d) => (

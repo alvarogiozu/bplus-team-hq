@@ -73,6 +73,13 @@ const TOOLS = [
     input_schema: obj({ item_id: str, day: optStr, start: optStr, duration_min: optInt, to_inbox: { type: 'boolean' }, calendar_id: optStr, group_id: optStr, priority: PRIO_P }),
   },
   {
+    name: 'reservar',
+    description:
+      'Aparta tiempo en el día SIN decidir todavía qué hará (se llena después). reserve_id = id de "reserves" si calza (ej. «Hobbies», «Estudio»); si no, null y title = nombre corto. day AAAA-MM-DD; start HH:mm o null; duration_min null = la de la reserva.',
+    strict: true,
+    input_schema: obj({ reserve_id: optStr, title: optStr, day: str, start: optStr, duration_min: optInt }),
+  },
+  {
     name: 'ajustar_dia',
     description:
       'Cambia a qué hora se despierta (wake) o se duerme (sleep) la persona. day = el día (AAAA-MM-DD). siempre true = es su rutina para ESE día de la semana (ej. «los sábados me levanto a las 9»); false = solo ese día (ej. «mañana me levanto a las 6»). Solo cambian los no null.',
@@ -177,6 +184,7 @@ Tu trabajo es convertir cada orden en PROPUESTAS usando las herramientas. Nunca 
 - Cada ítem personal vive en un calendario ("calendars": Personal, Estudio, Trabajo, Salud...). Si dicen "en estudio" o "de trabajo", usa ese calendar_id; si no lo dicen, null.
 - "groups" son grupos de tareas con nombre propio (ej. «Terminar carro» en el calendario Automotriz). Si la tarea es de un grupo («para lo del carro», «en el grupo X»), usa su group_id. Para armar un grupo nuevo usa crear_grupo y pon sus tareas en «tareas» (no las crees aparte).
 - Prioridad: «urgente», «importante» o «alta prioridad» = alta; «prioridad media» = media; «baja prioridad» o «cuando pueda» = baja. Si no la dicen, null. Vale para ítems y grupos.
+- «Resérvame una hora para hobbies a las 6», «aparta la tarde para estudiar» o «bloquea 2 h el sábado» es reservar (tiempo apartado sin tarea todavía; "reserves" son las que ya tiene).
 - Algo de todo el día que dura varios días (un viaje, un congreso, «del miércoles al sábado»): crear_item con day = primer día, start null y end_day = último día.
 - «Mañana me levanto a las 6» o «hoy me duermo a las 12» es ajustar_dia (siempre false). «Los sábados me levanto a las 9» o «entre semana me despierto a las 6» es ajustar_dia con siempre true (uno por cada día de la semana, con un day de esa semana). "despertar"/"dormir" del contexto son los de hoy y "rutina" los de cada día de la semana.
 - "hobbies" son prácticas de tiempo libre sin hora fija (guitarra, dibujar, ajedrez). «Toqué guitarra», «hice mis partidas de ajedrez a las 6» o «anota que dibujé» es registrar_hobby con su hobby_id. Agregar uno nuevo a su lista es crear_hobby. Los hobbies son de la agenda: no uses otra_app para ellos.
@@ -240,6 +248,7 @@ type Ctx = {
   areas?: { id: string }[]
   groups?: { id: string }[]
   hobbies?: { id: string }[]
+  reserves?: { id: string }[]
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -256,6 +265,9 @@ function valid(name: string, input: Record<string, unknown>, ctx: Ctx): boolean 
   const prioOk = (v: unknown) => v == null || PRIO_AG.includes(String(v))
   const nameOk = (v: unknown) => typeof v === 'string' && v.trim() !== ''
   switch (name) {
+    case 'reservar':
+      return typeof input.day === 'string' && DATE.test(input.day) && timeOk(input.start) && durOk(input.duration_min) &&
+        (input.reserve_id == null || has(ctx.reserves, input.reserve_id)) && (input.reserve_id != null || nameOk(input.title))
     case 'ajustar_dia':
       return typeof input.day === 'string' && DATE.test(input.day) && timeOk(input.wake) && timeOk(input.sleep) && (input.wake != null || input.sleep != null)
     case 'crear_grupo':

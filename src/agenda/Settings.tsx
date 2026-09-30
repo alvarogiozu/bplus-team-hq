@@ -10,7 +10,8 @@ import { WEEKDAY_NAMES } from '../lib/dates'
 import type { Routine } from './blocks'
 import { useAgendaActions, usePrefs } from './data'
 import { AIcon } from './icons'
-import { fmtDur, hhmm, parseHhmm } from './time'
+import { fmtDur } from './time'
+import { TimePick } from './TimePick'
 import { speechSupported } from './voice'
 
 // Ajustes mínimos: tu horario, tus duraciones rápidas, el tema y tu cuenta. Nada más.
@@ -47,28 +48,18 @@ export function AgendaSettings({ open, onClose, anchors }: { open: boolean; onCl
       <section className="ag-set">
         <b className="ag-card-t">Tu día · lo de siempre</b>
         <div className="ag-set-row">
-          <label>
-            <AIcon name="sun" size={18} /> Despertar
-            <input
-              type="time"
-              value={hhmm(prefs?.wake_min ?? anchors.wake)}
-              onChange={(e) => {
-                const v = parseHhmm(e.target.value)
-                if (v != null) void savePrefs({ wake_min: v })
-              }}
-            />
-          </label>
-          <label>
-            <AIcon name="moon" size={18} /> Dormir
-            <input
-              type="time"
-              value={hhmm(prefs?.sleep_min ?? anchors.sleep)}
-              onChange={(e) => {
-                const v = parseHhmm(e.target.value)
-                if (v != null) void savePrefs({ sleep_min: v })
-              }}
-            />
-          </label>
+          <div className="ag-set-time">
+            <span>
+              <AIcon name="sun" size={18} /> Despertar
+            </span>
+            <TimePick label="Despertar (lo de siempre)" value={prefs?.wake_min ?? anchors.wake} onChange={(v) => void savePrefs({ wake_min: v })} />
+          </div>
+          <div className="ag-set-time">
+            <span>
+              <AIcon name="moon" size={18} /> Dormir
+            </span>
+            <TimePick label="Dormir (lo de siempre)" value={prefs?.sleep_min ?? anchors.sleep} onChange={(v) => void savePrefs({ sleep_min: v })} />
+          </div>
         </div>
       </section>
 
@@ -94,26 +85,8 @@ export function AgendaSettings({ open, onClose, anchors }: { open: boolean; onCl
             return (
               <div key={dow} className="ag-routine-row" role="row">
                 <b>{name[0].toUpperCase() + name.slice(1)}</b>
-                <input
-                  type="time"
-                  className={r.wake == null ? 'inherit' : ''}
-                  value={hhmm(r.wake ?? defWake)}
-                  aria-label={`Despertar el ${name}`}
-                  onChange={(e) => {
-                    const v = parseHhmm(e.target.value)
-                    if (v != null) setRoutine(dow, { wake: v === defWake ? null : v })
-                  }}
-                />
-                <input
-                  type="time"
-                  className={r.sleep == null ? 'inherit' : ''}
-                  value={hhmm(r.sleep ?? defSleep)}
-                  aria-label={`Dormir el ${name}`}
-                  onChange={(e) => {
-                    const v = parseHhmm(e.target.value)
-                    if (v != null) setRoutine(dow, { sleep: v === defSleep ? null : v })
-                  }}
-                />
+                <TimePick size="sm" muted={r.wake == null} label={`Despertar el ${name}`} value={r.wake ?? defWake} onChange={(v) => setRoutine(dow, { wake: v === defWake ? null : v })} />
+                <TimePick size="sm" muted={r.sleep == null} label={`Dormir el ${name}`} value={r.sleep ?? defSleep} onChange={(v) => setRoutine(dow, { sleep: v === defSleep ? null : v })} />
                 {r.wake != null || r.sleep != null ? (
                   <button className="ag-x" aria-label={`${name}: volver a lo de siempre`} title="Volver a lo de siempre" onClick={() => setRoutine(dow, { wake: null, sleep: null })}>
                     <AIcon name="undo" size={14} />

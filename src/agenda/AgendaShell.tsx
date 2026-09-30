@@ -10,20 +10,22 @@ import { anchorsOf, dayContent, dotsFor, lastFreeSlot, type Block } from './bloc
 import { anchorOk, AnchorSheet, type AnchorEdit } from './AnchorSheet'
 import { CalendarsPanel } from './CalendarsPanel'
 import { useCalendarMap, useCalendarsRealtime, useGoogleCalendars, useGoogleEvents, useGoogleReturn, useGoogleStatus, useGoogleSync } from './calendars'
-import { useAgendaActions, useAgendaRealtime, useHq, useItems, usePrefs } from './data'
+import { useAgendaActions, useAgendaRealtime, useHq, useItems, usePrefs, type AgendaItem } from './data'
 import { DayStrip } from './DayStrip'
 import { useDayActions, useDayMap, useDaysRealtime } from './days'
 import { useDrag, useDraggable, type DragPayload } from './drag'
 import { EditorHost, openEditor, type Draft } from './Editor'
 import { useGroupsRealtime, type Group } from './groups'
-import { HobbiesPanel } from './HobbiesPanel'
+import { FillSheet } from './FillSheet'
+import { ReservesPanel } from './ReservesPanel'
+import { fitInReserve, reserveUsage, useReserveActions, useReserves, useReservesRealtime, type Reserve } from './reserves'
 import { useHobbies, useHobbiesRealtime, useHobbyActions, type Hobby } from './hobbies'
 import { AIcon } from './icons'
 import { Inbox } from './Inbox'
 import { DatePop } from './Popovers'
 import { RockieBar } from './RockieBar'
 import { AgendaSettings } from './Settings'
-import { hhmm, nowMinIn } from './time'
+import { fmtDur, hhmm, nowMinIn } from './time'
 import { Timeline, type Ghost } from './Timeline'
 import { WeekBars } from './WeekBars'
 
@@ -95,6 +97,10 @@ export function AgendaShell() {
   const [anchorEdit, setAnchorEdit] = useState<AnchorEdit>(null)
   const hobbies = useHobbies().data
   const hobbyActions = useHobbyActions()
+  useReservesRealtime()
+  const reserves = useReserves().data
+  const reserveActions = useReserveActions()
+  const [fillId, setFillId] = useState<string | null>(null)
   const mobile = useIsMobile()
   // Panel de calendarios fijo a la derecha solo si hay ancho; si no, se abre con un botón
   const wide = useMedia('(min-width: 1280px)')
@@ -138,6 +144,8 @@ export function AgendaShell() {
   useEffect(() => {
     if (!loaded) return
     const t = setTimeout(() => {
+      // nunca mover la lista mientras arrastras algo (se sentía como un salto bajo el dedo)
+      if (document.body.classList.contains('ag-dragging')) return
       const sc = scrollRef.current
       const now = sc?.querySelector('.tl-now') as HTMLElement | null
       if (sc && now) {
@@ -185,9 +193,9 @@ export function AgendaShell() {
     // hoy o un día pasado: lo pones donde "ya pasó" (justo antes de ahora), si cabe
     return lastFreeSlot(bl, { end: d === today ? nowMin : sleep, wake, dur }) ?? nextFreeSlot(bl, { isToday: d === today, nowMin, wake, sleep, dur })
   }
-  async function placeHobby(h: Hobby, min?: number, d = day) {
+  async function placeHobby(h: Hobby, min?: number, d = day, inReserve: string | null = null) {
     const start = min ?? hobbySlot(h.duration_min, d)
-    const undo = await hobbyActions.logHobby(h, d, start, { today, nowMin })
+    const undo = await hobbyActions.logHobby(h, d, start, { today, nowMin, inReserve })
     if (!undo) return
     haptic(10)
     toast(`«${h.name}» quedó ${d === today ? 'hoy' : `el ${fmtDay(d)}`} a las ${hhmm(start)}`, { action: { label: 'Deshacer', onClick: () => void undo() } })
@@ -208,7 +216,63 @@ export function AgendaShell() {
       })
   }
 
+  // ---------- reservar tiempo ----------
+  /** El espacio reservado que cubre ese minuto de ese día (sin contar el que se está moviendo). */
+  const reserveAt = (d: string, min: number, except?: string) =>
+    items.find((i) => i.is_reserve && i.day === d && i.start_min != null && i.id !== except && min >= i.start_min && min < i.start_min + i.duration_min)
+  const durOf = (p: DragPayload) =>
+    p.kind === 'item' ? (items.find((x) => x.id === p.id)?.duration_min ?? p.duration) : p.kind === 'hobby' ? (hobbies?.find((h) => h.id === p.id)?.duration_min ?? p.duration) : p.duration
+
+  /** Mete algo en un espacio reservado: donde lo soltaste si cabe, si no en su primer hueco. */
+  async function fillReserve(res: AgendaItem, p: DragPayload, prefer?: number): Promise<boolean> {
+    const dur = durOf(p)
+    const u = reserveUsage(res, items.filter((i) => i.id !== p.id))
+    const start = fitInReserve({ start: u.start, end: u.end }, u.inside.map((i) => ({ start: i.start_min!, duration: i.duration_min })), dur, prefer)
+    if (start == null) {
+      toastError(`No cabe en «${res.title}»: ${u.free ? `quedan ${fmtDur(u.free)} y esto dura ${fmtDur(dur)}` : 'ya está lleno'}.`)
+      return false
+    }
+    const d = res.day!
+    if (p.kind === 'hobby') {
+      const h = hobbies?.find((x) => x.id === p.id)
+      if (h) await placeHobby(h, start, d, res.id)
+    } else if (p.kind === 'task') {
+      const t = hq?.tasks.find((x) => x.id === p.id)
+      if (t) await actions.scheduleTask(t, d, start, dur, { in_reserve: res.id })
+    } else if (p.kind === 'item') {
+      await actions.updateItem(p.id, { day: d, start_min: start, end_day: null, in_reserve: res.id })
+    } else return false
+    haptic([6, 20, 6])
+    return true
+  }
+  async function reserveTime(r: Reserve | null, d: string, min?: number) {
+    const dur = r?.duration_min ?? 60
+    const start = min ?? slot(dur, d)
+    const res = await reserveActions.reserveBlock(r, d, start)
+    if (!res) return
+    haptic(10)
+    toast(`Reservaste «${res.item.title}» ${d === today ? 'hoy' : `el ${fmtDay(d)}`} a las ${hhmm(start)}`, { action: { label: 'Deshacer', onClick: () => void res.undo() } })
+  }
+  /** Mover un espacio reservado se lleva lo que tiene adentro. */
+  async function moveReserve(res: AgendaItem, min: number, d: string) {
+    const delta = min - (res.start_min ?? min)
+    const kids = items.filter((i) => i.in_reserve === res.id && i.start_min != null)
+    await actions.updateItem(res.id, { day: d, start_min: min })
+    for (const k of kids) await actions.updateItem(k.id, { day: d, start_min: Math.max(0, Math.min(1439, k.start_min! + delta)) })
+  }
+
   async function dropAt(p: DragPayload, min: number, d = day) {
+    const moving = p.kind === 'item' ? items.find((x) => x.id === p.id) : undefined
+    if (moving?.is_reserve) return moveReserve(moving, min, d)
+    if (p.kind === 'reserve') return reserveTime(reserves?.find((r) => r.id === p.id) ?? null, d, min)
+    // soltarlo encima de un espacio reservado = llenarlo
+    if (p.kind === 'item' || p.kind === 'hobby' || p.kind === 'task') {
+      const host = reserveAt(d, min, p.id)
+      if (host) {
+        await fillReserve(host, p, min)
+        return
+      }
+    }
     if (p.kind === 'anchor') {
       await moveAnchor(p.id === 'sleep' ? 'sleep' : 'wake', min, d)
     } else if (p.kind === 'hobby') {
@@ -217,7 +281,7 @@ export function AgendaShell() {
     } else if (p.kind === 'item') {
       const it = items.find((x) => x.id === p.id)
       // con hora deja de ser "de varios días"
-      await actions.updateItem(p.id, { day: d, start_min: min, duration_min: it?.duration_min ?? p.duration, end_day: null })
+      await actions.updateItem(p.id, { day: d, start_min: min, duration_min: it?.duration_min ?? p.duration, end_day: null, in_reserve: null })
     } else if (p.kind === 'task') {
       const t = hq?.tasks.find((x) => x.id === p.id)
       if (t) await actions.scheduleTask(t, d, min, p.duration)
@@ -238,7 +302,7 @@ export function AgendaShell() {
     }
     const keep = it?.start_min ?? (p.kind === 'event' ? blocks.find((b) => b.key === `event:${p.id}`)?.start : undefined)
     void dropAt(p, keep ?? (p.kind === 'hobby' ? hobbySlot(p.duration, d) : slot(p.duration, d)), d)
-    if (d !== day && p.kind !== 'hobby') toast(`Movido al ${fmtDay(d)}`, { action: { label: 'Ver', onClick: () => setDay(d) } })
+    if (d !== day && p.kind !== 'hobby' && p.kind !== 'reserve') toast(`Movido al ${fmtDay(d)}`, { action: { label: 'Ver', onClick: () => setDay(d) } })
   }
   function toggle(b: Block, at: { x: number; y: number }) {
     if (b.kind !== 'item' || !b.item) return
@@ -298,16 +362,22 @@ export function AgendaShell() {
         void dropAt(p, slot(p.duration))
         haptic(10)
       }}
-      onUnschedule={(p) => void actions.updateItem(p.id, { day: null, start_min: null })}
+      onUnschedule={(p) => void actions.updateItem(p.id, { day: null, start_min: null, in_reserve: null })}
       onDragStart={mobile ? () => setInboxOpen(false) : undefined}
     />
   )
   const hobbyPanel = (
-    <HobbiesPanel
+    <ReservesPanel
       day={day}
       today={today}
       items={items}
-      onPlace={(h) => void placeHobby(h)}
+      onReserve={(r) => void reserveTime(r, day)}
+      onPlaceOption={(h, r) => {
+        // si ya reservaste ese tiempo hoy, la opción entra ahí; si no, va sola a tu día
+        const host = r ? items.find((i) => i.is_reserve && i.reserve_id === r.id && i.day === day && reserveUsage(i, items).free >= h.duration_min) : undefined
+        if (host) void fillReserve(host, { kind: 'hobby', id: h.id, title: h.name, color: h.color, icon: h.icon, duration: h.duration_min, from: 'hobbies' })
+        else void placeHobby(h)
+      }}
       onOpenItem={(it) => {
         if (mobile) setInboxOpen(false)
         if (it.day && it.day !== day) setDay(it.day)
@@ -443,6 +513,7 @@ export function AgendaShell() {
                     haptic(10)
                   }}
                   onGapClick={(min) => openEditor({ mode: 'new', draft: newDraft(min) })}
+                  onFill={(b) => setFillId(b.id)}
                 />
               </motion.div>
             </AnimatePresence>
@@ -465,6 +536,7 @@ export function AgendaShell() {
       )}
 
       <EditorHost />
+      <FillSheet reserveId={fillId} onClose={() => setFillId(null)} onPick={fillReserve} />
       {mobile && (
         <Sheet open={inboxOpen} onClose={() => setInboxOpen(false)} title="Inbox">
           {inbox}

@@ -9,13 +9,15 @@ import { fmtDur } from './time'
 // vuela a su lugar. Mouse: arranca al mover 5 px. Táctil: mantener 230 ms (si no, es scroll).
 
 export type DragPayload = {
-  kind: 'item' | 'task' | 'event' | 'hobby' | 'anchor'
+  kind: 'item' | 'task' | 'event' | 'hobby' | 'anchor' | 'reserve'
   id: string
   title: string
   color: string
   icon: string
   duration: number
   from: 'inbox' | 'timeline' | 'allday' | 'hobbies'
+  /** es un espacio reservado que ya está en el día (no va al Inbox ni a un grupo) */
+  isReserve?: boolean
 }
 export type Pt = { x: number; y: number }
 export type DropResult = { land: Pt; shrink?: boolean } | null
@@ -25,9 +27,10 @@ export type DropTarget = {
   priority: number
   getEl: () => HTMLElement | null
   accepts: (p: DragPayload) => boolean
-  hover?: (p: DragPayload, pt: Pt) => void
+  /** pt = el dedo; card = esquina de arriba de la tarjeta que se arrastra (para alinear el recuadro con ella) */
+  hover?: (p: DragPayload, pt: Pt, card: Pt) => void
   leave?: () => void
-  drop: (p: DragPayload, pt: Pt) => DropResult
+  drop: (p: DragPayload, pt: Pt, card: Pt) => DropResult
 }
 
 type Ctx = {
@@ -36,8 +39,6 @@ type Ctx = {
   register: (t: DropTarget) => () => void
   begin: (payload: DragPayload, pt: { clientX: number; clientY: number }, originEl: HTMLElement) => void
   setScroller: (el: HTMLElement | null) => void
-  /** Centro en pantalla donde debe verse la tarjeta (el recuadro de la agenda). null = sigue al cursor. */
-  dockCenter: (pt: Pt | null) => void
 }
 
 const DragCtx = createContext<Ctx | null>(null)
@@ -59,12 +60,6 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const x = useMotionValue(0)
   const y = useMotionValue(0)
   const ghostEl = useRef<HTMLDivElement>(null)
-  const dock = useRef<Pt | null>(null)
-  // Imán suave: sobre la agenda la tarjeta se desliza (resorte) al centro horizontal del recuadro;
-  // en vertical sigue siempre al dedo, así subir y bajar nunca va a saltos de 15 min.
-  const dockX = useMotionValue(0)
-  const dockXs = useSpring(dockX, { stiffness: 260, damping: 30, mass: 0.8 })
-  const gx = useTransform([x, dockXs], ([a, b]: number[]) => a + b)
   const vx = useVelocity(x)
   const tilt = useSpring(useTransform(vx, [-1600, 0, 1600], [-14, 0, 14]), { stiffness: 320, damping: 22 })
   const scale = useMotionValue(1)
@@ -79,17 +74,6 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const setScroller = useCallback((el: HTMLElement | null) => {
     scroller.current = el
   }, [])
-  const applyDock = useCallback(() => {
-    const c = dock.current
-    dockX.set(c ? c.x - GHOST_W / 2 - x.get() : 0)
-  }, [x, dockX])
-  const dockCenter = useCallback(
-    (pt: Pt | null) => {
-      dock.current = pt
-      applyDock()
-    },
-    [applyDock],
-  )
 
   const begin = useCallback<Ctx['begin']>(
     (payload, pt, originEl) => {
@@ -98,9 +82,6 @@ export function DragProvider({ children }: { children: ReactNode }) {
       const offY = Math.min(Math.max(pt.clientY - origin.top, 12), 44)
       x.jump(pt.clientX - offX)
       y.jump(pt.clientY - offY)
-      dock.current = null
-      dockX.jump(0)
-      dockXs.jump(0)
       scale.jump(1)
       opacity.jump(1)
       animate(scale, 1.06, { type: 'spring', stiffness: 500, damping: 18 })
@@ -125,7 +106,8 @@ export function DragProvider({ children }: { children: ReactNode }) {
           if (best) haptic(6)
           current = best
         }
-        current?.hover?.(payload, p)
+        // la tarjeta va libre con el dedo; el destino decide dónde marcar (alineado con la tarjeta)
+        current?.hover?.(payload, p, { x: x.get(), y: y.get() })
       }
 
       const tick = () => {
@@ -138,7 +120,8 @@ export function DragProvider({ children }: { children: ReactNode }) {
           let dy = 0
           if (last.y < r.top + edge && last.y > r.top - 40) dy = -ease(r.top + edge - last.y)
           else if (last.y > r.bottom - edge && last.y < r.bottom + 40) dy = ease(last.y - (r.bottom - edge))
-          if (Math.abs(dy) > 0.2) {
+          const room = dy < 0 ? sc.scrollTop > 0 : sc.scrollTop + sc.clientHeight < sc.scrollHeight - 1
+          if (Math.abs(dy) > 0.2 && room) {
             sc.scrollTop += dy
             hit(last)
           }
@@ -152,15 +135,9 @@ export function DragProvider({ children }: { children: ReactNode }) {
         x.set(e.clientX - offX)
         y.set(e.clientY - offY)
         hit(last)
-        applyDock()
       }
       const preventScroll = (e: TouchEvent) => e.preventDefault()
       const finish = (result: DropResult) => {
-        // el desvío del imán pasa a la posición real para que el aterrizaje salga desde donde se ve
-        dock.current = null
-        x.jump(x.get() + dockXs.get())
-        dockX.jump(0)
-        dockXs.jump(0)
         cancelAnimationFrame(raf)
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
@@ -194,7 +171,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
         hit(p)
         let result: DropResult = null
         try {
-          result = current ? current.drop(payload, p) : null
+          result = current ? current.drop(payload, p, { x: x.get(), y: y.get() }) : null
         } catch {
           result = null
         }
@@ -209,20 +186,20 @@ export function DragProvider({ children }: { children: ReactNode }) {
       window.addEventListener('touchmove', preventScroll, { passive: false })
       document.body.classList.add('ag-dragging')
     },
-    [x, y, scale, opacity, applyDock, dockX, dockXs],
+    [x, y, scale, opacity],
   )
 
   useEffect(() => {
     if (!active) document.body.classList.remove('ag-dragging')
   }, [active])
 
-  const value = useMemo(() => ({ active, landedKey, register, begin, setScroller, dockCenter }), [active, landedKey, register, begin, setScroller, dockCenter])
+  const value = useMemo(() => ({ active, landedKey, register, begin, setScroller }), [active, landedKey, register, begin, setScroller])
   return (
     <DragCtx.Provider value={value}>
       {children}
       {ghost &&
         createPortal(
-          <motion.div ref={ghostEl} className="ag-ghost" style={{ x: gx, y, rotate: tilt, scale, opacity, width: GHOST_W, ['--c' as string]: ghost.color }} aria-hidden="true">
+          <motion.div ref={ghostEl} className="ag-ghost" style={{ x, y, rotate: tilt, scale, opacity, width: GHOST_W, ['--c' as string]: ghost.color }} aria-hidden="true">
             <span className="ag-ghost-ico">
               <AIcon name={ghost.icon} size={18} />
             </span>
@@ -296,9 +273,9 @@ export function useDropTarget(target: Omit<DropTarget, 'getEl'>, ref: React.RefO
         priority: target.priority,
         getEl: () => ref.current,
         accepts: (p) => latest.current.accepts(p),
-        hover: (p, pt) => latest.current.hover?.(p, pt),
+        hover: (p, pt, card) => latest.current.hover?.(p, pt, card),
         leave: () => latest.current.leave?.(),
-        drop: (p, pt) => latest.current.drop(p, pt),
+        drop: (p, pt, card) => latest.current.drop(p, pt, card),
       }),
     [register, target.id, target.priority, ref],
   )
