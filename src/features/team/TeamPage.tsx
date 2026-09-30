@@ -18,21 +18,11 @@ import { TeamAchievements } from './TeamAchievements'
 import { MemberStatus, TeamAvailability } from './TeamAvailability'
 import { presenceStore } from './presence'
 
-export default function TeamPage() {
-  const { spaceId, isOwner } = useSpace()
-  const { userId, profile } = useMe()
-  const membersQ = useMembers()
-  const xp = useXp().data ?? []
-  const [editing, setEditing] = useState<Member | null>(null)
-  const [tempPw, setTempPw] = useState<{ name: string; password: string } | null>(null)
+/** Lo que el dueño puede hacer con cada persona (lo comparten la computadora y el celular). */
+export function useMemberAdmin() {
+  const { spaceId } = useSpace()
   const qc = useQueryClient()
-  const night = isNight(hourIn(profile.timezone))
-  const online = presenceStore.use()
-
-  const byUser = xpByUser(xp)
-  const members = membersQ.data ?? []
-  const ranked = members.slice().sort((a, b) => (byUser.get(b.user_id) ?? 0) - (byUser.get(a.user_id) ?? 0))
-  const medal = new Map(ranked.filter((m) => (byUser.get(m.user_id) ?? 0) > 0).slice(0, 3).map((m, i) => [m.user_id, ['g', 's', 'b'][i]]))
+  const [tempPw, setTempPw] = useState<{ name: string; password: string } | null>(null)
 
   async function setRole(m: Member, role: 'owner' | 'member') {
     const { error } = await supabase.from('space_members').update({ role }).eq('id', m.id)
@@ -62,6 +52,38 @@ export default function TeamPage() {
     }
     setTempPw({ name: m.profile.display_name, password: data.password })
   }
+
+  return { setRole, removeMember, resetPassword, tempPw, clearTempPw: () => setTempPw(null) }
+}
+
+export function TempPasswordSheet({ temp, onClose }: { temp: { name: string; password: string } | null; onClose: () => void }) {
+  return (
+    <Sheet open={Boolean(temp)} onClose={onClose} title="Contraseña temporal">
+      <p>Pásale esta contraseña a <b>{temp?.name}</b>. Al entrar tendrá que elegir una nueva.</p>
+      <div className="invitebox card">
+        <code>{temp?.password}</code>
+        <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(temp?.password ?? ''); toast('Copiada', { kind: 'ok' }) }}>
+          <Icon name="copy" className="sm" /> Copiar
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+export default function TeamPage() {
+  const { isOwner } = useSpace()
+  const { userId, profile } = useMe()
+  const membersQ = useMembers()
+  const xp = useXp().data ?? []
+  const [editing, setEditing] = useState<Member | null>(null)
+  const { setRole, removeMember, resetPassword, tempPw, clearTempPw } = useMemberAdmin()
+  const night = isNight(hourIn(profile.timezone))
+  const online = presenceStore.use()
+
+  const byUser = xpByUser(xp)
+  const members = membersQ.data ?? []
+  const ranked = members.slice().sort((a, b) => (byUser.get(b.user_id) ?? 0) - (byUser.get(a.user_id) ?? 0))
+  const medal = new Map(ranked.filter((m) => (byUser.get(m.user_id) ?? 0) > 0).slice(0, 3).map((m, i) => [m.user_id, ['g', 's', 'b'][i]]))
 
   return (
     <div className="content">
@@ -126,15 +148,7 @@ export default function TeamPage() {
       <TeamAchievements />
 
       {editing && <ProfileSheet member={editing} onClose={() => setEditing(null)} />}
-      <Sheet open={Boolean(tempPw)} onClose={() => setTempPw(null)} title="Contraseña temporal">
-        <p>Pásale esta contraseña a <b>{tempPw?.name}</b>. Al entrar tendrá que elegir una nueva.</p>
-        <div className="invitebox card">
-          <code>{tempPw?.password}</code>
-          <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(tempPw?.password ?? ''); toast('Copiada', { kind: 'ok' }) }}>
-            <Icon name="copy" className="sm" /> Copiar
-          </button>
-        </div>
-      </Sheet>
+      <TempPasswordSheet temp={tempPw} onClose={clearTempPw} />
     </div>
   )
 }
@@ -183,7 +197,7 @@ export function InviteBox({ isOwner }: { isOwner: boolean }) {
   )
 }
 
-function ProfileSheet({ member, onClose }: { member: Member; onClose: () => void }) {
+export function ProfileSheet({ member, onClose }: { member: Member; onClose: () => void }) {
   const { spaceId } = useSpace()
   const qc = useQueryClient()
   const [name, setName] = useState(member.profile.display_name)
@@ -221,7 +235,7 @@ function ProfileSheet({ member, onClose }: { member: Member; onClose: () => void
 const ROLE_SUGGESTIONS = ['Gestión', 'Diseño', 'Hardware', 'Software', 'Marketing', 'Ventas', 'Finanzas', 'Operaciones']
 
 /** El rol de cada persona (su "sombrero" en el equipo). Lo edita ella misma o el dueño. */
-function RoleTag({ member, editable }: { member: Member; editable: boolean }) {
+export function RoleTag({ member, editable }: { member: Member; editable: boolean }) {
   const { spaceId } = useSpace()
   const qc = useQueryClient()
   const areas = useAreas().data ?? []

@@ -24,6 +24,10 @@ import { setAccent, useTheme } from './theme'
 import { useAchievementWatcher } from '../features/team/achievements'
 import { AchievementDialog } from '../features/team/TeamAchievements'
 import { AppSwitcher } from '../os/AppSwitcher'
+import { useIsMobile } from '../lib/useMedia'
+import { Faces } from '../features/movil/bits'
+import { NuevaTareaMovil, TareaSheetMovil } from '../features/movil/TareaSheet'
+import '../features/movil/movil.css'
 
 type Dest = { to: string; label: string; icon: IconName; color: string }
 const DESKTOP: Dest[] = [
@@ -53,6 +57,9 @@ export function Layout() {
   const agentRef = useRef<HTMLInputElement>(null)
   const loc = useLocation()
   const night = isNight(hourIn(profile.timezone))
+  const mobile = useIsMobile()
+  const onlineOthers = members.filter((m) => m.user_id !== userId && online.has(m.user_id)).map((m) => m.user_id)
+  const inPath = (...paths: string[]) => paths.includes(loc.pathname)
 
   // Ctrl/Cmd + K: enfocar a Rockie desde cualquier lugar
   useEffect(() => {
@@ -132,6 +139,11 @@ export function Layout() {
           <AppSwitcher />
           <span className="sp">{memberships.find((m) => m.space_id === spaceId)?.name !== 'B+' ? memberships.find((m) => m.space_id === spaceId)?.name : 'HQ'}</span>
           <span className="spacer" />
+          {onlineOthers.length > 0 && (
+            <NavLink to="/equipo" className="em-topfaces" aria-label={`${onlineOthers.length} del equipo en línea`}>
+              <Faces ids={onlineOthers} size={26} max={3} />
+            </NavLink>
+          )}
           <button className="me-btn" style={{ width: 'auto' }} onClick={(e) => openMenu(e.currentTarget, false)} aria-haspopup="menu" aria-label="Tu perfil, equipo y ajustes">
             <Rockie color={profile.color} size={34} still />
           </button>
@@ -147,18 +159,26 @@ export function Layout() {
           </div>
         </div>
 
-        <nav className="bottomnav" aria-label="Navegación">
-          <NavLink to="/hoy" style={{ ['--nc' as string]: 'var(--title)' }}><Icon name="today" />Hoy</NavLink>
-          <NavLink to="/tareas?vista=lista" className={() => (loc.pathname === '/tareas' && !loc.search.includes('calendario') ? 'active' : '')} style={{ ['--nc' as string]: 'var(--accent-ink)' }}>
-            <Icon name="tasks" />Tareas
+        <nav className="bottomnav em-nav" aria-label="Navegación">
+          <NavLink to="/hoy">
+            <Icon name="today" />
+            Hoy
+          </NavLink>
+          <NavLink to="/tareas" className={() => (inPath('/tareas') ? 'active' : '')}>
+            <Icon name="tasks" />
+            Tareas
           </NavLink>
           <button className="rockiebtn" aria-label="Pídele algo a Rockie" onClick={() => setAgentOpen(true)}>
             <Rockie color="var(--brand)" size={44} reactive />
           </button>
-          <NavLink to="/tareas?vista=calendario" className={() => (loc.search.includes('calendario') ? 'active' : '')} style={{ ['--nc' as string]: 'var(--coral-ink)' }}>
-            <Icon name="calendar" />Calendario
+          <NavLink to="/proyectos" className={() => (inPath('/proyectos', '/metas') ? 'active' : '')}>
+            <Icon name="projects" />
+            Proyectos
           </NavLink>
-          <NavLink to="/proyectos" style={{ ['--nc' as string]: 'var(--olive-edge)' }}><Icon name="projects" />Proyectos</NavLink>
+          <NavLink to="/equipo" className={() => (inPath('/equipo', '/materiales', '/ajustes') ? 'active' : '')}>
+            <Icon name="team" />
+            Equipo
+          </NavLink>
         </nav>
       </div>
 
@@ -169,9 +189,9 @@ export function Layout() {
         </button>
       </Sheet>
       {menu && <ProfileMenu at={menu} onClose={() => setMenu(null)} />}
-      <TaskPanel />
+      {mobile ? <TareaSheetMovil /> : <TaskPanel />}
       <ValidateDialog />
-      <NewTaskDialog />
+      {mobile ? <NuevaTareaMovil /> : <NewTaskDialog />}
       <AchievementDialog />
     </div>
   )

@@ -5,6 +5,7 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { ChangePasswordPage, InviteRoute, LoginPage, RegisterPage } from '../features/auth/AuthPages'
 import { SpaceProvider, WelcomePage } from '../features/spaces/SpaceProvider'
 import TodayPage from '../features/today/TodayPage'
+import { useIsMobile } from '../lib/useMedia'
 import { Layout } from './Layout'
 
 const TasksPage = lazy(() => import('../features/views/TasksPage'))
@@ -16,6 +17,17 @@ const SettingsPage = lazy(() => import('../features/settings/SettingsPage'))
 const AgendaApp = lazy(() => import('../agenda/AgendaApp'))
 const CuadernoApp = lazy(() => import('../cuaderno/CuadernoApp'))
 const HomePage = lazy(() => import('../os/HomePage'))
+// el Equipo en el celular: mismas rutas y mismos datos, composición propia
+const HoyMovil = lazy(() => import('../features/movil/HoyMovil'))
+const TareasMovil = lazy(() => import('../features/movil/TareasMovil'))
+const ProyectosMovil = lazy(() => import('../features/movil/ProyectosMovil'))
+const MetasMovil = lazy(() => import('../features/movil/MetasMovil'))
+const EquipoMovil = lazy(() => import('../features/movil/EquipoMovil'))
+
+/** Misma ruta, dos composiciones: la de la computadora y la del celular. */
+function Adapt({ desk, movil }: { desk: ReactNode; movil: ReactNode }) {
+  return <>{useIsMobile() ? movil : desk}</>
+}
 
 function Splash() {
   return (
@@ -103,12 +115,12 @@ export function App() {
             }
           />
           <Route element={<SpaceShell />}>
-            <Route path="/hoy" element={<TodayPage />} />
-            <Route path="/tareas" element={<TasksPage />} />
-            <Route path="/proyectos" element={<ProjectsPage />} />
-            <Route path="/metas" element={<GoalsPage />} />
+            <Route path="/hoy" element={<Adapt desk={<TodayPage />} movil={<HoyMovil />} />} />
+            <Route path="/tareas" element={<Adapt desk={<TasksPage />} movil={<TareasMovil />} />} />
+            <Route path="/proyectos" element={<Adapt desk={<ProjectsPage />} movil={<ProyectosMovil />} />} />
+            <Route path="/metas" element={<Adapt desk={<GoalsPage />} movil={<MetasMovil />} />} />
             <Route path="/materiales" element={<MaterialsPage />} />
-            <Route path="/equipo" element={<TeamPage />} />
+            <Route path="/equipo" element={<Adapt desk={<TeamPage />} movil={<EquipoMovil />} />} />
             <Route path="/ajustes" element={<SettingsPage />} />
           </Route>
         </Route>

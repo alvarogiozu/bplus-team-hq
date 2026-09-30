@@ -12,3 +12,7 @@ export function useMedia(q: string) {
   }, [q])
   return m
 }
+
+/** El corte del HQ entre celular y computadora (el mismo de app.css). */
+export const MOBILE_Q = '(max-width: 767px)'
+export const useIsMobile = () => useMedia(MOBILE_Q)

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { Icon } from '../../components/Icon'
 import { ColorPick, Select, type Opt } from '../../components/Select'
@@ -10,6 +10,8 @@ import { fmtDay, timeAgo } from '../../lib/dates'
 import { useSpaceRow } from '../data/queries'
 import { MemberAvatar, useLookup } from '../tasks/bits'
 import { NotePick } from './NotePick'
+import { HeadBtn, MHead } from '../movil/bits'
+import { useIsMobile } from '../../lib/useMedia'
 import {
   fileKind,
   fmtBytes,
@@ -62,6 +64,8 @@ export default function MaterialsPage() {
     next.delete('nota')
     setParams(next)
   }
+  const [addOpen, setAddOpen] = useState(false)
+  const mobile = useIsMobile()
   const fileInput = useRef<HTMLInputElement>(null)
   const dragDepth = useRef(0)
 
@@ -148,7 +152,35 @@ export default function MaterialsPage() {
 
   return (
     <div className="content mpage" onDragEnter={onDragEnter} onDragLeave={onDragLeave} onDragOver={allowDrop} onDrop={(e) => onDrop(e, folderId)}>
-      <header className="pagehead">
+      {mobile && (
+        <>
+          <MHead kicker={<Link to="/equipo" className="em-back"><Icon name="collapse" className="sm" /> Equipo</Link>} title="Materiales">
+            <HeadBtn icon="plus" label="Agregar material" solid onClick={() => setAddOpen(true)} />
+          </MHead>
+          <Meter used={used} limit={limit} />
+          <Sheet open={addOpen} onClose={() => setAddOpen(false)} title="Agregar">
+            <div className="em-addlist">
+              <button onClick={() => { setAddOpen(false); fileInput.current?.click() }} style={{ ['--tc' as string]: 'var(--accent)' } as CSSProperties}>
+                <span className="em-tile-ic"><Icon name="upload" /></span>
+                <span><b>Subir archivos</b><small>Fotos, PDF, videos… hasta 50 MB cada uno</small></span>
+              </button>
+              <button onClick={() => { setAddOpen(false); setLinkOpen(true) }} style={{ ['--tc' as string]: 'var(--berry)' } as CSSProperties}>
+                <span className="em-tile-ic"><Icon name="link" /></span>
+                <span><b>Enlace</b><small>Drive, Docs, Figma, YouTube…</small></span>
+              </button>
+              <button onClick={() => { setAddOpen(false); setNoteOpen(true) }} style={{ ['--tc' as string]: 'var(--accent)' } as CSSProperties}>
+                <span className="em-tile-ic"><Icon name="notebook" /></span>
+                <span><b>Nota del cuaderno</b><small>La editan todos a la vez, como Google Docs</small></span>
+              </button>
+              <button onClick={() => { setAddOpen(false); setFolderDialog({}) }} style={{ ['--tc' as string]: 'var(--amber)' } as CSSProperties}>
+                <span className="em-tile-ic"><Icon name="folder" /></span>
+                <span><b>Carpeta</b><small>{current ? `Dentro de «${current.name}»` : 'Para ordenar por tema o proyecto'}</small></span>
+              </button>
+            </div>
+          </Sheet>
+        </>
+      )}
+      <header className="pagehead" hidden={mobile}>
         <div>
           <h1>Materiales</h1>
           <div className="sub">Archivos y enlaces del equipo, por carpetas. Arrastra archivos aquí para subirlos.</div>

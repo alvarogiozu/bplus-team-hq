@@ -113,7 +113,7 @@ export default function GoalsPage() {
   )
 }
 
-function Mission({ text, editing, setEditing, compact }: { text: string; editing: boolean; setEditing: (b: boolean) => void; compact: boolean }) {
+export function Mission({ text, editing, setEditing, compact }: { text: string; editing: boolean; setEditing: (b: boolean) => void; compact: boolean }) {
   const { saveMission } = useGoalActions()
   const [draft, setDraft] = useState(text)
   const [busy, setBusy] = useState(false)

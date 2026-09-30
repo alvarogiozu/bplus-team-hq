@@ -17,6 +17,8 @@ import { openNewTask } from '../tasks/dialogs'
 import { MemberAvatar, useLookup } from '../tasks/bits'
 import { ProjectMaterials } from '../materials/ProjectMaterials'
 import { TaskRow } from '../views/TaskRow'
+import { TaskCard } from '../movil/bits'
+import { useIsMobile } from '../../lib/useMedia'
 
 // Proyectos (antes "Hitos"): el % ya no se mueve a mano, sale de las tareas validadas.
 export function progressOf(p: Project, tasks: Task[]) {
@@ -144,7 +146,7 @@ function ProjectTile({ project: p, tasks, index, onOpen }: { project: Project; t
   )
 }
 
-function ProjectSheet({ id, onClose }: { id: string | 'new' | null; onClose: () => void }) {
+export function ProjectSheet({ id, onClose }: { id: string | 'new' | null; onClose: () => void }) {
   const { spaceId } = useSpace()
   const qc = useQueryClient()
   const project = (useProjects().data ?? []).find((p) => p.id === id)
@@ -156,6 +158,7 @@ function ProjectSheet({ id, onClose }: { id: string | 'new' | null; onClose: () 
   const [due, setDue] = useState('')
   const [links, setLinks] = useState<LinkItem[]>([])
   const [busy, setBusy] = useState(false)
+  const mobile = useIsMobile()
 
   useEffect(() => {
     if (!id) return
@@ -258,7 +261,13 @@ function ProjectSheet({ id, onClose }: { id: string | 'new' | null; onClose: () 
             <h2 style={{ fontSize: 'var(--t-lg)' }}>Tareas ({tasks.length})</h2>
             <button className="btn ghost sm" onClick={() => openNewTask({ project_id: project.id })}><Icon name="plus" className="sm" /> Tarea</button>
           </div>
-          {sorted.length ? <div className="rows">{sorted.map((t) => <TaskRow key={t.id} task={t} />)}</div> : <p className="hint">Sin tareas. Añade la primera.</p>}
+          {!sorted.length ? (
+            <p className="hint">Sin tareas. Añade la primera.</p>
+          ) : mobile ? (
+            <div className="em-list">{sorted.map((t, i) => <TaskCard key={t.id} task={t} index={i} />)}</div>
+          ) : (
+            <div className="rows">{sorted.map((t) => <TaskRow key={t.id} task={t} />)}</div>
+          )}
           <ProjectMaterials projectId={project.id} />
         </>
       )}
@@ -267,7 +276,7 @@ function ProjectSheet({ id, onClose }: { id: string | 'new' | null; onClose: () 
 }
 
 // Los links generales del equipo (los de la antigua "Base").
-function TeamLinks() {
+export function TeamLinks() {
   const space = useSpaceRow().data
   const links = ((space?.links as LinkItem[] | undefined) ?? []).filter((l) => l.url)
   if (!links.length) return null
