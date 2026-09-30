@@ -1241,7 +1241,3 @@ button.mission:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ca
 .prio-opt.on { border-color: var(--prio); color: var(--ink); background: color-mix(in srgb, var(--prio) 14%, var(--card)); }
 .prio-pick.compact .prio-opt { min-height: 30px; padding: 2px 10px; font-size: var(--t-2xs); }
 @media (prefers-reduced-motion: reduce) { .prio .gl { animation: none; opacity: 1; transform: none; } }
-
-/* materiales por proyecto: pastillas con el color de cada proyecto */
-.mproys { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 var(--s4); }
-.mproys i { display: inline-block; width: 10px; height: 10px; border-radius: 4px; }

@@ -10,6 +10,7 @@ import { timeAgo } from '../lib/dates'
 import { haptic } from '../lib/fx'
 import { NONE, useBooks, useCuadernoActions, useLinks, useNotes, useProjects } from './data'
 import { DICT_LANGS, dictLang, dictationSupported, setDictLang } from './dictation'
+import { ClaudeSection } from './Conector'
 import { CIcon } from './icons'
 import { PAGE_WIDTHS, setPageWidth, setPaperChoice, usePageWidth, usePaperChoice, type Paper } from './prefs'
 import {
@@ -39,6 +40,8 @@ export function CuadernoSettings({ open, onClose }: { open: boolean; onClose: ()
       </section>
 
       <PagesSection />
+
+      {open && <ClaudeSection />}
 
       <section className="cu-set">
         <h3>Dictado</h3>

@@ -31,6 +31,8 @@ const Escritorio = lazy(() => import('../os/escritorio/Escritorio'))
 function Adapt({ desk, movil }: { desk: ReactNode; movil: ReactNode }) {
   return <>{useIsMobile() ? movil : desk}</>
 }
+// "Permitir" del conector de Claude (OAuth): Claude manda aquí a la persona para aprobar la conexión
+const AutorizarPage = lazy(() => import('../cuaderno/Conector'))
 
 function Splash() {
   return (
@@ -60,7 +62,7 @@ function RequireAuth() {
   const loc = useLocation()
   if (loading) return <Splash />
   // quien solo tiene cuenta de Hábitos (los usuarios de siempre de rockie.plus) va directo a Hábitos
-  if (!session && hayCuentaHabitos()) return <IrAHabitos to={rutaEnHabitos(loc.pathname, loc.search)} />
+  if (!session && hayCuentaHabitos() && !loc.pathname.startsWith('/oauth')) return <IrAHabitos to={rutaEnHabitos(loc.pathname, loc.search)} />
   if (!session) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />
   if (profile?.must_change_password && loc.pathname !== '/cambiar-clave') return <Navigate to="/cambiar-clave" replace />
   return <Outlet />
@@ -113,6 +115,14 @@ export function App() {
         <Route element={<RequireAuth />}>
           <Route path="/cambiar-clave" element={<ChangePasswordPage />} />
           <Route path="/bienvenida" element={<WelcomePage />} />
+          <Route
+            path="/oauth/authorize"
+            element={
+              <Suspense fallback={<Splash />}>
+                <AutorizarPage />
+              </Suspense>
+            }
+          />
           <Route index element={<Navigate to="/inicio" replace />} />
           <Route element={<EscritorioGate />}>
             <Route
