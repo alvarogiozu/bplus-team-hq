@@ -1,0 +1,15 @@
+/* En qué equipo estás (arriba de Tareas, Metas y Materiales). */
+.seleq { display: inline-flex; margin-top: var(--s2); max-width: 100%; }
+.seleq-btn {
+  display: inline-flex; align-items: center; gap: 8px; max-width: min(420px, 100%); min-height: 40px; padding: 0 12px 0 8px;
+  border-radius: 999px; background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
+  font-size: var(--t-sm); color: var(--ink); transition: transform 0.15s var(--spring), border-color 0.15s;
+}
+.seleq-btn:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 50%, var(--card-line)); }
+.seleq-btn b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.seleq-btn .ico { flex: none; color: var(--ink-muted); }
+.seleq-n { flex: none; padding: 1px 8px; border-radius: 999px; background: var(--paper-alt); font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); }
+.seleq-ini { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 9px; background: var(--pj, var(--accent)); color: var(--on-color); font-style: normal; font-family: var(--serif); font-size: var(--t-3xs); font-weight: 700; box-shadow: 0 2px 0 color-mix(in srgb, var(--pj, var(--accent)) 60%, #000); }
+.seleq-sec { margin: 6px 10px 4px; font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.seleq-mas { margin-top: 4px; border-top: 1px dashed var(--line); border-radius: 0 0 10px 10px; text-decoration: none; color: var(--accent-ink); }
+.em-page > .seleq { margin: var(--s1) 0 var(--s3); }

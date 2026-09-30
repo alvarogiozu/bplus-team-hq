@@ -221,3 +221,7 @@
   .dnav-me { flex-direction: column; }
   .dnav-me-main { flex: none; padding: var(--space-1); }
 }
+
+/* Rockie OS (PC): dentro de una ventana del escritorio, la persona puede esconder la barra lateral
+   con el boton de arriba (el escritorio marca el <html> con data-sin-izq) */
+html[data-sin-izq] .app-root.desktop-shell .desktop-nav { display: none; }

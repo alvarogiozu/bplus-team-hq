@@ -41,7 +41,7 @@ export function TareaSheetMovil() {
 }
 
 function Cuerpo({ task, onGone }: { task: Task; onGone: () => void }) {
-  const { areas, projects, memberById, today } = useLookup()
+  const { areas, memberById, today } = useLookup()
   const { update, remove, duplicate, move, validate } = useTaskActions()
   const activity = (useActivity().data ?? []).filter((a) => a.entity_id === task.id).slice(0, 6)
   const [title, setTitle] = useState(task.title)
@@ -109,14 +109,6 @@ function Cuerpo({ task, onGone }: { task: Task; onGone: () => void }) {
       <div className="em-props">
         <PersonPicker value={task.assignee_id} onChange={(v) => void update(task.id, { assignee_id: v })} allowNone variant="pill" size="sm" />
         <DateChip value={task.due_date} today={today} late={!done && Boolean(task.due_date) && task.due_date! < today} onChange={(v) => void update(task.id, { due_date: v })} />
-        <Select
-          label="Proyecto"
-          variant="pill"
-          size="sm"
-          value={task.project_id ?? ''}
-          onChange={(v) => void update(task.id, { project_id: v || null })}
-          options={[{ value: '', label: 'Sin proyecto', visual: <span className="sel-none" /> }, ...projects.filter((p) => !p.archived || p.id === task.project_id).map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
-        />
         {areas.length > 0 && (
           <Select
             label="Área"
@@ -247,18 +239,17 @@ function DateChip({ value, today, late, empty = 'Sin fecha', onChange }: { value
   )
 }
 
-/** Crear tarea en el celular: el título grande y lo demás a un toque (cuándo, quién, proyecto). */
+/** Crear tarea en el celular: el título grande y lo demás a un toque (cuándo, quién, área). */
 export function NuevaTareaMovil() {
   const state = newTaskStore.use()
   const { userId } = useAuth()
-  const { members, areas, projects, today } = useLookup()
+  const { members, areas, today } = useLookup()
   const online = presenceStore.use()
   const { create } = useTaskActions()
   const [title, setTitle] = useState('')
   const [who, setWho] = useState('')
   const [due, setDue] = useState('')
   const [area, setArea] = useState('')
-  const [project, setProject] = useState('')
   const [urgent, setUrgent] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -269,7 +260,6 @@ export function NuevaTareaMovil() {
     setWho(p.assignee_id ?? userId ?? '')
     setDue(p.due_date ?? '')
     setArea(p.area_id ?? '')
-    setProject(p.project_id ?? '')
     setUrgent(p.priority === 'urgent')
   }, [state, userId])
 
@@ -294,7 +284,7 @@ export function NuevaTareaMovil() {
         assignee_id: who || null,
         due_date: due || null,
         area_id: area || null,
-        project_id: project || null,
+        project_id: null,
         priority: urgent ? 'urgent' : 'normal',
         status: state?.prefill.status ?? 'todo',
       })
@@ -355,24 +345,6 @@ export function NuevaTareaMovil() {
             </button>
           ))}
         </div>
-
-        {projects.some((p) => !p.archived) && (
-          <>
-            <span className="em-plabel">Proyecto</span>
-            <div className="em-choice scroll">
-              <button type="button" className="em-chip" aria-pressed={!project} onClick={() => setProject('')}>
-                Ninguno
-              </button>
-              {projects
-                .filter((p) => !p.archived)
-                .map((p) => (
-                  <button key={p.id} type="button" className="em-chip" aria-pressed={project === p.id} style={{ ['--pc' as string]: p.color } as CSSProperties} onClick={() => setProject(p.id)}>
-                    <i className="em-chip-dot" /> {p.name}
-                  </button>
-                ))}
-            </div>
-          </>
-        )}
 
         {areas.length > 0 && (
           <>

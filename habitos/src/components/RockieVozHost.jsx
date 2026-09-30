@@ -2,22 +2,24 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import RockieVoz from './RockieVoz.jsx'
 
-// Un solo lugar abre a Rockie por voz: el botón del centro de la barra (celular), el de la barra
-// lateral (PC) — ambos con el evento 'rockie:voz' — y lo que llega desde otra app de Rockie OS:
-// ?rockie=… (un pedido: dijiste «ya medité» en la Agenda) o ?voz=escuchar|escribir|manos
-// (el Rockie del Inicio: abre la hoja escuchando, con el teclado o en manos libres).
-export const abrirVoz = () => window.dispatchEvent(new CustomEvent('rockie:voz'))
+// Un solo lugar abre a Rockie: el botón del centro de la barra (celular), el de la barra lateral
+// (PC) — ambos con el evento 'rockie:voz' — y lo que llega desde otra app de Rockie OS:
+// ?rockie=… (un pedido: dijiste «ya medité» en la Agenda) o ?voz=ver|escuchar|escribir|manos
+// (el Rockie del Inicio: abre a Rockie, ya escuchando, con el teclado o en manos libres).
+// Tocar a Rockie abre su conversación («ver»): el micrófono no graba hasta que lo tocas.
+const MODOS = ['ver', 'escuchar', 'escribir', 'manos']
+export const abrirVoz = (modo) => window.dispatchEvent(new CustomEvent('rockie:voz', { detail: MODOS.includes(modo) ? modo : 'ver' }))
 
 export default function RockieVozHost() {
   const [open, setOpen] = useState(false)
   const [pedido, setPedido] = useState('')
-  const [modo, setModo] = useState('escuchar')
+  const [modo, setModo] = useState('ver')
   const [params, setParams] = useSearchParams()
 
   useEffect(() => {
-    const on = () => {
+    const on = (e) => {
       setPedido('')
-      setModo('escuchar')
+      setModo(MODOS.includes(e.detail) ? e.detail : 'ver')
       setOpen(true)
     }
     window.addEventListener('rockie:voz', on)
@@ -33,7 +35,7 @@ export default function RockieVozHost() {
     next.delete('voz')
     setParams(next, { replace: true })
     setPedido(incoming || '')
-    setModo(['escribir', 'manos'].includes(voz) ? voz : 'escuchar')
+    setModo(MODOS.includes(voz) ? voz : 'ver')
     setOpen(true)
   }, [params, setParams])
 

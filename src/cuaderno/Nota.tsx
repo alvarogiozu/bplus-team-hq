@@ -23,7 +23,7 @@ import { PageHeader, SavedTag } from './PageHeader'
 import { ProposalList } from './Proposals'
 import { SubnotesSection } from './Subnotas'
 import { WikiSuggest } from './WikiSuggest'
-import { useHasPanel, useIsMobile } from './ui'
+import { useDivision, useEnLateral, useHasPanel, useIsMobile } from './ui'
 import { useNoteSync } from './collab'
 import { LiveWait } from './Compartir'
 
@@ -32,11 +32,19 @@ const Pizarra = lazy(() => import('./Pizarra'))
 
 export default function NotaPage() {
   const { id = '' } = useParams()
+  return <NotaDe id={id} />
+}
+
+/** Una nota por su id: la de la ruta (izquierda) o la abierta al lado (derecha). */
+export function NotaDe({ id }: { id: string }) {
+  const lateral = useEnLateral()
+  const { lado } = useDivision()
   const notesQ = useNotes()
   const note = notesQ.data?.find((n) => n.id === id)
   const mobile = useIsMobile()
   // la pizarra usa todo el ancho: sin panel a la derecha
-  useHasPanel(!mobile && Boolean(note) && note?.kind !== 'pizarra')
+  // con la pantalla dividida no hay panel a la derecha (como una ventana angosta del escritorio)
+  useHasPanel(!lateral && !lado && !mobile && Boolean(note) && note?.kind !== 'pizarra')
   if (notesQ.isLoading) return <div className="cu-loading" aria-busy="true" />
   if (!note)
     return (
@@ -108,12 +116,16 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
   useEffect(() => () => void flush.current(), [])
 
   const nav = useNavigate()
+  // en la nota de la derecha, los enlaces abren su nota en ese mismo lado
+  const lateral = useEnLateral()
+  const { lado, abrirAlLado } = useDivision()
+  const abrirNota = (id: string) => (lateral ? abrirAlLado(id) : nav(`/cuaderno/nota/${id}`))
   const wikiKeys = useRef<WikiKeys['current']>(null)
   const editor = useNoteEditor({
     noteId: note.id,
     body: note.body,
     onChange: (md) => queue({ body: md }),
-    onOpenNote: (id) => nav(`/cuaderno/nota/${id}`),
+    onOpenNote: abrirNota,
     wikiKeys,
     collab: live.sync ? { sync: live.sync, user: me } : null,
   })
@@ -147,13 +159,14 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
 
   // una pizarra metida en la página se abre desde su vista previa
   useEffect(() => {
+    if (lateral) return
     const on = (e: Event) => nav(`/cuaderno/nota/${(e as CustomEvent<string>).detail}`)
     addEventListener('cu:open-note', on)
     return () => removeEventListener('cu:open-note', on)
-  }, [nav])
+  }, [nav, lateral])
 
   useEffect(() => {
-    if (params.get('nueva') && titleRef.current) {
+    if (!lateral && params.get('nueva') && titleRef.current) {
       titleRef.current.focus()
       titleRef.current.select()
       // una sola vez: al recargar o volver, la página ya no es "nueva"
@@ -161,7 +174,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
       next.delete('nueva')
       setParams(next, { replace: true })
     }
-  }, [params, setParams])
+  }, [params, setParams, lateral])
   useEffect(() => {
     const el = titleRef.current
     if (!el) return
@@ -198,7 +211,8 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
       <div className="cu-center cu-docwrap" data-scroll>
         <PageHeader
           note={note}
-          mobile={mobile}
+          // con la pantalla dividida la cabecera va compacta (íconos y el ⋯), como en el celular
+          mobile={mobile || Boolean(lado)}
           saved={saved}
           peers={live.peers}
           onBeforeRemove={() => {
@@ -212,7 +226,16 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
 
         <article className="cu-read cu-note">
           {parentNote && (
-            <Link className="cu-note-up" to={`/cuaderno/nota/${parentNote.id}`} title="El tema del que esta página es un punto">
+            <Link
+              className="cu-note-up"
+              to={`/cuaderno/nota/${parentNote.id}`}
+              title="El tema del que esta página es un punto"
+              onClick={(e) => {
+                if (!lateral) return
+                e.preventDefault()
+                abrirNota(parentNote.id)
+              }}
+            >
               <CIcon name="section" size={14} /> {parentNote.title}
             </Link>
           )}
@@ -269,7 +292,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
           {dictating && editor && <DictationBar key="dictado" editor={editor} note={note} mobile={mobile} onClose={() => setDictating(false)} />}
         </AnimatePresence>
       </div>
-      {!mobile && panel}
+      {!mobile && !lado && panel}
       {mobile && (
         <Sheet open={Boolean(ask)} onClose={() => setAsk(null)} title="Rockie">
           {ask && <AskCard note={note} req={ask} editor={editor} onClose={() => setAsk(null)} closeAfterInsert />}

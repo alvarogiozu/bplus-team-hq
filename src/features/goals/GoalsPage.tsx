@@ -9,14 +9,17 @@ import { PACE_COLOR, PACE_LABEL, type Pace } from '../../lib/pace'
 import { useAuth } from '../auth/AuthProvider'
 import { useSpaceRow, useTasks } from '../data/queries'
 import { MemberAvatar, useLookup } from '../tasks/bits'
-import { openNewGoal, useGoalActions, useGoals } from './data'
+import { openNewGoal, useGoals } from './data'
 import { GoalMap } from './GoalMap'
 import { GoalPanel, NewGoalDialog, useOpenGoal } from './GoalPanel'
 import { buildTree, flatten, type GoalNode } from './model'
+import { Mission } from './Mission'
+import { SelectorEquipo } from '../spaces/SelectorEquipo'
 
 // Metas y objetivos: la misión arriba, las metas generales y sus sub-metas en un mapa
 // (pirámide), y tres listas como en Asana: todo el equipo, por área y las mías. Sirve igual a
-// una empresa, un club o una organización estudiantil.
+// una empresa, un club o una organización estudiantil. Arriba dice de qué equipo son (una persona
+// puede estar en varios: un curso, una organización, un proyecto propio) y desde ahí se cambia.
 
 type Tab = 'mapa' | 'equipo' | 'areas' | 'mias'
 const TABS: { key: Tab; label: string; icon: IconName }[] = [
@@ -39,12 +42,13 @@ export default function GoalsPage() {
 
   const tree = useMemo(() => buildTree(q.data ?? [], tasks ?? [], today), [q.data, tasks, today])
   const all = useMemo(() => flatten(tree.roots), [tree])
+  const vista = { roots: tree.roots, all }
   const counts = useMemo(() => {
     const c = new Map<Pace, number>()
-    for (const n of all) c.set(n.pace, (c.get(n.pace) ?? 0) + 1)
+    for (const n of vista.all) c.set(n.pace, (c.get(n.pace) ?? 0) + 1)
     return c
-  }, [all])
-  const avg = tree.roots.length ? Math.round((tree.roots.reduce((s, r) => s + r.pct, 0) / tree.roots.length) * 100) : 0
+  }, [vista.all])
+  const avg = vista.roots.length ? Math.round((vista.roots.reduce((s, r) => s + r.pct, 0) / vista.roots.length) * 100) : 0
 
   const setTab = (t: Tab) => {
     const next = new URLSearchParams(params)
@@ -58,8 +62,9 @@ export default function GoalsPage() {
         <div>
           <h1>Metas</h1>
           <div className="sub">
-            {all.length ? `${all.length} ${all.length === 1 ? 'meta' : 'metas'} · las generales van en ${avg}%` : 'Lo que el equipo quiere lograr, medible y con plazo'}
+            {vista.all.length ? `${vista.all.length} ${vista.all.length === 1 ? 'meta' : 'metas'} · las generales van en ${avg}%` : 'Lo que quieres lograr con este proyecto, medible y con plazo'}
           </div>
+          <SelectorEquipo />
         </div>
         <div className="row" style={{ flexWrap: 'wrap' }}>
           <div className="segmented slide" role="tablist" aria-label="Vista de metas">
@@ -78,9 +83,12 @@ export default function GoalsPage() {
         </div>
       </header>
 
-      <Mission text={space?.mission ?? ''} editing={editMission} setEditing={setEditMission} compact={tab === 'mapa' && all.length > 0} />
+      {/* en el mapa la misión ya es la cima de la pirámide */}
+      {(editMission || !(tab === 'mapa' && vista.all.length > 0)) && (
+        <Mission text={space?.mission ?? ''} editing={editMission} setEditing={setEditMission} compact={false} />
+      )}
 
-      {all.length > 0 && (
+      {vista.all.length > 0 && (
         <div className="gstatus" aria-label="Cómo van las metas">
           {ORDER.filter((p) => counts.get(p)).map((p) => (
             <span key={p} className="pace big" style={{ ['--st' as string]: PACE_COLOR[p] } as CSSProperties}>
@@ -99,10 +107,17 @@ export default function GoalsPage() {
       ) : (
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
-            {tab === 'mapa' && <GoalMap roots={tree.roots} mission={space?.mission ?? ''} onOpen={openGoal} onEditMission={() => setEditMission(true)} />}
-            {tab === 'equipo' && <TreeList roots={tree.roots} onOpen={openGoal} />}
-            {tab === 'areas' && <ByTeam all={all} onOpen={openGoal} />}
-            {tab === 'mias' && <Mine all={all} onOpen={openGoal} />}
+            {tab === 'mapa' && (
+              <GoalMap
+                roots={vista.roots}
+                mission={space?.mission ?? ''}
+                onOpen={openGoal}
+                onEditMission={() => setEditMission(true)}
+              />
+            )}
+            {tab === 'equipo' && <TreeList roots={vista.roots} onOpen={openGoal} />}
+            {tab === 'areas' && <ByTeam all={vista.all} onOpen={openGoal} />}
+            {tab === 'mias' && <Mine all={vista.all} onOpen={openGoal} />}
           </motion.div>
         </AnimatePresence>
       )}
@@ -110,59 +125,6 @@ export default function GoalsPage() {
       <GoalPanel byId={tree.byId} all={all} />
       <NewGoalDialog all={all} />
     </div>
-  )
-}
-
-export function Mission({ text, editing, setEditing, compact }: { text: string; editing: boolean; setEditing: (b: boolean) => void; compact: boolean }) {
-  const { saveMission } = useGoalActions()
-  const [draft, setDraft] = useState(text)
-  const [busy, setBusy] = useState(false)
-  const start = () => {
-    setDraft(text)
-    setEditing(true)
-  }
-  const save = async () => {
-    setBusy(true)
-    const ok = await saveMission(draft)
-    setBusy(false)
-    if (ok) setEditing(false)
-  }
-  if (editing) {
-    return (
-      <motion.div className="mission card editing" initial={{ opacity: 0.6 }} animate={{ opacity: 1 }}>
-        <label className="lbl" htmlFor="mission-t" style={{ marginTop: 0 }}>Misión del equipo</label>
-        <textarea
-          id="mission-t"
-          autoFocus
-          value={draft}
-          maxLength={600}
-          rows={3}
-          placeholder="Para qué existimos. Ej: que cualquier persona pueda construir hábitos que le cambien la vida, en compañía."
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setEditing(false)
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void save()
-          }}
-        />
-        <div className="row" style={{ marginTop: 10 }}>
-          <button className="btn sm" onClick={() => void save()} disabled={busy}>Guardar misión</button>
-          <button className="btn ghost sm" onClick={() => setEditing(false)}>Cancelar</button>
-          <span className="hint">Ctrl + Enter guarda</span>
-        </div>
-      </motion.div>
-    )
-  }
-  // en el mapa la misión ya es la cima de la pirámide: arriba solo queda una línea
-  if (compact) return null
-  return (
-    <button type="button" className={`mission card${text ? '' : ' empty'}`} onClick={start}>
-      <Rockie color="var(--brand)" size={44} still />
-      <span className="mission-txt">
-        <small>Misión</small>
-        <b>{text || 'Escribe la misión: el para qué de todas las metas'}</b>
-      </span>
-      <Icon name="edit" className="sm mission-edit" />
-    </button>
   )
 }
 

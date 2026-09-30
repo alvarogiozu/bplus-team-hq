@@ -157,7 +157,7 @@ function Privacy() {
           </svg>
         </motion.span>
       </div>
-      <p>Lo que anotes aquí solo lo ves tú. Del equipo solo aparece lo que ya es del HQ: tus tareas, tus reuniones y los proyectos.</p>
+      <p>Lo que anotes aquí solo lo ves tú. Del equipo solo aparece lo que ya es del HQ: tus tareas y tus reuniones.</p>
       <p className="hint">Cuando le hablas a Rockie, tu navegador transcribe y Rockie te propone cambios. Nada se hace sin que lo confirmes.</p>
     </div>
   )

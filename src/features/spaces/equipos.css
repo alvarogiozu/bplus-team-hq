@@ -1,0 +1,61 @@
+/* ============================================================
+   /equipos: la puerta del Equipo — elegir en qué equipo entras.
+   ============================================================ */
+.eqs {
+  min-height: 100dvh; max-width: 1180px; margin: 0 auto;
+  padding: max(var(--s6), env(safe-area-inset-top)) var(--s6) max(var(--s8), env(safe-area-inset-bottom));
+}
+.eqs-volver { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin-bottom: var(--s2); font-size: var(--t-xs); font-weight: 700; color: var(--ink-muted); text-decoration: none; }
+.eqs-volver:hover { color: var(--ink); }
+.eqs-head { display: flex; align-items: center; gap: var(--s4); margin: var(--s4) 0 var(--s6); }
+.eqs-head h1 { font-size: var(--t-3xl); line-height: 1.1; color: var(--title); }
+.eqs-head p { margin: 6px 0 0; max-width: 560px; font-size: var(--t-sm); font-weight: 600; color: var(--ink-soft); }
+
+.eqs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s5); align-items: stretch; }
+.eqs-card {
+  display: flex; flex-direction: column; border-radius: var(--r-xl); overflow: hidden;
+  animation: eqsin 0.45s var(--spring) backwards; animation-delay: var(--d, 0ms); transition: transform 0.18s var(--spring);
+}
+.eqs-card:hover { transform: translateY(-3px); }
+.eqs-card.actual { border-color: color-mix(in srgb, var(--accent) 55%, var(--card-line)); box-shadow: inset 0 5px 0 var(--accent), 0 4px 0 var(--card-edge), var(--shadow-soft); }
+.eqs-card-main { display: flex; flex: 1; flex-direction: column; gap: var(--s4); width: 100%; padding: var(--s5); text-align: left; }
+.eqs-card-main:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.eqs-card-top { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
+.eqs-inicial {
+  display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 16px;
+  background: var(--pj, var(--accent)); color: var(--on-color); font-family: var(--serif); font-size: var(--t-lg); font-weight: 700;
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--pj, var(--accent)) 65%, #000);
+}
+.eqs-card-t { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.eqs-card-t b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-family: var(--serif); font-size: var(--t-xl); color: var(--ink); }
+.eqs-card-t small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--t-xs); font-weight: 700; color: var(--ink-muted); }
+.eqs-aqui { flex: none; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+
+.eqs-caras { display: flex; align-items: center; min-height: 44px; padding-left: 8px; }
+.eqs-cara { margin-left: -8px; padding: 2px; border-radius: 999px; background: var(--card); box-shadow: 0 0 0 1.5px var(--card-line); }
+.eqs-mas { margin-left: 6px; font-size: var(--t-xs); font-weight: 800; color: var(--ink-muted); }
+
+.eqs-datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.eqs-datos span { padding: 8px 10px; border-radius: var(--r-md); background: var(--card-2); font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); }
+.eqs-datos b { font-family: var(--serif); font-size: var(--t-base); color: var(--ink); }
+.eqs-entrar { align-self: flex-start; margin-top: auto; pointer-events: none; }
+.eqs-card.actual .eqs-entrar { background: var(--card); color: var(--ink); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge); }
+
+.eqs-nuevo { align-items: flex-start; gap: var(--s3); padding: var(--s5); border-style: dashed; background: var(--card-2); }
+.eqs-nuevo-ic { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: var(--card); border: 1.5px solid var(--card-line); color: var(--ink-soft); }
+.eqs-nuevo > b { font-family: var(--serif); font-size: var(--t-xl); }
+.eqs-form { display: flex; gap: var(--s2); width: 100%; }
+.eqs-form input { flex: 1; min-width: 0; }
+
+@keyframes eqsin {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+}
+@media (max-width: 640px) {
+  .eqs { padding-left: var(--s4); padding-right: var(--s4); }
+  .eqs-head { align-items: flex-start; }
+  .eqs-head h1 { font-size: var(--t-2xl); }
+  .eqs-grid { grid-template-columns: 1fr; gap: var(--s4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eqs-card { animation: none; }
+}

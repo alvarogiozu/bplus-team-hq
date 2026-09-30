@@ -18,7 +18,7 @@ import { MemberAvatar, useLookup } from '../tasks/bits'
 // y una tarea sin fecha se agenda tocando el día. Todo con "Deshacer".
 
 type Zoom = 'semana' | 'mes' | 'trimestre'
-type GroupBy = 'proyecto' | 'persona' | 'area'
+type GroupBy = 'persona' | 'area'
 const DAY_W: Record<Zoom, number> = { semana: 44, mes: 22, trimestre: 8 }
 const STEP: Record<Zoom, number> = { semana: 7, mes: 28, trimestre: 91 }
 const ZOOMS: { key: Zoom; label: string }[] = [
@@ -37,9 +37,9 @@ const span = (t: Pick<Task, 'start_date' | 'due_date'>) => {
 
 export function GanttView({ tasks }: { tasks: Task[] }) {
   const { userId } = useAuth()
-  const { today, memberById, areaById, projectById, projects } = useLookup()
+  const { today, memberById, areaById } = useLookup()
   const [zoom, setZoomRaw] = useState<Zoom>(() => (lsGet(`hq.gantt.zoom.${userId}`) as Zoom) || 'mes')
-  const [groupBy, setGroupByRaw] = useState<GroupBy>(() => (lsGet(`hq.gantt.group.${userId}`) as GroupBy) || 'proyecto')
+  const [groupBy, setGroupByRaw] = useState<GroupBy>(() => (lsGet(`hq.gantt.group.${userId}`) === 'area' ? 'area' : 'persona'))
   const [closed, setClosed] = useState<Record<string, boolean>>({})
   const scroller = useRef<HTMLDivElement>(null)
   const pendingCenter = useRef<number | null>(null)
@@ -57,16 +57,12 @@ export function GanttView({ tasks }: { tasks: Task[] }) {
       if (sp.s < min) min = sp.s
       if (sp.e > max) max = sp.e
     }
-    for (const p of projects) {
-      if (p.start_date && p.start_date < min) min = p.start_date
-      if (p.due_date && p.due_date > max) max = p.due_date
-    }
     const floor = addDays(today, -365)
     const ceil = addDays(today, 540)
     const f = startOfWeek(min < floor ? floor : addDays(min, -7))
     const to = max > ceil ? ceil : addDays(max, 21)
     return { from: f, days: daysBetween(f, to) + 1 }
-  }, [tasks, projects, today, zoom])
+  }, [tasks, today, zoom])
 
   const groups = useMemo<Group[]>(() => {
     const map = new Map<string, Group>()
@@ -77,10 +73,7 @@ export function GanttView({ tasks }: { tasks: Task[] }) {
     }
     for (const t of tasks) {
       if (t.status === 'done' && !span(t)) continue // hechas y sin fecha: ruido
-      if (groupBy === 'proyecto') {
-        const p = t.project_id ? projectById.get(t.project_id) : undefined
-        put(p?.id ?? 'none', () => (p ? { key: p.id, name: p.name, color: p.color, start: p.start_date ?? undefined, due: p.due_date ?? undefined } : { key: 'none', name: 'Sin proyecto', color: 'var(--ink-faint)' }), t)
-      } else if (groupBy === 'persona') {
+      if (groupBy === 'persona') {
         const m = t.assignee_id ? memberById.get(t.assignee_id) : undefined
         put(m?.user_id ?? 'none', () => (m ? { key: m.user_id, name: m.profile.display_name, color: m.profile.color } : { key: 'none', name: 'Sin responsable', color: 'var(--ink-faint)' }), t)
       } else {
@@ -100,7 +93,7 @@ export function GanttView({ tasks }: { tasks: Task[] }) {
     // los grupos con algo que empieza antes van primero; "sin ..." al final
     const first = (g: Group) => g.start ?? g.tasks.map(span).find(Boolean)?.s ?? '9999'
     return out.sort((a, b) => (a.key === 'none' ? 1 : b.key === 'none' ? -1 : first(a).localeCompare(first(b))))
-  }, [tasks, groupBy, projectById, memberById, areaById])
+  }, [tasks, groupBy, memberById, areaById])
 
   const xOf = (iso: string) => daysBetween(from, iso) * dw
   const todayX = xOf(today) + dw / 2
@@ -167,7 +160,6 @@ export function GanttView({ tasks }: { tasks: Task[] }) {
             value={groupBy}
             onChange={setGroupBy}
             options={[
-              { value: 'proyecto', label: 'Por proyecto', visual: <Icon name="projects" className="sm" /> },
               { value: 'persona', label: 'Por persona', visual: <Icon name="user" className="sm" /> },
               { value: 'area', label: 'Por área', visual: <Icon name="board" className="sm" /> },
             ]}
@@ -222,7 +214,7 @@ export function GanttView({ tasks }: { tasks: Task[] }) {
               const isClosed = closed[g.key]
               return (
                 <section key={`${groupBy}-${g.key}`} className="gantt-group" aria-label={g.name}>
-                  <GroupRow group={g} closed={!!isClosed} onToggle={() => setClosed({ ...closed, [g.key]: !isClosed })} xOf={xOf} dw={dw} showSpan={groupBy === 'proyecto'} />
+                  <GroupRow group={g} closed={!!isClosed} onToggle={() => setClosed({ ...closed, [g.key]: !isClosed })} xOf={xOf} dw={dw} showSpan={false} />
                   <AnimatePresence initial={false}>
                     {!isClosed &&
                       g.tasks.map((t) => (

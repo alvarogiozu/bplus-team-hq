@@ -116,7 +116,7 @@ const SWIPE = 96
 /** Tarea como tarjeta: el círculo valida con un toque; deslizar a la derecha también la valida y a la
  *  izquierda la pospone un día (con deshacer). Tocarla abre la hoja con todo. */
 export const TaskCard = forwardRef<HTMLDivElement, { task: Task; index?: number; showAssignee?: boolean }>(function TaskCard({ task, index = 0, showAssignee = true }, ref) {
-  const { memberById, projectById, today } = useLookup()
+  const { memberById, today } = useLookup()
   const { validate, move, update } = useTaskActions()
   const [params, setParams] = useSearchParams()
   const online = presenceStore.use()
@@ -129,7 +129,6 @@ export const TaskCard = forwardRef<HTMLDivElement, { task: Task; index?: number;
   const done = task.status === 'done'
   const urgent = task.priority === 'urgent' && !done
   const late = !done && Boolean(task.due_date) && task.due_date! < today
-  const project = task.project_id ? projectById.get(task.project_id) : undefined
   const who = memberById.get(task.assignee_id ?? '')
 
   const open = () => {
@@ -223,12 +222,6 @@ export const TaskCard = forwardRef<HTMLDivElement, { task: Task; index?: number;
               <span className={`em-due${late ? ' late' : task.due_date === today && !done ? ' today' : ''}`}>
                 {fmtRelative(task.due_date, today)}
                 {late && ' · se pasó'}
-              </span>
-            )}
-            {project && (
-              <span className="em-proj" style={{ ['--pc' as string]: project.color } as CSSProperties}>
-                <i />
-                {project.name}
               </span>
             )}
           </span>

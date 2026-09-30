@@ -5,11 +5,12 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { ChangePasswordPage, InviteRoute, LoginPage, RegisterPage } from '../features/auth/AuthPages'
 import { SpaceProvider, WelcomePage } from '../features/spaces/SpaceProvider'
 import TodayPage from '../features/today/TodayPage'
-import { useIsMobile } from '../lib/useMedia'
+import { useIsMobile, useMedia } from '../lib/useMedia'
+import { enVentana, ESCRITORIO_Q, sinEscritorio } from '../os/ventana'
+import { hayCuentaHabitos, rutaEnHabitos } from '../os/cuentas'
 import { Layout } from './Layout'
 
 const TasksPage = lazy(() => import('../features/views/TasksPage'))
-const ProjectsPage = lazy(() => import('../features/projects/ProjectsPage'))
 const GoalsPage = lazy(() => import('../features/goals/GoalsPage'))
 const MaterialsPage = lazy(() => import('../features/materials/MaterialsPage'))
 const TeamPage = lazy(() => import('../features/team/TeamPage'))
@@ -20,9 +21,11 @@ const HomePage = lazy(() => import('../os/HomePage'))
 // el Equipo en el celular: mismas rutas y mismos datos, composición propia
 const HoyMovil = lazy(() => import('../features/movil/HoyMovil'))
 const TareasMovil = lazy(() => import('../features/movil/TareasMovil'))
-const ProyectosMovil = lazy(() => import('../features/movil/ProyectosMovil'))
 const MetasMovil = lazy(() => import('../features/movil/MetasMovil'))
 const EquipoMovil = lazy(() => import('../features/movil/EquipoMovil'))
+const EquiposPage = lazy(() => import('../features/spaces/EquiposPage'))
+
+const Escritorio = lazy(() => import('../os/escritorio/Escritorio'))
 
 /** Misma ruta, dos composiciones: la de la computadora y la del celular. */
 function Adapt({ desk, movil }: { desk: ReactNode; movil: ReactNode }) {
@@ -37,11 +40,27 @@ function Splash() {
   )
 }
 
+/** En la computadora, todo lo que es de una app se abre en el escritorio de Rockie OS (pestañas,
+ *  dock, mosaico); dentro de una de sus ventanas —y en el celular— se muestra la app misma. */
+function EscritorioGate() {
+  const pc = useMedia(ESCRITORIO_Q)
+  if (pc && !enVentana() && !sinEscritorio()) {
+    return (
+      <Suspense fallback={<Splash />}>
+        <Escritorio />
+      </Suspense>
+    )
+  }
+  return <Outlet />
+}
+
 /** Sin sesión, todo redirige a /login. Contraseña temporal => primero cambiarla. */
 function RequireAuth() {
   const { session, profile, loading } = useAuth()
   const loc = useLocation()
   if (loading) return <Splash />
+  // quien solo tiene cuenta de Hábitos (los usuarios de siempre de rockie.plus) va directo a Hábitos
+  if (!session && hayCuentaHabitos()) return <IrAHabitos to={rutaEnHabitos(loc.pathname, loc.search)} />
   if (!session) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />
   if (profile?.must_change_password && loc.pathname !== '/cambiar-clave') return <Navigate to="/cambiar-clave" replace />
   return <Outlet />
@@ -55,6 +74,11 @@ function PublicOnly({ children }: { children: ReactNode }) {
   if (had.current === null) had.current = Boolean(session)
   if (had.current) return <Navigate to="/inicio" replace />
   return <>{children}</>
+}
+
+function IrAHabitos({ to }: { to: string }) {
+  useEffect(() => location.replace(to), [to])
+  return <Splash />
 }
 
 /** Hábitos es otra página del mismo sitio (habitos/index.html): se entra con carga completa. */
@@ -90,38 +114,52 @@ export function App() {
           <Route path="/cambiar-clave" element={<ChangePasswordPage />} />
           <Route path="/bienvenida" element={<WelcomePage />} />
           <Route index element={<Navigate to="/inicio" replace />} />
-          <Route
-            path="/inicio"
-            element={
-              <Suspense fallback={<Splash />}>
-                <HomePage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/agenda/*"
-            element={
-              <Suspense fallback={<Splash />}>
-                <AgendaApp />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/cuaderno/*"
-            element={
-              <Suspense fallback={<Splash />}>
-                <CuadernoApp />
-              </Suspense>
-            }
-          />
-          <Route element={<SpaceShell />}>
-            <Route path="/hoy" element={<Adapt desk={<TodayPage />} movil={<HoyMovil />} />} />
-            <Route path="/tareas" element={<Adapt desk={<TasksPage />} movil={<TareasMovil />} />} />
-            <Route path="/proyectos" element={<Adapt desk={<ProjectsPage />} movil={<ProyectosMovil />} />} />
-            <Route path="/metas" element={<Adapt desk={<GoalsPage />} movil={<MetasMovil />} />} />
-            <Route path="/materiales" element={<MaterialsPage />} />
-            <Route path="/equipo" element={<Adapt desk={<TeamPage />} movil={<EquipoMovil />} />} />
-            <Route path="/ajustes" element={<SettingsPage />} />
+          <Route element={<EscritorioGate />}>
+            <Route
+              path="/inicio"
+              element={
+                <Suspense fallback={<Splash />}>
+                  <HomePage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/agenda/*"
+              element={
+                <Suspense fallback={<Splash />}>
+                  <AgendaApp />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/cuaderno/*"
+              element={
+                <Suspense fallback={<Splash />}>
+                  <CuadernoApp />
+                </Suspense>
+              }
+            />
+            {/* la puerta del Equipo: elegir en qué equipo entras (sin la barra del equipo: aún no hay contexto) */}
+            <Route
+              path="/equipos"
+              element={
+                <SpaceProvider fallback={<Splash />}>
+                  <Suspense fallback={<Splash />}>
+                    <EquiposPage />
+                  </Suspense>
+                </SpaceProvider>
+              }
+            />
+            <Route element={<SpaceShell />}>
+              <Route path="/hoy" element={<Adapt desk={<TodayPage />} movil={<HoyMovil />} />} />
+              <Route path="/tareas" element={<Adapt desk={<TasksPage />} movil={<TareasMovil />} />} />
+              {/* ya no hay proyectos: cada equipo es el proyecto (enlaces viejos van a sus metas) */}
+              <Route path="/proyectos/*" element={<Navigate to="/metas" replace />} />
+              <Route path="/metas" element={<Adapt desk={<GoalsPage />} movil={<MetasMovil />} />} />
+              <Route path="/materiales" element={<MaterialsPage />} />
+              <Route path="/equipo" element={<Adapt desk={<TeamPage />} movil={<EquipoMovil />} />} />
+              <Route path="/ajustes" element={<SettingsPage />} />
+            </Route>
           </Route>
         </Route>
         {/* link público del equipo (hq.rockie.plus/teams): el tablero de hoy */}

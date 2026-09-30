@@ -159,10 +159,11 @@ export function useGoalActions() {
   return { create, update, remove, checkin, removeCheckin, saveMission }
 }
 
-// "Nueva meta" se abre desde el mapa, las listas o el panel de otra meta (como sub-meta).
-export const newGoalStore = createStore<{ parentId: string | null } | null>(null)
-export function openNewGoal(parentId: string | null = null) {
-  newGoalStore.set({ parentId })
+// "Nueva meta" se abre desde el mapa, las listas, el panel de otra meta (como sub-meta) o la casa
+// de un proyecto (queda como meta de ese proyecto).
+export const newGoalStore = createStore<{ parentId: string | null; projectId?: string | null } | null>(null)
+export function openNewGoal(parentId: string | null = null, projectId: string | null = null) {
+  newGoalStore.set({ parentId, projectId })
 }
 export function closeNewGoal() {
   newGoalStore.set(null)

@@ -1,5 +1,7 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
+import { SelectorEquipo } from '../spaces/SelectorEquipo'
+import { useSpace } from '../spaces/SpaceProvider'
 import { AnimatePresence, motion } from 'motion/react'
 import { Icon } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
@@ -36,14 +38,20 @@ function loadFilters(k: string): Filters {
   }
 }
 
+/** Cada proyecto con sus propios filtros: al cambiar de proyecto la vista vuelve a nacer. */
 export default function TareasMovil() {
+  const { spaceId } = useSpace()
+  return <Tareas key={spaceId} spaceId={spaceId} />
+}
+
+function Tareas({ spaceId }: { spaceId: string }) {
   const { userId, profile } = useMe()
-  const { projects, today } = useLookup()
+  const { today } = useLookup()
   const q = useTasks()
   const [params, setParams] = useSearchParams()
   // mismas claves que la computadora: la vista y los filtros te siguen de un lado a otro
-  const fk = `hq.filters.${userId}`
-  const [filters, setFilters] = useState<Filters>(() => loadFilters(fk))
+  const fk = `hq.filters.${userId}.${spaceId}`
+  const [filters, setFilters] = useState<Filters>(() => ({ ...loadFilters(fk), project: '' }))
   const [searching, setSearching] = useState(Boolean(filters.q))
   const [showDone, setShowDone] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -73,7 +81,6 @@ export default function TareasMovil() {
   const shown = useMemo(() => applyFilters(q.data ?? [], filters, userId), [q.data, filters, userId])
   const groups = useMemo(() => groupTasks(shown, today), [shown, today])
   const open = shown.filter((t) => t.status !== 'done').length
-  const liveProjects = projects.filter((p) => !p.archived)
   const set = (patch: Partial<Filters>) => setFilters({ ...filters, ...patch })
 
   return (
@@ -100,23 +107,16 @@ export default function TareasMovil() {
         )}
       </AnimatePresence>
 
+      <SelectorEquipo />
       <Seg label="Vista" value={vista} options={VISTAS} onChange={setVista} />
 
       {/* filtros en pastillas: de quién y de qué proyecto */}
       <div className="em-chips" role="group" aria-label="Filtros">
-        <button className="em-chip" aria-pressed={!filters.mine && !filters.project && !filters.people.length && !filters.area} onClick={() => setFilters({ ...EMPTY_FILTERS, q: filters.q })}>
+        <button className="em-chip" aria-pressed={!filters.mine && !filters.people.length && !filters.area} onClick={() => setFilters({ ...EMPTY_FILTERS, q: filters.q })}>
           Todo
         </button>
         <button className="em-chip" aria-pressed={filters.mine} onClick={() => set({ mine: !filters.mine, people: [] })}>
           <Rockie color={profile.color} size={20} still /> Mías
-        </button>
-        {liveProjects.map((p) => (
-          <button key={p.id} className="em-chip" aria-pressed={filters.project === p.id} style={{ ['--pc' as string]: p.color } as CSSProperties} onClick={() => set({ project: filters.project === p.id ? '' : p.id })}>
-            <i className="em-chip-dot" /> {p.name}
-          </button>
-        ))}
-        <button className="em-chip" aria-pressed={filters.project === 'none'} onClick={() => set({ project: filters.project === 'none' ? '' : 'none' })}>
-          Sin proyecto
         </button>
       </div>
 

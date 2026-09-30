@@ -34,7 +34,7 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
   const { userId, profile } = useAuth()
   const { spaceId } = useSpace()
   const qc = useQueryClient()
-  const { members, memberById, projects, areas, projectById, areaById, today } = useLookup()
+  const { members, memberById, areas, projectById, areaById, today } = useLookup()
   const tasksQ = useTasks()
   const membersQ = useMembers()
   const tasksData = tasksQ.data
@@ -94,7 +94,7 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
     // con la página recién cargada, esperar tareas y equipo: sin eso Rockie no sabe de qué le hablas
     const list = tasksQ.data ?? (await tasksQ.refetch()).data ?? []
     const team = membersQ.data ?? (await membersQ.refetch()).data ?? members
-    const ctx = buildHqContext({ today, tz: profile?.timezone ?? 'America/Lima', userId, members: team, tasks: list, projects, areas })
+    const ctx = buildHqContext({ today, tz: profile?.timezone ?? 'America/Lima', userId, members: team, tasks: list, projects: [], areas })
     // las propuestas se revisan contra lo recién cargado (no contra el render en que se tocó Enter)
     const now: HqLook = { ...look, taskById: new Map(list.map((x) => [x.id, x])), memberById: new Map(team.map((m) => [m.user_id, m])) }
     let r = await askHq(t, chat.history(), ctx)

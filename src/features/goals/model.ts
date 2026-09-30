@@ -153,3 +153,6 @@ export function valueLine(n: GoalNode, projectDone?: { done: number; total: numb
   const done = n.children.filter((c) => c.pct >= 1 || c.pace === 'done').length
   return n.children.length ? `${done} de ${n.children.length} sub-metas logradas` : 'Sin sub-metas todavía'
 }
+
+/** Dónde vive una meta: en la casa de su proyecto, o en Proyectos (el rumbo del equipo) si no es de ninguno. */
+export const rutaDeMeta = (g: Pick<Goal, 'id'>) => `/metas?meta=${g.id}`

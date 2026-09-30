@@ -6,6 +6,7 @@ import { useCuadernoActions } from '../../cuaderno/data'
 import { toast } from '../../components/Toasts'
 import { timeAgo } from '../../lib/dates'
 import { supabase } from '../../lib/supabase'
+import { irAApp } from '../../os/ventana'
 import { useAuth } from '../auth/AuthProvider'
 
 // Un solo chat con Rockie en la Agenda, el HQ y el Cuaderno: la conversación vive en
@@ -99,18 +100,19 @@ export function HandoffCard({ app, pedido, area }: { app: ChatApp; pedido: strin
 
   async function go() {
     const enc = encodeURIComponent(pedido)
-    if (app === 'agenda') return nav(`/agenda?rockie=${enc}`)
-    if (app === 'equipo') return nav(`/tareas?vista=lista&rockie=${enc}`)
+    // en el escritorio de Rockie OS, la otra app se abre en su pestaña (y esta ventana se queda donde está)
+    if (app === 'agenda') return irAApp(`/agenda?rockie=${enc}`, nav)
+    if (app === 'equipo') return irAApp(`/tareas?vista=lista&rockie=${enc}`, nav)
     if (app === 'cuaderno') {
       const e = await createEntry(pedido, 'texto')
       if (!e) return
       setDone(true)
-      toast('Anotado en tu Cuaderno de hoy', { kind: 'ok', icon: 'check', action: { label: 'Abrir', onClick: () => nav('/cuaderno') } })
+      toast('Anotado en tu Cuaderno de hoy', { kind: 'ok', icon: 'check', action: { label: 'Abrir', onClick: () => irAApp('/cuaderno', nav) } })
       return
     }
     // Hábitos es otra página del mismo sitio (/habitos): su Rockie recibe el pedido al entrar
     setDone(true)
-    location.assign(`/habitos/hoy?rockie=${enc}`)
+    irAApp(`/habitos/hoy?rockie=${enc}`, (p) => location.assign(p))
   }
 
   const label = app === 'agenda' ? 'Llevar a la Agenda' : app === 'equipo' ? 'Llevar a Tareas' : app === 'cuaderno' ? 'Anotar en el Cuaderno' : 'Llevar a Hábitos'

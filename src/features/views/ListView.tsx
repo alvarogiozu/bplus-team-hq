@@ -14,7 +14,7 @@ const SPRING = { type: 'spring', stiffness: 520, damping: 40, mass: 0.8 } as con
 
 // Lista por grupos de fecha. Cada tarea tiene layoutId: cuando cambia de grupo (le cambias la
 // fecha, la validas) se desliza a su nuevo lugar en vez de desaparecer y aparecer.
-export function ListView({ tasks, projectId }: { tasks: Task[]; projectId?: string }) {
+export function ListView({ tasks }: { tasks: Task[] }) {
   const { today } = useLookup()
   const groups = groupTasks(tasks, today)
   const [open, setOpen] = useState<Record<string, boolean>>({ done: false })
@@ -51,7 +51,7 @@ export function ListView({ tasks, projectId }: { tasks: Task[]; projectId?: stri
                       <TaskRow key={t.id} task={t} layoutId={`task-${t.id}`} index={i} />
                     ))}
                   </AnimatePresence>
-                  {CAN_ADD.includes(g) && <InlineAdd group={g} projectId={projectId} />}
+                  {CAN_ADD.includes(g) && <InlineAdd group={g} />}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -63,7 +63,7 @@ export function ListView({ tasks, projectId }: { tasks: Task[]; projectId?: stri
 }
 
 // "Añadir tarea" en línea: Enter crea, Tab pasa al siguiente campo.
-function InlineAdd({ group, projectId }: { group: GroupKey; projectId?: string }) {
+function InlineAdd({ group }: { group: GroupKey }) {
   const { today } = useLookup()
   const { userId } = useAuth()
   const { create } = useTaskActions()
@@ -77,7 +77,7 @@ function InlineAdd({ group, projectId }: { group: GroupKey; projectId?: string }
     if (!title.trim()) return
     const t = title.trim()
     setTitle('')
-    await create({ title: t, assignee_id: who || null, due_date: due || null, project_id: projectId ?? null }, { quiet: true })
+    await create({ title: t, assignee_id: who || null, due_date: due || null }, { quiet: true })
   }
 
   if (!active) {

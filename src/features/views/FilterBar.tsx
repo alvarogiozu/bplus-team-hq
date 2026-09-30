@@ -5,7 +5,7 @@ import { MemberAvatar, useLookup } from '../tasks/bits'
 import { activeCount, EMPTY_FILTERS, type Filters } from './filters'
 
 export function FilterBar({ value, onChange }: { value: Filters; onChange: (f: Filters) => void }) {
-  const { members, areas, projects } = useLookup()
+  const { members, areas } = useLookup()
   const [open, setOpen] = useState(false)
   const n = activeCount(value) - (value.q ? 1 : 0)
   const set = (p: Partial<Filters>) => onChange({ ...value, ...p })
@@ -56,17 +56,6 @@ export function FilterBar({ value, onChange }: { value: Filters; onChange: (f: F
           value={value.area}
           onChange={(v) => set({ area: v })}
           options={[{ value: '', label: 'Todas las áreas', visual: <Icon name="board" className="sm" /> }, ...areas.map((a) => ({ value: a.id, label: a.name, color: a.color }))]}
-        />
-        <Select
-          label="Proyecto"
-          size="sm"
-          value={value.project}
-          onChange={(v) => set({ project: v })}
-          options={[
-            { value: '', label: 'Todos los proyectos', visual: <Icon name="projects" className="sm" /> },
-            { value: 'none', label: 'Sin proyecto', visual: <span className="sel-none" /> },
-            ...projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color })),
-          ]}
         />
         <button
           className="chip plain"

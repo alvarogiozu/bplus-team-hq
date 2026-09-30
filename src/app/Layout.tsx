@@ -1,10 +1,9 @@
-import { Suspense, useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { Suspense, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { createPortal } from 'react-dom'
 import { Icon, type IconName } from '../components/Icon'
 import { Rockie } from '../components/Rockie'
 import { Sheet } from '../components/Sheet'
-import { Select } from '../components/Select'
 import { ListSkeleton } from '../components/States'
 import { lsGet, lsSet } from '../lib/storage'
 import { levelOf, xpByUser } from '../lib/xp'
@@ -28,19 +27,20 @@ import { useIsMobile } from '../lib/useMedia'
 import { Faces } from '../features/movil/bits'
 import { NuevaTareaMovil, TareaSheetMovil } from '../features/movil/TareaSheet'
 import '../features/movil/movil.css'
+import { colorDeProyecto } from '../features/spaces/crear'
 
 type Dest = { to: string; label: string; icon: IconName; color: string }
 const DESKTOP: Dest[] = [
   { to: '/hoy', label: 'Hoy', icon: 'today', color: 'var(--title)' },
   { to: '/tareas', label: 'Tareas', icon: 'tasks', color: 'var(--accent-ink)' },
-  { to: '/proyectos', label: 'Proyectos', icon: 'projects', color: 'var(--olive-edge)' },
   { to: '/metas', label: 'Metas', icon: 'goal', color: 'var(--green-photo)' },
   { to: '/materiales', label: 'Materiales', icon: 'folder', color: 'var(--amber-ink)' },
   { to: '/equipo', label: 'Equipo', icon: 'team', color: 'var(--berry)' },
 ]
 
 export function Layout() {
-  const { spaceId, memberships, setSpaceId } = useSpace()
+  const { spaceId, memberships } = useSpace()
+  const equipo = memberships.find((m) => m.space_id === spaceId)?.name ?? 'Proyecto'
   const { userId, profile } = useMe()
   useRealtime(spaceId)
   const members = useMembers().data ?? []
@@ -59,7 +59,7 @@ export function Layout() {
   const night = isNight(hourIn(profile.timezone))
   const mobile = useIsMobile()
   const onlineOthers = members.filter((m) => m.user_id !== userId && online.has(m.user_id)).map((m) => m.user_id)
-  const inPath = (...paths: string[]) => paths.includes(loc.pathname)
+  const inPath = (...paths: string[]) => paths.some((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`))
 
   // Ctrl/Cmd + K: enfocar a Rockie desde cualquier lugar
   useEffect(() => {
@@ -93,11 +93,13 @@ export function Layout() {
           <div className="logo hide-collapsed">B+<small>HQ · cuartel</small></div>
         </div>
         <AppSwitcher compact={collapsed} className="side-switch" />
-        {memberships.length > 1 && (
-          <div className="hide-collapsed">
-            <Select label="Espacio" size="sm" value={spaceId} onChange={setSpaceId} options={memberships.map((m) => ({ value: m.space_id, label: m.name, visual: <Icon name="team" className="sm" /> }))} />
-          </div>
-        )}
+        <Link to="/equipos" className="side-equipo" title="Cambiar de proyecto">
+          <span className="side-equipo-ic" aria-hidden="true" style={{ ['--pj' as string]: colorDeProyecto(spaceId) } as CSSProperties}>{equipo.slice(0, 2).toUpperCase()}</span>
+          <span className="hide-collapsed">
+            <b>{equipo}</b>
+            <small>Cambiar de proyecto</small>
+          </span>
+        </Link>
         <nav className="stack" style={{ gap: 4 }}>
           {DESKTOP.map((d) => (
             <NavLink key={d.to} to={d.to} className="navlink" style={{ ['--nc' as string]: d.color }} title={d.label}>
@@ -137,7 +139,10 @@ export function Layout() {
       <div className="main">
         <header className="topbar">
           <AppSwitcher />
-          <span className="sp">{memberships.find((m) => m.space_id === spaceId)?.name !== 'B+' ? memberships.find((m) => m.space_id === spaceId)?.name : 'HQ'}</span>
+          <Link to="/equipos" className="sp" aria-label={`Proyecto ${equipo}. Cambiar de proyecto`}>
+            {equipo}
+            <Icon name="chevron" className="sm" />
+          </Link>
           <span className="spacer" />
           {onlineOthers.length > 0 && (
             <NavLink to="/equipo" className="em-topfaces" aria-label={`${onlineOthers.length} del equipo en línea`}>
@@ -171,9 +176,9 @@ export function Layout() {
           <button className="rockiebtn" aria-label="Pídele algo a Rockie" onClick={() => setAgentOpen(true)}>
             <Rockie color="var(--brand)" size={44} reactive />
           </button>
-          <NavLink to="/proyectos" className={() => (inPath('/proyectos', '/metas') ? 'active' : '')}>
-            <Icon name="projects" />
-            Proyectos
+          <NavLink to="/metas" className={() => (inPath('/metas') ? 'active' : '')}>
+            <Icon name="goal" />
+            Metas
           </NavLink>
           <NavLink to="/equipo" className={() => (inPath('/equipo', '/materiales', '/ajustes') ? 'active' : '')}>
             <Icon name="team" />
@@ -221,7 +226,7 @@ function ProfileMenu({ at, onClose }: { at: { x: number; y: number }; onClose: (
   }
   return createPortal(
     <div ref={ref} className="menu" role="menu" style={{ left: Math.max(8, pos.x), top: Math.max(8, pos.y) }}>
-      <button role="menuitem" className="mobile-flex" onClick={() => go('/metas')}><Icon name="goal" /> Metas</button>
+      <button role="menuitem" onClick={() => go('/equipos')}><Icon name="projects" /> Cambiar de proyecto</button>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/materiales')}><Icon name="folder" /> Materiales</button>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/equipo')}><Icon name="team" /> Equipo</button>
       <button role="menuitem" className="mobile-flex" onClick={() => go('/ajustes')}><Icon name="settings" /> Ajustes</button>

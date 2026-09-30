@@ -8,7 +8,7 @@ import type { Peer } from './collab'
 import { ShareButton } from './Compartir'
 import { CIcon, ItemIcon } from './icons'
 import { ColorPick, IconPick } from './pickers'
-import { BookPicker, Popover } from './ui'
+import { BookPicker, Popover, useDivision, useEnLateral } from './ui'
 
 // La cabecera de una página (escrita o pizarra): volver, la ruta "Carpeta › Cuaderno ⌄" que mueve,
 // su ícono y color, si ya se guardó, Profundizar con Rockie, el mapa y borrar. En el celular, lo secundario va al ⋯.
@@ -25,6 +25,8 @@ export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'savi
   const { note, mobile } = p
   const actions = useCuadernoActions()
   const nav = useNavigate()
+  const lateral = useEnLateral()
+  const { cerrarLado } = useDivision()
   const books = useBooks().data ?? NONE
   const [moveAt, setMoveAt] = useState<HTMLElement | null>(null)
   const [moreAt, setMoreAt] = useState<HTMLElement | null>(null)
@@ -38,7 +40,9 @@ export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'savi
   const remove = () => {
     p.onBeforeRemove?.()
     void actions.deleteNote(note)
-    nav(note.book_id && chain.length ? `/cuaderno/c/${note.book_id}` : '/cuaderno/carpetas', { replace: true })
+    // la de la derecha se va sola (su lado se cierra); la de la izquierda te deja en su carpeta
+    if (lateral) cerrarLado()
+    else nav(note.book_id && chain.length ? `/cuaderno/c/${note.book_id}` : '/cuaderno/carpetas', { replace: true })
   }
   const what = note.kind === 'pizarra' ? 'pizarra' : 'página'
   const setColor = (c: BookColor | null) => {
@@ -52,9 +56,11 @@ export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'savi
 
   return (
     <header className={`cu-head cu-dochead${p.className ? ` ${p.className}` : ''}`}>
-      <button className="iconbtn" onClick={() => nav(-1)} aria-label="Volver">
-        <CIcon name="left" size={18} />
-      </button>
+      {!lateral && (
+        <button className="iconbtn" onClick={() => nav(-1)} aria-label="Volver">
+          <CIcon name="left" size={18} />
+        </button>
+      )}
       <button className="cu-crumb" style={color ? spine(color) : undefined} onClick={(e) => setMoveAt(e.currentTarget)} aria-haspopup="menu" title="Mover a otra carpeta o cuaderno">
         <i aria-hidden="true" className={chain.length ? '' : 'loose'} />
         {chain.length ? (

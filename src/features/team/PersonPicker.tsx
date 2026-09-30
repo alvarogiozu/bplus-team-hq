@@ -32,7 +32,7 @@ export function PersonPicker({
     const people = members.map((m) => ({
       value: m.user_id,
       label: m.user_id === userId ? `${m.profile.display_name} (tú)` : m.profile.display_name,
-      sub: [m.role_title || (m.role === 'owner' ? 'Dueño del espacio' : ''), online.has(m.user_id) ? 'en línea' : ''].filter(Boolean).join(' · ') || undefined,
+      sub: [m.role_title || (m.role === 'owner' ? 'Dueño del proyecto' : ''), online.has(m.user_id) ? 'en línea' : ''].filter(Boolean).join(' · ') || undefined,
       visual: <Face color={m.profile.color} on={online.has(m.user_id)} />,
     }))
     return allowNone ? [{ value: '', label: noneLabel, visual: <span className="sel-none" /> }, ...people] : people

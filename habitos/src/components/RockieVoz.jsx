@@ -11,10 +11,11 @@ import Rockie from './Rockie.jsx'
 import './RockieVoz.css'
 
 // Hablarle a Rockie (el botón del centro de la barra), como en el lienzo «B+ móvil»:
-//  1. Al abrir ya te escucha («Te escucho · 0:07»). Tocas para terminar: no hay que mantener
-//     presionado y no se corta en las pausas (si el navegador cierra el micrófono tras un
-//     silencio, se reabre solo). «Manos libres»: Rockie te contesta en voz alta y vuelve a
-//     escuchar, y termina solo cuando dejas de hablar.
+//  1. Al abrir ves a Rockie y lo último que hablaron: el micrófono espera a que lo toques (modo
+//     «ver»; solo el botón de micrófono de al lado abre ya escuchando, con ?voz=escuchar).
+//     Mientras escucha, tocas para terminar: no hay que mantener presionado y no se corta en las
+//     pausas (si el navegador cierra el micrófono tras un silencio, se reabre solo). «Manos
+//     libres»: Rockie te contesta en voz alta y vuelve a escuchar, y termina solo cuando dejas de hablar.
 //  2. Después, la conversación: lo que hablaste antes en cualquier app (chat compartido de
 //     Rockie OS), tu frase, su respuesta y tarjetas con lo que hizo. Lo de hábitos se hace aquí
 //     (con «Deshacer»); lo de la Agenda, el Equipo o el Cuaderno se lleva a su app.
@@ -189,7 +190,7 @@ const ATAJOS = [
   { id: 'agenda', label: 'Agenda', icono: 'ti-calendar', color: 'var(--azure)', sale: true },
 ]
 
-export default function RockieVoz({ open, onClose, pedido = '', modo = 'escuchar' }) {
+export default function RockieVoz({ open, onClose, pedido = '', modo = 'ver' }) {
   const navigate = useNavigate()
   const store = useStore()
   const { today, friends, emotion, equipped, rockieColor, level } = store
@@ -312,7 +313,7 @@ export default function RockieVoz({ open, onClose, pedido = '', modo = 'escuchar
     procesar(await escRef.current.parar())
   }, [procesar])
 
-  // Al abrir: lo último que hablaste con Rockie y, sin pedido pendiente, ya te escucha
+  // Al abrir: lo último que hablaste con Rockie; solo escucha de una si lo pediste (micrófono o manos libres)
   useEffect(() => {
     if (!open) return undefined
     let vivo = true
@@ -326,7 +327,7 @@ export default function RockieVoz({ open, onClose, pedido = '', modo = 'escuchar
     })
     if (pedido) procesar(pedido)
     else if (modo === 'escribir') setTeclado(true)
-    else if (!escRef.current.empezar()) setTeclado(true)
+    else if ((modo === 'escuchar' || modo === 'manos') && !escRef.current.empezar()) setTeclado(true)
     return () => {
       vivo = false
     }

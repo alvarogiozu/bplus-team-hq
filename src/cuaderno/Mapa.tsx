@@ -207,7 +207,7 @@ export default function Mapa() {
           {mode === 'grafo' && (
             <div className="cu-mapchips" role="group" aria-label="Qué mostrar">
               <Chip on={opts.hubs} onClick={() => setPrefs({ ...prefs, opts: { ...opts, hubs: !opts.hubs } })} icon="folder" label="Carpetas" />
-              <Chip on={opts.projects} onClick={() => setPrefs({ ...prefs, opts: { ...opts, projects: !opts.projects } })} icon="project" label="Proyectos" />
+              {projects.length > 0 && <Chip on={opts.projects} onClick={() => setPrefs({ ...prefs, opts: { ...opts, projects: !opts.projects } })} icon="project" label="Proyectos" />}
               <Chip on={!opts.orphans} onClick={() => setPrefs({ ...prefs, opts: { ...opts, orphans: !opts.orphans } })} icon="link" label="Solo conectadas" />
               <Chip
                 on={colorBy === 'memoria'}
@@ -973,7 +973,7 @@ function GlobalGraph(p: {
           <CIcon name="target" size={18} />
         </button>
       </div>
-      {p.connect && <p className="cu-map-hint">Arrastra desde una página hasta otra (o hasta un proyecto) para conectarlas.</p>}
+      {p.connect && <p className="cu-map-hint">Arrastra desde una página hasta otra para conectarlas.</p>}
     </div>
   )
 }

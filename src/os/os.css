@@ -436,6 +436,7 @@
 }
 .os-dock-side .ico { width: 24px; height: 24px; }
 .os-dock-side.manos { color: var(--green-edge); }
+.os-dock-side.hablar { color: var(--brand); }
 .os-dock-mic {
   justify-self: center;
   display: flex;

@@ -2,32 +2,33 @@ import { useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
-import { Select } from '../../components/Select'
 import { Sheet } from '../../components/Sheet'
 import { ListSkeleton } from '../../components/States'
 import { hourIn, isNight } from '../../lib/dates'
-import { levelProgress, teamStreak, teamXp, xpByUser } from '../../lib/xp'
+import { teamStreak, teamXp } from '../../lib/xp'
 import type { Member } from '../../lib/types'
 import { useMe } from '../auth/AuthProvider'
 import { useSpace } from '../spaces/SpaceProvider'
-import { useMembers, useSpaceRow, useTasks, useXp } from '../data/queries'
+import { useSpaceRow, useXp } from '../data/queries'
 import { useMaterials } from '../materials/data'
 import { useLookup } from '../tasks/bits'
-import { presenceStore } from '../team/presence'
+import { PersonaSheet } from '../team/PersonaSheet'
+import { ProyectoSolo } from '../team/ProyectoSolo'
+import { usePersonas } from '../team/personas'
 import { TeamAchievements } from '../team/TeamAchievements'
-import { InviteBox, ProfileSheet, RoleTag, TempPasswordSheet, useMemberAdmin } from '../team/TeamPage'
-import { HeadBtn, MHead, Sec, TaskCard } from './bits'
+import { InviteBox, ProfileSheet, TempPasswordSheet, useMemberAdmin } from '../team/TeamPage'
+import { HeadBtn, MHead, Sec } from './bits'
 
 // El equipo en el celular: quiénes somos (caras, XP, racha), accesos a lo que tenemos
-// (materiales, logros, invitar, ajustes) y cada persona con su nivel. Tocar a alguien abre su hoja.
+// (materiales, logros, invitar, ajustes) y cada persona con lo que está haciendo y cuánto tiene encima.
+// Tocar a alguien abre su hoja (la misma que en la computadora).
 export default function EquipoMovil() {
   const { isOwner } = useSpace()
   const { userId, profile } = useMe()
-  const membersQ = useMembers()
+  const { personas, maxCarga, cargando } = usePersonas()
   const xp = useXp().data ?? []
   const materials = useMaterials().data ?? []
   const space = useSpaceRow().data
-  const online = presenceStore.use()
   const { today } = useLookup()
   const admin = useMemberAdmin()
   const [whoId, setWhoId] = useState<string | null>(null)
@@ -35,26 +36,29 @@ export default function EquipoMovil() {
   const [inviting, setInviting] = useState(false)
   const night = isNight(hourIn(profile.timezone))
 
-  const byUser = xpByUser(xp)
-  const members = (membersQ.data ?? []).slice().sort((a, b) => (byUser.get(b.user_id) ?? 0) - (byUser.get(a.user_id) ?? 0))
-  const medal = new Map(members.filter((m) => (byUser.get(m.user_id) ?? 0) > 0).slice(0, 3).map((m, i) => [m.user_id, i]))
-  const onlineCount = members.filter((m) => online.has(m.user_id)).length
+  const porXp = personas.slice().sort((a, b) => b.xp - a.xp)
+  const medal = new Map(porXp.filter((p) => p.xp > 0).slice(0, 3).map((p, i) => [p.m.user_id, i]))
+  const onlineCount = personas.filter((p) => p.enLinea).length
   const streak = teamStreak(xp.map((e) => e.day), today)
-  const who = members.find((m) => m.user_id === whoId)
+  const who = personas.find((p) => p.m.user_id === whoId)
+  const solo = !cargando && personas.length === 1
 
   return (
     <div className="content em-page">
-      <MHead kicker={`${members.length} ${members.length === 1 ? 'persona' : 'personas'} · ${onlineCount} en línea`} title={space?.name && space.name !== 'B+' ? space.name : 'Tu equipo'}>
-        <HeadBtn icon="link" label="Invitar al equipo" solid onClick={() => setInviting(true)} />
+      <MHead kicker={solo ? 'Proyecto personal' : `Su equipo: ${personas.length} personas · ${onlineCount} en línea`} title={space?.name ?? 'Tu proyecto'}>
+        {!solo && <HeadBtn icon="link" label="Invitar al equipo" solid onClick={() => setInviting(true)} />}
       </MHead>
 
+      {solo ? (
+        <ProyectoSolo compacto onInvitar={() => setInviting(true)} />
+      ) : (
       <section className="em-card em-crew" aria-label="El equipo">
         <div className="em-crew-faces">
-          {members.slice(0, 8).map((m) => (
+          {personas.slice(0, 8).map(({ m, enLinea }) => (
             <button key={m.user_id} className="em-crew-face" onClick={() => setWhoId(m.user_id)} aria-label={`Ver a ${m.profile.display_name}`}>
               <span className="em-face">
-                <Rockie color={m.profile.color} size={48} still={!online.has(m.user_id)} sleepy={night && !online.has(m.user_id)} />
-                {online.has(m.user_id) && <i className="online" />}
+                <Rockie color={m.profile.color} size={48} still={!enLinea} sleepy={night && !enLinea} />
+                {enLinea && <i className="online" />}
               </span>
               <small>{m.user_id === userId ? 'Tú' : m.profile.display_name.split(' ')[0]}</small>
             </button>
@@ -78,6 +82,7 @@ export default function EquipoMovil() {
           </span>
         </div>
       </section>
+      )}
 
       <div className="em-tiles">
         <Link to="/materiales" className="em-tile" style={{ ['--tc' as string]: 'var(--amber)' } as CSSProperties}>
@@ -94,7 +99,7 @@ export default function EquipoMovil() {
             <Icon name="trophy" />
           </span>
           <b>Logros</b>
-          <small>Lo que el equipo ya ganó</small>
+          <small>Lo que ya se ganó</small>
         </button>
         <button className="em-tile" style={{ ['--tc' as string]: 'var(--accent)' } as CSSProperties} onClick={() => setInviting(true)}>
           <span className="em-tile-ic">
@@ -112,20 +117,19 @@ export default function EquipoMovil() {
         </Link>
       </div>
 
-      <Sec title="Personas" count={members.length} />
-      {membersQ.isLoading ? (
+      <Sec title={solo ? 'Lo tuyo' : 'Quién hace qué'} count={personas.length} />
+      {cargando ? (
         <ListSkeleton rows={3} />
       ) : (
         <div className="em-list">
-          {members.map((m) => {
-            const total = byUser.get(m.user_id) ?? 0
-            const lp = levelProgress(total)
+          {personas.map((p) => {
+            const { m } = p
             const place = medal.get(m.user_id)
             return (
-              <button key={m.user_id} className="em-card em-prow" onClick={() => setWhoId(m.user_id)}>
+              <button key={m.user_id} className="em-card em-prow" style={{ ['--pc' as string]: m.profile.color } as CSSProperties} onClick={() => setWhoId(m.user_id)}>
                 <span className="em-face">
                   <Rockie color={m.profile.color} size={46} still />
-                  {online.has(m.user_id) && <i className="online" />}
+                  {p.enLinea && <i className="online" />}
                   {place !== undefined && <span className={`em-medal m${place}`}>{place + 1}</span>}
                 </span>
                 <span className="em-prow-t">
@@ -133,14 +137,17 @@ export default function EquipoMovil() {
                     {m.profile.display_name}
                     {m.user_id === userId ? ' · tú' : ''}
                   </b>
-                  <small>{m.role_title || (m.role === 'owner' ? 'Dueño del espacio' : 'Sin rol todavía')}</small>
-                  <span className="em-lvl" aria-hidden="true">
-                    <i style={{ width: `${lp.pct}%` }} />
+                  <small>{m.role_title || (m.role === 'owner' ? 'Dueño del proyecto' : 'Sin rol todavía')}</small>
+                  <span className={`em-prow-ahora${p.enCurso ? ' curso' : ''}`}>
+                    {p.enCurso && p.ahora ? `Haciendo: ${p.ahora.title}` : p.ahora ? `Luego: ${p.ahora.title}` : 'Al día'}
+                  </span>
+                  <span className="em-prow-carga" aria-hidden="true">
+                    <i style={{ width: `${(p.abiertas.length / maxCarga) * 100}%` }} />
                   </span>
                 </span>
                 <span className="em-prow-x">
-                  <b>{total}</b>
-                  <small>Nivel {lp.level}</small>
+                  <b>{p.abiertas.length}</b>
+                  <small>{p.atrasadas ? `${p.atrasadas} atrasada${p.atrasadas === 1 ? '' : 's'}` : p.abiertas.length === 1 ? 'abierta' : 'abiertas'}</small>
                 </span>
               </button>
             )
@@ -154,12 +161,11 @@ export default function EquipoMovil() {
 
       {who && (
         <PersonaSheet
-          member={who}
-          xp={byUser.get(who.user_id) ?? 0}
+          persona={who}
           onClose={() => setWhoId(null)}
           onEdit={() => {
             setWhoId(null)
-            setEditing(who)
+            setEditing(who.m)
           }}
           admin={admin}
         />
@@ -170,86 +176,5 @@ export default function EquipoMovil() {
       </Sheet>
       <TempPasswordSheet temp={admin.tempPw} onClose={admin.clearTempPw} />
     </div>
-  )
-}
-
-function PersonaSheet({ member: m, xp, onClose, onEdit, admin }: { member: Member; xp: number; onClose: () => void; onEdit: () => void; admin: ReturnType<typeof useMemberAdmin> }) {
-  const { isOwner } = useSpace()
-  const { userId } = useMe()
-  const online = presenceStore.use()
-  const tasks = useTasks().data ?? []
-  const lp = levelProgress(xp)
-  const me = m.user_id === userId
-  const open = tasks.filter((t) => t.assignee_id === m.user_id && t.status !== 'done').sort((a, b) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999'))
-
-  return (
-    <Sheet open onClose={onClose} variant="drawer" title={me ? 'Tú' : m.profile.display_name}>
-      <div className="em-persona">
-        <span className="em-face">
-          <Rockie color={m.profile.color} size={84} />
-          {online.has(m.user_id) && <i className="online" />}
-        </span>
-        <h3>{m.profile.display_name}</h3>
-        <RoleTag member={m} editable={me || isOwner} />
-        {online.has(m.user_id) && (
-          <span className="mlive">
-            <i /> En línea · {online.get(m.user_id)?.page}
-          </span>
-        )}
-        {m.job_description && <p className="em-persona-job">«{m.job_description}»</p>}
-        <div className="em-persona-xp">
-          <b>{xp}</b> XP · Nivel {lp.level} · {lp.rank}
-        </div>
-        <span className="em-lvl big" aria-hidden="true">
-          <i style={{ width: `${lp.pct}%` }} />
-        </span>
-        <small className="hint">{lp.toNext} XP para nivel {lp.level + 1}</small>
-        {me && (
-          <button className="btn ghost" onClick={onEdit}>
-            <Icon name="edit" className="sm" /> Editar mi perfil
-          </button>
-        )}
-      </div>
-
-      <Sec title={me ? 'Lo que tienes abierto' : 'Lo que tiene abierto'} count={open.length} />
-      {open.length ? (
-        <div className="em-list">
-          {open.slice(0, 6).map((t, i) => (
-            <TaskCard key={t.id} task={t} index={i} showAssignee={false} />
-          ))}
-        </div>
-      ) : (
-        <p className="em-tip">Nada pendiente. Al día.</p>
-      )}
-
-      {isOwner && !me && (
-        <div className="em-owner">
-          <span className="em-plabel">Como dueño del espacio</span>
-          <Select
-            label={`Permiso de ${m.profile.display_name}`}
-            value={m.role}
-            onChange={(v) => void admin.setRole(m, v as 'owner' | 'member')}
-            options={[
-              { value: 'member', label: 'Miembro', sub: 'Crea y valida tareas' },
-              { value: 'owner', label: 'Dueño', sub: 'Además invita, quita y cambia permisos' },
-            ]}
-          />
-          <div className="row" style={{ flexWrap: 'wrap', marginTop: 10 }}>
-            <button className="btn ghost sm" onClick={() => void admin.resetPassword(m)}>
-              <Icon name="key" className="sm" /> Contraseña temporal
-            </button>
-            <button
-              className="btn danger sm"
-              onClick={() => {
-                onClose()
-                void admin.removeMember(m)
-              }}
-            >
-              <Icon name="close" className="sm" /> Quitar del equipo
-            </button>
-          </div>
-        </div>
-      )}
-    </Sheet>
   )
 }

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { SelectorEquipo } from '../spaces/SelectorEquipo'
 import { AnimatePresence, motion } from 'motion/react'
 import { Icon } from '../../components/Icon'
 import { ColorPick, Select, type Opt } from '../../components/Select'
@@ -38,7 +39,6 @@ export default function MaterialsPage() {
   const fq = useFolders()
   const mq = useMaterials()
   const space = useSpaceRow().data
-  const { projectById } = useLookup()
   const [params, setParams] = useSearchParams()
   const folderId = params.get('carpeta')
   const folders = useMemo(() => fq.data ?? [], [fq.data])
@@ -174,7 +174,7 @@ export default function MaterialsPage() {
               </button>
               <button onClick={() => { setAddOpen(false); setFolderDialog({}) }} style={{ ['--tc' as string]: 'var(--amber)' } as CSSProperties}>
                 <span className="em-tile-ic"><Icon name="folder" /></span>
-                <span><b>Carpeta</b><small>{current ? `Dentro de «${current.name}»` : 'Para ordenar por tema o proyecto'}</small></span>
+                <span><b>Carpeta</b><small>{current ? `Dentro de «${current.name}»` : 'Para ordenar por tema'}</small></span>
               </button>
             </div>
           </Sheet>
@@ -184,6 +184,7 @@ export default function MaterialsPage() {
         <div>
           <h1>Materiales</h1>
           <div className="sub">Archivos y enlaces del equipo, por carpetas. Arrastra archivos aquí para subirlos.</div>
+          <SelectorEquipo />
         </div>
         <div className="row" style={{ flexWrap: 'wrap' }}>
           <Meter used={used} limit={limit} />
@@ -239,11 +240,6 @@ export default function MaterialsPage() {
         </label>
       </div>
 
-      {current?.project_id && projectById.get(current.project_id) && (
-        <p className="hint mproject">
-          <i style={{ background: projectById.get(current.project_id)!.color }} /> Carpeta del proyecto «{projectById.get(current.project_id)!.name}»
-        </p>
-      )}
 
       {loading ? (
         <ListSkeleton rows={3} />
@@ -272,7 +268,6 @@ export default function MaterialsPage() {
                   <b>{f.name}</b>
                   <small>
                     {countIn(f)} {countIn(f) === 1 ? 'material' : 'materiales'}
-                    {f.project_id && projectById.get(f.project_id) ? ` · ${projectById.get(f.project_id)!.name}` : ''}
                   </small>
                 </motion.button>
               ))}
@@ -312,7 +307,7 @@ export default function MaterialsPage() {
               <h3>{needle ? `Nada con «${q}»` : current ? 'Esta carpeta está vacía' : 'Todavía no hay materiales'}</h3>
               {!needle && (
                 <p className="hint">
-                  Arrastra archivos aquí (hasta 50 MB cada uno) o agrega enlaces de Drive, Docs, Figma o YouTube. Las carpetas se pueden ligar a un proyecto.
+                  Arrastra archivos aquí (hasta 50 MB cada uno) o agrega enlaces de Drive, Docs, Figma o YouTube.
                 </p>
               )}
             </div>
@@ -481,7 +476,7 @@ function MaterialSheet({ folders, materials }: { folders: Folder[]; materials: M
 }
 
 function MaterialBody({ m, folders, onGone }: { m: Material; folders: Folder[]; onGone: () => void }) {
-  const { projects, memberById } = useLookup()
+  const { memberById } = useLookup()
   const { updateMaterial, removeMaterial } = useMaterialActions()
   const [name, setName] = useState(m.name)
   const [note, setNote] = useState(m.note)
@@ -547,14 +542,6 @@ function MaterialBody({ m, folders, onGone }: { m: Material; folders: Folder[]; 
           onChange={(v) => void updateMaterial(m.id, { folder_id: v || null }, `«${m.name}» se movió a ${v ? folders.find((f) => f.id === v)?.name : 'Materiales'}`)}
           options={folderOpts}
         />
-        <span>Proyecto</span>
-        <Select
-          label="Proyecto"
-          variant="field"
-          value={m.project_id ?? ''}
-          onChange={(v) => void updateMaterial(m.id, { project_id: v || null })}
-          options={[{ value: '', label: 'Sin proyecto', visual: <span className="sel-none" /> }, ...projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
-        />
         <span>{m.kind === 'link' ? 'Enlace' : 'Tipo'}</span>
         <span className="mprop">{m.kind === 'link' ? <a href={m.url ?? '#'} target="_blank" rel="noopener noreferrer">{(m.url ?? '').replace(/^https?:\/\/(www\.)?/, '').slice(0, 60)}</a> : `${KIND_LABEL[kind ?? 'other']} · ${fmtBytes(Number(m.size_bytes))}`}</span>
         <span>Subido</span>
@@ -591,11 +578,9 @@ function MaterialBody({ m, folders, onGone }: { m: Material; folders: Folder[]; 
 }
 
 function FolderDialog({ edit, parentId, folders, onClose, onDeleted }: { edit?: Folder; parentId: string | null; folders: Folder[]; onClose: () => void; onDeleted: () => void }) {
-  const { projects } = useLookup()
   const { createFolder, updateFolder, removeFolder } = useMaterialActions()
   const [name, setName] = useState(edit?.name ?? '')
   const [color, setColor] = useState(edit?.color ?? PALETTE[Math.floor(Math.random() * PALETTE.length)])
-  const [project, setProject] = useState(edit?.project_id ?? '')
   const [parent, setParent] = useState(edit ? edit.parent_id ?? '' : parentId ?? '')
   const [busy, setBusy] = useState(false)
   const [sure, setSure] = useState(false)
@@ -605,7 +590,7 @@ function FolderDialog({ edit, parentId, folders, onClose, onDeleted }: { edit?: 
     e.preventDefault()
     if (!name.trim()) return
     setBusy(true)
-    const row = { name: name.trim(), color, project_id: project || null, parent_id: parent || null }
+    const row = { name: name.trim(), color, parent_id: parent || null }
     const ok = edit ? await updateFolder(edit.id, row) : await createFolder(row)
     setBusy(false)
     if (ok) onClose()
@@ -651,18 +636,7 @@ function FolderDialog({ edit, parentId, folders, onClose, onDeleted }: { edit?: 
           <ColorPick value={color} onChange={setColor} palette={PALETTE} label="Color de la carpeta" size={34} />
           <input id="mf-n" data-autofocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Ej: Diseño de la carcasa" style={{ flex: 1 }} />
         </div>
-        <div className="grid2">
-          <div>
-            <label className="lbl" htmlFor="mf-p">Proyecto (opcional)</label>
-            <Select
-              id="mf-p"
-              label="Proyecto"
-              variant="field"
-              value={project}
-              onChange={setProject}
-              options={[{ value: '', label: 'Sin proyecto', visual: <span className="sel-none" /> }, ...projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
-            />
-          </div>
+        <div>
           <div>
             <label className="lbl" htmlFor="mf-in">Dentro de</label>
             <Select

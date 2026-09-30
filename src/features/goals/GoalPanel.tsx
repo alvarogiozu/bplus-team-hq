@@ -47,7 +47,8 @@ const STATUS_OPTS: Opt<string>[] = [
   { value: 'done', label: PACE_LABEL.done, color: PACE_COLOR.done },
 ]
 
-export const KIND_OPTS: Opt<GoalKind>[] = (['number', 'percent', 'project', 'children'] as GoalKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))
+// «por proyecto» ya no se ofrece (solo hay equipos); las metas viejas de ese tipo siguen funcionando
+export const KIND_OPTS: Opt<GoalKind>[] = (['number', 'percent', 'children'] as GoalKind[]).map((k) => ({ value: k, label: KIND_LABEL[k] }))
 
 function GoalBody({ node, all, onGone }: { node: GoalNode; all: GoalNode[]; onGone: () => void }) {
   const g = node.goal
@@ -159,7 +160,7 @@ function GoalBody({ node, all, onGone }: { node: GoalNode; all: GoalNode[]; onGo
           {g.kind === 'project'
             ? g.project_id
               ? `Avanza sola con las tareas de «${projects.find((p) => p.id === g.project_id)?.name ?? 'su proyecto'}».`
-              : 'Elige abajo el proyecto que la mueve.'
+              : 'Se medía por proyecto: cámbiala arriba a número, porcentaje o sub-metas.'
             : 'Avanza sola con el promedio de sus sub-metas.'}
         </p>
       )}
@@ -182,7 +183,7 @@ function GoalBody({ node, all, onGone }: { node: GoalNode; all: GoalNode[]; onGo
         <span>Dentro de</span>
         <Select label="Meta padre" variant="field" searchable value={g.parent_id ?? ''} onChange={(v) => void update(g.id, { parent_id: v || null })} options={parentOpts} />
         <span>Se mide con</span>
-        <Select label="Cómo se mide" variant="field" value={g.kind} onChange={(k) => void update(g.id, k === 'percent' && g.kind !== 'percent' ? { kind: k, start_value: 0, target_value: 100, unit: '' } : { kind: k })} options={KIND_OPTS} />
+        <Select label="Cómo se mide" variant="field" value={g.kind} onChange={(k) => void update(g.id, k === 'percent' && g.kind !== 'percent' ? { kind: k, start_value: 0, target_value: 100, unit: '' } : { kind: k })} options={g.kind === 'project' ? [...KIND_OPTS, { value: 'project', label: KIND_LABEL.project }] : KIND_OPTS} />
         {measured && (
           <>
             <span>Desde · hasta</span>
@@ -192,18 +193,6 @@ function GoalBody({ node, all, onGone }: { node: GoalNode; all: GoalNode[]; onGo
               <input key={`t${g.target_value}`} inputMode="decimal" defaultValue={String(g.target_value)} aria-label="Objetivo" onBlur={(e) => void saveNum('target_value', e.target.value)} />
               {g.kind === 'number' && <input key={`u${g.unit}`} defaultValue={g.unit} maxLength={16} placeholder="unidad" aria-label="Unidad" onBlur={(e) => e.target.value.trim() !== g.unit && void update(g.id, { unit: e.target.value.trim() })} />}
             </div>
-          </>
-        )}
-        {g.kind === 'project' && (
-          <>
-            <span>Proyecto</span>
-            <Select
-              label="Proyecto"
-              variant="field"
-              value={g.project_id ?? ''}
-              onChange={(v) => void update(g.id, { project_id: v || null })}
-              options={[{ value: '', label: 'Elegir proyecto…', visual: <span className="sel-none" /> }, ...projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color, sub: agg.get(p.id) ? `${agg.get(p.id)!.done}/${agg.get(p.id)!.total} tareas` : 'sin tareas' }))]}
-            />
           </>
         )}
         <span>Inicio</span>
@@ -384,7 +373,7 @@ function History({ goal, checkins }: { goal: Goal; checkins: Checkin[] }) {
 export function NewGoalDialog({ all }: { all: GoalNode[] }) {
   const state = newGoalStore.use()
   const { userId, profile } = useAuth()
-  const { areas, projects } = useLookup()
+  const { areas } = useLookup()
   const { create } = useGoalActions()
   const openGoal = useOpenGoal()
   const [title, setTitle] = useState('')
@@ -392,7 +381,6 @@ export function NewGoalDialog({ all }: { all: GoalNode[] }) {
   const [from, setFrom] = useState('0')
   const [to, setTo] = useState('100')
   const [unit, setUnit] = useState('')
-  const [project, setProject] = useState('')
   const [owner, setOwner] = useState<string | null>(null)
   const [area, setArea] = useState('')
   const [due, setDue] = useState('')
@@ -408,7 +396,6 @@ export function NewGoalDialog({ all }: { all: GoalNode[] }) {
     setFrom('0')
     setTo('100')
     setUnit('')
-    setProject('')
     setOwner(userId)
     setArea(p?.goal.area_id ?? '')
     setDue(p?.goal.due_date ?? '')
@@ -425,7 +412,6 @@ export function NewGoalDialog({ all }: { all: GoalNode[] }) {
     const a = Number(from.replace(',', '.'))
     const b = Number(to.replace(',', '.'))
     if (measured && (!Number.isFinite(a) || !Number.isFinite(b) || a === b)) return setErr('El objetivo tiene que ser distinto del punto de partida.')
-    if (kind === 'project' && !project) return setErr('Elige el proyecto que mueve esta meta.')
     setBusy(true)
     const g = await create({
       title: title.trim(),
@@ -434,7 +420,7 @@ export function NewGoalDialog({ all }: { all: GoalNode[] }) {
       target_value: measured ? b : 100,
       current_value: measured ? a : 0,
       unit: kind === 'number' ? unit.trim() : '',
-      project_id: kind === 'project' ? project : null,
+      project_id: null,
       owner_id: owner,
       area_id: area || null,
       due_date: due || null,
@@ -465,7 +451,7 @@ export function NewGoalDialog({ all }: { all: GoalNode[] }) {
 
         <label className="lbl">Cómo sabremos que lo logramos</label>
         <div className="kindpick" role="radiogroup" aria-label="Cómo se mide">
-          {(['number', 'percent', 'project', 'children'] as GoalKind[]).map((k) => (
+          {(['number', 'percent', 'children'] as GoalKind[]).map((k) => (
             <button key={k} type="button" role="radio" aria-checked={kind === k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>
               {kind === k && <motion.span layoutId="kindpick" className="kindpick-ind" transition={{ type: 'spring', stiffness: 520, damping: 38 }} />}
               <span>{KIND_SHORT[k]}</span>
@@ -475,7 +461,6 @@ export function NewGoalDialog({ all }: { all: GoalNode[] }) {
         <p className="hint" style={{ margin: '6px 0 0' }}>
           {kind === 'number' && 'Un número que sube (o baja) hasta el objetivo: ventas, clientes, unidades…'}
           {kind === 'percent' && 'Un porcentaje: satisfacción, cobertura, avance de algo…'}
-          {kind === 'project' && 'Se mueve sola con las tareas hechas de un proyecto.'}
           {kind === 'children' && 'Se mueve sola con el promedio de las sub-metas que le cuelgues.'}
         </p>
 
@@ -496,20 +481,6 @@ export function NewGoalDialog({ all }: { all: GoalNode[] }) {
               </div>
             )}
           </div>
-        )}
-        {kind === 'project' && (
-          <>
-            <label className="lbl" htmlFor="ng-p">Proyecto</label>
-            <Select
-              id="ng-p"
-              label="Proyecto"
-              variant="field"
-              value={project}
-              onChange={setProject}
-              placeholder="Elegir proyecto…"
-              options={projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color }))}
-            />
-          </>
         )}
 
         <div className="grid2">

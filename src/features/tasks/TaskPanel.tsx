@@ -35,7 +35,7 @@ export function TaskPanel() {
 }
 
 function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
-  const { areas, projects, memberById, today } = useLookup()
+  const { areas, memberById, today } = useLookup()
   const { update, remove, duplicate, move } = useTaskActions()
   const activity = (useActivity().data ?? []).filter((a) => a.entity_id === task.id).slice(0, 8)
   const [title, setTitle] = useState(task.title)
@@ -108,14 +108,6 @@ function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
           value={task.area_id ?? ''}
           onChange={(v) => update(task.id, { area_id: v || null })}
           options={[{ value: '', label: 'Sin área', visual: <span className="sel-none" /> }, ...areas.map((a) => ({ value: a.id, label: a.name, color: a.color }))]}
-        />
-        <span>Proyecto</span>
-        <Select
-          label="Proyecto"
-          variant="field"
-          value={task.project_id ?? ''}
-          onChange={(v) => update(task.id, { project_id: v || null })}
-          options={[{ value: '', label: 'Sin proyecto', visual: <span className="sel-none" /> }, ...projects.map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
         />
         <span>Prioridad</span>
         <Select

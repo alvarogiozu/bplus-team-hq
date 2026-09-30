@@ -269,6 +269,11 @@
 .em-sub-bar i { display: block; height: 100%; border-radius: 999px; background: var(--st); }
 .em-subs b { text-align: right; font-size: var(--t-2xs); color: var(--ink-soft); }
 .em-page .mission { margin-bottom: var(--s3); }
+.em-pgrupo { display: flex; flex-direction: column; gap: 10px; margin-bottom: var(--s3); }
+.em-pgrupo-h { display: flex; align-items: center; gap: 8px; min-height: var(--tap); font-family: var(--serif); font-size: var(--t-md); font-weight: 700; color: var(--ink); text-decoration: none; }
+.em-pgrupo-h i { width: 12px; height: 12px; flex: none; border-radius: 4px; background: var(--pc); }
+.em-pgrupo-h small { font-family: var(--sans); font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); }
+.em-pgrupo-h .ico { margin-left: auto; color: var(--ink-muted); }
 
 /* ---------- el equipo ---------- */
 .em-crew { padding: var(--s3) var(--s4) var(--s4); margin-bottom: var(--s4); }
@@ -295,6 +300,11 @@
 .em-prow-x { display: flex; flex-direction: column; align-items: flex-end; }
 .em-prow-x b { font-family: var(--serif); font-size: var(--t-lg); }
 .em-prow-x small { font-size: var(--t-3xs); font-weight: 700; color: var(--ink-muted); }
+.em-prow { box-shadow: inset 4px 0 0 var(--pc, transparent), 0 4px 0 var(--card-edge); }
+.em-prow-ahora { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-top: 2px; font-size: var(--t-2xs); font-weight: 700; color: var(--ink-soft); }
+.em-prow-ahora.curso { color: var(--accent-ink); }
+.em-prow-carga { display: block; max-width: 160px; height: 5px; margin-top: 4px; border-radius: 999px; background: var(--paper-dark); overflow: hidden; }
+.em-prow-carga i { display: block; height: 100%; min-width: 3px; border-radius: 999px; background: var(--pc, var(--accent)); }
 .em-lvl { display: block; max-width: 160px; height: 6px; margin-top: 4px; border-radius: 999px; background: var(--paper-dark); overflow: hidden; }
 .em-lvl i { display: block; height: 100%; border-radius: 999px; background: var(--navbar-blue); }
 .em-lvl.big { width: 100%; max-width: 220px; height: 10px; margin: 6px auto 0; }

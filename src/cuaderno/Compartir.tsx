@@ -73,7 +73,8 @@ export function PeerStack({ peers, max = 4 }: { peers: Peer[]; max?: number }) {
 export function ShareButton({ note, mobile, peers }: { note: Note; mobile: boolean; peers: Peer[] }) {
   const [open, setOpen] = useState(false)
   const shared = Boolean(note.space_id)
-  const label = shared ? 'Compartida con tu equipo' : 'Compartir con el equipo'
+  const equipo = useMemberships().data?.find((m) => m.space_id === note.space_id)?.name
+  const label = shared ? `Compartida con ${equipo ?? 'tu equipo'}` : 'Compartir con uno de tus equipos'
   return (
     <>
       <PeerStack peers={peers} />
@@ -139,7 +140,7 @@ function ShareSheet({ note, open, onClose }: { note: Note; open: boolean; onClos
     <Sheet
       open={open}
       onClose={onClose}
-      title={note.space_id ? 'Compartida con tu equipo' : 'Compartir con el equipo'}
+      title={note.space_id ? `Compartida con ${spaceName}` : 'Compartir con un equipo'}
     >
       <div className="cu-share">
         {note.space_id ? (

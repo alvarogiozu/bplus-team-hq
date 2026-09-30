@@ -10,7 +10,7 @@ import { PACE_COLOR } from '../../lib/pace'
 import { ACHIEVEMENTS } from '../../lib/xp'
 import { useAchievements, useTasks } from '../data/queries'
 import { useGoals } from '../goals/data'
-import { buildTree, flatten, type GoalNode } from '../goals/model'
+import { buildTree, flatten, rutaDeMeta, type GoalNode } from '../goals/model'
 import { useLookup } from '../tasks/bits'
 import {
   ACH_ICONS,
@@ -49,7 +49,7 @@ export function TeamAchievements() {
   return (
     <>
       <div className="sectionh" style={{ marginTop: 32 }}>
-        <h2>Logros del equipo</h2>
+        <h2>Logros del proyecto</h2>
         <div className="row">
           <span className="hint">
             {won} de {total}
@@ -61,7 +61,7 @@ export function TeamAchievements() {
       </div>
       {custom.length === 0 && (
         <p className="hint" style={{ margin: '0 0 var(--s3)' }}>
-          Crea logros propios del equipo: se desbloquean solos cuando una meta llega a su marca, o los entregan ustedes.
+          Crea logros propios: se desbloquean solos cuando una meta llega a su marca, o los entregas a mano.
         </p>
       )}
       <div className="achgrid">
@@ -69,7 +69,7 @@ export function TeamAchievements() {
           <CustomCard key={a.id} a={a} node={a.goal_id ? nodes.byId.get(a.goal_id) : undefined} />
         ))}
         {reachedGoals.map((n) => (
-          <Link key={n.goal.id} to={`/metas?meta=${n.goal.id}`} className="card ach on goalach" style={{ ['--ac' as string]: PACE_COLOR.done } as CSSProperties}>
+          <Link key={n.goal.id} to={rutaDeMeta(n.goal)} className="card ach on goalach" style={{ ['--ac' as string]: PACE_COLOR.done } as CSSProperties}>
             <span className="aic">
               <Icon name="goal" />
             </span>
@@ -116,7 +116,7 @@ function CustomCard({ a, node }: { a: TeamAchievement; node?: GoalNode }) {
           </p>
         ) : node ? (
           <div className="ach-goal">
-            <Link to={`/metas?meta=${node.goal.id}`}>
+            <Link to={rutaDeMeta(node.goal)}>
               {node.goal.title} · {Math.round(node.pct * 100)}% de {Math.round(target * 100)}%
             </Link>
             <span className="progress">

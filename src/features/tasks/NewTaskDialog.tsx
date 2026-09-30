@@ -12,13 +12,12 @@ import { PersonPicker } from '../team/PersonPicker'
 export function NewTaskDialog() {
   const state = newTaskStore.use()
   const { userId } = useAuth()
-  const { areas, projects } = useLookup()
+  const { areas } = useLookup()
   const { create } = useTaskActions()
   const [title, setTitle] = useState('')
   const [assignee, setAssignee] = useState('')
   const [due, setDue] = useState('')
   const [area, setArea] = useState('')
-  const [project, setProject] = useState('')
   const [prio, setPrio] = useState(0)
   const [busy, setBusy] = useState(false)
 
@@ -29,7 +28,6 @@ export function NewTaskDialog() {
     setAssignee(p.assignee_id ?? userId ?? '')
     setDue(p.due_date ?? '')
     setArea(p.area_id ?? '')
-    setProject(p.project_id ?? '')
     setPrio(prioLevel(p.priority))
   }, [state, userId])
 
@@ -45,7 +43,7 @@ export function NewTaskDialog() {
         assignee_id: assignee || null,
         due_date: due || null,
         area_id: area || null,
-        project_id: project || null,
+        project_id: null,
         priority: PRIORITY_BY_LEVEL[prio],
         status: state?.prefill.status ?? 'todo',
       })
@@ -88,17 +86,6 @@ export function NewTaskDialog() {
               value={area}
               onChange={setArea}
               options={[{ value: '', label: 'Sin área', visual: <span className="sel-none" /> }, ...areas.map((a) => ({ value: a.id, label: a.name, color: a.color }))]}
-            />
-          </div>
-          <div>
-            <label className="lbl" htmlFor="nt-p">Proyecto</label>
-            <Select
-              id="nt-p"
-              label="Proyecto"
-              variant="field"
-              value={project}
-              onChange={setProject}
-              options={[{ value: '', label: 'Sin proyecto', visual: <span className="sel-none" /> }, ...projects.filter((p) => !p.archived).map((p) => ({ value: p.id, label: p.name, color: p.color }))]}
             />
           </div>
         </div>

@@ -2194,3 +2194,23 @@ textarea.cu-input { resize: none; }
 .collaboration-carets__caret { position: relative; margin-left: -1px; margin-right: -1px; border-left: 2px solid var(--cc); border-right: 0; word-break: normal; pointer-events: none; }
 .collaboration-carets__label { position: absolute; left: -2px; bottom: 100%; padding: 1px 6px 2px; border-radius: 6px 6px 6px 0; background: var(--cc); color: var(--on-color); font-family: var(--sans); font-size: 11px; font-style: normal; font-weight: 800; line-height: 1.35; white-space: nowrap; user-select: none; pointer-events: none; }
 .collaboration-carets__selection { background: color-mix(in srgb, var(--cc) 24%, transparent); }
+
+/* ---------- notas abiertas en pestañas (como en Obsidian) ---------- */
+.cu-pestanas { flex: none; display: flex; align-items: flex-end; gap: var(--s2); padding: var(--s2) var(--s3) 0; background: var(--paper-alt); border-bottom: 1.5px solid var(--card-line); }
+.cu-pestanas-fila { flex: 1; min-width: 0; display: flex; align-items: flex-end; gap: var(--s1); overflow-x: auto; scrollbar-width: none; }
+.cu-pestanas-fila::-webkit-scrollbar { display: none; }
+.cu-pestana {
+  position: relative; flex: 0 1 190px; min-width: 104px; display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 4px 0 10px;
+  margin-bottom: -1.5px; border: 1.5px solid transparent; border-bottom: 0; border-radius: 12px 12px 0 0;
+  font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); cursor: pointer; user-select: none; -webkit-user-select: none;
+  transition: background 0.15s, color 0.15s;
+}
+.cu-pestana:hover { background: color-mix(in srgb, var(--card) 70%, transparent); color: var(--ink); }
+.cu-pestana.on { background: var(--paper); border-color: var(--card-line); color: var(--ink); }
+.cu-pestana.on::before { content: ''; position: absolute; left: 10px; right: 10px; top: -1.5px; height: 3px; border-radius: 0 0 3px 3px; background: var(--berry); }
+.cu-pestana-t { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cu-pestana button { flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; color: var(--ink-muted); opacity: 0; transition: opacity 0.15s, background 0.15s; }
+.cu-pestana:hover button, .cu-pestana.on button, .cu-pestana:focus-within button { opacity: 1; }
+.cu-pestana button:hover { background: var(--paper-alt); color: var(--ink); }
+.cu-pestanas-otras { flex: none; align-self: center; min-height: 32px; margin-bottom: var(--s1); padding: 0 var(--s3); border-radius: 999px; font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); white-space: nowrap; }
+.cu-pestanas-otras:hover { background: var(--card); color: var(--ink); }

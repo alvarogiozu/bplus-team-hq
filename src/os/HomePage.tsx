@@ -13,6 +13,7 @@ import { setAccent, useTheme } from '../app/theme'
 import { APPS, type AppId, type OsApp } from './apps'
 import { faceFor, fetchHabitosHoy, rockieLook } from './habitos'
 import { RockieArt } from './RockieArt'
+import { useEscritorio } from './escritorio/contexto'
 import './os.css'
 
 const APP = Object.fromEntries(APPS.map((a) => [a.id, a])) as Record<AppId, OsApp>
@@ -23,9 +24,27 @@ const toMin = (t: string) => {
 }
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
-/** Un enlace a otra app: Hábitos es otra página del sitio (carga completa), las demás van por el router. */
+/** Un enlace a otra app: en el escritorio abre su pestaña; si no, Hábitos es otra página del sitio
+ *  (carga completa) y las demás van por el router. */
 function AppLink({ app, to, className, style, label, children }: { app: OsApp; to?: string; className?: string; style?: CSSProperties; label?: string; children: ReactNode }) {
+  const escritorio = useEscritorio()
   const href = to ?? app.path
+  if (escritorio) {
+    return (
+      <a
+        href={href}
+        className={className}
+        style={style}
+        aria-label={label}
+        onClick={(e) => {
+          e.preventDefault()
+          escritorio.abrir(href)
+        }}
+      >
+        {children}
+      </a>
+    )
+  }
   return app.page ? (
     <a href={href} className={className} style={style} aria-label={label}>
       {children}
@@ -113,7 +132,8 @@ function Cuenta({ nombre, theme, toggle }: { nombre: string; theme: string; togg
 
 type Entry = { key: string; app: AppId; min: number | null; title: string; tag: string; done: boolean; to?: string }
 
-export default function HomePage() {
+/** `escritorio`: la barra de Rockie que va arriba cuando el Inicio vive en el escritorio (PC). */
+export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
   const { userId, profile } = useMe()
   const { theme, toggle } = useTheme()
   const mobile = useMedia('(max-width: 719px)')
@@ -140,11 +160,13 @@ export default function HomePage() {
     queryKey: ['os', 'tasks', userId],
     queryFn: async () => {
       const [t, s] = await Promise.all([
-        supabase.from('tasks').select('id, title, due_date').eq('assignee_id', userId).neq('status', 'done'),
-        supabase.from('space_members').select('space_id', { count: 'exact', head: true }).eq('user_id', userId),
+        supabase.from('tasks').select('id, title, due_date, space_id').eq('assignee_id', userId).neq('status', 'done'),
+        supabase.from('space_members').select('space_id, space:spaces(name)').eq('user_id', userId),
       ])
       if (t.error) throw t.error
-      return { open: t.data, spaces: s.count ?? 0 }
+      // una persona puede estar en varios proyectos (un curso, una organización, algo propio)
+      const equipos = new Map((s.data ?? []).map((m) => [m.space_id, (m.space as { name: string } | null)?.name ?? 'Equipo']))
+      return { open: t.data, spaces: equipos.size, equipos }
     },
   })
   const note = useQuery({
@@ -168,9 +190,21 @@ export default function HomePage() {
     const out: Entry[] = []
     for (const h of hab?.habits ?? []) out.push({ key: `h${h.id}`, app: 'habitos', min: h.time ? toMin(h.time) : null, title: h.name, tag: 'Hábito', done: h.done })
     for (const i of agItems) out.push({ key: `a${i.id}`, app: 'agenda', min: i.start_min, title: i.title, tag: 'Agenda', done: Boolean(i.done_at) })
-    for (const t of dueTasks) out.push({ key: `t${t.id}`, app: 'equipo', min: null, title: t.title, tag: t.due_date! < today ? 'Tarea atrasada' : 'Tarea para hoy', done: false, to: '/tareas?vista=lista' })
+    const varios = (tasks.data?.spaces ?? 0) > 1
+    for (const t of dueTasks) {
+      const eq = tasks.data?.equipos.get(t.space_id)
+      out.push({
+        key: `t${t.id}`,
+        app: 'equipo',
+        min: null,
+        title: t.title,
+        tag: `${t.due_date! < today ? 'Tarea atrasada' : 'Tarea para hoy'}${varios && eq ? ` · ${eq}` : ''}`,
+        done: false,
+        to: `/tareas?vista=lista&equipo=${t.space_id}`,
+      })
+    }
     return out.sort((a, b) => (a.min ?? 9999) - (b.min ?? 9999))
-  }, [hab, agItems, dueTasks, today])
+  }, [hab, agItems, dueTasks, today, tasks.data])
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes()
   const nowAt = entries.findIndex((e) => e.min != null && e.min > nowMin)
 
@@ -182,7 +216,7 @@ export default function HomePage() {
   const pend: string[] = []
   if (habTotal - habDone > 0) pend.push(plural(habTotal - habDone, 'hábito', 'hábitos'))
   if (agItems.length - agDone > 0) pend.push(plural(agItems.length - agDone, 'pendiente en tu agenda', 'pendientes en tu agenda'))
-  if (dueTasks.length) pend.push(plural(dueTasks.length, 'tarea del equipo', 'tareas del equipo'))
+  if (dueTasks.length) pend.push((tasks.data?.spaces ?? 0) > 1 ? plural(dueTasks.length, 'tarea de tus proyectos', 'tareas de tus proyectos') : plural(dueTasks.length, 'tarea de tu proyecto', 'tareas de tu proyecto'))
   const summary = pend.length
     ? `Te ${pend.length === 1 && pend[0].startsWith('1 ') ? 'queda' : 'quedan'} ${pend.length > 1 ? `${pend.slice(0, -1).join(', ')} y ${pend[pend.length - 1]}` : pend[0]}.`
     : total
@@ -215,10 +249,14 @@ export default function HomePage() {
       app: APP.equipo,
       loading: tasks.isLoading,
       ...(!tasks.data?.spaces
-        ? { line: 'Crea o únete a un equipo', sub: 'Tareas con dueño y fecha' }
+        ? { line: 'Crea tu primer proyecto', sub: 'Solo o con tu gente' }
         : tasks.data.open.length
-          ? { line: plural(tasks.data.open.length, 'tarea tuya', 'tareas tuyas'), sub: dueTasks.length ? `${dueTasks.length} para hoy o atrasadas` : 'Nada vence hoy', count: tasks.data.open.length }
-          : { line: 'Sin tareas pendientes', sub: 'Tu equipo va al día' }),
+          ? {
+              line: plural(tasks.data.open.length, 'tarea tuya', 'tareas tuyas'),
+              sub: `${dueTasks.length ? `${dueTasks.length} para hoy o atrasadas` : 'Nada vence hoy'}${tasks.data.spaces > 1 ? ` · en ${tasks.data.spaces} proyectos` : ''}`,
+              count: tasks.data.open.length,
+            }
+          : { line: 'Sin tareas pendientes', sub: tasks.data.spaces > 1 ? `Tus ${tasks.data.spaces} proyectos van al día` : 'Todo al día' }),
     },
     {
       app: APP.cuaderno,
@@ -320,21 +358,19 @@ export default function HomePage() {
           )}
         </section>
 
-        <nav className="os-dock" aria-label="Hablarle a Rockie">
+        {/* Rockie abre su conversación (no graba solo); para hablarle de una, el micrófono de al lado */}
+        <nav className="os-dock" aria-label="Rockie">
           <a className="os-dock-side" href="/habitos/hoy?voz=escribir" aria-label="Escribirle a Rockie">
             <Icon name="keyboard" />
           </a>
-          <a className="os-dock-mic" href="/habitos/hoy?voz=escuchar" aria-label="Hablar con Rockie">
+          <a className="os-dock-mic" href="/habitos/hoy?voz=ver" aria-label="Abrir a Rockie">
             <span className="os-dock-btn">
               <RockieArt size={58} stone={look.stone} equipped={look.equipped} eyes={face.eyes} mouth={face.mouth} />
-              <span className="os-dock-badge" aria-hidden="true">
-                <Icon name="mic" className="sm" />
-              </span>
             </span>
             <small>Rockie</small>
           </a>
-          <a className="os-dock-side manos" href="/habitos/hoy?voz=manos" aria-label="Manos libres">
-            <Icon name="headphones" />
+          <a className="os-dock-side hablar" href="/habitos/hoy?voz=escuchar" aria-label="Hablarle a Rockie">
+            <Icon name="mic" />
           </a>
         </nav>
       </div>
@@ -343,18 +379,20 @@ export default function HomePage() {
 
   return (
     <div className="os-home">
-      <header className="os-top">
-        <div className="os-brand">
-          <span className="os-word">Rockie</span>
-          <span className="os-kicker">{fmtDayLong(today)}</span>
-        </div>
-        <button className="iconbtn" onClick={toggle} aria-label={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
-          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-        </button>
-        <button className="iconbtn" onClick={() => signOut()} aria-label="Cerrar sesión" title="Cerrar sesión">
-          <Icon name="logout" />
-        </button>
-      </header>
+      {escritorio ?? (
+        <header className="os-top">
+          <div className="os-brand">
+            <span className="os-word">Rockie</span>
+            <span className="os-kicker">{fmtDayLong(today)}</span>
+          </div>
+          <button className="iconbtn" onClick={toggle} aria-label={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+          </button>
+          <button className="iconbtn" onClick={() => signOut()} aria-label="Cerrar sesión" title="Cerrar sesión">
+            <Icon name="logout" />
+          </button>
+        </header>
+      )}
 
       <section className="os-hero">
         <div className="os-hero-art">
@@ -456,9 +494,9 @@ export default function HomePage() {
             <p className="os-empty">Hoy no tienes nada agendado. Dile a Rockie qué quieres lograr y lo ponemos en tu día.</p>
           )}
           {!hab && !habitos.isLoading && (
-            <a className="os-connect" href={APP.habitos.path}>
+            <AppLink app={APP.habitos} className="os-connect">
               <Icon name="flame" className="sm" /> Entra a Hábitos una vez con tu Google y tus hábitos aparecen aquí
-            </a>
+            </AppLink>
           )}
         </section>
 

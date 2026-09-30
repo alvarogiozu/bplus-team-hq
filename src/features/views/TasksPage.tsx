@@ -12,6 +12,8 @@ import { applyFilters, EMPTY_FILTERS, type Filters } from './filters'
 import { ListView } from './ListView'
 import { ListSkeleton, LoadError } from '../../components/States'
 import { lsGet, lsSet } from '../../lib/storage'
+import { SelectorEquipo } from '../spaces/SelectorEquipo'
+import { useSpace } from '../spaces/SpaceProvider'
 
 const BoardView = lazy(() => import('./BoardView').then((m) => ({ default: m.BoardView })))
 const WeekView = lazy(() => import('./WeekView').then((m) => ({ default: m.WeekView })))
@@ -19,6 +21,7 @@ const GanttView = lazy(() => import('./GanttView').then((m) => ({ default: m.Gan
 const DashboardView = lazy(() => import('./DashboardView').then((m) => ({ default: m.DashboardView })))
 
 // Vistas fijas de los mismos datos, con los mismos filtros. Cambiar de vista no pide configurar nada.
+// Arriba, siempre, de qué equipo son (una persona puede estar en varios) y desde ahí se cambia.
 export type ViewKey = 'lista' | 'tablero' | 'calendario' | 'gantt' | 'panel'
 const VIEWS: { key: ViewKey; label: string; icon: IconName; color: string }[] = [
   { key: 'lista', label: 'Lista', icon: 'tasks', color: 'var(--accent-ink)' },
@@ -37,13 +40,19 @@ function load<T>(k: string, fallback: T): T {
   }
 }
 
+/** Cada proyecto con sus propios filtros: al cambiar de proyecto la vista vuelve a nacer. */
 export default function TasksPage() {
+  const { spaceId } = useSpace()
+  return <Tareas key={spaceId} spaceId={spaceId} />
+}
+
+function Tareas({ spaceId }: { spaceId: string }) {
   const { userId } = useAuth()
   const [params, setParams] = useSearchParams()
   const viewKey = `hq.view.${userId}`
   const fromUrl = params.get('vista') as ViewKey | null
   const view: ViewKey = fromUrl && VIEWS.some((v) => v.key === fromUrl) ? fromUrl : (lsGet(viewKey) as ViewKey) || 'lista'
-  const [filters, setFilters] = useState<Filters>(() => load(`hq.filters.${userId}`, EMPTY_FILTERS))
+  const [filters, setFilters] = useState<Filters>(() => ({ ...load(`hq.filters.${userId}.${spaceId}`, EMPTY_FILTERS), project: '' }))
   const q = useTasks()
   const [colorsOpen, setColorsOpen] = useState(false)
 
@@ -58,11 +67,11 @@ export default function TasksPage() {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(`hq.filters.${userId}`, JSON.stringify(filters))
+      sessionStorage.setItem(`hq.filters.${userId}.${spaceId}`, JSON.stringify(filters))
     } catch {
       /* sin almacenamiento */
     }
-  }, [filters, userId])
+  }, [filters, userId, spaceId])
 
   const shown = useMemo(() => applyFilters(q.data ?? [], filters, userId ?? ''), [q.data, filters, userId])
 
@@ -78,6 +87,7 @@ export default function TasksPage() {
         <div>
           <h1>Tareas</h1>
           <div className="sub">{shown.filter((t) => t.status !== 'done').length} abiertas</div>
+          <SelectorEquipo />
           <TeamStrip />
         </div>
         <div className="row" style={{ flexWrap: 'wrap' }}>
@@ -91,7 +101,7 @@ export default function TasksPage() {
               </button>
             ))}
           </div>
-          <button className="btn ghost sm hide-mobile" onClick={() => setColorsOpen(true)} title="Colores de áreas, proyectos y tu Rockie">
+          <button className="btn ghost sm hide-mobile" onClick={() => setColorsOpen(true)} title="Colores de áreas y tu Rockie">
             <span className="colordots" aria-hidden="true"><i /><i /><i /></span> Colores
           </button>
           <button className="btn sm hide-mobile" onClick={() => openNewTask()}>

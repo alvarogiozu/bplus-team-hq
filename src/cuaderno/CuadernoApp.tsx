@@ -15,6 +15,8 @@ import { useCards, useOpenEntries } from './data'
 import { dueToday } from './leitner'
 import { CIcon } from './icons'
 import { BookTree } from './Tree'
+import { Pestanas } from './Pestanas'
+import { AreaDividida, DivisionProvider, useDivisionEstado } from './Dividido'
 import { usePageWidth } from './prefs'
 import { PanelCtx, useIsMobile } from './ui'
 import Hoy from './Hoy'
@@ -68,6 +70,7 @@ function Shell() {
   // tu bóveda en Markdown (si conectaste una carpeta) se mantiene al día sola
   useVaultAutoSync()
   const width = usePageWidth()
+  const division = useDivisionEstado(mobile)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -94,25 +97,30 @@ function Shell() {
 
   return (
     <PanelCtx.Provider value={setPanel}>
+      <DivisionProvider value={division}>
       <MotionConfig reducedMotion="user">
         <div className={`cu${mobile ? ' is-mobile' : ''}`} data-width={width}>
           {!mobile && <Sidebar badges={badges} />}
           <main className={`cu-main${panel ? ' has-panel' : ''}`}>
-            <Suspense
-              fallback={
-                <div className="cu-loading" aria-busy="true" aria-label="Cargando">
-                  <Rockie color="#2a82ad" size={56} />
-                </div>
-              }
-            >
-              <Outlet />
-            </Suspense>
+            {!mobile && <Pestanas />}
+            <AreaDividida fallback={<div className="cu-loading" aria-busy="true" aria-label="Cargando" />}>
+              <Suspense
+                fallback={
+                  <div className="cu-loading" aria-busy="true" aria-label="Cargando">
+                    <Rockie color="#2a82ad" size={56} />
+                  </div>
+                }
+              >
+                <Outlet />
+              </Suspense>
+            </AreaDividida>
             {(!quiet || mobile || summon) && <CaptureBar ref={barRef} mobile={mobile} typing={typing} onTyping={setTyping} />}
           </main>
           {mobile && <TabBar badges={badges} />}
           <DialogHost />
         </div>
       </MotionConfig>
+      </DivisionProvider>
     </PanelCtx.Provider>
   )
 }

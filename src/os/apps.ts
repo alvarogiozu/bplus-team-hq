@@ -20,11 +20,11 @@ export type OsApp = {
 export const APPS: OsApp[] = [
   { id: 'habitos', name: 'Hábitos', path: '/habitos/hoy', icon: 'flame', color: '#4a7c3f', edge: '#3a622f', blurb: 'Tu día, tus rachas y tu Rockie', page: true },
   { id: 'agenda', name: 'Agenda', path: '/agenda', icon: 'calendar', color: '#bd6c56', edge: '#9d5541', blurb: 'Tu tiempo y tus citas' },
-  { id: 'equipo', name: 'Equipo', path: '/hoy', icon: 'team', color: '#2e88aa', edge: '#216b87', blurb: 'Tareas y metas con tu gente' },
+  { id: 'equipo', name: 'Proyectos', path: '/equipos', icon: 'projects', color: '#2e88aa', edge: '#216b87', blurb: 'Tus proyectos, solo o con tu gente' },
   { id: 'cuaderno', name: 'Cuaderno', path: '/cuaderno', icon: 'notebook', color: '#b4637a', edge: '#944d63', blurb: 'Notas, ideas y repasos' },
 ]
 
-const EQUIPO_PATHS = ['/hoy', '/tareas', '/proyectos', '/metas', '/materiales', '/equipo', '/ajustes']
+const EQUIPO_PATHS = ['/equipos', '/hoy', '/tareas', '/proyectos', '/metas', '/materiales', '/equipo', '/ajustes']
 
 /** A qué app pertenece una ruta (null = Inicio u otra pantalla común). */
 export function appOf(pathname: string): OsApp | null {

@@ -16,6 +16,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
     <script>
+      // regreso de Google de Hábitos que cayó en la raíz: se lo pasa a Hábitos (que es quien lo espera)
+      try {
+        var rp = location.pathname;
+        if ((rp === '/' || rp === '/inicio') && (/access_token=|error_description=/.test(location.hash) || /[?&]code=/.test(location.search))) {
+          location.replace('/habitos/entrar' + location.search + location.hash);
+        }
+      } catch (e) {}
+    </script>
+    <script>
       try {
         var t = localStorage.getItem('hq.theme');
         if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

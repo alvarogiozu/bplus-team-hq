@@ -17,6 +17,15 @@ import { prepararFoto } from './photos.js'
 import { typeOf } from './habitTypes.js'
 import { colorForUser, esUuid } from './chat.js'
 
+// Rockie OS (PC): dentro de una ventana del escritorio Google no deja entrar (no abre en iframes).
+// El viaje a Google lo hace la pagina entera y, al volver, el escritorio abre Habitos otra vez.
+const EN_VENTANA = (() => { try { return window.self !== window.top } catch { return true } })()
+async function oauthGoogle(options) {
+  const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { ...options, skipBrowserRedirect: EN_VENTANA } })
+  if (!error && EN_VENTANA && data?.url) window.top.location.assign(data.url)
+  return { error }
+}
+
 // ============================================================================
 // Store global de B+ (React Context). Punto de entrada unico: useStore().
 // Opera en dos modos con la MISMA forma de `value` (contrato con las pantallas):
@@ -392,13 +401,10 @@ export function StoreProvider({ children }) {
   const connectCalendar = useCallback(async () => {
     if (!supabase) return { ok: false, error: 'sin_backend' }
     gcalTokenEnviado.current = false
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/habitos`,
-        scopes: 'https://www.googleapis.com/auth/calendar.app.created',
-        queryParams: { access_type: 'offline', prompt: 'consent' },
-      },
+    const { error } = await oauthGoogle({
+      redirectTo: `${window.location.origin}/habitos`,
+      scopes: 'https://www.googleapis.com/auth/calendar.app.created',
+      queryParams: { access_type: 'offline', prompt: 'consent' },
     })
     if (error) {
       console.warn('[bplus] Error conectando Calendar:', error.message)
@@ -2447,10 +2453,7 @@ export function StoreProvider({ children }) {
     if (!supabase) return { ok: false, error: 'sin_backend' }
     // Vuelve a /entrar (no a /): asi tras Google no aterriza en la landing
     // publica y el gate de sesion redirige limpio a onboarding/Hoy.
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/habitos/entrar` },
-    })
+    const { error } = await oauthGoogle({ redirectTo: `${window.location.origin}/habitos/entrar` })
     if (error) {
       console.warn('[bplus] Error entrando con Google:', error.message)
       return { ok: false, error: error.message }

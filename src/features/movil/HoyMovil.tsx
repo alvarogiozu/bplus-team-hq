@@ -21,7 +21,7 @@ import { Faces, Ring, Sec, TaskCard } from './bits'
 export default function HoyMovil() {
   const { userId, profile } = useMe()
   const tz = profile.timezone
-  const { members, memberById, projectById, today } = useLookup()
+  const { members, memberById, today } = useLookup()
   const tasksQ = useTasks()
   const tasks = useMemo(() => tasksQ.data ?? [], [tasksQ.data])
   const xp = useXp().data ?? []
@@ -84,7 +84,6 @@ export default function HoyMovil() {
 
   const ahora = day.ahora
   const ahoraLate = ahora?.due_date && ahora.due_date < today
-  const ahoraProject = ahora?.project_id ? projectById.get(ahora.project_id) : undefined
   const feed = activity.slice(0, feedAll ? 12 : 4)
 
   return (
@@ -152,7 +151,7 @@ export default function HoyMovil() {
             <button className="em-ahora-open" onClick={() => openTask(ahora.id)}>
               <b>{ahora.title}</b>
               <span>
-                {[ahora.priority === 'urgent' ? 'Urgente' : null, ahora.due_date ? fmtRelative(ahora.due_date, today) + (ahoraLate ? ' · se pasó' : '') : ahora.status === 'doing' ? 'En curso' : null, ahoraProject?.name]
+                {[ahora.priority === 'urgent' ? 'Urgente' : null, ahora.due_date ? fmtRelative(ahora.due_date, today) + (ahoraLate ? ' · se pasó' : '') : ahora.status === 'doing' ? 'En curso' : null]
                   .filter(Boolean)
                   .join(' · ')}
               </span>

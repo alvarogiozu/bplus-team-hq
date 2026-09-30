@@ -4,8 +4,8 @@ import { animate, AnimatePresence, motion, useMotionValue, useTransform } from '
 import { Icon, type IconName } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
 import { toast } from '../../components/Toasts'
-import { addDays, dayOfTs, fmtRelative, timeAgo, weekday, WEEKDAY_NAMES } from '../../lib/dates'
-import { PACE_COLOR, PACE_LABEL, paceOf } from '../../lib/pace'
+import { addDays, dayOfTs, timeAgo, weekday, WEEKDAY_NAMES } from '../../lib/dates'
+import { PACE_COLOR, PACE_LABEL } from '../../lib/pace'
 import type { Task } from '../../lib/types'
 import { askHq, buildHqContext } from '../agent/hqAgent'
 import { useAuth } from '../auth/AuthProvider'
@@ -13,7 +13,7 @@ import { useActivity } from '../data/queries'
 import { useSpace } from '../spaces/SpaceProvider'
 import { DuePill, MemberAvatar, useLookup } from '../tasks/bits'
 import { useGoals } from '../goals/data'
-import { buildTree, flatten } from '../goals/model'
+import { buildTree, flatten, rutaDeMeta } from '../goals/model'
 import { useTasks } from '../data/queries'
 
 // Panel: el estado del equipo de un vistazo (como los dashboards de ClickUp, sin configurar
@@ -24,7 +24,7 @@ const SPRING = { type: 'spring', stiffness: 170, damping: 24 } as const
 
 export function DashboardView({ tasks, filtered }: { tasks: Task[]; filtered: boolean }) {
   const { profile, userId } = useAuth()
-  const { today, members, memberById, areas, areaById, projects } = useLookup()
+  const { today, members, memberById, areas, areaById } = useLookup()
   const tz = profile?.timezone ?? undefined
   const [params, setParams] = useSearchParams()
   const activity = useActivity().data ?? []
@@ -76,17 +76,6 @@ export function DashboardView({ tasks, filtered }: { tasks: Task[]; filtered: bo
     const noArea = openT.filter((t) => !t.area_id || !areaById.has(t.area_id)).length
     if (noArea) byArea.push({ key: 'none', label: 'Sin área', color: 'var(--paper-dark)', n: noArea })
 
-    // proyectos con avance y ritmo
-    const proj = projects
-      .filter((p) => !p.archived)
-      .map((p) => {
-        const mine = tasks.filter((t) => t.project_id === p.id)
-        const done = mine.filter((t) => t.status === 'done').length
-        const pct = mine.length ? done / mine.length : 0
-        return { p, total: mine.length, done, pct, pace: mine.length ? paceOf(pct, p.start_date, p.due_date, today) : ('none' as const) }
-      })
-      .filter((x) => x.total > 0)
-      .sort((a, b) => (a.p.due_date ?? '9999').localeCompare(b.p.due_date ?? '9999'))
 
     const attention = [...late, ...soon].sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? '') || (a.priority === 'urgent' ? -1 : 1))
     return {
@@ -101,11 +90,10 @@ export function DashboardView({ tasks, filtered }: { tasks: Task[]; filtered: bo
       load,
       unassigned,
       byArea,
-      proj,
       attention,
       lateTasks: late,
     }
-  }, [tasks, today, tz, members, areas, areaById, projects])
+  }, [tasks, today, tz, members, areas, areaById])
 
   const delta = m.done7 - m.donePrev
 
@@ -175,32 +163,6 @@ export function DashboardView({ tasks, filtered }: { tasks: Task[]; filtered: bo
                 <span><i style={{ background: 'var(--accent)' }} />Por hacer</span>
                 {m.unassigned > 0 && <span className="muted">· {m.unassigned} sin responsable</span>}
               </div>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Proyectos" hint="Avance y si llegan a su fecha" className="c6">
-          {m.proj.length === 0 ? (
-            <p className="hint">Sin proyectos con tareas todavía.</p>
-          ) : (
-            <div className="projrows">
-              {m.proj.slice(0, 7).map((x) => (
-                <div className="projrow" key={x.p.id} style={{ ['--pc' as string]: x.p.color } as CSSProperties}>
-                  <div className="projrow-top">
-                    <i className="pdot" />
-                    <b>{x.p.name}</b>
-                    <span className="pace" style={{ ['--st' as string]: PACE_COLOR[x.pace] } as CSSProperties}>
-                      {PACE_LABEL[x.pace]}
-                    </span>
-                  </div>
-                  <div className="progress">
-                    <motion.i initial={{ width: 0 }} animate={{ width: `${Math.round(x.pct * 100)}%` }} transition={SPRING} />
-                  </div>
-                  <small>
-                    {x.done}/{x.total} hechas · {Math.round(x.pct * 100)}%{x.p.due_date ? ` · vence ${fmtRelative(x.p.due_date, today)}` : ''}
-                  </small>
-                </div>
-              ))}
             </div>
           )}
         </Card>
@@ -277,7 +239,7 @@ function GoalsCard() {
         <ul className="dash-goals">
           {top.map((n) => (
             <li key={n.goal.id}>
-              <Link to={`/metas?meta=${n.goal.id}`} style={{ ['--pc' as string]: PACE_COLOR[n.pace] } as CSSProperties}>
+              <Link to={rutaDeMeta(n.goal)} style={{ ['--pc' as string]: PACE_COLOR[n.pace] } as CSSProperties}>
                 <span className="dash-goal-t">
                   <b>{n.goal.title}</b>
                   <span className="pace" style={{ ['--st' as string]: PACE_COLOR[n.pace] } as CSSProperties}>{PACE_LABEL[n.pace]}</span>
@@ -305,7 +267,6 @@ type Metrics = {
   done7: number
   donePrev: number
   load: { mem: { user_id: string; profile: { display_name: string } }; total: number; late: number }[]
-  proj: { p: { name: string; due_date: string | null }; pct: number; pace: string }[]
   lateTasks: Task[]
 }
 
@@ -313,7 +274,7 @@ type Metrics = {
 function Summary({ tasks, m, filtered }: { tasks: Task[]; m: Metrics; filtered: boolean }) {
   const { profile, userId } = useAuth()
   const { spaceId } = useSpace()
-  const { today, members, projects, areas, memberById } = useLookup()
+  const { today, members, areas, memberById } = useLookup()
   const cacheKey = `hq.dash.ai.${spaceId}.${today}.${tasks.length}.${m.open}.${m.late}.${m.done7}`
   const [ai, setAi] = useState<string | null>(() => {
     try {
@@ -350,17 +311,15 @@ function Summary({ tasks, m, filtered }: { tasks: Task[]; m: Metrics; filtered: 
         ? `En 7 días se validaron ${m.done7}${d > 0 ? `, ${d} más que la semana anterior` : d < 0 ? `, ${-d} menos que la semana anterior` : ''}.`
         : 'Esta semana todavía no se validó nada: la primera abre la racha.',
     )
-    const risky = m.proj.find((x) => x.pace === 'off_track' || x.pace === 'at_risk')
-    if (risky) out.push(`Ojo con ${risky.p.name}: va ${Math.round(risky.pct * 100)}%${risky.p.due_date ? ` y vence ${fmtRelative(risky.p.due_date, today)}` : ''}.`)
     const top = m.load[0]
     if (top && top.total >= 5 && members.length > 1) out.push(`${top.mem.user_id === userId ? 'Tú tienes' : `${top.mem.profile.display_name} tiene`} la mayor carga (${top.total}).`)
     return out.join(' ')
-  }, [m, profile, userId, memberById, members.length, today])
+  }, [m, profile, userId, memberById, members.length])
 
   async function askAi() {
     if (busy) return
     setBusy(true)
-    const ctx = buildHqContext({ today, tz: profile?.timezone ?? 'America/Lima', userId: userId ?? '', members, tasks, projects, areas })
+    const ctx = buildHqContext({ today, tz: profile?.timezone ?? 'America/Lima', userId: userId ?? '', members, tasks, projects: [], areas })
     const r = await askHq(
       'Hazme un resumen ejecutivo del equipo para hoy: cómo vamos, qué está atrasado y quién está más cargado, y una recomendación concreta. Máximo 4 frases, cálido y directo, sin listas. Usa responder.',
       [],
@@ -387,7 +346,7 @@ function Summary({ tasks, m, filtered }: { tasks: Task[]; m: Metrics; filtered: 
       </div>
       <div className="dash-sumtext">
         <div className="dash-sumhead">
-          <b>{ai ? 'Resumen de Rockie' : 'Así va el equipo'}</b>
+          <b>{ai ? 'Resumen de Rockie' : 'Así va el proyecto'}</b>
           {filtered && <span className="pill">con filtros</span>}
           {ai && (
             <span className="pill ai">

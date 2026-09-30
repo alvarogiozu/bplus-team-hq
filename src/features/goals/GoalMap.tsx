@@ -194,7 +194,7 @@ export function GoalMap({ roots, mission, onOpen, onEditMission }: { roots: Goal
               <Rockie color="var(--brand)" size={40} still />
               <span>
                 <small>Misión</small>
-                <b>{mission || 'Escribe para qué existe el equipo'}</b>
+                <b>{mission || 'Escribe para qué existe este proyecto'}</b>
               </span>
             </motion.button>
 

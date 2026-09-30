@@ -19,6 +19,8 @@ export function TeamStrip() {
   const [inviting, setInviting] = useState(false)
   const sorted = [...members].sort((a, b) => Number(online.has(b.user_id)) - Number(online.has(a.user_id)))
   const others = sorted.filter((m) => m.user_id !== userId && online.has(m.user_id)).length
+  // en un proyecto personal no hay "equipo" que mostrar
+  if (members.length <= 1) return null
 
   return (
     <div className="teamstrip">

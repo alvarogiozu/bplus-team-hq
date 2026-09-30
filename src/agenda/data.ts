@@ -100,7 +100,8 @@ export function useHq() {
         people: [...people.values()],
         tasks: (tasks.data ?? []) as Task[],
         events,
-        projects: (projects.data ?? []) as Project[],
+        // ya no hay proyectos en el Equipo (solo equipos): la Agenda tampoco los muestra
+        projects: [] as Project[],
       }
     },
   })

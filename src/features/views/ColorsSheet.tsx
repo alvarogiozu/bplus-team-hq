@@ -9,7 +9,7 @@ import { toastError } from '../../components/Toasts'
 import { PALETTE } from '../../lib/colors'
 import { humanError, supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
-import { keys, useAreas, useProjects } from '../data/queries'
+import { keys, useAreas } from '../data/queries'
 import { useSpace } from '../spaces/SpaceProvider'
 
 // Colores en un solo lugar, sin ruido: tu color principal arriba y, por cada área, proyecto
@@ -19,11 +19,10 @@ export function ColorsSheet({ open, onClose }: { open: boolean; onClose: () => v
   const { userId, profile } = useAuth()
   const qc = useQueryClient()
   const areas = useAreas().data ?? []
-  const projects = (useProjects().data ?? []).filter((p) => !p.archived)
   const [mine, setMine] = useState(profile?.color ?? PALETTE[0])
 
-  async function paint(table: 'areas' | 'projects', id: string, color: string) {
-    const key = table === 'areas' ? keys.areas(spaceId) : keys.projects(spaceId)
+  async function paint(table: 'areas', id: string, color: string) {
+    const key = keys.areas(spaceId)
     const prev = qc.getQueryData(key)
     qc.setQueryData(key, (old: { id: string; color: string }[] | undefined) => old?.map((x) => (x.id === id ? { ...x, color } : x)))
     const { error } = await supabase.from(table).update({ color }).eq('id', id)
@@ -72,18 +71,6 @@ export function ColorsSheet({ open, onClose }: { open: boolean; onClose: () => v
         </div>
       )}
 
-      {projects.length > 0 && (
-        <div className="colorsec">
-          <div className="colorsec-title">Proyectos</div>
-          {projects.map((p) => (
-            <div className="colorrow" key={p.id}>
-              <motion.span className="colorrow-band" animate={{ backgroundColor: p.color }} transition={{ duration: 0.25 }} />
-              <span className="colorrow-name">{p.name}</span>
-              <ColorPick value={p.color} onChange={(c) => void paint('projects', p.id, c)} palette={PALETTE} label={`Color de ${p.name}`} />
-            </div>
-          ))}
-        </div>
-      )}
     </Sheet>
   )
 }

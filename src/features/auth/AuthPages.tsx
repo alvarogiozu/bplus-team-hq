@@ -118,7 +118,9 @@ export function LoginPage() {
       <p className="authfoot">
         ¿Nuevo? <Link to={`/registro?${new URLSearchParams({ ...(invite ? { invitacion: invite } : {}), ...(next ? { next } : {}) })}`}>Crea tu cuenta</Link>
         <br />
-        <span className="hint">¿Olvidaste tu contraseña? El dueño del espacio te la restablece desde Equipo.</span>
+        <span className="hint">¿Olvidaste tu contraseña? El dueño del proyecto te la restablece desde Equipo.</span>
+        <br />
+        ¿Usas Rockie Hábitos con Google? <a href="/habitos/entrar">Entra a Hábitos</a>
       </p>
     </AuthShell>
   )

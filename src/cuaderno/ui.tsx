@@ -1,12 +1,34 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { AppList } from '../os/AppSwitcher'
+import { enVentana } from '../os/ventana'
 import { motion } from 'motion/react'
 import { Sheet } from '../components/Sheet'
 import { openDialog } from './bus'
 import { buildTree, flatten, iconOf, pathOf, spine } from './books'
 import type { Book } from './data'
 import { CIcon, ItemIcon } from './icons'
+
+// ---------- pantalla dividida (como Obsidian y el escritorio de Rockie OS) ----------
+// A la izquierda va lo que marca la ruta; a la derecha, una nota abierta "al lado". La pestaña que
+// tocas se abre en el lado que tiene el foco (el último que tocaste).
+export type Lado = 'izq' | 'der'
+export type Division = {
+  lado: string | null
+  foco: Lado
+  ratio: number
+  setFoco: (l: Lado) => void
+  setRatio: (r: number) => void
+  abrirAlLado: (id: string) => void
+  cerrarLado: () => void
+}
+export const DivisionCtx = createContext<Division>({ lado: null, foco: 'izq', ratio: 0.5, setFoco: () => {}, setRatio: () => {}, abrirAlLado: () => {}, cerrarLado: () => {} })
+export const useDivision = () => useContext(DivisionCtx)
+/** true dentro de la nota abierta al lado (la de la derecha) */
+export const LateralCtx = createContext(false)
+export const useEnLateral = () => useContext(LateralCtx)
+/** lo que viaja al arrastrar una pestaña */
+export const TIPO_NOTA = 'application/x-cu-nota'
 
 // ---------- panel derecho: cada pantalla dice si lo usa (la barra de Rockie se centra en lo que queda) ----------
 export const PanelCtx = createContext<(on: boolean) => void>(() => {})
@@ -40,7 +62,8 @@ export function OsMenu() {
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="Tus apps">
         <div className="cu-osmenu">
-          <AppList onPick={() => setOpen(false)} />
+          {/* en el escritorio de Rockie OS las pestañas ya cambian de app */}
+          {!enVentana() && <AppList onPick={() => setOpen(false)} />}
           <button
             className="cu-os"
             onClick={() => {

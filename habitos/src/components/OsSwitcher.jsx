@@ -9,7 +9,7 @@ const APPS = [
   { id: 'inicio', name: 'Inicio', blurb: 'Todo tu día en un vistazo', href: '/inicio', icon: 'ti-home', color: 'var(--title)', edge: 'var(--coral-edge)' },
   { id: 'habitos', name: 'Hábitos', blurb: 'Tu día, tus rachas y tu Rockie', href: '/habitos/hoy', icon: 'ti-flame', color: '#4a7c3f', edge: '#3a622f' },
   { id: 'agenda', name: 'Agenda', blurb: 'Tu tiempo y tus citas', href: '/agenda', icon: 'ti-calendar', color: '#bd6c56', edge: '#9d5541' },
-  { id: 'equipo', name: 'Equipo', blurb: 'Tareas y metas con tu gente', href: '/hoy', icon: 'ti-users', color: '#2e88aa', edge: '#216b87' },
+  { id: 'equipo', name: 'Proyectos', blurb: 'Tus proyectos, solo o con tu gente', href: '/equipos', icon: 'ti-folders', color: '#2e88aa', edge: '#216b87' },
   { id: 'cuaderno', name: 'Cuaderno', blurb: 'Notas, ideas y repasos', href: '/cuaderno', icon: 'ti-notebook', color: '#b4637a', edge: '#944d63' },
 ]
 
@@ -20,11 +20,15 @@ const tile = (a, size) => ({
   fontSize: size >= 34 ? 'var(--text-lg)' : 'var(--text-sm)',
 })
 
+// En el escritorio de Rockie OS (PC) las pestañas de arriba ya cambian de app: aquí no hace falta
+const EN_VENTANA = (() => { try { return window.self !== window.top } catch { return true } })()
+
 /** `compact`: solo la ficha (headers apretados del celular). `block`: ocupa el ancho (barra lateral). */
 export default function OsSwitcher({ compact = false, block = false, style }) {
   const [open, setOpen] = useState(false)
   const btn = useRef(null)
   const me = APPS[1]
+  if (EN_VENTANA) return null
   return (
     <>
       <button

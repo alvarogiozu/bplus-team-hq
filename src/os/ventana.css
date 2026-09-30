@@ -1,0 +1,26 @@
+/* ============================================================
+   APPS DENTRO DE UNA VENTANA DEL ESCRITORIO (Rockie OS en PC)
+   El escritorio marca el <html> de cada app: data-sin-izq esconde su barra lateral y data-sin-der
+   su panel derecho (lo pide la persona con los botones de arriba, o solo cuando la ventana es angosta).
+   Hábitos tiene las suyas en habitos/src/components/DesktopShell.css.
+   ============================================================ */
+
+/* Equipo */
+html[data-sin-izq] .shell,
+html[data-sin-izq] .shell.collapsed { grid-template-columns: minmax(0, 1fr); }
+html[data-sin-izq] .shell > .side { display: none; }
+
+/* Agenda: el Inbox a la izquierda, los calendarios a la derecha */
+html[data-sin-izq] .ag { grid-template-columns: minmax(0, 1fr); }
+html[data-sin-izq] .ag.with-cals { grid-template-columns: minmax(0, 1fr) 272px; }
+html[data-sin-izq] .ag > .ag-inbox { display: none; }
+html[data-sin-der] .ag.with-cals { grid-template-columns: 330px minmax(0, 1fr); }
+html[data-sin-der][data-sin-izq] .ag.with-cals { grid-template-columns: minmax(0, 1fr); }
+html[data-sin-der] .ag > .ag-cals { display: none; }
+
+/* Cuaderno: carpetas a la izquierda; Rockie, conexiones y repaso a la derecha */
+html[data-sin-izq] .cu:not(.is-mobile) { grid-template-columns: minmax(0, 1fr); }
+html[data-sin-izq] .cu > .cu-side { display: none; }
+html[data-sin-der] .cu-main.has-panel .cu-page { grid-template-columns: minmax(0, 1fr); }
+html[data-sin-der] .cu-page > .cu-panel { display: none; }
+html[data-sin-der] .cu-main.has-panel .cu-rk { right: 0; }

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router'
 import { Icon } from '../components/Icon'
 import { APPS, appOf, type OsApp } from './apps'
+import { enVentana } from './ventana'
 import './os.css'
 
 const tint = (a: OsApp) => ({ ['--app' as string]: a.color, ['--app-edge' as string]: a.edge }) as CSSProperties
@@ -56,6 +57,8 @@ export function AppSwitcher({ compact = false, className = '' }: { compact?: boo
   const [open, setOpen] = useState(false)
   const btn = useRef<HTMLButtonElement>(null)
   useEffect(() => setOpen(false), [loc.pathname])
+  // en el escritorio de Rockie OS las pestañas de arriba ya cambian de app
+  if (enVentana()) return null
   return (
     <>
       <button

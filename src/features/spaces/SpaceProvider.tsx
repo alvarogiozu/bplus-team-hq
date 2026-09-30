@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { humanError, supabase } from '../../lib/supabase'
 import { Rockie } from '../../components/Rockie'
 import { useAuth } from '../auth/AuthProvider'
 import { signOut } from '../auth/credentials'
+import { crearProyecto } from './crear'
 
 export type Membership = { space_id: string; role: 'owner' | 'member'; name: string }
 
@@ -39,7 +40,8 @@ export function useMemberships() {
   })
 }
 
-/** Resuelve el espacio activo. Sin espacios => /bienvenida. */
+/** Resuelve el espacio activo. Sin espacios => /bienvenida. Un enlace con ?equipo=<id> (desde el Inicio,
+ *  la Agenda o un aviso) entra directo a ese equipo, si eres parte de él. */
 export function SpaceProvider({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
   const { userId } = useAuth()
   const q = useMemberships()
@@ -54,7 +56,30 @@ export function SpaceProvider({ children, fallback }: { children: ReactNode; fal
   })
 
   const list = useMemo(() => q.data ?? [], [q.data])
-  const current = list.find((m) => m.space_id === chosen) ?? list[0]
+  const [params, setParams] = useSearchParams()
+  const pedido = params.get('equipo')
+  const current = list.find((m) => m.space_id === pedido) ?? list.find((m) => m.space_id === chosen) ?? list[0]
+
+  // el equipo pedido por enlace queda como el actual y el parámetro se limpia
+  useEffect(() => {
+    if (!pedido || !q.isSuccess) return
+    if (list.some((m) => m.space_id === pedido)) {
+      try {
+        localStorage.setItem(key, pedido)
+      } catch {
+        /* sin almacenamiento */
+      }
+      setChosen(pedido)
+    }
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('equipo')
+        return next
+      },
+      { replace: true },
+    )
+  }, [pedido, q.isSuccess, list, key, setParams])
 
   useEffect(() => {
     if (q.isSuccess && list.length === 0) nav('/bienvenida', { replace: true })
@@ -81,7 +106,7 @@ export function SpaceProvider({ children, fallback }: { children: ReactNode; fal
   if (q.isError) {
     return (
       <main className="authwrap">
-        <div className="errorbox">No se pudo cargar tu espacio: {humanError(q.error)}</div>
+        <div className="errorbox">No se pudieron cargar tus proyectos: {humanError(q.error)}</div>
       </main>
     )
   }
@@ -99,7 +124,7 @@ export function WelcomePage() {
   const { profile, userId } = useAuth()
   const qc = useQueryClient()
   const nav = useNavigate()
-  const [name, setName] = useState('B+')
+  const [name, setName] = useState('')
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -118,7 +143,7 @@ export function WelcomePage() {
     e.preventDefault()
     setBusy(true)
     setError('')
-    const { data, error: err } = await supabase.rpc('create_space', { p_name: name })
+    const { id: data, error: err } = await crearProyecto(name)
     setBusy(false)
     if (err || !data) return setError(humanError(err))
     await done(data)
@@ -139,22 +164,22 @@ export function WelcomePage() {
         <div style={{ display: 'grid', placeItems: 'center' }}>
           <Rockie color={profile?.color} size={76} />
         </div>
-        <h1>Hola, {profile?.display_name ?? 'equipo'}</h1>
-        <p className="lead">Aún no estás en ningún espacio. Únete al de tu equipo con su código, o crea uno nuevo.</p>
+        <h1>Hola, {profile?.display_name ?? 'de nuevo'}</h1>
+        <p className="lead">Crea tu primer proyecto: puede ser solo tuyo (tu tesis, un curso, algo personal) o para trabajar con más gente.</p>
+        <form onSubmit={create}>
+          <label className="lbl" htmlFor="sn">Nombre del proyecto</label>
+          <div className="row">
+            <input id="sn" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="Ej: Mi tesis, Curso de CS, Club de robótica" />
+            <button className="btn" disabled={busy || !name.trim()}>Crear</button>
+          </div>
+          <p className="hint" style={{ marginTop: 6 }}>Empieza solo si quieres: cuando te haga falta, invitas a quien sea.</p>
+        </form>
         <form onSubmit={join}>
-          <label className="lbl" htmlFor="code">Código de invitación</label>
+          <label className="lbl" htmlFor="code">…o únete al proyecto de alguien con su código</label>
           <div className="row">
             <input id="code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Ej: K7M2QX9P" />
-            <button className="btn" disabled={busy || code.trim().length < 6}>Unirme</button>
+            <button className="btn ghost" disabled={busy || code.trim().length < 6}>Unirme</button>
           </div>
-        </form>
-        <form onSubmit={create}>
-          <label className="lbl" htmlFor="sn">…o crea un espacio nuevo</label>
-          <div className="row">
-            <input id="sn" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
-            <button className="btn ghost" disabled={busy || !name.trim()}>Crear</button>
-          </div>
-          <p className="hint" style={{ marginTop: 6 }}>Quien crea el espacio queda como dueño: invita, gestiona miembros y restablece contraseñas.</p>
         </form>
         {error && <p className="formerror" role="alert">{error}</p>}
         <p className="authfoot">

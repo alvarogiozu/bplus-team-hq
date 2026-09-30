@@ -207,20 +207,14 @@ export function useBooks() {
   })
 }
 
-/** Proyectos del HQ de tus equipos (para conectar notas con proyectos). */
+/** Proyectos del HQ para conectar notas. Ya no hay proyectos (solo equipos): la lista va vacía y el
+ *  mapa y los paneles del Cuaderno dejan de ofrecerlos, sin tocar las conexiones viejas guardadas. */
 export function useProjects() {
   const uid = useUid()
   return useQuery({
     queryKey: ckeys.projects(uid),
     enabled: Boolean(uid),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name, color, space_id')
-        .eq('archived', false)
-      if (error) throw error
-      return (data ?? []) as HqProject[]
-    },
+    queryFn: async (): Promise<HqProject[]> => [],
   })
 }
 
