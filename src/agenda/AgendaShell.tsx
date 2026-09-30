@@ -9,7 +9,7 @@ import { burst, celebrateRockie, haptic } from '../lib/fx'
 import { useMe } from '../features/auth/AuthProvider'
 import { anchorsOf, dayContent, dotsFor, lastFreeSlot, type Block } from './blocks'
 import { anchorOk, AnchorSheet, type AnchorEdit } from './AnchorSheet'
-import { cleanAvail, personDay, rangesOn } from './availability'
+import { cleanAvail, rangesOn } from './availability'
 import { CalendarsPanel } from './CalendarsPanel'
 import { useCalendarMap, useCalendarsRealtime, useGoogleCalendars, useGoogleEvents, useGoogleReturn, useGoogleStatus, useGoogleSync } from './calendars'
 import { useAgendaActions, useAgendaRealtime, useHq, useItems, usePrefs, type AgendaItem } from './data'
@@ -24,12 +24,12 @@ import { fitInReserve, reserveUsage, useReserveActions, useReservesRealtime } fr
 import { useHobbies, useHobbiesRealtime, useHobbyActions, type Hobby } from './hobbies'
 import { AIcon } from './icons'
 import { Inbox } from './Inbox'
-import { usePeopleOverlay } from './People'
+import { PeopleView } from './PeopleView'
 import { DatePop } from './Popovers'
 import { RockieBar } from './RockieBar'
 import { AgendaSettings } from './Settings'
 import { fmtDur, hhmm, nowMinIn } from './time'
-import { Timeline, type Ghost, type Lane } from './Timeline'
+import { Timeline, type Ghost } from './Timeline'
 import { WeekBars } from './WeekBars'
 
 function useClock(tz: string) {
@@ -91,15 +91,8 @@ export function AgendaShell() {
   const hq = useHq().data
   const prefs = usePrefs().data
   const actions = useAgendaActions()
-  const overlay = usePeopleOverlay(day, today)
-  const lanes = useMemo<Lane[]>(
-    () =>
-      overlay.people.map((x) => {
-        const d = personDay(overlay.avail, x.id, day, tz)
-        return { id: x.id, name: x.name, color: x.color, busy: d.busy, hours: d.hours }
-      }),
-    [overlay.people, overlay.avail, day, tz],
-  )
+  // Disponibilidad de personas del equipo (?personas=1): su semana en vez de tu día
+  const peopleOpen = params.get('personas') === '1'
   const myAvail = useMemo(() => rangesOn(cleanAvail(prefs?.availability), day), [prefs?.availability, day])
   useAgendaRealtime()
   useCalendarsRealtime()
@@ -137,6 +130,16 @@ export function AgendaShell() {
   const lastDrag = useRef(0)
   if (active) lastDrag.current = Date.now()
 
+  const openPeople = () => {
+    const next = new URLSearchParams(params)
+    next.set('personas', '1')
+    setParams(next, { replace: true })
+  }
+  const closePeople = () => {
+    const next = new URLSearchParams(params)
+    next.delete('personas')
+    setParams(next, { replace: true })
+  }
   const setDay = useCallback(
     (d: string) => {
       if (d === day) return
@@ -466,6 +469,20 @@ export function AgendaShell() {
           </button>
         </header>
 
+        {peopleOpen ? (
+          <PeopleView
+            day={day}
+            today={today}
+            mobile={mobile}
+            setDay={setDay}
+            onClose={closePeople}
+            onGoDay={(d) => {
+              closePeople()
+              setDay(d)
+            }}
+          />
+        ) : (
+          <>
         <DayStrip day={day} today={today} dots={dots} onPick={setDay} onDropDay={dropDay} />
         <WeekBars day={day} items={items} google={view.google} cals={calById} onOpen={(it) => openEditor({ mode: 'edit', id: it.id })} />
 
@@ -519,16 +536,17 @@ export function AgendaShell() {
                   onGapClick={(min) => openEditor({ mode: 'new', draft: newDraft(min) })}
                   onFill={(b) => setFillId(b.id)}
                   avail={myAvail}
-                  people={lanes}
                 />
               </motion.div>
             </AnimatePresence>
           </div>
         </motion.div>
+          </>
+        )}
 
         <RockieBar ref={barRef} day={day} today={today} nowMin={nowMin} mobile={mobile} onGhosts={setGhosts} onFocusDay={setDay} onNew={newHere} google={view.google} />
 
-        {!mobile && (
+        {!mobile && !peopleOpen && (
           <motion.button className="ag-fab" onClick={newHere} aria-label="Nuevo" whileHover={{ scale: 1.06, rotate: 90 }} whileTap={{ scale: 0.92 }} transition={{ type: 'spring', stiffness: 400, damping: 16 }}>
             <AIcon name="plus" size={26} strokeWidth={2.4} />
           </motion.button>
@@ -537,7 +555,7 @@ export function AgendaShell() {
 
       {wide && (
         <aside className="ag-cals" aria-label="Calendarios">
-          <CalendarsPanel day={day} today={today} onPick={(d) => { setDay(d); if (!wide) setCalsOpen(false) }} hasTeam={(hq?.spaces.length ?? 0) > 0} />
+          <CalendarsPanel day={day} today={today} onPick={(d) => { setDay(d); if (!wide) setCalsOpen(false) }} hasTeam={(hq?.spaces.length ?? 0) > 0} onPeople={openPeople} />
         </aside>
       )}
 
@@ -551,7 +569,7 @@ export function AgendaShell() {
       )}
       {!wide && (
         <Sheet open={calsOpen} onClose={() => setCalsOpen(false)} title="Calendarios">
-          <CalendarsPanel day={day} today={today} onPick={(d) => { setDay(d); if (!wide) setCalsOpen(false) }} hasTeam={(hq?.spaces.length ?? 0) > 0} />
+          <CalendarsPanel day={day} today={today} onPick={(d) => { setDay(d); if (!wide) setCalsOpen(false) }} hasTeam={(hq?.spaces.length ?? 0) > 0} onPeople={() => { openPeople(); setCalsOpen(false) }} />
         </Sheet>
       )}
       <AgendaSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} anchors={anchorsOf(prefs)} />

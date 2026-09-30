@@ -30,16 +30,6 @@ type Props = {
   onFill: (b: Block) => void
   /** tu horario disponible para el equipo ese día: una marca casi invisible a la derecha */
   avail?: [number, number][]
-  /** personas del equipo que estás mirando: sus ratos ocupados en un carril fino de su color */
-  people?: Lane[]
-}
-
-export type Lane = {
-  id: string
-  name: string
-  color: string
-  busy: { start: number; end: number; title: string | null; meeting: boolean }[]
-  hours: [number, number][] | null
 }
 
 const SPRING = { type: 'spring' as const, stiffness: 420, damping: 36, mass: 0.9 }
@@ -103,8 +93,8 @@ export function Timeline(p: Props) {
   return (
     <div
       ref={ref}
-      className={`tl${expanded ? ' tl-open' : ''}${p.people?.length ? ' has-people' : ''}`}
-      style={{ height: layout.height, ...(p.people?.length ? { ['--tl-np' as string]: p.people.length } : {}) } as CSSProperties}
+      className={`tl${expanded ? ' tl-open' : ''}`}
+      style={{ height: layout.height }}
       onPointerMove={(e) => {
         if (e.pointerType !== 'mouse' || active) return
         const target = e.target as HTMLElement
@@ -124,13 +114,6 @@ export function Timeline(p: Props) {
       />
       <Axis layout={layout} nowY={nowY} />
       {p.avail?.map(([s, e]) => <AvailMark key={s} layout={layout} start={s} end={e} />)}
-      {p.people && p.people.length > 0 && (
-        <div className="tl-people">
-          {p.people.map((x) => (
-            <PersonLane key={x.id} lane={x} layout={layout} />
-          ))}
-        </div>
-      )}
 
       {layout.segs
         .filter((s) => s.kind === 'gap' && s.compressed)
@@ -329,31 +312,6 @@ function AvailMark({ layout, start, end }: { layout: Layout; start: number; end:
       <small className="tl-avail-t top">{hhmm(start)}</small>
       <small className="tl-avail-t bottom">{hhmm(end)}</small>
     </motion.div>
-  )
-}
-
-/** Una persona del equipo: su horario (fondo suave) y lo ocupado (barras de su color). */
-function PersonLane({ lane, layout }: { lane: Lane; layout: Layout }) {
-  const seg = (s: number, e: number) => {
-    const y0 = minToY(layout, s)
-    return { top: y0, height: Math.max(0, minToY(layout, e) - y0) }
-  }
-  return (
-    <div className="tl-lane" style={{ ['--pc' as string]: lane.color } as CSSProperties} aria-label={`${lane.name}: ${lane.busy.length ? `${lane.busy.length} ratos ocupados` : 'libre'}`} role="img">
-      <span className="tl-lane-head" title={lane.name}>
-        {(lane.name.trim()[0] ?? '?').toUpperCase()}
-      </span>
-      {lane.hours?.map(([s, e]) => {
-        const r = seg(s, e)
-        return r.height > 2 ? <motion.i key={`h${s}`} className="tl-lane-hours" initial={false} animate={r} transition={SPRING} /> : null
-      })}
-      {lane.busy.map((b, i) => {
-        const r = seg(b.start, b.end)
-        if (r.height < 2) return null
-        const what = b.title ?? (b.meeting ? 'En reunión' : 'Ocupado')
-        return <motion.i key={`${b.start}-${i}`} className={`tl-lane-busy${b.meeting ? ' meet' : ''}`} title={`${lane.name}: ${what} · ${hhmm(b.start)}–${hhmm(b.end)}`} initial={false} animate={{ ...r, height: Math.max(4, r.height) }} transition={SPRING} />
-      })}
-    </div>
   )
 }
 

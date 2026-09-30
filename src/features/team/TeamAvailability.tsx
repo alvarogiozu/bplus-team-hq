@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { Sheet } from '../../components/Sheet'
 import { addDays, todayIn } from '../../lib/dates'
-import { availSummary, statusNow, statusText, useTeamAvailability } from '../../agenda/availability'
-import { AvailabilityEditor } from '../../agenda/AvailabilityEditor'
+import { availSummary, hasAvail, statusNow, statusText, useTeamAvailability } from '../../agenda/availability'
+import { MyHoursSheet } from '../../agenda/AvailabilityEditor'
+import { setPeople } from '../../agenda/People'
 import { useMe } from '../auth/AuthProvider'
 import { useMembers } from '../data/queries'
 import { useSpace } from '../spaces/SpaceProvider'
-import { FindTime } from './FindTime'
 import '../../agenda/agenda.css'
 
-// Disponibilidad en el Equipo: cómo está cada quien ahora (en su tarjeta), tu horario y
-// "Buscar hueco" para reunirse sin preguntar uno por uno.
+// Disponibilidad en el Equipo: cómo está cada quien ahora (en su tarjeta; al tocarla se abre su
+// semana en la Agenda), tu horario y "Ver disponibilidad" del equipo entero.
 
 function useTeamNow() {
   const { spaceId } = useSpace()
@@ -28,15 +28,26 @@ function useTeamNow() {
   return { data: q.data, tz }
 }
 
-/** Una línea en la tarjeta de cada persona: disponible, ocupada, fuera de horario… */
+/** abre la Agenda con la semana de esas personas */
+function useOpenAvailability() {
+  const nav = useNavigate()
+  return (ids: string[]) => {
+    setPeople(ids)
+    nav('/agenda?personas=1')
+  }
+}
+
+/** Una línea en la tarjeta de cada persona: disponible, ocupada, fuera de horario… (toca = ver su semana) */
 export function MemberStatus({ userId }: { userId: string }) {
   const { data, tz } = useTeamNow()
+  const { userId: me } = useMe()
+  const open = useOpenAvailability()
   if (!data) return null
   const st = statusNow(data, userId, tz)
   return (
-    <span className={`mstat st-${st.kind}`}>
+    <button className={`mstat st-${st.kind}`} onClick={() => open(userId === me ? [] : [userId])} title="Ver su semana en la Agenda">
       <i aria-hidden="true" /> {statusText(st, tz)}
-    </span>
+    </button>
   )
 }
 
@@ -45,30 +56,32 @@ export function TeamAvailability() {
   const { userId } = useMe()
   const members = useMembers().data ?? []
   const { data } = useTeamNow()
-  const [find, setFind] = useState(false)
+  const open = useOpenAvailability()
   const [mine, setMine] = useState(false)
   const my = data?.members.find((m) => m.user_id === userId)
   const others = members.filter((m) => m.user_id !== userId)
   if (!spaceId || !others.length) return null
+  const noHours = data && !hasAvail(my?.availability)
   return (
     <section className="card tavail" aria-label="Disponibilidad del equipo">
       <span className="tavail-ic" aria-hidden="true">
         <Icon name="calendar" />
       </span>
       <div className="tavail-txt">
-        <b>¿Cuándo nos reunimos?</b>
-        <small>Cada quien pone su horario; lo ocupado sale de su agenda y sus reuniones (sin mostrar lo privado).</small>
+        <b>Disponibilidad del equipo</b>
+        <small>
+          {noHours
+            ? 'Pon tu horario para que tu equipo sepa cuándo contar contigo (fuera de él te ven «no disponible»).'
+            : 'La semana de cada quien en su color: lo privado sale «Ocupado» y lo de fuera de su horario, rayado.'}
+        </small>
       </div>
-      <button className="btn ghost sm" onClick={() => setMine(true)}>
-        <Icon name="clock" className="sm" /> Mi horario: {availSummary(my?.availability)}
+      <button className={`btn sm${noHours ? '' : ' ghost'}`} onClick={() => setMine(true)}>
+        <Icon name="clock" className="sm" /> {noHours ? 'Poner mi horario' : `Mi horario: ${availSummary(my?.availability)}`}
       </button>
-      <button className="btn sm" onClick={() => setFind(true)}>
-        <Icon name="search" className="sm" /> Buscar hueco
+      <button className={`btn sm${noHours ? ' ghost' : ''}`} onClick={() => open(others.map((m) => m.user_id))}>
+        <Icon name="calendar" className="sm" /> Ver disponibilidad
       </button>
-      {find && <FindTime people={others.map((m) => ({ id: m.user_id, name: m.profile.display_name, color: m.profile.color, spaces: [spaceId] }))} onClose={() => setFind(false)} />}
-      <Sheet open={mine} onClose={() => setMine(false)} title="Mi horario para el equipo">
-        <AvailabilityEditor />
-      </Sheet>
+      <MyHoursSheet open={mine} onClose={() => setMine(false)} />
     </section>
   )
 }
