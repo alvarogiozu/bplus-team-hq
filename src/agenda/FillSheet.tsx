@@ -24,7 +24,7 @@ function FillBody({ res, items, onClose, onPick }: { res: AgendaItem; items: Age
   const hobbies = useHobbies().data ?? []
   const [busy, setBusy] = useState<string | null>(null)
   const u = reserveUsage(res, items)
-  const options = hobbies.filter((h) => !h.archived && res.reserve_id && h.reserve_id === res.reserve_id)
+  const options = hobbies.filter((h) => !h.archived)
   const loose = useMemo(() => items.filter((i) => !i.day && !i.done_at && !i.is_reserve).sort((a, b) => b.priority - a.priority || a.position - b.position), [items])
   const inside = u.inside
 
@@ -84,7 +84,7 @@ function FillBody({ res, items, onClose, onPick }: { res: AgendaItem; items: Age
 
       {options.length > 0 && (
         <>
-          <span className="ag-grp-lbl">Opciones de «{res.title}»</span>
+          <span className="ag-grp-lbl">Tus opciones</span>
           <ul className="ag-fill-list">
             {options.map((h) => (
               <Row

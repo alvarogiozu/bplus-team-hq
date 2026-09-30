@@ -69,6 +69,8 @@ test('grupos con nombre propio, prioridad y voz', async ({ page }) => {
 
   // arrastrar una tarea suelta encima del grupo la mete ahí
   const pilas = page.locator('.ag-inbox-row', { hasText: 'Comprar pilas para el prototipo' })
+  await pilas.evaluate((el) => el.scrollIntoView({ block: 'start' })) // el Inbox se desplazó al crear el grupo
+  await page.waitForTimeout(200)
   const a = (await pilas.boundingBox())!
   const g = (await grp.locator('.ag-grp-head').boundingBox())!
   await drag(page, { x: a.x + 60, y: a.y + a.height / 2 }, { x: g.x + 80, y: g.y + g.height / 2 })
