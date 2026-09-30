@@ -7,7 +7,6 @@ import { SpaceProvider, WelcomePage } from '../features/spaces/SpaceProvider'
 import TodayPage from '../features/today/TodayPage'
 import { useIsMobile, useMedia } from '../lib/useMedia'
 import { enVentana, ESCRITORIO_Q, sinEscritorio } from '../os/ventana'
-import { hayCuentaHabitos, rutaEnHabitos } from '../os/cuentas'
 import { Layout } from './Layout'
 
 const TasksPage = lazy(() => import('../features/views/TasksPage'))
@@ -61,8 +60,6 @@ function RequireAuth() {
   const { session, profile, loading } = useAuth()
   const loc = useLocation()
   if (loading) return <Splash />
-  // quien solo tiene cuenta de Hábitos (los usuarios de siempre de rockie.plus) va directo a Hábitos
-  if (!session && hayCuentaHabitos() && !loc.pathname.startsWith('/oauth')) return <IrAHabitos to={rutaEnHabitos(loc.pathname, loc.search)} />
   if (!session) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />
   if (profile?.must_change_password && loc.pathname !== '/cambiar-clave') return <Navigate to="/cambiar-clave" replace />
   return <Outlet />
@@ -76,11 +73,6 @@ function PublicOnly({ children }: { children: ReactNode }) {
   if (had.current === null) had.current = Boolean(session)
   if (had.current) return <Navigate to="/inicio" replace />
   return <>{children}</>
-}
-
-function IrAHabitos({ to }: { to: string }) {
-  useEffect(() => location.replace(to), [to])
-  return <Splash />
 }
 
 /** Hábitos es otra página del mismo sitio (habitos/index.html): se entra con carga completa. */

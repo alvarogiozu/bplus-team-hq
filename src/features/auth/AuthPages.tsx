@@ -5,6 +5,7 @@ import { Rockie } from '../../components/Rockie'
 import { humanError, supabase } from '../../lib/supabase'
 import { PALETTE } from '../../lib/colors'
 import { useAuth } from './AuthProvider'
+import { hayCuentaHabitos } from '../../os/cuentas'
 import {
   changePassword, googleEnabled, normalizeUsername, passwordStrength, signIn, signInWithGoogle, signUp, usernameAvailable, usernameError,
 } from './credentials'
@@ -99,8 +100,18 @@ export function LoginPage() {
   return (
     <AuthShell
       title="Entra a Rockie"
-      lead="Tus hábitos, tu agenda, tu equipo y tu cuaderno, con una sola cuenta."
+      lead="Tus hábitos, tu agenda, tus proyectos y tu cuaderno, con una sola cuenta."
     >
+      {/* quien ya usaba rockie.plus con Google tiene Hábitos abierto: puede seguir solo ahí */}
+      {hayCuentaHabitos() && (
+        <div className="auth-habitos">
+          <b>Tu sesión de Hábitos sigue abierta.</b>
+          <span>Para ver todo Rockie OS, entra con tu usuario de Rockie. O sigue solo con tus hábitos:</span>
+          <a className="btn ghost sm" href="/habitos/hoy">
+            Ir a Hábitos
+          </a>
+        </div>
+      )}
       <GoogleButton path={invite ? `/invitacion/${invite}` : next || '/inicio'} label="Entrar con Google" />
       <form onSubmit={submit} noValidate>
         <label className="lbl" htmlFor="u">Usuario</label>
