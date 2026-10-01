@@ -46,6 +46,24 @@ export async function shrinkImage(file: Blob): Promise<{ blob: Blob; ext: string
   }
 }
 
+/** Ancho y alto reales de una imagen (o null si el navegador no la puede leer). */
+export async function imageSize(f: Blob): Promise<{ w: number; h: number } | null> {
+  try {
+    const b = await createImageBitmap(f)
+    const out = { w: b.width, h: b.height }
+    b.close()
+    return out
+  } catch {
+    return null
+  }
+}
+
+/** El nombre del archivo, si dice algo (las capturas pegadas se llaman "image.png"). */
+export const imageName = (n: string) => {
+  const base = n.replace(/\.[a-z0-9]{2,5}$/i, '').trim()
+  return !base || /^(image|imagen|screenshot|captura|clipboard|blob|unnamed|download)$/i.test(base) ? undefined : base.slice(0, 80)
+}
+
 const MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', pdf: 'application/pdf' }
 
 /** Sube a la carpeta de la persona y devuelve la ruta (o null si falló). */

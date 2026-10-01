@@ -28,6 +28,7 @@
   --pen-azul: #2a82ad;
   --pen-verde: #4a7c3f;
   --pen-ambar: #eaa545;
+  --pen-mora: #944d63;
   /* hoja oscura (pizarrón): la tinta pasa a ser clara y los colores se aclaran para contrastar */
   --pen-night-paper: #1f1d2e;
   --pen-night-hint: #908caa;
@@ -1865,9 +1866,23 @@ textarea.cu-input { resize: none; }
 .cu-board-empty b { font-family: var(--serif); font-size: var(--t-xl); color: var(--ink-soft); }
 
 .cu-bitem { position: absolute; cursor: grab; border-radius: var(--r-md); }
-.cu-bitem.sel { outline: 2px solid var(--accent); outline-offset: 4px; }
+/* el marco y el tirador se dividen por el zoom (--k): se ven igual de cerca o de lejos.
+   (is-sel y no "sel": .sel es la clase global de los selectores y encogía lo elegido) */
+.cu-bitem.is-sel { outline: calc(2px / var(--k, 1)) solid var(--accent); outline-offset: calc(4px / var(--k, 1)); }
 .cu-bitem.editing { cursor: text; }
-.cu-bitem-resize { position: absolute; right: calc(var(--s2) * -1 - 1px); bottom: calc(var(--s2) * -1 - 1px); width: var(--s4); height: var(--s4); border-radius: var(--r-pill); background: var(--accent); border: 2px solid var(--paper-clean); cursor: nwse-resize; touch-action: none; }
+.cu-bitem-resize { position: absolute; --hs: calc(18px / var(--k, 1)); right: calc(var(--hs) / -2 - 4px / var(--k, 1)); bottom: calc(var(--hs) / -2 - 4px / var(--k, 1)); width: var(--hs); height: var(--hs); border-radius: var(--r-pill); background: var(--accent); border: calc(2px / var(--k, 1)) solid var(--paper-clean); cursor: nwse-resize; touch-action: none; }
+.cu-bitem-resize::after { content: ''; position: absolute; inset: calc(-10px / var(--k, 1)); } /* zona táctil más grande que el punto */
+.cu-bitem.t-image { border-radius: var(--r-sm); }
+.cu-bimg-frame { position: relative; width: 100%; overflow: hidden; border-radius: var(--r-sm); background: var(--card); box-shadow: 0 0 0 calc(1px / var(--k, 1)) var(--card-line), 0 calc(3px / var(--k, 1)) 0 var(--card-edge); }
+.cu-bimg { position: absolute; inset: 0; display: grid; place-items: center; }
+.cu-bimg img { width: 100%; height: 100%; display: block; object-fit: cover; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.cu-bimg.wait { background: linear-gradient(110deg, var(--card) 30%, var(--paper-alt) 50%, var(--card) 70%) 0 0 / 300% 100%; animation: cu-bimg-wait 1.2s linear infinite; }
+.cu-bimg span { padding: var(--s2); font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); text-align: center; }
+@keyframes cu-bimg-wait { to { background-position: -300% 0; } }
+@media (prefers-reduced-motion: reduce) { .cu-bimg.wait { animation: none; } }
+.cu-board.dropping { border-color: var(--accent); }
+.cu-board-drop { position: absolute; inset: var(--s3); z-index: 4; display: grid; place-items: center; border-radius: var(--r-md); border: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); pointer-events: none; }
+.cu-board-drop span { display: inline-flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s4); border-radius: var(--r-pill); background: var(--card); box-shadow: 0 3px 0 var(--card-edge); font-size: var(--t-sm); font-weight: 700; color: var(--accent-ink, var(--accent)); }
 .cu-bnote { min-height: calc(var(--s12) * 2); padding: var(--s3) var(--s4); border-radius: var(--r-md); color: var(--ink); font-size: var(--t-sm); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 .cu-bnote.p-amber { background: var(--amber-soft); box-shadow: 0 4px 0 var(--amber-edge); }
 .cu-bnote.p-green { background: var(--green-soft); box-shadow: 0 4px 0 var(--green-edge); }
@@ -2250,3 +2265,6 @@ textarea.cu-input { resize: none; }
 .cu-keyform { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 .cu-keyform input { flex: 1 1 calc(var(--s12) * 4); min-height: var(--tap); font-size: var(--t-sm); }
 .cu-set a.btn { text-decoration: none; }
+.cu-bembed.over { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), 0 4px 0 var(--card-edge); }
+.cu-bembed-x:disabled { opacity: 0.5; }
+.cu-bembed-x.img:hover { color: var(--accent-ink); }

@@ -10,7 +10,7 @@ import { useCuadernoActions } from './data'
 import { strokeTouches } from './board'
 import { srcOf, upload } from './files'
 import { CIcon } from './icons'
-import { canvasDpr, inkPath, predicted, snapshot } from './ink'
+import { canvasDpr, coalesced, inkPath, isEraserTip, predicted, snapshot } from './ink'
 import { isPaper, newPaper, setPaperChoice, type Paper } from './prefs'
 
 // Hoja de dibujo (como OneNote / Samsung Notes): pluma con presión, resaltador y borrador.
@@ -292,6 +292,8 @@ export function DrawSheet(p: {
   /** cuántos píxeles de pantalla mide una unidad de la hoja ahora */
   const scaleNow = () => (sheetRef.current?.getBoundingClientRect().width ?? 0) / sizeRef.current.w || 1
   const erased = useRef<Stroke[] | null>(null)
+  /** este trazo lo hace la goma del lápiz (borra aunque la herramienta sea la pluma) */
+  const tipErases = useRef(false)
   const fingers = useRef(new Map<number, number>()) // dedo → última y
   const scrolling = useRef(false)
   const heat = (on: boolean) => {
@@ -318,7 +320,8 @@ export function DrawSheet(p: {
     }
     e.currentTarget.setPointerCapture(e.pointerId)
     const { x, y } = toLogical(e.clientX, e.clientY)
-    if (tool === 'eraser') {
+    tipErases.current = isEraserTip(e.nativeEvent)
+    if (tool === 'eraser' || tipErases.current) {
       erased.current = strokesRef.current
       eraseAt(x, y)
       return
@@ -344,10 +347,10 @@ export function DrawSheet(p: {
       return
     }
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
-    const events = (e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent]) as PointerEvent[]
+    const events = coalesced(e.nativeEvent)
     for (const ev of events) {
       const { x, y } = toLogical(ev.clientX, ev.clientY)
-      if (tool === 'eraser') eraseAt(x, y)
+      if (tool === 'eraser' || tipErases.current) eraseAt(x, y)
       else if (live.current) {
         live.current.p.push(round(x), round(y), ev.pointerType === 'pen' ? Math.max(0.05, ev.pressure) : 0.5)
         if (y + live.current.s / 2 >= lineRef.current) heat(true)
@@ -362,7 +365,8 @@ export function DrawSheet(p: {
       if (!fingers.current.size) scrolling.current = false
       return
     }
-    if (tool === 'eraser') {
+    if (tool === 'eraser' || tipErases.current) {
+      tipErases.current = false
       if (erased.current && erased.current !== strokesRef.current) {
         setHist((h) => ({ past: [...h.past.slice(-60), erased.current!], future: [] }))
       }
