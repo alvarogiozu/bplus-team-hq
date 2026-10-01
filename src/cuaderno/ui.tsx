@@ -8,25 +8,67 @@ import { openDialog } from './bus'
 import { buildTree, flatten, iconOf, pathOf, spine } from './books'
 import type { Book } from './data'
 import { CIcon, ItemIcon } from './icons'
+import { uno, type Destino, type Mosaico } from '../lib/mosaico'
 
-// ---------- pantalla dividida (como Obsidian y el escritorio de Rockie OS) ----------
-// A la izquierda va lo que marca la ruta; a la derecha, una nota abierta "al lado". La pestaña que
-// tocas se abre en el lado que tiene el foco (el último que tocaste).
-export type Lado = 'izq' | 'der'
+// ---------- pantalla dividida en mosaico (hasta 6 paneles, como el escritorio de Rockie OS) ----------
+// El panel RUTA muestra lo que marca la dirección (Hoy, Carpetas, una nota…); los demás, notas abiertas
+// al lado (src/lib/mosaico.ts). La pestaña que tocas se abre en el panel con foco (el último que tocaste).
+export const RUTA = 'ruta'
 export type Division = {
-  lado: string | null
-  foco: Lado
-  ratio: number
-  setFoco: (l: Lado) => void
-  setRatio: (r: number) => void
-  abrirAlLado: (id: string) => void
-  cerrarLado: () => void
+  mos: Mosaico
+  /** hay más de un panel */
+  partida: boolean
+  /** el panel con foco: RUTA o el id de una nota de al lado */
+  foco: string
+  /** la nota que muestra el panel RUTA (si muestra una) */
+  actual: string | null
+  /** las pestañas, en su orden */
+  pestanas: string[]
+  /** la nota que se está arrastrando (para la vista previa) */
+  arrastre: string | null
+  setFoco: (panel: string) => void
+  setMos: (m: Mosaico) => void
+  setArrastre: (id: string | null) => void
+  /** abre la nota en el panel con foco (si ya se ve en algún panel, solo lo enfoca) */
+  abrir: (id: string, nueva?: boolean) => void
+  /** la pone en otro panel (por defecto, una columna nueva a la derecha); si ya se veía, la MUEVE */
+  abrirAlLado: (id: string, d?: Destino) => void
+  /** cambia la nota de un panel (los enlaces dentro de una nota de al lado) */
+  cambiarEn: (panel: string, id: string) => void
+  /** lleva una nota de al lado al panel principal (la principal pasa a su lugar) */
+  alFrente: (id: string) => void
+  cerrarPanel: (panel: string) => void
+  cerrarPestana: (id: string) => void
+  /** mueve una pestaña antes de otra (null = al final) */
+  ordenar: (id: string, antesDe: string | null) => void
+  cerrarOtras: () => void
 }
-export const DivisionCtx = createContext<Division>({ lado: null, foco: 'izq', ratio: 0.5, setFoco: () => {}, setRatio: () => {}, abrirAlLado: () => {}, cerrarLado: () => {} })
+const nada = () => {}
+export const DivisionCtx = createContext<Division>({
+  mos: uno(RUTA),
+  partida: false,
+  foco: RUTA,
+  actual: null,
+  pestanas: [],
+  arrastre: null,
+  setFoco: nada,
+  setMos: nada,
+  setArrastre: nada,
+  abrir: nada,
+  abrirAlLado: nada,
+  cambiarEn: nada,
+  alFrente: nada,
+  cerrarPanel: nada,
+  cerrarPestana: nada,
+  ordenar: nada,
+  cerrarOtras: nada,
+})
 export const useDivision = () => useContext(DivisionCtx)
-/** true dentro de la nota abierta al lado (la de la derecha) */
-export const LateralCtx = createContext(false)
-export const useEnLateral = () => useContext(LateralCtx)
+/** el panel donde vive este componente: RUTA o el id de la nota abierta al lado */
+export const PanelIdCtx = createContext<string>(RUTA)
+export const usePanelId = () => useContext(PanelIdCtx)
+/** true dentro de una nota abierta al lado */
+export const useEnLateral = () => useContext(PanelIdCtx) !== RUTA
 /** lo que viaja al arrastrar una pestaña */
 export const TIPO_NOTA = 'application/x-cu-nota'
 

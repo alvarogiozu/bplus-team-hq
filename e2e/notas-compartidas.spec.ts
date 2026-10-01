@@ -73,7 +73,7 @@ test('dos personas escriben a la vez en una nota compartida', async ({ page, bro
   await expect(page).toHaveURL(/\/cuaderno\/nota\//)
   const mine = page.locator('.cu-prose')
   await expect(mine).toContainText('Mariana: pedir 3 celdas más.')
-  await expect(page.getByRole('button', { name: 'Compartida con tu equipo' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Compartida con/ })).toBeVisible()
   await pageB.getByRole('dialog', { name: 'Nota compartida' }).locator('.cu-prose').click()
   await pageB.keyboard.press('Control+End')
   await pageB.keyboard.type(' ¡Genial!')
@@ -82,7 +82,7 @@ test('dos personas escriben a la vez en una nota compartida', async ({ page, bro
   await shot(page, 'pc-en-mi-cuaderno')
 
   // dejar de compartirla: a Mariana ya no le aparece
-  await page.getByRole('button', { name: 'Compartida con tu equipo' }).click()
+  await page.getByRole('button', { name: /^Compartida con/ }).click()
   await page.getByRole('button', { name: 'Dejar de compartir' }).click()
   await page.getByRole('button', { name: 'Sí, que sea solo mía' }).click()
   await expect(page.getByText('Dejaste de compartirla')).toBeVisible()

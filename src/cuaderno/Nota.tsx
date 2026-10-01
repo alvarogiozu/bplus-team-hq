@@ -23,7 +23,7 @@ import { PageHeader, SavedTag } from './PageHeader'
 import { ProposalList } from './Proposals'
 import { SubnotesSection } from './Subnotas'
 import { WikiSuggest } from './WikiSuggest'
-import { useDivision, useEnLateral, useHasPanel, useIsMobile } from './ui'
+import { useDivision, useEnLateral, useHasPanel, useIsMobile, usePanelId } from './ui'
 import { useNoteSync } from './collab'
 import { LiveWait } from './Compartir'
 
@@ -35,16 +35,16 @@ export default function NotaPage() {
   return <NotaDe id={id} />
 }
 
-/** Una nota por su id: la de la ruta (izquierda) o la abierta al lado (derecha). */
+/** Una nota por su id: la del panel principal (la ruta) o una abierta al lado. */
 export function NotaDe({ id }: { id: string }) {
   const lateral = useEnLateral()
-  const { lado } = useDivision()
+  const { partida } = useDivision()
   const notesQ = useNotes()
   const note = notesQ.data?.find((n) => n.id === id)
   const mobile = useIsMobile()
   // la pizarra usa todo el ancho: sin panel a la derecha
   // con la pantalla dividida no hay panel a la derecha (como una ventana angosta del escritorio)
-  useHasPanel(!lateral && !lado && !mobile && Boolean(note) && note?.kind !== 'pizarra')
+  useHasPanel(!lateral && !partida && !mobile && Boolean(note) && note?.kind !== 'pizarra')
   if (notesQ.isLoading) return <div className="cu-loading" aria-busy="true" />
   if (!note)
     return (
@@ -116,10 +116,11 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
   useEffect(() => () => void flush.current(), [])
 
   const nav = useNavigate()
-  // en la nota de la derecha, los enlaces abren su nota en ese mismo lado
+  // en una nota de al lado, los enlaces abren su nota en ese mismo panel
   const lateral = useEnLateral()
-  const { lado, abrirAlLado } = useDivision()
-  const abrirNota = (id: string) => (lateral ? abrirAlLado(id) : nav(`/cuaderno/nota/${id}`))
+  const panelId = usePanelId()
+  const { partida, cambiarEn } = useDivision()
+  const abrirNota = (id: string) => (lateral ? cambiarEn(panelId, id) : nav(`/cuaderno/nota/${id}`))
   const wikiKeys = useRef<WikiKeys['current']>(null)
   const editor = useNoteEditor({
     noteId: note.id,
@@ -212,7 +213,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
         <PageHeader
           note={note}
           // con la pantalla dividida la cabecera va compacta (íconos y el ⋯), como en el celular
-          mobile={mobile || Boolean(lado)}
+          mobile={mobile || partida}
           saved={saved}
           peers={live.peers}
           onBeforeRemove={() => {
@@ -292,7 +293,7 @@ function NoteView({ note, mobile }: { note: Note; mobile: boolean }) {
           {dictating && editor && <DictationBar key="dictado" editor={editor} note={note} mobile={mobile} onClose={() => setDictating(false)} />}
         </AnimatePresence>
       </div>
-      {!mobile && !lado && panel}
+      {!mobile && !partida && panel}
       {mobile && (
         <Sheet open={Boolean(ask)} onClose={() => setAsk(null)} title="Rockie">
           {ask && <AskCard note={note} req={ask} editor={editor} onClose={() => setAsk(null)} closeAfterInsert />}

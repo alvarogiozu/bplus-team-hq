@@ -5,6 +5,8 @@ import { useMe } from '../../features/auth/AuthProvider'
 import { signOut } from '../../features/auth/credentials'
 import { setAccent, useTheme } from '../../app/theme'
 import { lsGet, lsSet } from '../../lib/storage'
+import { MosaicoPrevia } from '../../components/MosaicoPrevia'
+import { alBorde, cuenta as cuantas, desdeLista, destinoEn, idsDe, lugarDe, moverHorizontal, moverVertical, poner, quitar, rects as rectsDe, reemplazar, sano, separadores, uno, VACIO as MOS_VACIO, type Destino, type Mosaico } from '../../lib/mosaico'
 import { cuandoLibre } from '../../lib/precarga'
 import HomePage from '../HomePage'
 import { APPS, appOf, type AppId, type OsApp } from '../apps'
@@ -17,10 +19,12 @@ import './escritorio.css'
 
 // El escritorio de Rockie OS (PC y tablet horizontal). Arriba, pestañas: el Inicio y las apps abiertas.
 // Cada pestaña es la app COMPLETA en su propia ventana (iframe del mismo sitio), con su barra lateral.
-// Abajo (o en el lado que elijas), un dock flotante como el de la Mac. Las ventanas se dividen en mosaico (2 a 4) con la
+// Abajo (o en el lado que elijas), un dock flotante como el de la Mac. Las ventanas se dividen en mosaico (hasta 6: tres columnas,
+// cada una entera o partida arriba/abajo, src/lib/mosaico.ts) con la
 // animación de Hyprland: la nueva aparece con un pop, las demás se deslizan a su lugar y cambiar de
 // pestaña desliza de lado. Atajos: Ctrl/⌘ K Rockie · Alt 1–5 apps · Alt ← → dividir · Alt ↑ solo
-// esta · Alt ↓ quitar del mosaico. Con el mouse: arrastra una pestaña a un lado de la pantalla.
+// esta · Alt ↓ quitar del mosaico. Con el mouse: arrastra una pestaña (o la barra de una ventana) adonde
+// quieras: la vista previa muestra cómo queda (a la izquierda, al medio, a la derecha, arriba o abajo).
 
 const APP = Object.fromEntries(APPS.map((a) => [a.id, a])) as Record<AppId, OsApp>
 const ORDEN: AppId[] = APPS.map((a) => a.id)
@@ -45,37 +49,33 @@ const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
 
 type Rect = { x: number; y: number; w: number; h: number }
 type Donde = 'aqui' | 'izq' | 'der'
-type Estado = { vista: 'inicio' | 'apps'; abiertas: AppId[]; tiles: AppId[]; foco: AppId | null; ratio: number }
+type Estado = { vista: 'inicio' | 'apps'; abiertas: AppId[]; mos: Mosaico; foco: AppId | null }
 type Accion =
   | { t: 'inicio' }
   | { t: 'abrir'; id: AppId; donde: Donde }
+  | { t: 'colocar'; id: AppId; d: Destino }
   | { t: 'foco'; id: AppId }
   | { t: 'solo'; id: AppId }
   | { t: 'quitar'; id: AppId }
   | { t: 'cerrar'; id: AppId }
   | { t: 'mover'; id: AppId; donde: 'izq' | 'der' }
-  | { t: 'ratio'; r: number }
+  | { t: 'mos'; mos: Mosaico }
 
-const VACIO: Estado = { vista: 'inicio', abiertas: [], tiles: [], foco: null, ratio: 0.5 }
+const VACIO: Estado = { vista: 'inicio', abiertas: [], mos: MOS_VACIO, foco: null }
 
-/** Casillas del mosaico: 1 entera · 2 lado a lado · 3 una grande y dos apiladas · 4 en cuadrícula. */
-function mosaico(n: number, W: number, H: number, ratio: number): Rect[] {
-  if (n <= 1) return [{ x: 0, y: 0, w: W, h: H }]
-  const wl = Math.round((W - GAP) * ratio)
-  const wr = W - GAP - wl
-  if (n === 2) return [{ x: 0, y: 0, w: wl, h: H }, { x: wl + GAP, y: 0, w: wr, h: H }]
-  const ht = Math.round((H - GAP) / 2)
-  const hb = H - GAP - ht
-  if (n === 3) return [{ x: 0, y: 0, w: wl, h: H }, { x: wl + GAP, y: 0, w: wr, h: ht }, { x: wl + GAP, y: ht + GAP, w: wr, h: hb }]
-  return [{ x: 0, y: 0, w: wl, h: ht }, { x: wl + GAP, y: 0, w: wr, h: ht }, { x: 0, y: ht + GAP, w: wl, h: hb }, { x: wl + GAP, y: ht + GAP, w: wr, h: hb }]
+/** Sobre qué se coloca una app: el mosaico que se ve; desde el Inicio, junto a la última app que usaste. */
+function baseDe(s: Estado, id: AppId): Mosaico {
+  if (s.vista === 'apps' && s.mos.cols.length) return s.mos
+  if (s.foco && s.foco !== id && s.abiertas.includes(s.foco)) return uno(s.foco)
+  return MOS_VACIO
 }
 
 /** Si cierras la pestaña que se ve: la de al lado (como en el navegador); sin ninguna, el Inicio. */
 function sinVentanas(s: Estado, abiertas: AppId[], quitada: AppId): Estado {
-  if (!abiertas.length) return { ...s, abiertas, tiles: [], foco: null, vista: 'inicio' }
+  if (!abiertas.length) return { ...s, abiertas, mos: MOS_VACIO, foco: null, vista: 'inicio' }
   const i = Math.max(0, s.abiertas.indexOf(quitada) - 1)
   const otra = abiertas[Math.min(i, abiertas.length - 1)]
-  return { ...s, abiertas, tiles: [otra], foco: otra, vista: s.vista }
+  return { ...s, abiertas, mos: uno(otra), foco: otra, vista: s.vista }
 }
 
 function reducir(s: Estado, a: Accion): Estado {
@@ -84,49 +84,49 @@ function reducir(s: Estado, a: Accion): Estado {
       return { ...s, vista: 'inicio' }
     case 'abrir': {
       const abiertas = s.abiertas.includes(a.id) ? s.abiertas : [...s.abiertas, a.id]
-      let tiles = s.tiles
+      let mos = s.mos
       if (a.donde === 'aqui') {
         // como cambiar de pestaña: si ya se ve, solo se enfoca; si no, toma el lugar de la enfocada
-        if (!tiles.includes(a.id)) {
-          const i = tiles.indexOf(s.foco ?? tiles[0])
-          tiles = tiles.length <= 1 ? [a.id] : tiles.map((x, j) => (j === Math.max(0, i) ? a.id : x))
+        const ids = idsDe(mos)
+        if (!ids.includes(a.id)) {
+          const f = s.foco && ids.includes(s.foco) ? s.foco : ids[0]
+          mos = f ? reemplazar(mos, f, a.id) : uno(a.id)
         }
-      } else {
-        const resto = tiles.filter((x) => x !== a.id)
-        // en el Inicio sin nada al lado: se divide con la última app que usaste
-        if (!resto.length && s.foco && s.foco !== a.id && abiertas.includes(s.foco)) resto.push(s.foco)
-        while (resto.length > 3) resto.splice(a.donde === 'der' ? 0 : resto.length - 1, 1)
-        tiles = a.donde === 'izq' ? [a.id, ...resto] : [...resto, a.id]
-      }
-      return { ...s, vista: 'apps', abiertas, tiles, foco: a.id }
+      } else mos = alBorde(baseDe(s, a.id), a.id, a.donde)
+      return { ...s, vista: 'apps', abiertas, mos, foco: a.id }
+    }
+    case 'colocar': {
+      const abiertas = s.abiertas.includes(a.id) ? s.abiertas : [...s.abiertas, a.id]
+      return { ...s, vista: 'apps', abiertas, mos: poner(baseDe(s, a.id), a.id, a.d), foco: a.id }
     }
     case 'foco':
       return s.foco === a.id ? s : { ...s, foco: a.id }
     case 'solo':
-      return { ...s, vista: 'apps', tiles: [a.id], foco: a.id }
+      return { ...s, vista: 'apps', mos: uno(a.id), foco: a.id }
     case 'quitar': {
-      if (s.tiles.length <= 1) return { ...s, vista: 'inicio' }
-      const tiles = s.tiles.filter((x) => x !== a.id)
-      return { ...s, tiles, foco: s.foco === a.id ? tiles[tiles.length - 1] : s.foco }
+      if (cuantas(s.mos) <= 1) return { ...s, vista: 'inicio' }
+      const mos = quitar(s.mos, a.id)
+      const ids = idsDe(mos) as AppId[]
+      return { ...s, mos, foco: s.foco === a.id ? ids[ids.length - 1] : s.foco }
     }
     case 'cerrar': {
       const abiertas = s.abiertas.filter((x) => x !== a.id)
-      const tiles = s.tiles.filter((x) => x !== a.id)
-      if (!tiles.length) return sinVentanas(s, abiertas, a.id)
-      return { ...s, abiertas, tiles, foco: s.foco === a.id ? tiles[tiles.length - 1] : s.foco }
+      const mos = quitar(s.mos, a.id)
+      if (!mos.cols.length) return sinVentanas(s, abiertas, a.id)
+      const ids = idsDe(mos) as AppId[]
+      return { ...s, abiertas, mos, foco: s.foco === a.id ? ids[ids.length - 1] : s.foco }
     }
     case 'mover': {
-      if (s.tiles.length <= 1) {
+      if (s.vista !== 'apps' || cuantas(s.mos) <= 1) {
         // sola en pantalla: se divide con la pestaña abierta más cercana
         const otra = [...s.abiertas].reverse().find((x) => x !== a.id)
         if (!otra) return s
-        return { ...s, vista: 'apps', tiles: a.donde === 'izq' ? [a.id, otra] : [otra, a.id], foco: a.id }
+        return { ...s, vista: 'apps', mos: alBorde(uno(otra), a.id, a.donde), foco: a.id }
       }
-      const resto = s.tiles.filter((x) => x !== a.id)
-      return { ...s, vista: 'apps', tiles: a.donde === 'izq' ? [a.id, ...resto] : [...resto, a.id], foco: a.id }
+      return { ...s, vista: 'apps', mos: alBorde(s.mos, a.id, a.donde), foco: a.id }
     }
-    case 'ratio':
-      return { ...s, ratio: Math.min(0.75, Math.max(0.25, a.r)) }
+    case 'mos':
+      return { ...s, mos: a.mos }
   }
 }
 
@@ -152,8 +152,11 @@ function leer(clave: string): Guardado {
     if (g?.estado) {
       const ok = (x: unknown): x is AppId => ORDEN.includes(x as AppId)
       const abiertas = g.estado.abiertas.filter(ok)
-      const tiles = g.estado.tiles.filter((x) => ok(x) && abiertas.includes(x)).slice(0, 4)
-      return { estado: { ...VACIO, ...g.estado, abiertas, tiles, foco: tiles.includes(g.estado.foco as AppId) ? g.estado.foco : (tiles[0] ?? null) }, rutas: g.rutas ?? {} }
+      // el formato de antes (lista de casillas + proporción) pasa al mosaico
+      const viejo = g.estado as Partial<Estado> & { tiles?: AppId[]; ratio?: number }
+      const mos = sano(viejo.mos ?? desdeLista(viejo.tiles ?? [], viejo.ratio ?? 0.5), (x) => ok(x) && abiertas.includes(x as AppId))
+      const ids = idsDe(mos) as AppId[]
+      return { estado: { vista: viejo.vista === 'apps' ? 'apps' : 'inicio', abiertas, mos, foco: ids.includes(viejo.foco as AppId) ? (viejo.foco as AppId) : (ids[0] ?? null) }, rutas: g.rutas ?? {} }
     }
   } catch {
     /* sin almacenamiento */
@@ -228,7 +231,7 @@ export default function Escritorio() {
   // cada ventana nace con su dirección (y no se vuelve a tocar: cambiarla recargaría la app)
   const [src, setSrc] = useState<Partial<Record<AppId, string>>>(() => Object.fromEntries(inicial.estado.abiertas.map((id) => [id, rutas.current[id] ?? APP[id].path])))
   // las pestañas que no se ven cargan un momento después (lo visible primero)
-  const [vivas, setVivas] = useState<Set<AppId>>(() => new Set(inicial.estado.tiles))
+  const [vivas, setVivas] = useState<Set<AppId>>(() => new Set(idsDe(inicial.estado.mos) as AppId[]))
   const [listas, setListas] = useState<Set<AppId>>(new Set())
   useEffect(() => {
     const t = setTimeout(() => setVivas(new Set(est.current.abiertas)), 1400)
@@ -279,8 +282,8 @@ export default function Escritorio() {
   const [menu, setMenu] = useState<{ id: AppId; x: number; y: number } | null>(null)
   const [cuenta, setCuenta] = useState(false)
   const [arrastre, setArrastre] = useState<AppId | null>(null)
-  const [zona, setZona] = useState<Donde | null>(null)
-  const [redim, setRedim] = useState(false)
+  const [zona, setZona] = useState<{ d: Destino; texto: string; mos: Mosaico } | null>(null)
+  const [redim, setRedim] = useState<false | 'x' | 'y'>(false)
   const [asomo, setAsomo] = useState(false)
   const [ladoDock, setLadoDockState] = useState<LadoDock>(() => {
     const g = lsGet(CLAVE_DOCK) as LadoDock | null
@@ -414,7 +417,7 @@ export default function Escritorio() {
       // con Alt + flechas se escribe en los campos (Mac): ahí no se toca
       const el = e.target as HTMLElement | null
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
-      const { foco, vista, tiles } = est.current
+      const { foco, vista, mos } = est.current
       if (!foco) return
       const flecha = { ArrowLeft: 'izq', ArrowRight: 'der', ArrowUp: 'arriba', ArrowDown: 'abajo' }[e.key]
       if (!flecha) return
@@ -422,7 +425,7 @@ export default function Escritorio() {
       e.stopPropagation()
       if (flecha === 'izq' || flecha === 'der') dispatch({ t: 'mover', id: foco, donde: flecha })
       else if (flecha === 'arriba') dispatch({ t: 'solo', id: foco })
-      else if (vista === 'apps' && tiles.length > 1) dispatch({ t: 'quitar', id: foco })
+      else if (vista === 'apps' && cuantas(mos) > 1) dispatch({ t: 'quitar', id: foco })
       else dispatch({ t: 'inicio' })
     },
     [abrir],
@@ -520,10 +523,7 @@ export default function Escritorio() {
     return () => ro.disconnect()
   }, [])
 
-  const rects = useMemo(() => {
-    const r = mosaico(s.tiles.length, tam.w, tam.h, s.ratio)
-    return new Map(s.tiles.map((id, i) => [id, r[i]]))
-  }, [s.tiles, s.ratio, tam])
+  const rects = useMemo(() => rectsDe(s.mos, tam.w, tam.h, GAP) as Map<AppId, Rect>, [s.mos, tam])
   const ultimo = useRef(new Map<AppId, Rect>())
   const visibles = useMemo(() => (s.vista === 'apps' ? rects : new Map<AppId, Rect>()), [s.vista, rects])
 
@@ -607,14 +607,17 @@ export default function Escritorio() {
     vistaAntes.current = s.vista
   }, [visibles, s.vista, tam])
 
-  // ---------- separador (arrastrar para cambiar el ancho) ----------
-  const empezarRedim = (e: RPointerEvent) => {
+  // ---------- separadores (entre columnas: el ancho; dentro de una columna: el alto) ----------
+  const empezarRedim = (e: RPointerEvent, eje: 'x' | 'y', i: number) => {
     e.preventDefault()
     const caja = mesa.current?.getBoundingClientRect()
     if (!caja) return
     redimRef.current = true
-    setRedim(true)
-    const mover = (ev: PointerEvent) => dispatch({ t: 'ratio', r: (ev.clientX - caja.left) / caja.width })
+    setRedim(eje)
+    const mover = (ev: PointerEvent) => {
+      const m = est.current.mos
+      dispatch({ t: 'mos', mos: eje === 'x' ? moverVertical(m, i, (ev.clientX - caja.left) / caja.width) : moverHorizontal(m, i, (ev.clientY - caja.top) / caja.height) })
+    }
     const soltar = () => {
       redimRef.current = false
       setRedim(false)
@@ -625,11 +628,25 @@ export default function Escritorio() {
     addEventListener('pointerup', soltar)
   }
 
-  // ---------- arrastrar una pestaña a un lado ----------
-  const zonaDe = (e: DragEvent): Donde => {
+  // ---------- arrastrar una pestaña (o la barra de una ventana) adonde quieras ----------
+  /** Dónde caería y cómo quedaría la pantalla (la vista previa). */
+  const zonaDe = (e: DragEvent, id: AppId) => {
     const caja = mesa.current!.getBoundingClientRect()
-    const x = (e.clientX - caja.left) / caja.width
-    return x < 0.3 ? 'izq' : x > 0.7 ? 'der' : 'aqui'
+    const base = baseDe(est.current, id)
+    const z = destinoEn(quitar(base, id), e.clientX - caja.left, e.clientY - caja.top, caja.width, caja.height, GAP, (x) => APP[x as AppId]?.name ?? 'esa')
+    return { ...z, mos: poner(base, id, z.d) }
+  }
+  const colocar = (id: AppId, d: Destino) => {
+    if (!marcos.current.has(id)) setSrc((p) => ({ ...p, [id]: p[id] ?? rutas.current[id] ?? APP[id].path }))
+    setVivas((v) => (v.has(id) ? v : new Set(v).add(id)))
+    dispatch({ t: 'colocar', id, d })
+  }
+  /** "Abajo": debajo de la ventana enfocada (partiendo su columna). */
+  const abajo = (id: AppId) => {
+    const base = quitar(baseDe(est.current, id), id)
+    const l = est.current.foco ? lugarDe(base, est.current.foco) : null
+    if (l) colocar(id, { t: 'partir', col: l.col, lado: 'abajo' })
+    else colocar(id, { t: 'partir', col: 0, lado: 'abajo' })
   }
 
   const enMenu = (hacer: () => void) => {
@@ -639,13 +656,13 @@ export default function Escritorio() {
 
   const api = useMemo<EscritorioApi>(() => ({ abrir: abrirPath, comando: () => setCmd({ escuchar: false }) }), [abrirPath])
   const dockVisible = s.vista === 'inicio' || asomo || Boolean(cmd)
-  const partido = s.vista === 'apps' && s.tiles.length > 1
-  const divisor = Math.round((tam.w - GAP) * s.ratio) + GAP / 2
+  const partido = s.vista === 'apps' && cuantas(s.mos) > 1
+  const seps = partido ? separadores(s.mos, tam.w, tam.h, GAP) : null
   const activa = s.vista === 'apps' ? s.foco : null
 
   return (
     <EscritorioCtx.Provider value={api}>
-      <div className={`esc${redim ? ' redim' : ''}${arrastre ? ' arrastrando' : ''}`} data-dock={ladoDock}>
+      <div className={`esc${redim ? ` redim redim-${redim}` : ''}${arrastre ? ' arrastrando' : ''}`} data-dock={ladoDock}>
         <header className="esc-bar">
           <button className="esc-marca" onClick={() => dispatch({ t: 'inicio' })} title="Inicio (Alt 1)">
             <RockieArt size={30} stone={look.stone} equipped={look.equipped} />
@@ -660,7 +677,7 @@ export default function Escritorio() {
             </button>
             {s.abiertas.map((id) => {
               const a = APP[id]
-              const enMosaico = s.vista === 'apps' && s.tiles.includes(id)
+              const enMosaico = s.vista === 'apps' && idsDe(s.mos).includes(id)
               return (
                 <div
                   key={id}
@@ -780,7 +797,21 @@ export default function Escritorio() {
                 aria-hidden={!ve}
               >
                 {partido && ve && (
-                  <div className="esc-win-bar" onPointerDown={() => dispatch({ t: 'foco', id })}>
+                  <div
+                    className="esc-win-bar"
+                    onPointerDown={() => dispatch({ t: 'foco', id })}
+                    draggable
+                    title="Arrastra para moverla a otro lugar"
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/x-rockie-app', id)
+                      e.dataTransfer.effectAllowed = 'move'
+                      setArrastre(id)
+                    }}
+                    onDragEnd={() => {
+                      setArrastre(null)
+                      setZona(null)
+                    }}
+                  >
                     <span className="esc-win-ic">
                       <Icon name={a.icon} className="sm" />
                     </span>
@@ -817,29 +848,54 @@ export default function Escritorio() {
             )
           })}
 
-          {partido && <div className="esc-div" style={{ left: divisor }} onPointerDown={empezarRedim} role="separator" aria-orientation="vertical" aria-label="Cambiar el ancho de las ventanas" />}
+          {seps?.verticales.map((v) => (
+            <div
+              key={`v${v.i}`}
+              className="esc-div"
+              style={{ left: v.x }}
+              onPointerDown={(e) => empezarRedim(e, 'x', v.i)}
+              onDoubleClick={() => dispatch({ t: 'mos', mos: { ...s.mos, ws: s.mos.ws.map(() => 1 / s.mos.ws.length) } })}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Cambiar el ancho de las ventanas"
+              title="Arrastra para cambiar el ancho · doble clic: iguales"
+            />
+          ))}
+          {seps?.horizontales.map((h) => (
+            <div
+              key={`h${h.i}`}
+              className="esc-div-h"
+              style={{ left: h.x, width: h.w, top: h.y }}
+              onPointerDown={(e) => empezarRedim(e, 'y', h.i)}
+              onDoubleClick={() => dispatch({ t: 'mos', mos: moverHorizontal(s.mos, h.i, 0.5) })}
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="Cambiar el alto de las ventanas"
+              title="Arrastra para cambiar el alto · doble clic: mitad y mitad"
+            />
+          ))}
 
           {arrastre && (
             <div
               className="esc-drop"
               onDragOver={(e) => {
                 e.preventDefault()
-                setZona(zonaDe(e))
+                const z = zonaDe(e, arrastre)
+                // solo se vuelve a dibujar al cambiar de lugar (no en cada pixel)
+                setZona((p) => (p && p.texto === z.texto && JSON.stringify(p.d) === JSON.stringify(z.d) ? p : z))
               }}
-              onDragLeave={() => setZona(null)}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setZona(null)
+              }}
               onDrop={(e) => {
                 e.preventDefault()
                 const id = e.dataTransfer.getData('text/x-rockie-app') as AppId
-                if (ORDEN.includes(id)) abrir(id, undefined, zonaDe(e))
+                if (ORDEN.includes(id)) colocar(id, zonaDe(e, id).d)
                 setArrastre(null)
                 setZona(null)
               }}
             >
-              {(['izq', 'aqui', 'der'] as Donde[]).map((z) => (
-                <div key={z} className={`esc-drop-z ${z}${zona === z ? ' on' : ''}`}>
-                  <span>{z === 'izq' ? 'A la izquierda' : z === 'der' ? 'A la derecha' : 'Aquí'}</span>
-                </div>
-              ))}
+              {zona && <MosaicoPrevia mos={zona.mos} id={arrastre} texto={zona.texto} nombre={APP[arrastre].name} W={tam.w} H={tam.h} gap={GAP} color={APP[arrastre].color} />}
             </div>
           )}
         </main>
@@ -926,6 +982,9 @@ export default function Escritorio() {
               </button>
               <button role="menuitem" onClick={() => enMenu(() => abrir(menu.id, undefined, 'der'))}>
                 <Icon name="expand" className="sm" /> A la derecha <kbd>Alt →</kbd>
+              </button>
+              <button role="menuitem" onClick={() => enMenu(() => abajo(menu.id))}>
+                <Icon name="panel" className="sm" /> Abajo de la que ves
               </button>
               <button role="menuitem" onClick={() => enMenu(() => {
                 abrir(menu.id)

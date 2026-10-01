@@ -8,7 +8,7 @@ import type { Peer } from './collab'
 import { ShareButton } from './Compartir'
 import { CIcon, ItemIcon } from './icons'
 import { ColorPick, IconPick } from './pickers'
-import { BookPicker, Popover, useDivision, useEnLateral } from './ui'
+import { BookPicker, Popover, useDivision, useEnLateral, usePanelId } from './ui'
 
 // La cabecera de una página (escrita o pizarra): volver, la ruta "Carpeta › Cuaderno ⌄" que mueve,
 // su ícono y color, si ya se guardó, Profundizar con Rockie, el mapa y borrar. En el celular, lo secundario va al ⋯.
@@ -26,7 +26,8 @@ export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'savi
   const actions = useCuadernoActions()
   const nav = useNavigate()
   const lateral = useEnLateral()
-  const { cerrarLado } = useDivision()
+  const { cerrarPanel } = useDivision()
+  const panelId = usePanelId()
   const books = useBooks().data ?? NONE
   const [moveAt, setMoveAt] = useState<HTMLElement | null>(null)
   const [moreAt, setMoreAt] = useState<HTMLElement | null>(null)
@@ -41,7 +42,7 @@ export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'savi
     p.onBeforeRemove?.()
     void actions.deleteNote(note)
     // la de la derecha se va sola (su lado se cierra); la de la izquierda te deja en su carpeta
-    if (lateral) cerrarLado()
+    if (lateral) cerrarPanel(panelId)
     else nav(note.book_id && chain.length ? `/cuaderno/c/${note.book_id}` : '/cuaderno/carpetas', { replace: true })
   }
   const what = note.kind === 'pizarra' ? 'pizarra' : 'página'

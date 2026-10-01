@@ -2200,15 +2200,17 @@ textarea.cu-input { resize: none; }
 .cu-pestanas-fila { flex: 1; min-width: 0; display: flex; align-items: flex-end; gap: var(--s1); overflow-x: auto; scrollbar-width: none; }
 .cu-pestanas-fila::-webkit-scrollbar { display: none; }
 .cu-pestana {
-  position: relative; flex: 0 1 190px; min-width: 104px; display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 4px 0 10px;
+  position: relative; flex: 0 1 200px; min-width: 112px; cursor: grab; display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 4px 0 10px;
   margin-bottom: -1.5px; border: 1.5px solid transparent; border-bottom: 0; border-radius: 12px 12px 0 0;
   font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); cursor: pointer; user-select: none; -webkit-user-select: none;
   transition: background 0.15s, color 0.15s;
 }
 .cu-pestana:hover { background: color-mix(in srgb, var(--card) 70%, transparent); color: var(--ink); }
-.cu-pestana.on { background: var(--paper); border-color: var(--card-line); color: var(--ink); }
+.cu-pestana.on { z-index: 1; background: var(--paper); border-color: var(--card-line); color: var(--ink); box-shadow: 0 -2px 8px rgba(87, 82, 121, 0.06); }
+.cu-pestana + .cu-pestana:not(.on):not(:hover)::after { content: ""; position: absolute; left: -3px; top: 11px; bottom: 11px; width: 1.5px; border-radius: 2px; background: var(--card-line); }
+.cu-pestana.on + .cu-pestana::after, .cu-pestana:hover + .cu-pestana::after { display: none; }
 .cu-pestana.on::before { content: ''; position: absolute; left: 10px; right: 10px; top: -1.5px; height: 3px; border-radius: 0 0 3px 3px; background: var(--berry); }
-.cu-pestana-t { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cu-pestana-t { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent); }
 .cu-pestana button { flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; color: var(--ink-muted); opacity: 0; transition: opacity 0.15s, background 0.15s; }
 .cu-pestana:hover button, .cu-pestana.on button, .cu-pestana:focus-within button { opacity: 1; }
 .cu-pestana button:hover { background: var(--paper-alt); color: var(--ink); }

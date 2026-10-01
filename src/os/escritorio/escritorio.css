@@ -115,10 +115,20 @@
 }
 .esc-div:hover::after, .esc.redim .esc-div::after { opacity: 1; }
 .esc.redim { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+.esc.redim-y { cursor: row-resize; }
+/* separador para cambiar el alto (columna partida arriba/abajo) */
+.esc-div-h { position: absolute; z-index: 5; height: 12px; margin-top: -6px; cursor: row-resize; }
+.esc-div-h::after {
+  content: ''; position: absolute; top: 4px; left: 50%; width: 52px; height: 4px; margin-left: -26px; border-radius: 4px;
+  background: var(--ink-faint); opacity: 0; transition: opacity 0.15s;
+}
+.esc-div-h:hover::after, .esc.redim-y .esc-div-h::after { opacity: 1; }
+.esc-win-bar[draggable='true'] { cursor: grab; }
+.esc-win-bar[draggable='true']:active { cursor: grabbing; }
 .esc.redim iframe, .esc.arrastrando iframe { pointer-events: none; }
 
 /* soltar una pestaña a un lado */
-.esc-drop { position: absolute; inset: 0; z-index: 30; display: grid; grid-template-columns: 30% 1fr 30%; gap: 10px; }
+.esc-drop { position: absolute; inset: 0; z-index: 30; }
 .esc-drop-z { display: grid; place-items: center; border-radius: 16px; border: 2px dashed transparent; transition: background 0.15s, border-color 0.15s; }
 .esc-drop-z span {
   padding: 8px 14px; border-radius: 999px; background: var(--card); box-shadow: 0 3px 0 var(--card-edge); font-size: var(--t-xs); font-weight: 700;
