@@ -8,10 +8,10 @@ const url = import.meta.env.VITE_BPLUS_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_BPLUS_SUPABASE_ANON_KEY as string | undefined
 
 let client: SupabaseClient | null | undefined
-function bplus(): SupabaseClient | null {
+export function bplus(): SupabaseClient | null {
   if (client === undefined) {
     // misma clave de almacenamiento que usa Hábitos (sb-<ref>-auth-token): comparten la sesión
-    client = url && key ? createClient(url, key, { auth: { detectSessionInUrl: false, persistSession: true, autoRefreshToken: true } }) : null
+    client = url && key ? createClient(url, key, { auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } }) : null
   }
   return client
 }

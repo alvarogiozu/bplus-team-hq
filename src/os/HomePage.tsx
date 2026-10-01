@@ -235,7 +235,7 @@ export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
     : total
       ? '¡Cerraste todo lo de hoy! Rockie está orgulloso.'
       : 'Tu día está despejado. ¿Qué armamos?'
-  const first = profile.display_name.split(' ')[0]
+  const first = (profile?.display_name || profile?.username || 'Usuario').split(' ')[0]
   const loadingDay = habitos.isLoading || agenda.isLoading || tasks.isLoading
 
   // ---------- tarjetas ----------

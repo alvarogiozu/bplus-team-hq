@@ -10,7 +10,10 @@ const easeOut = [0.22, 1, 0.36, 1]
 // Pantalla de entrada: unico camino de acceso cuando hay backend configurado.
 // En movil: columna centrada. En escritorio: dos columnas (marca + formulario).
 export default function Login() {
-  const { signInWithGoogle } = useStore()
+  const { signInWithGoogle, signInWithCredentials } = useStore()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [keep, setKeep] = useState(true)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState(null)
   const reduceMotion = useReducedMotion()
@@ -23,6 +26,18 @@ export default function Login() {
     if (!res?.ok) {
       setCargando(false)
       setError('No se pudo abrir Google. Revisa tu conexion e intenta de nuevo.')
+    }
+  }
+
+  const entrarCredenciales = async (e) => {
+    e.preventDefault()
+    if (!username.trim() || !password) return
+    setError(null)
+    setCargando(true)
+    const res = await signInWithCredentials(username, password, keep)
+    if (!res?.ok) {
+      setCargando(false)
+      setError(res?.error || 'Usuario o contraseña incorrectos.')
     }
   }
 
@@ -70,12 +85,13 @@ export default function Login() {
             Inicia sesión
           </h2>
           <p className="q" style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-soft)', margin: 0 }}>
-            Un solo toque con tu cuenta de Google.
+            Tus hábitos, tu agenda, tus proyectos y tu cuaderno con una sola cuenta.
           </p>
         </div>
 
-        <div className="login-actions">
+        <div className="login-actions" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <button
+            type="button"
             className="gbtn"
             onClick={entrar}
             disabled={cargando}
@@ -96,12 +112,75 @@ export default function Login() {
             {cargando ? 'Abriendo Google...' : 'Continuar con Google'}
           </button>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--ink-soft)', fontSize: 'var(--text-xs)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <span style={{ flex: 1, height: 1, background: 'var(--card-line)' }} />
+            <span>o con tu usuario</span>
+            <span style={{ flex: 1, height: 1, background: 'var(--card-line)' }} />
+          </div>
+
+          <form onSubmit={entrarCredenciales} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: '100%', textAlign: 'left' }}>
+            <label htmlFor="hab-u" style={{ fontSize: 'var(--text-xs)', fontWeight: 800, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Usuario
+            </label>
+            <input
+              id="hab-u"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              style={{
+                width: '100%', minHeight: 44, padding: '10px 14px', borderRadius: 12,
+                background: 'var(--card)', color: 'var(--ink)', border: '1.5px solid var(--card-line)',
+                fontSize: 'var(--text-base)',
+              }}
+            />
+
+            <label htmlFor="hab-p" style={{ fontSize: 'var(--text-xs)', fontWeight: 800, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 4 }}>
+              Contraseña
+            </label>
+            <input
+              id="hab-p"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              style={{
+                width: '100%', minHeight: 44, padding: '10px 14px', borderRadius: 12,
+                background: 'var(--card)', color: 'var(--ink)', border: '1.5px solid var(--card-line)',
+                fontSize: 'var(--text-base)',
+              }}
+            />
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-xs)', color: 'var(--ink-soft)', marginTop: 4, cursor: 'pointer' }}>
+              <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
+              Mantener sesión iniciada
+            </label>
+
+            <button
+              type="submit"
+              disabled={cargando || !username.trim() || !password}
+              style={{
+                width: '100%', minHeight: 'var(--tap-min)', padding: 'var(--space-3) var(--space-4)',
+                borderRadius: 'var(--r-pill)', background: 'var(--brand)', color: '#fff',
+                border: 'none', fontSize: 'var(--text-base)', fontWeight: 800, marginTop: 6,
+                opacity: (cargando || !username.trim() || !password) ? 0.6 : 1, cursor: 'pointer',
+              }}
+            >
+              {cargando ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+
           {error && (
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--coral)', margin: 0 }}>{error}</p>
           )}
         </div>
 
-        <p className="login-legal q">
+        <p className="login-legal q" style={{ marginTop: 8 }}>
+          ¿Nuevo? <a href="/registro" style={{ color: 'var(--brand)', fontWeight: 700 }}>Crea tu cuenta</a>
+          <br />
           Al continuar aceptas nuestros{' '}
           <Link to="/legal#terminos" style={{ color: 'var(--brand)', fontWeight: 700 }}>términos de uso</Link>
           {' '}y la{' '}

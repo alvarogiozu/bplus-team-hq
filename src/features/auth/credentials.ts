@@ -1,5 +1,7 @@
+import type { Session } from '@supabase/supabase-js'
 import { env } from '../../lib/env'
 import { setKeepSession, supabase } from '../../lib/supabase'
+import { bplus } from '../../os/habitos'
 
 export const USERNAME_RE = /^[a-z0-9._]{3,20}$/
 
@@ -29,12 +31,20 @@ export function passwordStrength(pw: string): { score: number; label: string; co
   return { score, label: pw.length < 8 ? 'Mínimo 8 caracteres' : labels[score], color: colors[score] }
 }
 
-// Único punto donde se decide cómo se entra (ver docs/DECISIONES.md): usuario + contraseña,
-// y Google (la misma cuenta de rockie.plus) cuando el proveedor está encendido en Supabase.
-export const AUTH_PROVIDERS = ['password', 'google'] as const
+// Acceso único: todas las apps usan el inicio de sesión con Google de Hábitos (B+).
+export const AUTH_PROVIDERS = ['google', 'password'] as const
 
-/** ¿Google está encendido en este proyecto? (el botón solo aparece si lo está) */
+const EN_VENTANA = (() => {
+  try {
+    return window.self !== window.top
+  } catch {
+    return true
+  }
+})()
+
+/** ¿Google está encendido? Si está configurado B+ (Hábitos), Google siempre está activo como acceso único. */
 export async function googleEnabled(): Promise<boolean> {
+  if (bplus()) return true
   try {
     const r = await fetch(`${env.supabaseUrl}/auth/v1/settings`, { headers: { apikey: env.supabaseAnonKey } })
     if (!r.ok) return false
@@ -45,15 +55,139 @@ export async function googleEnabled(): Promise<boolean> {
   }
 }
 
-/** Entrar con Google: vuelve a `path` (por defecto el Inicio) ya con la sesión. */
-export async function signInWithGoogle(path: string) {
+/** Entrar con Google (modo Hábitos unificado): vuelve a `path` (por defecto /inicio) ya con la sesión única. */
+export async function signInWithGoogle(path = '/inicio') {
   setKeepSession(true)
   const safePath = path.startsWith('/') && !path.startsWith('//') ? path : '/inicio'
-  const { error } = await supabase.auth.signInWithOAuth({
+  try {
+    sessionStorage.setItem('rockie.auth.next', safePath)
+  } catch {
+    /* sin almacenamiento */
+  }
+  const client = bplus() ?? supabase
+  const { data, error } = await client.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${location.origin}${safePath}`, queryParams: { prompt: 'select_account' } },
+    options: {
+      redirectTo: `${location.origin}${safePath}`,
+      skipBrowserRedirect: EN_VENTANA,
+      queryParams: { prompt: 'select_account' },
+    },
   })
   if (error) throw error
+  if (EN_VENTANA && data?.url) window.top!.location.assign(data.url)
+}
+
+let syncPromise: Promise<Session | null> | null = null
+
+/** Sincroniza de forma transparente la sesión de Google de Hábitos (B+) hacia el cliente de Rockie OS / HQ. */
+export async function syncHqSessionFromBplus(bplusSession: Session): Promise<Session | null> {
+  const { data: current } = await supabase.auth.getSession()
+  if (current.session) {
+    return current.session
+  }
+
+  const bplusUid = bplusSession.user.id
+  const email = `bplus.${bplusUid.replace(/-/g, '')}@${env.authEmailDomain}`
+  const password = `Bp!us_SSO_${bplusUid}`
+
+  if (syncPromise) return syncPromise
+
+  syncPromise = (async () => {
+    try {
+      setKeepSession(true)
+      const signRes = await supabase.auth.signInWithPassword({ email, password })
+      if (signRes.data.session) return signRes.data.session
+
+      const meta = (bplusSession.user.user_metadata ?? {}) as Record<string, unknown>
+      const displayName = String(
+        meta.display_name || meta.username || meta.name || bplusSession.user.email?.split('@')[0] || 'Usuario',
+      )
+        .trim()
+        .slice(0, 40)
+      const baseUser =
+        (bplusSession.user.email?.split('@')[0] || 'rockie')
+          .toLowerCase()
+          .replace(/[^a-z0-9._]/g, '')
+          .slice(0, 16) || 'rockie'
+
+      const upRes = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: baseUser,
+            display_name: displayName,
+            full_name: displayName,
+            bplus_uid: bplusUid,
+            color: '#2a82ad',
+          },
+        },
+      })
+      if (upRes.data.session) return upRes.data.session
+
+      const retry = await supabase.auth.signInWithPassword({ email, password })
+      return retry.data.session ?? null
+    } finally {
+      syncPromise = null
+    }
+  })()
+
+  return syncPromise
+}
+
+let syncBpPromise: Promise<Session | null> | null = null
+
+/** Sincroniza la sesión de Rockie OS (Usuario + Contraseña) hacia el cliente de Hábitos (B+) para mantener un acceso único. */
+export async function syncBplusSessionFromHq(hqSession: Session, rawPassword?: string): Promise<Session | null> {
+  const bp = bplus()
+  if (!bp) return null
+
+  const { data: current } = await bp.auth.getSession()
+  if (current.session) {
+    return current.session
+  }
+
+  if (syncBpPromise) return syncBpPromise
+
+  syncBpPromise = (async () => {
+    try {
+      if (hqSession.user.email && rawPassword) {
+        const signRes = await bp.auth.signInWithPassword({ email: hqSession.user.email, password: rawPassword })
+        if (signRes.data.session) return signRes.data.session
+      }
+
+      const meta = (hqSession.user.user_metadata ?? {}) as Record<string, unknown>
+      const displayName = String(
+        meta.display_name || meta.username || meta.name || hqSession.user.email?.split('@')[0] || 'Usuario',
+      )
+        .trim()
+        .slice(0, 40)
+
+      const anonRes = await bp.auth.signInAnonymously({
+        options: {
+          data: {
+            full_name: displayName,
+            name: displayName,
+            display_name: displayName,
+            hq_uid: hqSession.user.id,
+          },
+        },
+      })
+      if (anonRes.data.session) {
+        await bp
+          .from('profiles')
+          .upsert({ id: anonRes.data.session.user.id, name: displayName }, { onConflict: 'id' })
+        return anonRes.data.session
+      }
+      return null
+    } catch {
+      return null
+    } finally {
+      syncBpPromise = null
+    }
+  })()
+
+  return syncBpPromise
 }
 
 export function emailFor(username: string) {
@@ -62,8 +196,12 @@ export function emailFor(username: string) {
 
 export async function signIn(username: string, password: string, keep: boolean) {
   setKeepSession(keep)
-  const { error } = await supabase.auth.signInWithPassword({ email: emailFor(username), password })
+  const { data, error } = await supabase.auth.signInWithPassword({ email: emailFor(username), password })
   if (error) throw error
+  if (data.session) {
+    void syncBplusSessionFromHq(data.session, password)
+  }
+  return data.session
 }
 
 export async function signUp(p: { username: string; displayName: string; password: string; color: string; keep: boolean }) {
@@ -75,6 +213,8 @@ export async function signUp(p: { username: string; displayName: string; passwor
   })
   if (error) throw error
   if (!data.session) throw new Error('La cuenta se creó pero no se pudo iniciar sesión. Intenta entrar.')
+  void syncBplusSessionFromHq(data.session, p.password)
+  return data.session
 }
 
 export async function usernameAvailable(u: string): Promise<boolean> {
@@ -91,5 +231,6 @@ export async function changePassword(newPassword: string) {
 }
 
 export async function signOut() {
-  await supabase.auth.signOut()
+  const bp = bplus()
+  await Promise.allSettled([supabase.auth.signOut(), bp ? bp.auth.signOut() : Promise.resolve()])
 }

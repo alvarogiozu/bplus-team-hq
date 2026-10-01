@@ -152,7 +152,7 @@ export default function TeamPage() {
                     <Rockie color={p.m.profile.color} size={84} still={!p.enLinea} sleepy={duerme} />
                     {p.enLinea && <i className="online" />}
                   </span>
-                  <b>{me ? 'Tú' : p.m.profile.display_name.split(' ')[0]}</b>
+                  <b>{me ? 'Tú' : (p.m.profile.display_name || p.m.profile.username || 'Usuario').split(' ')[0]}</b>
                   <small>{p.m.role_title || (p.m.role === 'owner' ? 'Dueño' : 'Sin rol')}</small>
                   <span className="eq-nv">Nv {p.nivel.level}</span>
                 </button>
@@ -336,7 +336,7 @@ function MapaTrabajo({ personas, userId, onOpen }: { personas: Persona[]; userId
                   <th scope="row">
                     <button onClick={() => onOpen(p.m.user_id)}>
                       <Rockie color={p.m.profile.color} size={28} still />
-                      {p.m.user_id === userId ? 'Tú' : p.m.profile.display_name.split(' ')[0]}
+                      {p.m.user_id === userId ? 'Tú' : (p.m.profile.display_name || p.m.profile.username || 'Usuario').split(' ')[0]}
                     </button>
                   </th>
                   {cols.map((c) => {

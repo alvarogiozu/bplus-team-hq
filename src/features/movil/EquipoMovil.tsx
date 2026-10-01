@@ -60,7 +60,7 @@ export default function EquipoMovil() {
                 <Rockie color={m.profile.color} size={48} still={!enLinea} sleepy={night && !enLinea} />
                 {enLinea && <i className="online" />}
               </span>
-              <small>{m.user_id === userId ? 'Tú' : m.profile.display_name.split(' ')[0]}</small>
+              <small>{m.user_id === userId ? 'Tú' : (m.profile.display_name || m.profile.username || 'Usuario').split(' ')[0]}</small>
             </button>
           ))}
         </div>

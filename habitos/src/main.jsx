@@ -16,9 +16,13 @@ const sinEscritorio = (() => { try { return navigator.webdriver === true && loca
 // El escritorio pide la cuenta del HQ (Proyectos, Agenda, Cuaderno): quien solo tiene Hábitos lo usa suelto.
 const conCuentaHq = (() => {
   try {
-    const ref = new URL(import.meta.env.VITE_SUPABASE_URL || '').hostname.split('.')[0]
-    const k = 'sb-' + ref + '-auth-token'
-    return Boolean(localStorage.getItem(k) || sessionStorage.getItem(k))
+    const urls = [import.meta.env.VITE_BPLUS_SUPABASE_URL, import.meta.env.VITE_SUPABASE_URL]
+    return urls.some((u) => {
+      if (!u) return false
+      const ref = new URL(u).hostname.split('.')[0]
+      const k = 'sb-' + ref + '-auth-token'
+      return Boolean(localStorage.getItem(k) || sessionStorage.getItem(k))
+    })
   } catch { return false }
 })()
 if (enVentana) document.documentElement.dataset.ventana = ''

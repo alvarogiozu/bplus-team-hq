@@ -66,7 +66,7 @@ export default function TodayPage() {
         <div>
           <div className="date">{fmtDayLong(today)}</div>
           <h1>
-            {greeting(hour)}, <span className="hl">{profile.display_name.split(' ')[0]}</span>
+            {greeting(hour)}, <span className="hl">{(profile.display_name || profile.username || 'Usuario').split(' ')[0]}</span>
           </h1>
         </div>
       </div>

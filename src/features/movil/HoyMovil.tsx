@@ -92,7 +92,7 @@ export default function HoyMovil() {
         <div className="em-hello-t">
           <div className="em-kick">{fmtDayLong(today)}</div>
           <h1>
-            {greeting(hour)}, <span>{profile.display_name.split(' ')[0]}</span>
+            {greeting(hour)}, <span>{(profile.display_name || profile.username || 'Usuario').split(' ')[0]}</span>
           </h1>
         </div>
         <Rockie color={profile.color} size={56} sleepy={isNight(hour)} reactive />

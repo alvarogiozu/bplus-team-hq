@@ -341,7 +341,7 @@ export function NuevaTareaMovil() {
                 <Rockie color={m.profile.color} size={40} still />
                 {online.has(m.user_id) && <i className="online" />}
               </span>
-              <small>{m.user_id === userId ? 'Yo' : m.profile.display_name.split(' ')[0]}</small>
+              <small>{m.user_id === userId ? 'Yo' : (m.profile.display_name || m.profile.username || 'Usuario').split(' ')[0]}</small>
             </button>
           ))}
         </div>

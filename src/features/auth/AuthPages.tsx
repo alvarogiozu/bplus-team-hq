@@ -5,7 +5,6 @@ import { Rockie } from '../../components/Rockie'
 import { humanError, supabase } from '../../lib/supabase'
 import { PALETTE } from '../../lib/colors'
 import { useAuth } from './AuthProvider'
-import { hayCuentaHabitos } from '../../os/cuentas'
 import { guardarInvitacionDeLaUrl } from '../cofre/invitaciones'
 import { BLOQUEADO, esCifrado } from '../../lib/cofre/cripto'
 import {
@@ -94,7 +93,6 @@ export function LoginPage() {
       nav(params.get('next') || '/inicio', { replace: true })
     } catch (err) {
       setError(humanError(err))
-    } finally {
       setBusy(false)
     }
   }
@@ -104,16 +102,6 @@ export function LoginPage() {
       title="Entra a Rockie"
       lead="Tus hábitos, tu agenda, tus proyectos y tu cuaderno, con una sola cuenta."
     >
-      {/* quien ya usaba rockie.plus con Google tiene Hábitos abierto: puede seguir solo ahí */}
-      {hayCuentaHabitos() && (
-        <div className="auth-habitos">
-          <b>Tu sesión de Hábitos sigue abierta.</b>
-          <span>Para ver todo Rockie OS, entra con tu usuario de Rockie. O sigue solo con tus hábitos:</span>
-          <a className="btn ghost sm" href="/habitos/hoy">
-            Ir a Hábitos
-          </a>
-        </div>
-      )}
       <GoogleButton path={invite ? `/invitacion/${invite}` : next || '/inicio'} label="Entrar con Google" />
       <form onSubmit={submit} noValidate>
         <label className="lbl" htmlFor="u">Usuario</label>
@@ -132,8 +120,6 @@ export function LoginPage() {
         ¿Nuevo? <Link to={`/registro?${new URLSearchParams({ ...(invite ? { invitacion: invite } : {}), ...(next ? { next } : {}) })}`}>Crea tu cuenta</Link>
         <br />
         <span className="hint">¿Olvidaste tu contraseña? El dueño del proyecto te la restablece desde Equipo.</span>
-        <br />
-        ¿Usas Rockie Hábitos con Google? <a href="/habitos/entrar">Entra a Hábitos</a>
       </p>
     </AuthShell>
   )

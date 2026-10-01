@@ -181,7 +181,7 @@ function CardBody({ task, dragging, overlay }: { task: Task; dragging?: boolean;
       <div className="ttl">{task.title}</div>
       <div className="meta">
         <MemberAvatar member={member} size={22} />
-        {member && <span>{member.profile.display_name.split(' ')[0]}</span>}
+        {member && <span>{(member.profile.display_name || member.profile.username || 'Usuario').split(' ')[0]}</span>}
         <DuePill task={task} today={today} />
         {!done && <Prio level={prioLevel(task.priority)} label />}
       </div>

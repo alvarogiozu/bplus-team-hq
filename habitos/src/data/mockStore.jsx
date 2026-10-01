@@ -13,6 +13,7 @@ import { itemById } from './shop.js'
 import { claveMes } from './fechas.js'
 import { haceISO } from './habitHistory.js'
 import { supabase } from './supabase.js'
+import { sincronizarSesionHq, cerrarSesionHq, sincronizarDesdeHq, iniciarSesionCredenciales } from '../lib/hqChat.js'
 import { prepararFoto } from './photos.js'
 import { typeOf } from './habitTypes.js'
 import { colorForUser, esUuid } from './chat.js'
@@ -1182,10 +1183,24 @@ export function StoreProvider({ children }) {
       loadSocial()  // grupos/retos/chat reales (si la migracion 0004 ya corrio)
     }
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (cancelado) return
-      setAuthReady(true)
+      if (event === 'INITIAL_SESSION' && !session) {
+        const bridged = await sincronizarDesdeHq(supabase)
+        if (cancelado) return
+        if (bridged) {
+          uidRef.current = bridged.user.id
+          setUser(bridged.user)
+          setAuthReady(true)
+          loadData(bridged).catch(e => console.warn('[bplus] Error cargando datos; sigo en mock.', e))
+          return
+        }
+      }
+      if (!session) setAuthReady(true)
       if (session && event !== 'SIGNED_OUT') {
+        setUser(session.user)
+        setAuthReady(true)
+        void sincronizarSesionHq(session)
         // Evita recargar en refrescos de token: solo cuando cambia el usuario.
         if (uidRef.current !== session.user.id) {
           loadData(session).catch(e => console.warn('[bplus] Error cargando datos; sigo en mock.', e))
@@ -2461,10 +2476,14 @@ export function StoreProvider({ children }) {
     return { ok: true }
   }, [])
 
+  const signInWithCredentials = useCallback(async (username, password, keep = true) => {
+    return iniciarSesionCredenciales(username, password, keep, supabase)
+  }, [])
+
   // Cerrar sesion: el listener SIGNED_OUT limpia el estado y App.jsx vuelve al login.
   const signOut = useCallback(async () => {
     if (!supabase) return
-    await supabase.auth.signOut()
+    await Promise.allSettled([supabase.auth.signOut(), cerrarSesionHq()])
   }, [])
 
   // Eliminar cuenta (Apple Guideline 5.1.1(v)): la edge function borra los datos
@@ -2568,7 +2587,7 @@ export function StoreProvider({ children }) {
     // isFriend=false en peers de grupo; el fallback de amistades lo marca true.
     inviteFriends: (liveFriends ?? []).filter(f => f.isFriend !== false && !blockedIds.has(f.id)), groupEmojis: GROUP_EMOJIS,
     seenOnboarding, setSeenOnboarding,
-    authReady, user, needsAuth, signInWithGoogle, signOut, deleteAccount,
+    authReady, user, needsAuth, signInWithGoogle, signInWithCredentials, signOut, deleteAccount,
     blockedIds, blockUser, unblockUser, reportUser, reportMessage,
     lastToast, celebration, live, me,
     lastCoinGain, lastLevelUp, totalDone,
@@ -2588,7 +2607,7 @@ export function StoreProvider({ children }) {
     validateHabit, updateHabitTime, setHabitNote, submitPhotoProof, dismissReject,
     createHabit, updateHabit, pauseHabit, resumeHabit, deleteHabit,
     sortHabits, habitsForToday, weekdayIdx,
-  }), [today, allHabits, history, xp, coins, streak, level, rockie, emotion, doneCount, totalCount, pct, seenOnboarding, setSeenOnboarding, authReady, user, needsAuth, signInWithGoogle, signOut, deleteAccount, blockedIds, blockUser, unblockUser, reportUser, reportMessage, lastToast, celebration, live, me, lastCoinGain, lastLevelUp, totalDone, aplazosUsados, shop, liveFriends, groups, retos, feed, metas, createMeta, updateMeta, deleteMeta, metaDeHabito, metasDeHabito, linkHabitAMeta, origenSocialDeHabito, areas, customAreas, createArea, updateArea, deleteArea, buyItem, equipItem, setRockieColor, setRockieEyes, setRockieMouth, createGroup, updateGroup, joinGroup, joinGroupByCode, createReto, joinReto, inviteFriendsToGroup, inviteFriendsToChallenge, reactToPost, addComment, addFriendByCode, inviteWelcome, clearInviteWelcome, prefs, setPref, updateProfile, uploadAvatar, gcalOn, connectCalendar, disconnectCalendar, validateHabit, updateHabitTime, setHabitNote, submitPhotoProof, dismissReject, createHabit, updateHabit, pauseHabit, resumeHabit, deleteHabit])
+  }), [today, allHabits, history, xp, coins, streak, level, rockie, emotion, doneCount, totalCount, pct, seenOnboarding, setSeenOnboarding, authReady, user, needsAuth, signInWithGoogle, signInWithCredentials, signOut, deleteAccount, blockedIds, blockUser, unblockUser, reportUser, reportMessage, lastToast, celebration, live, me, lastCoinGain, lastLevelUp, totalDone, aplazosUsados, shop, liveFriends, groups, retos, feed, metas, createMeta, updateMeta, deleteMeta, metaDeHabito, metasDeHabito, linkHabitAMeta, origenSocialDeHabito, areas, customAreas, createArea, updateArea, deleteArea, buyItem, equipItem, setRockieColor, setRockieEyes, setRockieMouth, createGroup, updateGroup, joinGroup, joinGroupByCode, createReto, joinReto, inviteFriendsToGroup, inviteFriendsToChallenge, reactToPost, addComment, addFriendByCode, inviteWelcome, clearInviteWelcome, prefs, setPref, updateProfile, uploadAvatar, gcalOn, connectCalendar, disconnectCalendar, validateHabit, updateHabitTime, setHabitNote, submitPhotoProof, dismissReject, createHabit, updateHabit, pauseHabit, resumeHabit, deleteHabit])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

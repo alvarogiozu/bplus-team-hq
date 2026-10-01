@@ -83,7 +83,7 @@ export default function EquiposPage() {
       <header className="eqs-head">
         <Rockie color={profile.color} size={64} />
         <div>
-          <h1>¿En qué proyecto trabajas hoy, {profile.display_name.split(' ')[0]}?</h1>
+          <h1>¿En qué proyecto trabajas hoy, {(profile.display_name || profile.username || 'Usuario').split(' ')[0]}?</h1>
           <p>Cada proyecto tiene sus tareas y sus metas. Puede ser solo tuyo o compartido con tu gente.</p>
         </div>
       </header>
