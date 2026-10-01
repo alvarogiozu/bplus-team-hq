@@ -7,11 +7,24 @@ import registro from './privacidad.json'
 import { BLOQUEADO, RE_SOBRE, cifrarArchivo, cifrarValor, descifrarArchivo, descifrarValor, esCifrado, kidDeArchivo } from './cripto'
 import type { Ambito, Llavero } from './llavero'
 
-type Regla = { llave: string; estado: string; cifrar: string[]; dueno?: string; sellarCon?: string }
-type ReglaArchivo = { llave: string; estado: string }
+type Regla = {
+  llave: string
+  estado: string
+  cifrar: string[]
+  dueno?: string
+  sellarCon?: string
+  /** otra llave cuando la columna «si» no está vacía (p. ej. una página compartida usa la llave de la página) */
+  llaveSi?: { si: string; llave: string }
+  /** si esta columna es true, la fila va en claro a propósito (libreta abierta para Claude) */
+  enClaroSi?: string
+  /** la columna que identifica la fila (si no es «id») */
+  pk?: string
+}
+type ReglaArchivo = { llave: string; estado: string; enClaro?: string }
 type Fila = Record<string, unknown>
 
 const TABLAS = registro.tablas as unknown as Record<string, Regla>
+const FUNCIONES = ((registro as unknown as { funciones?: Record<string, Regla> }).funciones ?? {}) as Record<string, Regla>
 const ARCHIVOS = ((registro as unknown as { archivos?: Record<string, ReglaArchivo> }).archivos ?? {}) as Record<string, ReglaArchivo>
 
 export function reglaActiva(tabla: string): Regla | null {
@@ -20,17 +33,17 @@ export function reglaActiva(tabla: string): Regla | null {
 }
 
 /** Tablas personales que ya se cifran (para sellar lo que se guardó antes del Cofre). */
-export function tablasPersonalesActivas(): { tabla: string; cifrar: string[]; dueno: string }[] {
+export function tablasPersonalesActivas(): { tabla: string; cifrar: string[]; dueno: string; pk: string; extra: string[] }[] {
   return Object.entries(TABLAS)
     .filter(([, r]) => r.estado === 'activo' && r.llave === 'personal' && r.cifrar.length && r.dueno)
-    .map(([tabla, r]) => ({ tabla, cifrar: r.cifrar, dueno: r.dueno! }))
+    .map(([tabla, r]) => ({ tabla, cifrar: r.cifrar, dueno: r.dueno!, pk: r.pk ?? 'id', extra: [r.enClaroSi, r.llaveSi?.si].filter((x): x is string => Boolean(x)) }))
 }
 
 /** Tablas de equipo que ya se cifran, con la columna que dice de qué equipo es cada fila. */
-export function tablasDeEquipoActivas(): { tabla: string; cifrar: string[]; col: string }[] {
+export function tablasDeEquipoActivas(): { tabla: string; cifrar: string[]; col: string; pk: string }[] {
   return Object.entries(TABLAS)
     .filter(([, r]) => r.estado === 'activo' && r.llave.startsWith('espacio:') && r.cifrar.length)
-    .map(([tabla, r]) => ({ tabla, cifrar: r.cifrar, col: r.llave.split(':')[1] }))
+    .map(([tabla, r]) => ({ tabla, cifrar: r.cifrar, col: r.llave.split(':')[1], pk: r.pk ?? 'id' }))
 }
 
 /** Huella de lo que se cifra hoy: cuando cambia (una tanda nueva), se vuelve a barrer lo viejo. */
@@ -108,22 +121,46 @@ function filtroEq(url: URL, col: string): string | null {
   return f?.startsWith('eq.') ? f.slice(3) : null
 }
 
-type Contexto = { l: Llavero; tabla: string; regla: Regla; url: URL; headers: Headers; crudo: typeof fetch }
+type Contexto = { l: Llavero; tabla: string; regla: Regla; url: URL; headers: Headers; crudo: typeof fetch; metodo: string }
 
-async function ambitoDe(c: Contexto, f: Fila): Promise<Ambito> {
-  if (c.regla.llave === 'personal') return { tipo: 'personal' }
-  const [tipo, col] = c.regla.llave.split(':') as ['espacio' | 'nota', string]
-  let id = (f[col] as string | undefined) ?? filtroEq(c.url, col)
-  if (!id) {
-    // un update que no trae el equipo: se pregunta de qué equipo es la fila
-    const fid = filtroEq(c.url, 'id')
-    if (fid) {
-      const r = await c.crudo(`${c.url.origin}${c.url.pathname}?select=${col}&id=eq.${encodeURIComponent(fid)}`, {
-        headers: { apikey: c.headers.get('apikey') ?? '', Authorization: c.headers.get('Authorization') ?? '' },
-      })
-      const filas = r.ok ? ((await r.json()) as Fila[]) : []
-      id = (filas[0]?.[col] as string | undefined) ?? null
-    }
+/** Las columnas que la regla necesita para decidir (equipo, si está compartida, si está abierta para Claude):
+ *  de la fila, de los filtros del pedido o, si no, se le pregunta a la base por esa fila. */
+async function datosDeFila(c: Contexto, f: Fila, cols: string[]): Promise<Fila> {
+  const out: Fila = { ...f }
+  const faltan = cols.filter((k) => !(k in out))
+  for (const k of faltan) {
+    const v = filtroEq(c.url, k)
+    if (v !== null) out[k] = v === 'true' ? true : v === 'false' ? false : v
+  }
+  const aun = faltan.filter((k) => !(k in out))
+  const pk = c.regla.pk ?? 'id'
+  const fid = (typeof f[pk] === 'string' || typeof f[pk] === 'number' ? String(f[pk]) : null) ?? filtroEq(c.url, pk)
+  if (aun.length && fid && (c.metodo === 'PATCH' || c.metodo === 'PUT')) {
+    const r = await c.crudo(`${c.url.origin}/rest/v1/${c.tabla}?select=${aun.join(',')}&${pk}=eq.${encodeURIComponent(fid)}`, {
+      headers: { apikey: c.headers.get('apikey') ?? '', Authorization: c.headers.get('Authorization') ?? '' },
+    })
+    const filas = r.ok ? ((await r.json()) as Fila[]) : []
+    if (filas[0]) Object.assign(out, filas[0])
+  }
+  return out
+}
+
+/** Con qué llave se cifra esta fila; null = va en claro a propósito (libreta abierta para Claude). */
+async function decidir(c: Contexto, f: Fila): Promise<Ambito | null> {
+  const r = c.regla
+  const base = r.llaveSi && 'si' in r.llaveSi ? r.llaveSi : null
+  const necesito = [r.enClaroSi, base?.si, r.llave.includes(':') ? r.llave.split(':')[1] : null, base?.llave.split(':')[1]]
+    .filter((x): x is string => Boolean(x))
+  const d = await datosDeFila(c, f, [...new Set(necesito)])
+  if (r.enClaroSi && d[r.enClaroSi] === true) return null
+  const llave = base && d[base.si] != null ? base.llave : r.llave
+  if (llave === 'personal') return { tipo: 'personal' }
+  const [tipo, col] = llave.split(':') as ['espacio' | 'nota', string]
+  let id = d[col] as string | undefined
+  if (!id && col === 'id' && c.metodo === 'POST') {
+    // fila nueva cuya llave es la suya propia: nace con su id para poder cifrarla ya
+    id = crypto.randomUUID()
+    f.id = id
   }
   if (!id) throw new ErrorCofre(`No se pudo saber con qué llave cifrar (${c.tabla}).`)
   return { tipo, id }
@@ -136,12 +173,16 @@ async function cifrarFilas(c: Contexto, filas: Fila[]) {
   for (const f of filas) {
     const cols = c.regla.cifrar.filter((col) => debeCifrar(f[col]))
     if (!cols.length) continue
-    const k = await c.l.llaveParaEscribir(await ambitoDe(c, f))
+    const a = await decidir(c, f)
+    if (!a) continue
+    const k = await c.l.llaveParaEscribir(a)
     if (!k) {
       throw new ErrorCofre(
-        c.regla.llave === 'personal'
+        a.tipo === 'personal'
           ? 'Abre tu Cofre para guardar esto.'
-          : 'Todavía no tienes la llave de este equipo: te llega cuando alguien del equipo abra Rockie.',
+          : a.tipo === 'nota'
+            ? 'Todavía no tienes la llave de esta página compartida: te llega cuando su dueño abra Rockie.'
+            : 'Todavía no tienes la llave de este equipo: te llega cuando alguien del equipo abra Rockie.',
       )
     }
     for (const col of cols) f[col] = await cifrarValor(k.llave, k.kid, f[col])
@@ -156,6 +197,7 @@ function respuestaError(message: string): Response {
 }
 
 // ——— sellar lo que todavía está en claro (lo de antes del Cofre o lo que escribió el servidor) ———
+// y, al revés, abrir lo que pasó a una libreta abierta para Claude.
 
 // una fila por vez; si no se pudo (la llave del equipo todavía no llegaba, sin conexión…) se reintenta al
 // volver a leerla, pero no antes de un minuto
@@ -176,47 +218,59 @@ function anotar(clave: string, intento: Promise<boolean>) {
 function resellar(envuelto: typeof fetch, c: Contexto, filas: Fila[]) {
   if (c.l.fase !== 'abierto') return
   for (const f of filas) {
-    const id = f.id
-    if (typeof id !== 'string') continue
-    const cols = c.regla.cifrar.filter((col) => col in f && debeCifrar(f[col]))
+    const pk = c.regla.pk ?? 'id'
+    const crudoId = f[pk]
+    if (typeof crudoId !== 'string' && typeof crudoId !== 'number') continue
+    const id = String(crudoId)
+    const enClaro = c.regla.cifrar.filter((col) => col in f && debeCifrar(f[col]))
+    // abrir lo cifrado solo si la fila ya dice que está abierta (sin preguntarle a la base por cada fila)
+    const cifradas = c.regla.enClaroSi && f[c.regla.enClaroSi] === true ? c.regla.cifrar.filter((col) => col in f && esCifrado(f[col])) : []
     const clave = `${c.tabla}:${id}`
-    if (!cols.length || resellando.has(clave) || Date.now() - (fallidos.get(clave) ?? 0) < 60_000) continue
+    if ((!enClaro.length && !cifradas.length) || resellando.has(clave) || Date.now() - (fallidos.get(clave) ?? 0) < 60_000) continue
     const h = new Headers({
       apikey: c.headers.get('apikey') ?? '',
       Authorization: c.headers.get('Authorization') ?? '',
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     })
-    if (c.regla.sellarCon) {
-      // tabla que nadie edita (la arma el servidor): la base solo acepta cambiar texto en claro por su versión cifrada
-      anotar(
-        clave,
-        (async () => {
-          const k = await c.l.llaveParaEscribir(await ambitoDe(c, f))
-          if (!k) return false
-          const campos: Fila = {}
-          for (const col of cols) campos[col] = await cifrarValor(k.llave, k.kid, f[col])
-          const r = await c.crudo(`${c.url.origin}/rest/v1/rpc/${c.regla.sellarCon}`, {
-            method: 'POST',
-            headers: h,
-            body: JSON.stringify({ p_tabla: c.tabla, p_id: id, p_campos: campos }),
-          })
-          return r.ok
-        })(),
-      )
-      continue
-    }
-    const cambios: Fila = {}
-    const q = new URLSearchParams({ id: `eq.${id}` })
-    for (const col of cols) {
-      cambios[col] = f[col]
-      // solo si nadie lo cambió mientras tanto (los textos largos y los JSON no se comparan).
-      // En un filtro eq. el valor va tal cual: las comillas solo se usan dentro de in.(…) y or=(…)
-      if (typeof f[col] === 'string' && (f[col] as string).length <= 200) q.set(col, `eq.${f[col] as string}`)
-    }
     anotar(
       clave,
-      envuelto(`${c.url.origin}${c.url.pathname}?${q}`, { method: 'PATCH', headers: h, body: JSON.stringify(cambios) }).then((r) => r.ok),
+      (async () => {
+        const a = await decidir({ ...c, metodo: 'PATCH' }, f)
+        const cambios: Fila = {}
+        const q = new URLSearchParams({ [pk]: `eq.${id}` })
+        if (a) {
+          if (!enClaro.length) return true
+          if (c.regla.sellarCon) {
+            // tabla que nadie edita (la arma el servidor): la base solo acepta cambiar texto en claro por su versión cifrada
+            const k = await c.l.llaveParaEscribir(a)
+            if (!k) return false
+            for (const col of enClaro) cambios[col] = await cifrarValor(k.llave, k.kid, f[col])
+            const r = await c.crudo(`${c.url.origin}/rest/v1/rpc/${c.regla.sellarCon}`, {
+              method: 'POST',
+              headers: h,
+              body: JSON.stringify({ p_tabla: c.tabla, p_id: id, p_campos: cambios }),
+            })
+            return r.ok
+          }
+          for (const col of enClaro) {
+            cambios[col] = f[col]
+            // solo si nadie lo cambió mientras tanto (los textos largos y los JSON no se comparan).
+            // En un filtro eq. el valor va tal cual: las comillas solo se usan dentro de in.(…) y or=(…)
+            if (typeof f[col] === 'string' && (f[col] as string).length <= 200) q.set(col, `eq.${f[col] as string}`)
+          }
+        } else {
+          // libreta abierta para Claude: lo cifrado se guarda abierto (la persona lo eligió)
+          if (!cifradas.length) return true
+          for (const col of cifradas) {
+            const v = await abrirSobre(c.l, f[col] as string, 0)
+            if (v === null || v === BLOQUEADO) return false
+            cambios[col] = v
+          }
+        }
+        const r = await envuelto(`${c.url.origin}${c.url.pathname}?${q}`, { method: 'PATCH', headers: h, body: JSON.stringify(cambios) })
+        return r.ok
+      })(),
     )
   }
 }
@@ -236,6 +290,8 @@ export const archivosEnClaro = new Set<string>()
 
 function ambitoDeArchivo(regla: ReglaArchivo, ruta: string[]): Ambito {
   if (regla.llave === 'personal') return { tipo: 'personal' }
+  // Cuaderno: <uid>/n/<nota>/… = imagen de una página (llave de la página: sirve si se comparte); el resto es tuyo
+  if (regla.llave === 'cuaderno') return ruta[1] === 'n' && ruta[2] ? { tipo: 'nota', id: ruta[2] } : { tipo: 'personal' }
   const [tipo, i] = regla.llave.split(':') as ['espacio' | 'nota', string]
   const id = ruta[Number(i)]
   if (!id) throw new ErrorCofre('No se pudo saber con qué llave cifrar este archivo.')
@@ -306,7 +362,9 @@ async function pasarArchivo(l: Llavero, url: string, init: RequestInit | undefin
   const [bucket, ...ruta] = resto.split('/')
   if (!bucket || RESERVADAS.has(bucket)) return crudo(url, init)
   const regla = ARCHIVOS[bucket]
-  const activo = regla?.estado === 'activo'
+  // las fuentes que se mandan a la IA (un PDF para «Aprender») van en claro a propósito: la función las lee y las borra
+  const fuenteParaIA = regla?.enClaro && ruta[ruta.length - 1]?.startsWith(regla.enClaro)
+  const activo = regla?.estado === 'activo' && !fuenteParaIA
   if ((metodo === 'POST' || metodo === 'PUT') && activo && init?.body) {
     try {
       return crudo(url, { ...init, body: await cifrarSubida(l, regla, ruta, init.body) })
@@ -339,10 +397,12 @@ export function crearFetchCifrado(base: string, llavero: () => Llavero | null, c
     const u = new URL(url)
     const tabla = decodeURIComponent(u.pathname.slice(u.pathname.indexOf('/rest/v1/') + 9).split('/')[0])
     if (tabla.startsWith('cofre_')) return crudo(input, init) // el llavero mismo: sus valores ya van cifrados a su manera
-    const regla = tabla === 'rpc' ? null : reglaActiva(tabla)
+    const fn = tabla === 'rpc' ? decodeURIComponent(u.pathname.split('/rest/v1/rpc/')[1] ?? '') : null
+    const reglaFn = fn ? FUNCIONES[fn] : undefined
+    const regla = fn ? (reglaFn?.estado === 'activo' ? reglaFn : null) : reglaActiva(tabla)
     const metodo = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase()
     const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined))
-    const c: Contexto | null = regla ? { l, tabla, regla, url: u, headers, crudo } : null
+    const c: Contexto | null = regla ? { l, tabla: fn ?? tabla, regla, url: u, headers, crudo, metodo: fn ? 'RPC' : metodo } : null
 
     let body = init?.body
     if (c && typeof body === 'string' && (metodo === 'POST' || metodo === 'PATCH' || metodo === 'PUT')) {
@@ -356,7 +416,7 @@ export function crearFetchCifrado(base: string, llavero: () => Llavero | null, c
       }
     }
     const res = await crudo(url, { ...init, method: metodo, headers, body })
-    return abrirRespuesta(res, l, metodo === 'GET' && c ? (filas) => resellar(envuelto, c, filas) : undefined)
+    return abrirRespuesta(res, l, metodo === 'GET' && c && !fn ? (filas) => resellar(envuelto, c, filas) : undefined)
   }
   return envuelto
 }

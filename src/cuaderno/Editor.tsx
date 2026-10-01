@@ -138,12 +138,13 @@ const CuImage = Image.extend({
   },
 })
 
-async function insertImages(editor: Editor, uid: string, files: File[], at?: number) {
+/** noteId: la imagen va en la carpeta de la página (con su llave): si la página se comparte, el equipo la ve. */
+async function insertImages(editor: Editor, uid: string, files: File[], at?: number, noteId?: string) {
   const images = files.filter((f) => f.type.startsWith('image/'))
   if (!images.length) return false
   for (const f of images) {
     const { blob, ext } = await shrinkImage(f)
-    const path = await upload(uid, blob, ext)
+    const path = await upload(uid, blob, ext, undefined, noteId)
     if (!path) continue
     const content = { type: 'image', attrs: { src: srcOf(path), alt: f.name.replace(/\.[a-z0-9]+$/i, '') } }
     if (at != null) editor.chain().focus().insertContentAt(at, content).run()
@@ -263,7 +264,7 @@ export function useNoteEditor(p: {
           const files = Array.from(event.clipboardData?.files ?? [])
           if (!files.some((f) => f.type.startsWith('image/')) || !uidRef.current || !editorRef.current) return false
           event.preventDefault()
-          void insertImages(editorRef.current, uidRef.current, files)
+          void insertImages(editorRef.current, uidRef.current, files, undefined, p.noteId)
           return true
         },
         handleDrop: (view, event) => {
@@ -271,7 +272,7 @@ export function useNoteEditor(p: {
           if (!files.some((f) => f.type.startsWith('image/')) || !uidRef.current || !editorRef.current) return false
           event.preventDefault()
           const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
-          void insertImages(editorRef.current, uidRef.current, files, pos)
+          void insertImages(editorRef.current, uidRef.current, files, pos, p.noteId)
           return true
         },
       },
@@ -297,6 +298,7 @@ export function useNoteEditor(p: {
       openDialog({
         kind: 'dibujo',
         drawingId: id,
+        noteId: p.noteId,
         onSave: ({ src }) => {
           const tr = editor.state.tr
           editor.state.doc.descendants((node, pos) => {
@@ -380,6 +382,7 @@ export function Toolbar({ editor, onDictate, dictating, note, lite }: { editor: 
   const draw = () =>
     openDialog({
       kind: 'dibujo',
+      noteId: note?.id,
       onSave: ({ src, drawingId }) => c().setImage({ src, alt: 'Dibujo', title: `dibujo:${drawingId}` }).run(),
     })
   return (
@@ -527,7 +530,7 @@ export function Toolbar({ editor, onDictate, dictating, note, lite }: { editor: 
         onChange={(e) => {
           const files = Array.from(e.target.files ?? [])
           e.target.value = ''
-          if (userId) void insertImages(editor, userId, files)
+          if (userId) void insertImages(editor, userId, files, undefined, note?.id)
         }}
       />
     </div>

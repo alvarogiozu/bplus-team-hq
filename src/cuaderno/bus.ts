@@ -18,6 +18,8 @@ export type Dialog =
   | {
       kind: 'dibujo'
       drawingId?: string
+      /** la página donde va (su imagen se cifra con la llave de la página: si se comparte, el equipo la ve) */
+      noteId?: string
       /** la hoja sin guardar, tal cual (al deshacer "Descartar") */
       initial?: { strokes: unknown[]; w: number; h: number; paper: 'claro' | 'oscuro' }
       onSave: (r: { src: string; drawingId: string }) => void

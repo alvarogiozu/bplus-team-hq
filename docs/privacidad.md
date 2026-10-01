@@ -57,6 +57,6 @@ ni Supabase, ni alguien que robe una copia de la base.
 |---|---|---|
 | 1 | Base: llavero, fetch cifrado, puerta, traspaso/recuperación, guardián del build. Activo: conversaciones con Rockie (`rockie_turns`), nombres de calendarios, grupos, hobbies y reservas | ✅ |
 | 2 | Equipos/proyectos: tareas, metas y avances, eventos, materiales (+ archivos y fotos de prueba), logros, actividad, nombre y misión del equipo; invitaciones con la llave en el enlace (#k=…); reparto automático de llaves a quien llega | ✅ |
-| 3 | Cuaderno: notas, diario, tarjetas, dibujos, pizarras, notas compartidas en vivo (Yjs); agente y conector de Claude sin leer la base | ⏳ |
+| 3 | Cuaderno: notas, diario, tarjetas, conexiones, libretas, dibujos, pizarras, imágenes (carpeta de su página), páginas compartidas con su propia llave y su edición en vivo (lo guardado y lo que viaja por el canal); el agente ya no lee la base (la app le manda el contexto) y las «parecidas» se calculan en el dispositivo con huellas cifradas; el conector de Claude solo ve los cuadernos que abras para Claude | ✅ |
 | 4 | Agenda: actividades + sincronización con Google desde el cliente; token de Google cifrado en el servidor | ⏳ |
 | 5 | Hábitos (base de B+): hábitos, fotos de prueba, chat de grupos, amigos | ⏳ |

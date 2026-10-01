@@ -91,6 +91,7 @@ export const growLine = (h: number, k: number) => (k ? h - Math.min(h * 0.3, LIN
 
 export function DrawSheet(p: {
   drawingId?: string
+  noteId?: string
   /** la hoja sin guardar de un "Descartar" que se deshizo */
   initial?: { strokes: unknown[]; w: number; h: number; paper: Paper }
   onSave: (r: { src: string; drawingId: string }) => void
@@ -429,7 +430,7 @@ export function DrawSheet(p: {
     paint(ctx, strokes, pal)
     const blob = await new Promise<Blob | null>((r) => out.toBlob(r, 'image/png'))
     const id = await actions.saveDrawing({ id: p.drawingId, width: size.w, height: size.h, strokes, paper })
-    const path = blob && id ? await upload(userId, blob, 'png', `dibujo-${id}`) : null
+    const path = blob && id ? await upload(userId, blob, 'png', `dibujo-${id}`, p.noteId) : null
     setSaving(false)
     if (!id || !path) return
     haptic([8, 24, 8])
@@ -441,7 +442,7 @@ export function DrawSheet(p: {
     closeDialog()
     if (kept.strokes.length && !p.drawingId) {
       toast('Descartaste el dibujo', {
-        action: { label: 'Deshacer', onClick: () => openDialog({ kind: 'dibujo', onSave: p.onSave, initial: kept }) },
+        action: { label: 'Deshacer', onClick: () => openDialog({ kind: 'dibujo', noteId: p.noteId, onSave: p.onSave, initial: kept }) },
       })
     }
   }

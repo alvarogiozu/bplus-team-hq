@@ -7,7 +7,8 @@ import {
   removeAwarenessStates,
 } from 'y-protocols/awareness'
 import type { RealtimeChannel } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { cofre, supabase } from '../lib/supabase'
+import { cifrarValor, descifrarValor, esCifrado, kidDe } from '../lib/cofre/cripto'
 
 // Edición a la vez de una nota compartida (como Google Docs), sin servidor propio:
 // - el texto vivo es un documento Yjs (CRDT: los cambios de todos se juntan sin pisarse);
@@ -16,6 +17,8 @@ import { supabase } from '../lib/supabase'
 // - al abrir: se aplican los cambios guardados y se pide a quien ya está conectado lo que falte.
 // Si el documento vivo no existe todavía (recién compartida o rehecha desde el Markdown), UNO solo
 // lo arma (claim_note_ydoc) y los demás esperan a recibirlo: así el texto nunca sale duplicado.
+// Con el Cofre, todo lo que viaja por el canal y lo que se guarda va cifrado con la llave de la página:
+// Supabase solo ve que hay cambios, no qué dicen.
 
 export type CollabUser = { id: string; name: string; color: string }
 export type Peer = CollabUser & { clientId: number }
@@ -154,20 +157,19 @@ export class NoteSync {
     const ch = supabase.channel(`nota:${this.noteId}`, {
       config: { private: true, broadcast: { self: false, ack: false } },
     })
-    ch.on('broadcast', { event: 'u' }, ({ payload }) => this.onRemote(payload as Msg))
-      .on('broadcast', { event: 'sync1' }, ({ payload }) => this.onSync1(payload as Msg))
-      .on('broadcast', { event: 'sync2' }, ({ payload }) => {
-        const m = payload as Msg
+    // cada mensaje llega cifrado: se abre y recién ahí se aplica
+    const al = (fn: (m: Msg) => void) => ({ payload }: { payload: unknown }) => void this.abrir(payload as Msg).then((m) => m && fn(m))
+    ch.on('broadcast', { event: 'u' }, al((m) => this.onRemote(m)))
+      .on('broadcast', { event: 'sync1' }, al((m) => this.onSync1(m)))
+      .on('broadcast', { event: 'sync2' }, al((m) => {
         if (m.to === this.doc.clientID) this.onRemote(m)
-      })
-      .on('broadcast', { event: 'title' }, ({ payload }) => {
-        const m = payload as Msg
+      }))
+      .on('broadcast', { event: 'title' }, al((m) => {
         if (m.e === this.epoch && typeof m.t === 'string') this.onTitle?.(m.t)
-      })
-      .on('broadcast', { event: 'aw' }, ({ payload }) => {
-        const m = payload as Msg
+      }))
+      .on('broadcast', { event: 'aw' }, al((m) => {
         if (m.e === this.epoch && m.d) applyAwarenessUpdate(this.awareness, fromB64(m.d), 'remote')
-      })
+      }))
       .subscribe((st) => {
         if (st === 'SUBSCRIBED') {
           this.live = true
@@ -195,8 +197,34 @@ export class NoteSync {
 
   private send(event: string, payload: Msg) {
     if (!this.ch || !this.live) return false
-    void this.ch.send({ type: 'broadcast', event, payload })
+    // sin la llave de la página no sale nada (nunca en claro)
+    void this.sellar(payload).then((p) => p && this.ch?.send({ type: 'broadcast', event, payload: p }))
     return true
+  }
+
+  private async sellar(m: Msg): Promise<Msg | null> {
+    const k = await cofre.llaveParaEscribir({ tipo: 'nota', id: this.noteId })
+    if (!k) return null
+    const out: Msg = { ...m }
+    for (const c of ['d', 'sv', 't'] as const) if (typeof m[c] === 'string') out[c] = await cifrarValor(k.llave, k.kid, m[c])
+    return out
+  }
+
+  private async abrir(m: Msg): Promise<Msg | null> {
+    if (this.dead || !m) return null
+    const out: Msg = { ...m }
+    for (const c of ['d', 'sv', 't'] as const) {
+      const v = m[c]
+      if (!esCifrado(v)) continue
+      const k = await cofre.llavePorKid(kidDe(v)!)
+      if (!k) return null
+      try {
+        out[c] = (await descifrarValor(k, v)) as string
+      } catch {
+        return null
+      }
+    }
+    return out
   }
 
   private checkEpoch(e: number) {

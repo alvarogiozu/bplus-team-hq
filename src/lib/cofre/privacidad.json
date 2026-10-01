@@ -114,8 +114,7 @@
     },
     "cuaderno_notes": {
       "llave": "personal",
-      "estado": "pendiente",
-      "tanda": "3-cuaderno",
+      "estado": "activo",
       "dueno": "user_id",
       "cifrar": [
         "title",
@@ -125,13 +124,18 @@
         "area": "área de la vida (cuerpo/mente/alma/trabajo) para ordenar",
         "kind": "tipo (nota/pizarra)",
         "color": "apariencia",
-        "icon": "apariencia (ícono)"
-      }
+        "icon": "apariencia (ícono)",
+        "abierta": "su cuaderno está abierto para Claude (lo eligió la persona): va en claro para que el conector lo lea"
+      },
+      "llaveSi": {
+        "si": "space_id",
+        "llave": "nota:id"
+      },
+      "enClaroSi": "abierta"
     },
     "cuaderno_entries": {
       "llave": "personal",
-      "estado": "pendiente",
-      "tanda": "3-cuaderno",
+      "estado": "activo",
       "dueno": "user_id",
       "cifrar": [
         "text",
@@ -145,29 +149,32 @@
     },
     "cuaderno_links": {
       "llave": "personal",
-      "estado": "pendiente",
-      "tanda": "3-cuaderno",
+      "estado": "activo",
       "dueno": "user_id",
       "cifrar": [
         "reason"
       ],
-      "publico": {}
+      "publico": {
+        "abierta": "su cuaderno está abierto para Claude (lo eligió la persona): va en claro para que el conector lo lea"
+      },
+      "enClaroSi": "abierta"
     },
     "cuaderno_cards": {
       "llave": "personal",
-      "estado": "pendiente",
-      "tanda": "3-cuaderno",
+      "estado": "activo",
       "dueno": "user_id",
       "cifrar": [
         "q",
         "a"
       ],
-      "publico": {}
+      "publico": {
+        "abierta": "su cuaderno está abierto para Claude (lo eligió la persona): va en claro para que el conector lo lea"
+      },
+      "enClaroSi": "abierta"
     },
     "cuaderno_books": {
       "llave": "personal",
-      "estado": "pendiente",
-      "tanda": "3-cuaderno",
+      "estado": "activo",
       "dueno": "user_id",
       "cifrar": [
         "name"
@@ -175,13 +182,14 @@
       "publico": {
         "color": "apariencia",
         "kind": "tipo de libreta",
-        "icon": "apariencia (ícono)"
-      }
+        "icon": "apariencia (ícono)",
+        "abierta_claude": "la persona abrió este cuaderno para Claude"
+      },
+      "enClaroSi": "abierta_claude"
     },
     "cuaderno_drawings": {
       "llave": "personal",
-      "estado": "pendiente",
-      "tanda": "3-cuaderno",
+      "estado": "activo",
       "dueno": "user_id",
       "cifrar": [
         "strokes"
@@ -192,18 +200,17 @@
     },
     "cuaderno_boards": {
       "llave": "personal",
-      "estado": "pendiente",
-      "tanda": "3-cuaderno",
+      "estado": "activo",
       "dueno": "user_id",
       "cifrar": [
         "scene"
       ],
-      "publico": {}
+      "publico": {},
+      "pk": "note_id"
     },
     "cuaderno_note_updates": {
       "llave": "nota:note_id",
-      "estado": "pendiente",
-      "tanda": "3-cuaderno",
+      "estado": "activo",
       "cifrar": [
         "data"
       ],
@@ -495,6 +502,16 @@
       "publico": {
         "paquete": "llaves del equipo cerradas con el secreto que va en el enlace (después del #)"
       }
+    },
+    "cuaderno_huellas": {
+      "llave": "personal",
+      "estado": "activo",
+      "dueno": "user_id",
+      "pk": "note_id",
+      "cifrar": [
+        "huella"
+      ],
+      "publico": {}
     }
   },
   "archivos": {
@@ -508,9 +525,28 @@
       "estado": "activo"
     },
     "cuaderno": {
-      "llave": "personal",
-      "estado": "pendiente",
-      "tanda": "3-cuaderno"
+      "llave": "cuaderno",
+      "estado": "activo",
+      "enClaro": "fuente-",
+      "_motivo_enClaro": "el PDF que se manda a la IA en «Aprender» va en claro a propósito: la función lo lee y lo borra en seguida"
+    }
+  },
+  "funciones": {
+    "_lee_esto": "Funciones de la base (rpc) que reciben contenido: estos argumentos se cifran antes de salir.",
+    "save_shared_note": {
+      "llave": "nota:nid",
+      "estado": "activo",
+      "cifrar": [
+        "p_title",
+        "p_body"
+      ]
+    },
+    "compact_note_updates": {
+      "llave": "nota:nid",
+      "estado": "activo",
+      "cifrar": [
+        "p_snapshot"
+      ]
     }
   }
 }

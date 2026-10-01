@@ -1,13 +1,15 @@
 // cuaderno-agent — el cerebro de Rockie Cuaderno. Rockie PROPONE; la persona confirma.
-// Todo se lee con la sesión de la persona: la RLS del cuaderno sigue mandando.
+// Con el Cofre (docs/privacidad.md) esta función NO lee la base: el cuaderno está cifrado. La app manda en cada
+// pedido lo que hace falta, ya abierto en el dispositivo (ctx), y aquí no se guarda ni se anota nada de eso.
 //
 // Acciones:
-//   procesar  { entry_id, hoy, zona }    -> propuestas para una entrada del diario (se guardan en la entrada)
-//   revisar   { note_id }                -> conexiones y tarjetas nuevas para una nota
-//   preguntar { note_id, seleccion, pregunta?, modo } -> respuesta sobre lo seleccionado (para insertar o guardar como página)
-//   aprender  { tema, nivel, apuntes?, youtube?, pdf_path?, book_id? } -> plan de cuaderno de estudio (páginas, tarjetas, conexiones)
-//   conversar { history, contexto }      -> siguiente mensaje de Rockie (reflexionar o profundizar)
-//   embed     { note_ids }               -> recalcula la "huella de significado" de notas que cambiaron
+//   procesar  { ctx: { entrada, parecidas, recientes, cuadernos, proyectos }, hoy, zona } -> propuestas (la app las guarda)
+//   revisar   { ctx: { nota, tema, subnotas, enlazadas, proyectos_enlazados, parecidas, proyectos, tarjetas } }
+//   preguntar { ctx: { nota, parecidas }, seleccion, pregunta?, modo } -> respuesta sobre lo seleccionado
+//   aprender  { tema, nivel, apuntes?, youtube?, pdf_path?, ctx: { cuaderno_existente, parecidas } } -> plan de estudio
+//   conversar { history, contexto: { tipo }, ctx: { base, parecidas } } -> siguiente mensaje de Rockie
+//   redactar  { texto, modo, titulo? } · dividir { ctx: { nota } }
+//   vectores  { textos }                 -> «huellas de significado» (la app las guarda cifradas y compara en el dispositivo)
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import { callText, callTools, embed, providerKey, S, type Call, type Part, type Tool, type Turn } from '../_shared/rockie-llm.ts'
@@ -276,12 +278,30 @@ ${CUIDADO}`
 // servidor
 // ============================================================
 type Supa = SupabaseClient
-type Similar = { id: string; title: string; area: string; snippet: string; score: number }
+
+// Con el Cofre, la base solo guarda texto cifrado: esta función NO lee notas, diario ni proyectos.
+// La app le manda en cada pedido lo que hace falta, ya abierto en el dispositivo (ctx), y nada de eso se guarda.
+type NotaRef = { id: string; title: string; area: string; kind: string; tema: string | null; tema_id: string | null; extracto: string; fecha: string }
+type Ctx = {
+  entrada?: { id?: string; day?: string; text?: string }
+  nota?: { id?: string; title?: string; area?: string; body?: string; kind?: string; parent_note_id?: string | null }
+  tema?: { id?: string; title?: string } | null
+  subnotas?: { id?: string; title?: string }[]
+  enlazadas?: string[]
+  proyectos_enlazados?: string[]
+  tarjetas?: string[]
+  parecidas?: unknown[]
+  recientes?: unknown[]
+  cuadernos?: { id?: string; nombre?: string }[]
+  proyectos?: { id?: string; name?: string }[]
+  cuaderno_existente?: { id?: string; nombre?: string; paginas?: string[] } | null
+  base?: string
+}
+
 type Body = {
   action?: string
-  entry_id?: string
-  note_id?: string
-  note_ids?: string[]
+  ctx?: Ctx
+  textos?: string[]
   hoy?: string
   zona?: string
   seleccion?: string
@@ -292,10 +312,10 @@ type Body = {
   apuntes?: string
   youtube?: string
   pdf_path?: string
-  book_id?: string
   history?: { role?: string; text?: string }[]
-  contexto?: { tipo?: string; id?: string }
+  contexto?: { tipo?: string }
   texto?: string
+  titulo?: string
 }
 
 Deno.serve(async (req) => {
@@ -317,50 +337,21 @@ Deno.serve(async (req) => {
     return json({ error: 'Solicitud inválida' }, 400)
   }
 
-  if (body.action === 'embed') return embedNotes(supa, Array.isArray(body.note_ids) ? body.note_ids.slice(0, 20) : [])
+  if (body.action === 'vectores') return vectores(body)
   if (!providerKey()) return json({ error: 'voz-sin-configurar' }, 503)
   const { data: used, error: bumpErr } = await supa.rpc('agenda_agent_bump')
   if (bumpErr) return json({ error: 'No se pudo verificar tu uso' }, 500)
   if ((used as number) > LIMIT_PER_HOUR) return json({ error: 'Rockie necesita un respiro: llegaste a 60 pedidos esta hora.' }, 429)
 
-  if (body.action === 'procesar' && body.entry_id) return procesar(supa, body.entry_id, body.hoy, body.zona)
-  if (body.action === 'revisar' && body.note_id) return revisar(supa, body.note_id)
-  if (body.action === 'preguntar' && body.note_id) return preguntar(supa, body)
+  if (body.action === 'procesar') return procesar(body)
+  if (body.action === 'revisar') return revisar(body)
+  if (body.action === 'preguntar') return preguntar(body)
   if (body.action === 'aprender') return aprender(supa, user.id, body)
-  if (body.action === 'conversar') return conversar(supa, body)
-  if (body.action === 'redactar') return redactar(supa, body)
-  if (body.action === 'dividir' && body.note_id) return dividir(supa, body.note_id)
+  if (body.action === 'conversar') return conversar(body)
+  if (body.action === 'redactar') return redactar(body)
+  if (body.action === 'dividir') return dividir(body)
   return json({ error: 'Acción desconocida' }, 400)
 })
-
-async function similarTo(supa: Supa, vec: number[] | undefined, exclude: string[], k = 8): Promise<Similar[]> {
-  if (!vec) return []
-  const { data, error } = await supa.rpc('cuaderno_similar', { q: vec as unknown as string, k, exclude })
-  if (error) console.error('similar', error.message)
-  // por debajo de ~0,55 casi siempre es ruido de palabras
-  return ((data ?? []) as Similar[]).filter((s) => s.score >= 0.55)
-}
-
-/** Sus cuadernos y secciones, con nombre completo ("Francés › Lecciones"). */
-async function booksOf(supa: Supa) {
-  const { data } = await supa.from('cuaderno_books').select('id, name, parent_id').order('position')
-  const rows = data ?? []
-  const byId = new Map(rows.map((b) => [b.id, b]))
-  return rows.map((b) => ({ id: b.id, nombre: b.parent_id ? `${byId.get(b.parent_id)?.name ?? ''} › ${b.name}` : b.name }))
-}
-
-/** De qué página es subnota cada una (para que Rockie entienda la jerarquía al conectar). */
-async function temasOf(supa: Supa, ids: string[]) {
-  const out = new Map<string, { id: string; title: string }>()
-  if (!ids.length) return out
-  const { data } = await supa.from('cuaderno_notes').select('id, parent_note_id').in('id', ids)
-  const parents = [...new Set((data ?? []).map((r) => r.parent_note_id).filter(Boolean))] as string[]
-  if (!parents.length) return out
-  const { data: ps } = await supa.from('cuaderno_notes').select('id, title').in('id', parents)
-  const titleOf = new Map((ps ?? []).map((x) => [x.id, x.title]))
-  for (const r of data ?? []) if (r.parent_note_id && titleOf.has(r.parent_note_id)) out.set(r.id, { id: r.parent_note_id, title: titleOf.get(r.parent_note_id)! })
-  return out
-}
 
 const clean = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
 const cards = (v: unknown, max: number) =>
@@ -368,62 +359,94 @@ const cards = (v: unknown, max: number) =>
     .map((t: { q?: unknown; a?: unknown }) => ({ q: clean(t?.q, 300), a: clean(t?.a, 600) }))
     .filter((t) => t.q && t.a)
     .slice(0, max)
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const ids = (v: unknown, max: number) => (Array.isArray(v) ? v : []).filter((x): x is string => typeof x === 'string' && UUID.test(x)).slice(0, max)
+
+/** Notas que la app manda como referencia (parecidas, recientes), limpias y con tope. */
+function refs(v: unknown, max: number): NotaRef[] {
+  return (Array.isArray(v) ? v : [])
+    .map((x: Record<string, unknown>) => ({
+      id: typeof x?.id === 'string' && UUID.test(x.id) ? x.id : '',
+      title: clean(x?.title, 160),
+      area: AREAS.includes(String(x?.area)) ? String(x.area) : 'libre',
+      kind: x?.kind === 'pizarra' ? 'pizarra' : 'pagina',
+      tema: clean(x?.tema, 160) || null,
+      tema_id: typeof x?.tema_id === 'string' && UUID.test(x.tema_id) ? x.tema_id : null,
+      extracto: clean(x?.extracto, 280),
+      fecha: clean(x?.fecha, 10),
+    }))
+    .filter((n) => n.id && n.title)
+    .slice(0, max)
+}
+
+const proyectosDe = (v: unknown) =>
+  (Array.isArray(v) ? v : [])
+    .map((p: { id?: unknown; name?: unknown }) => ({ id: typeof p?.id === 'string' && UUID.test(p.id) ? p.id : '', name: clean(p?.name, 80) }))
+    .filter((p) => p.id && p.name)
+    .slice(0, 30)
+
+const cuadernosDe = (v: unknown) =>
+  (Array.isArray(v) ? v : [])
+    .map((b: { id?: unknown; nombre?: unknown }) => ({ id: typeof b?.id === 'string' && UUID.test(b.id) ? b.id : '', nombre: clean(b?.nombre, 160) }))
+    .filter((b) => b.id && b.nombre)
+    .slice(0, 200)
+
+// ---------- vectores: la «huella de significado» de unos textos (la app la guarda cifrada) ----------
+async function vectores(b: Body) {
+  const textos = (Array.isArray(b.textos) ? b.textos : []).map((t) => clean(t, 8000)).filter(Boolean).slice(0, 20)
+  if (!textos.length) return json({ vectores: [] })
+  const v = await embed(textos)
+  if (!v) return json({ vectores: [], error: 'sin-embeddings' })
+  return json({ vectores: v })
+}
 
 // ---------- procesar ----------
-async function procesar(supa: Supa, entryId: string, hoy?: string, zona?: string) {
+async function procesar(b: Body) {
   const t0 = Date.now()
-  const { data: entry } = await supa.from('cuaderno_entries').select('id, day, text').eq('id', entryId).maybeSingle()
-  if (!entry) return json({ error: 'No encontré esa entrada del diario.' }, 404)
+  const entry = b.ctx?.entrada
+  const text = clean(entry?.text, 12000)
+  const day = typeof entry?.day === 'string' && DATE.test(entry.day) ? entry.day : ''
+  if (!text || !day) return json({ error: 'No encontré esa entrada del diario.' }, 404)
 
-  const [vecs, recentRes, projRes, books] = await Promise.all([
-    embed([entry.text.slice(0, 6000)]),
-    supa.from('cuaderno_notes').select('id, title, area').order('updated_at', { ascending: false }).limit(25),
-    supa.from('projects').select('id, name').eq('archived', false).limit(30),
-    booksOf(supa),
-  ])
-  const similar = await similarTo(supa, vecs?.[0], [])
+  const similar = refs(b.ctx?.parecidas, 8)
   const simIds = new Set(similar.map((s) => s.id))
-  const recent = (recentRes.data ?? []).filter((n) => !simIds.has(n.id))
-  const projects = projRes.data ?? []
-  const temas = await temasOf(supa, [...simIds, ...recent.map((n) => n.id)])
-  const tema = (id: string) => temas.get(id)?.title
+  const recent = refs(b.ctx?.recientes, 25).filter((n) => !simIds.has(n.id))
+  const projects = proyectosDe(b.ctx?.proyectos)
+  const books = cuadernosDe(b.ctx?.cuadernos)
 
   const ctx = {
-    hoy: hoy && DATE.test(hoy) ? hoy : entry.day,
-    zona: zona ?? 'America/Lima',
-    dia_de_la_entrada: entry.day,
-    parecidas: similar.map((s) => ({ id: s.id, title: s.title, area: s.area, extracto: s.snippet, tema: tema(s.id) })),
-    recientes: recent.map((n) => ({ ...n, tema: tema(n.id) })),
+    hoy: b.hoy && DATE.test(b.hoy) ? b.hoy : day,
+    zona: clean(b.zona, 60) || 'America/Lima',
+    dia_de_la_entrada: day,
+    parecidas: similar.map((s) => ({ id: s.id, title: s.title, area: s.area, extracto: s.extracto, tema: s.tema ?? undefined })),
+    recientes: recent.map((n) => ({ id: n.id, title: n.title, area: n.area, tema: n.tema ?? undefined })),
     cuadernos: books,
     proyectos: projects,
   }
   const t1 = Date.now()
   const r = await callTools({
     system: SYSTEM_PROCESAR,
-    prompt: `<contexto>\n${JSON.stringify(ctx)}\n</contexto>\n\nLo que la persona contó:\n"""\n${entry.text.slice(0, 12000)}\n"""`,
+    prompt: `<contexto>\n${JSON.stringify(ctx)}\n</contexto>\n\nLo que la persona contó:\n"""\n${text}\n"""`,
     tools: TOOLS_PROCESAR,
     timeoutMs: 20000,
     deadline: t0 + 60_000, // el diario no debería esperar más de un minuto
   })
   if (!r.ok) return json({ error: r.error, detalle: r.detail }, r.status)
 
-  const noteIds = new Set([...simIds, ...recent.map((n) => n.id)])
+  const all = [...similar, ...recent]
+  const noteIds = new Set(all.map((n) => n.id))
   const projIds = new Set(projects.map((p) => p.id))
-  const bookIds = new Set(books.map((b) => b.id))
+  const bookIds = new Set(books.map((x) => x.id))
   // una pizarra se conecta, pero no se "amplía": su texto sale de lo que tiene dibujado y se reescribe solo
-  const { data: boards } = await supa.from('cuaderno_notes').select('id').eq('kind', 'pizarra').in('id', [...noteIds])
-  const boardIds = new Set((boards ?? []).map((n) => n.id))
+  const boardIds = new Set(all.filter((n) => n.kind === 'pizarra').map((n) => n.id))
   const { proposals, say } = validateProcesar(r.calls, r.say, noteIds, projIds, bookIds, boardIds)
-
-  const { data: saved, error } = await supa
-    .from('cuaderno_entries')
-    .update({ say: say.slice(0, 600), proposals: proposals.map((p) => ({ ...p, st: 'pending' })), status: proposals.length ? 'propuesto' : 'listo' })
-    .eq('id', entry.id)
-    .select('*')
-    .single()
-  if (error) return json({ error: 'No pude guardar las propuestas.' }, 500)
-  // tiempos para medir la latencia (contexto vs. modelo)
-  return json({ entry: saved, t: { contexto: t1 - t0, modelo: Date.now() - t1, model: r.model } })
+  // la app guarda esto (cifrado) en la entrada: aquí no se escribe nada
+  return json({
+    say: say.slice(0, 600),
+    proposals: proposals.map((p) => ({ ...p, st: 'pending' })),
+    status: proposals.length ? 'propuesto' : 'listo',
+    t: { contexto: t1 - t0, modelo: Date.now() - t1, model: r.model },
+  })
 }
 
 type P = { tool: string; input: Record<string, unknown> }
@@ -501,57 +524,48 @@ function validateProcesar(calls: Call[], sayIn: string, noteIds: Set<string>, pr
 }
 
 // ---------- revisar ----------
-async function revisar(supa: Supa, noteId: string) {
+async function revisar(b: Body) {
   const t0 = Date.now()
-  const { data: note } = await supa.from('cuaderno_notes').select('id, title, body, area, parent_note_id').eq('id', noteId).maybeSingle()
-  if (!note) return json({ error: 'No encontré esa nota.' }, 404)
-  const [linksRes, cardsRes, projRes, vecs, kidsRes, parentRes] = await Promise.all([
-    supa.from('cuaderno_links').select('a_id, b_id, project_id').or(`a_id.eq.${note.id},b_id.eq.${note.id}`),
-    supa.from('cuaderno_cards').select('q').eq('note_id', note.id),
-    supa.from('projects').select('id, name').eq('archived', false).limit(30),
-    embed([`${note.title}\n\n${note.body}`]),
-    supa.from('cuaderno_notes').select('id, title').eq('parent_note_id', note.id).limit(30),
-    note.parent_note_id ? supa.from('cuaderno_notes').select('id, title').eq('id', note.parent_note_id).maybeSingle() : Promise.resolve({ data: null }),
-  ])
-  if (vecs?.[0]) await supa.rpc('cuaderno_set_embedding', { note: note.id, emb: vecs[0] as unknown as string })
-  const kids = kidsRes.data ?? []
-  const parentNote = parentRes.data as { id: string; title: string } | null
+  const n = b.ctx?.nota
+  if (!n?.id || !UUID.test(n.id)) return json({ error: 'No encontré esa nota.' }, 404)
+  const note = { id: n.id, title: clean(n.title, 160), area: AREAS.includes(String(n.area)) ? String(n.area) : 'libre', body: clean(n.body, 3000), parent_note_id: n.parent_note_id ?? null }
+  const kids = (Array.isArray(b.ctx?.subnotas) ? b.ctx!.subnotas! : [])
+    .map((k) => ({ id: typeof k?.id === 'string' ? k.id : '', title: clean(k?.title, 160) }))
+    .filter((k) => k.id && k.title)
+    .slice(0, 30)
+  const parentNote = b.ctx?.tema?.id ? { id: b.ctx.tema.id, title: clean(b.ctx.tema.title, 160) } : null
   // lo que ya une la jerarquía no se propone como conexión
   const family = [parentNote?.id, ...kids.map((k) => k.id)].filter(Boolean) as string[]
-  const linked = new Set<string>()
-  const linkedProjects = new Set<string>()
-  for (const l of linksRes.data ?? []) {
-    if (l.b_id) linked.add(l.a_id === note.id ? l.b_id : l.a_id)
-    if (l.project_id) linkedProjects.add(l.project_id)
-  }
-  const similar = await similarTo(supa, vecs?.[0], [note.id, ...linked, ...family], 8)
-  const projects = (projRes.data ?? []).filter((p) => !linkedProjects.has(p.id))
-  const temas = await temasOf(supa, similar.map((s) => s.id))
+  const linked = new Set(ids(b.ctx?.enlazadas, 200))
+  const linkedProjects = new Set(ids(b.ctx?.proyectos_enlazados, 50))
+  const similar = refs(b.ctx?.parecidas, 8).filter((s) => s.id !== note.id && !linked.has(s.id) && !family.includes(s.id))
+  const projects = proyectosDe(b.ctx?.proyectos).filter((p) => !linkedProjects.has(p.id))
+  const tarjetas = (Array.isArray(b.ctx?.tarjetas) ? b.ctx!.tarjetas! : []).map((q) => clean(q, 300)).filter(Boolean).slice(0, 50)
   const ctx = {
-    nota: { id: note.id, title: note.title, area: note.area, body: note.body.slice(0, 3000), tema: parentNote, subnotas: kids },
-    parecidas: similar.map((s) => ({ id: s.id, title: s.title, area: s.area, extracto: s.snippet, tema: temas.get(s.id)?.title })),
+    nota: { id: note.id, title: note.title, area: note.area, body: note.body, tema: parentNote, subnotas: kids },
+    parecidas: similar.map((s) => ({ id: s.id, title: s.title, area: s.area, extracto: s.extracto, tema: s.tema ?? undefined })),
     proyectos: projects,
-    tarjetas_existentes: (cardsRes.data ?? []).map((c) => c.q),
+    tarjetas_existentes: tarjetas,
   }
   const t1 = Date.now()
   const r = await callTools({ system: SYSTEM_REVISAR, prompt: `<contexto>\n${JSON.stringify(ctx)}\n</contexto>`, tools: TOOLS_REVISAR })
   if (!r.ok) return json({ error: r.error, detalle: r.detail }, r.status)
 
   const simIds = new Set(similar.map((s) => s.id))
+  const temaDe = new Map(similar.map((s) => [s.id, s.tema_id]))
+  const boardSet = new Set(similar.filter((s) => s.kind === 'pizarra').map((s) => s.id))
   const projIds = new Set(projects.map((p) => p.id))
   const proposals: P[] = []
   let say = r.say
   let links = 0
   let nCards = 0
   let sub = false
-  const { data: simBoards } = await supa.from('cuaderno_notes').select('id').eq('kind', 'pizarra').in('id', [...simIds])
-  const boardSet = new Set((simBoards ?? []).map((b) => b.id))
   for (const c of r.calls) {
     const a = c.args
     if (c.name === 'hacer_subnota' && !sub) {
       const reason = clean(a.reason, 300)
       // un tema de "parecidas", que no sea pizarra ni ya su tema, y que no cuelgue de esta nota
-      if (typeof a.tema_id === 'string' && simIds.has(a.tema_id) && !boardSet.has(a.tema_id) && a.tema_id !== note.parent_note_id && temas.get(a.tema_id)?.id !== note.id && reason) {
+      if (typeof a.tema_id === 'string' && simIds.has(a.tema_id) && !boardSet.has(a.tema_id) && a.tema_id !== note.parent_note_id && temaDe.get(a.tema_id) !== note.id && reason) {
         sub = true
         proposals.push({ tool: 'hacer_subnota', input: { note_id: note.id, tema_id: a.tema_id, reason } })
       }
@@ -578,21 +592,20 @@ async function revisar(supa: Supa, noteId: string) {
 }
 
 // ---------- preguntar ----------
-async function preguntar(supa: Supa, b: Body) {
+async function preguntar(b: Body) {
   const t0 = Date.now()
   const seleccion = clean(b.seleccion, 2000)
   if (!seleccion) return json({ error: 'Selecciona un fragmento para preguntar.' }, 400)
   const modo = b.modo && MODOS[b.modo] ? b.modo : 'libre'
   const pregunta = clean(b.pregunta, 400)
-  const { data: note } = await supa.from('cuaderno_notes').select('id, title, body').eq('id', b.note_id!).maybeSingle()
-  if (!note) return json({ error: 'No encontré esa página.' }, 404)
-  const vecs = await embed([seleccion])
-  const similar = await similarTo(supa, vecs?.[0], [note.id], 5)
+  const n = b.ctx?.nota
+  if (!n?.id) return json({ error: 'No encontré esa página.' }, 404)
+  const similar = refs(b.ctx?.parecidas, 5).filter((s) => s.id !== n.id)
   const ctx = {
-    pagina: { titulo: note.title, contenido: note.body.slice(0, 8000) },
+    pagina: { titulo: clean(n.title, 160), contenido: clean(n.body, 8000) },
     seleccion,
     que_quiere: `${MODOS[modo]}${pregunta ? ` Su pregunta: ${pregunta}` : ''}`,
-    tus_notas: similar.map((s) => ({ id: s.id, title: s.title, extracto: s.snippet })),
+    tus_notas: similar.map((s) => ({ id: s.id, title: s.title, extracto: s.extracto })),
   }
   const t1 = Date.now()
   const r = await callTools({ system: SYSTEM_PREGUNTAR, prompt: `<contexto>\n${JSON.stringify(ctx)}\n</contexto>`, tools: TOOLS_PREGUNTAR, timeoutMs: 20000, rich: true, deadline: t0 + 50_000 })
@@ -627,7 +640,8 @@ async function aprender(supa: Supa, userId: string, b: Body) {
   const parts: Part[] = []
   if (youtube) parts.push({ fileData: { fileUri: youtube } })
   if (pdfPath) {
-    if (!pdfPath.startsWith(`${userId}/`)) return json({ error: 'Ese archivo no es tuyo.' }, 403)
+    // la fuente es lo único que se sube en claro a propósito (fuente-…): se lee aquí y se borra
+    if (!pdfPath.startsWith(`${userId}/`) || !pdfPath.split('/').pop()?.startsWith('fuente-')) return json({ error: 'Ese archivo no es tuyo.' }, 403)
     const { data: file, error } = await supa.storage.from('cuaderno').download(pdfPath)
     if (error || !file) return json({ error: 'No pude abrir el PDF.' }, 400)
     const bytes = new Uint8Array(await file.arrayBuffer())
@@ -635,27 +649,21 @@ async function aprender(supa: Supa, userId: string, b: Body) {
     parts.push({ inlineData: { mimeType: 'application/pdf', data: encodeBase64(bytes) } })
   }
 
-  const [vecs, book] = await Promise.all([
-    embed([`${tema}\n${apuntes.slice(0, 2000)}`.trim() || youtube]),
-    b.book_id ? supa.from('cuaderno_books').select('id, name').eq('id', b.book_id).maybeSingle() : Promise.resolve({ data: null }),
-  ])
-  let existentes: string[] = []
-  if (book?.data) {
-    const { data } = await supa.from('cuaderno_notes').select('title').eq('book_id', book.data.id).limit(60)
-    existentes = (data ?? []).map((n) => n.title)
-  }
-  const similar = await similarTo(supa, vecs?.[0], [], 6)
+  const ex = b.ctx?.cuaderno_existente
+  const book = ex?.id && ex.nombre ? { id: ex.id, name: clean(ex.nombre, 80) } : null
+  const existentes = book ? (Array.isArray(ex?.paginas) ? ex!.paginas! : []).map((t) => clean(t, 160)).filter(Boolean).slice(0, 60) : []
+  const similar = refs(b.ctx?.parecidas, 6)
   const ctx = {
     tema: tema || '(el de las fuentes)',
     nivel: NIVELES[b.nivel ?? ''] ?? NIVELES.cero,
-    cuaderno_existente: book?.data ? { nombre: book.data.name, paginas_que_ya_tiene: existentes } : null,
-    tus_notas: similar.map((s) => ({ id: s.id, title: s.title, extracto: s.snippet })),
+    cuaderno_existente: book ? { nombre: book.name, paginas_que_ya_tiene: existentes } : null,
+    tus_notas: similar.map((s) => ({ id: s.id, title: s.title, extracto: s.extracto })),
     fuentes: [youtube ? 'un video de YouTube (adjunto)' : null, pdfPath ? 'un PDF (adjunto)' : null, apuntes ? 'apuntes (abajo)' : null].filter(Boolean),
   }
   const t1 = Date.now()
   const r = await callTools({
     system: SYSTEM_APRENDER,
-    prompt: `<contexto>\n${JSON.stringify(ctx)}\n</contexto>${apuntes ? `\n\nApuntes de la persona:\n"""\n${apuntes}\n"""` : ''}${book?.data ? '\n\nNo repitas páginas que ya tiene: complementa.' : ''}`,
+    prompt: `<contexto>\n${JSON.stringify(ctx)}\n</contexto>${apuntes ? `\n\nApuntes de la persona:\n"""\n${apuntes}\n"""` : ''}${book ? '\n\nNo repitas páginas que ya tiene: complementa.' : ''}`,
     tools: TOOLS_APRENDER,
     parts,
     rich: true,
@@ -723,16 +731,12 @@ const MODOS_REDACTAR: Record<string, string> = {
   redactar: 'Redáctalo como prosa clara y bien escrita, en párrafos cortos. Sin viñetas salvo que enumere pasos.',
 }
 
-async function redactar(supa: Supa, b: Body) {
+async function redactar(b: Body) {
   const t0 = Date.now()
   const texto = clean(b.texto, 8000)
   if (!texto) return json({ error: 'No escuché nada que redactar.' }, 400)
   const modo = b.modo === 'redactar' ? 'redactar' : 'ordenar'
-  let titulo = ''
-  if (b.note_id) {
-    const { data } = await supa.from('cuaderno_notes').select('title').eq('id', b.note_id).maybeSingle()
-    titulo = data?.title ?? ''
-  }
+  const titulo = clean(b.titulo, 160)
   const prompt = [titulo ? `Página: «${titulo}»` : '', 'Dictado:', texto].filter(Boolean).join('\n')
   const r = await callText({
     system: [SYSTEM_REDACTAR, MODOS_REDACTAR[modo]].join('\n\n'),
@@ -778,15 +782,17 @@ const SYSTEM_DIVIDIR = `Eres Rockie, el compañero de estudio de B+. Te paso UNA
 - El índice: la introducción que ya tiene la página (1 a 3 frases), sin agregar ideas, adjetivos ni conclusiones nuevas.
 - Mismo idioma que la página. Usa dividir_nota.`
 
-async function dividir(supa: Supa, noteId: string) {
+async function dividir(b: Body) {
   const t0 = Date.now()
-  const { data: note } = await supa.from('cuaderno_notes').select('id, title, body, kind').eq('id', noteId).maybeSingle()
-  if (!note) return json({ error: 'No encontré esa página.' }, 404)
-  if (note.kind === 'pizarra') return json({ error: 'Una pizarra no se divide en subnotas.' }, 400)
-  if (note.body.trim().length < 300) return json({ error: 'La página es muy corta para dividirla en subnotas.' }, 400)
+  const n = b.ctx?.nota
+  if (!n?.id) return json({ error: 'No encontré esa página.' }, 404)
+  if (n.kind === 'pizarra') return json({ error: 'Una pizarra no se divide en subnotas.' }, 400)
+  const title = clean(n.title, 160)
+  const body = clean(n.body, 20000)
+  if (body.length < 300) return json({ error: 'La página es muy corta para dividirla en subnotas.' }, 400)
   const r = await callTools({
     system: SYSTEM_DIVIDIR,
-    prompt: `Página: «${note.title}»\n\n${note.body.slice(0, 20000)}`,
+    prompt: `Página: «${title}»\n\n${body}`,
     tools: TOOLS_DIVIDIR,
     timeoutMs: 40000,
     deadline: t0 + 90_000,
@@ -802,7 +808,7 @@ async function dividir(supa: Supa, noteId: string) {
 }
 
 // ---------- conversar ----------
-async function conversar(supa: Supa, b: Body) {
+async function conversar(b: Body) {
   const t0 = Date.now()
   const history: Turn[] = (Array.isArray(b.history) ? b.history : [])
     .map((t) => ({ role: t?.role === 'rockie' ? ('model' as const) : ('user' as const), text: clean(t?.text, 2000) }))
@@ -812,27 +818,9 @@ async function conversar(supa: Supa, b: Body) {
   if (!lastUser) return json({ error: 'Cuéntame algo para empezar.' }, 400)
 
   const tipo = b.contexto?.tipo === 'nota' || b.contexto?.tipo === 'entrada' ? b.contexto.tipo : 'libre'
-  let base = ''
-  let exclude: string[] = []
-  if (tipo === 'nota' && b.contexto?.id) {
-    const { data } = await supa.from('cuaderno_notes').select('id, title, body').eq('id', b.contexto.id).maybeSingle()
-    if (data) {
-      base = `Página de su cuaderno: «${data.title}»\n${data.body.slice(0, 5000)}`
-      exclude = [data.id]
-    }
-  } else if (tipo === 'entrada' && b.contexto?.id) {
-    const { data } = await supa.from('cuaderno_entries').select('day, text').eq('id', b.contexto.id).maybeSingle()
-    if (data) base = `Lo que contó en su diario el ${data.day}:\n${data.text.slice(0, 5000)}`
-  }
-
-  const vecs = await embed([lastUser.text])
-  const similar = await similarTo(supa, vecs?.[0], exclude, 4)
-  let memoria: { title: string; fecha: string; extracto: string }[] = []
-  if (similar.length) {
-    const { data } = await supa.from('cuaderno_notes').select('id, created_at').in('id', similar.map((s) => s.id))
-    const fecha = new Map((data ?? []).map((n) => [n.id, n.created_at.slice(0, 10)]))
-    memoria = similar.map((s) => ({ title: s.title, fecha: fecha.get(s.id) ?? '', extracto: s.snippet }))
-  }
+  // la página o la entrada del diario de la que se conversa: la manda la app, ya abierta
+  const base = clean(b.ctx?.base, 5200)
+  const memoria = refs(b.ctx?.parecidas, 4).map((s) => ({ title: s.title, fecha: s.fecha, extracto: s.extracto }))
 
   const system = `${tipo === 'nota' ? SYSTEM_PROFUNDIZAR : SYSTEM_REFLEXIONAR}
 
@@ -845,16 +833,4 @@ lo_que_ya_escribio: ${JSON.stringify(memoria)}
   const r = await callText({ system, history, timeoutMs: 25000, maxTokens: 800, deadline: t0 + 50_000 })
   if (!r.ok) return json({ error: r.error, detalle: r.detail }, r.status)
   return json({ text: r.text.slice(0, 2400), t: { contexto: t1 - t0, modelo: Date.now() - t1, model: r.model } })
-}
-
-// ---------- embeddings ----------
-async function embedNotes(supa: Supa, ids: string[]) {
-  if (!ids.length) return json({ embedded: 0 })
-  const { data } = await supa.from('cuaderno_notes').select('id, title, body, embedded_at, updated_at').in('id', ids)
-  const stale = (data ?? []).filter((n) => !n.embedded_at || new Date(n.embedded_at).getTime() < new Date(n.updated_at).getTime())
-  if (!stale.length) return json({ embedded: 0 })
-  const vecs = await embed(stale.map((n) => `${n.title}\n\n${n.body}`))
-  if (!vecs) return json({ embedded: 0, error: 'sin-embeddings' })
-  await Promise.all(stale.map((n, i) => supa.rpc('cuaderno_set_embedding', { note: n.id, emb: vecs[i] as unknown as string })))
-  return json({ embedded: stale.length })
 }

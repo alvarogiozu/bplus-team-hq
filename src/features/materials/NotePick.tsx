@@ -8,6 +8,7 @@ import { haptic } from '../../lib/fx'
 import { humanError, supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { useSpace } from '../spaces/SpaceProvider'
+import { recifrarNota } from '../../cuaderno/recifrar'
 
 // "Agregar → Nota del cuaderno": una página nueva para el equipo, o una de tu Cuaderno que quieras
 // compartir. Queda en Materiales (en la carpeta abierta) y todos la editan a la vez.
@@ -57,6 +58,7 @@ export function NotePick({
       p_space: spaceId,
       p_folder: folderId ?? undefined,
     })
+    if (!error) await recifrarNota(noteId) // ahora con la llave de la página, que recibe el equipo
     setBusy(null)
     if (error) {
       toastError(humanError(error))

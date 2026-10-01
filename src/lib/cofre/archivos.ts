@@ -9,16 +9,17 @@ const urls = new Map<string, Promise<string>>()
 
 export type Migrar = (datos: Blob) => Promise<void>
 
-/** URL local (blob:) del archivo ya abierto. Se recuerda mientras la página esté abierta. */
-export function urlDeArchivo(bucket: string, ruta: string, alMigrar?: Migrar): Promise<string> {
-  const clave = `${bucket}/${ruta}`
+/** URL local (blob:) del archivo ya abierto. Se recuerda mientras la página esté abierta
+ *  (`version` distingue dos versiones del mismo archivo, p. ej. un dibujo que se volvió a guardar). */
+export function urlDeArchivo(bucket: string, ruta: string, alMigrar?: Migrar, version?: string): Promise<string> {
+  const clave = `${bucket}/${ruta}${version ? `#${version}` : ''}`
   let p = urls.get(clave)
   if (!p) {
     p = (async () => {
       const { data, error } = await supabase.storage.from(bucket).download(ruta)
       if (error || !data) throw error ?? new Error('No se pudo bajar el archivo')
-      if (alMigrar && archivosEnClaro.has(clave)) {
-        archivosEnClaro.delete(clave)
+      if (alMigrar && archivosEnClaro.has(`${bucket}/${ruta}`)) {
+        archivosEnClaro.delete(`${bucket}/${ruta}`)
         void alMigrar(data).catch(() => undefined)
       }
       return URL.createObjectURL(data)

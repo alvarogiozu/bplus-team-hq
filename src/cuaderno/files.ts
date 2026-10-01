@@ -1,12 +1,14 @@
 import { humanError, supabase } from '../lib/supabase'
+import { urlDeArchivo } from '../lib/cofre/archivos'
 import { toastError } from '../components/Toasts'
 import { BOARD_SRC } from './text'
 
-// Imágenes y dibujos del cuaderno: privados en storage (<user_id>/<archivo>).
-// En el Markdown viajan como "cuaderno://<ruta>" y al mostrarse se cambian por un enlace firmado.
+// Imágenes y dibujos del cuaderno: privados en storage y cifrados con el Cofre.
+//   <user_id>/n/<nota>/<archivo>  imagen de una página: llave de la página (si se comparte, el equipo la ve)
+//   <user_id>/<archivo>           lo demás (y lo de antes): llave de la persona
+// En el Markdown viajan como "cuaderno://<ruta>" y al mostrarse se bajan y se abren aquí (URL local blob:).
 const SCHEME = 'cuaderno://'
 const BUCKET = 'cuaderno'
-const signed = new Map<string, { url: string; exp: number }>()
 
 /** Una pizarra metida en una página viaja como imagen "cuaderno://pizarra/<id>" (no es un archivo). */
 export { BOARD_SRC }
@@ -18,12 +20,12 @@ export const srcOf = (path: string) => `${SCHEME}${path}?v=${Date.now().toString
 
 export async function resolveSrc(src: string): Promise<string> {
   if (!isStored(src)) return src
-  const hit = signed.get(src)
-  if (hit && hit.exp > Date.now()) return hit.url
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(pathOfSrc(src), 3600)
-  if (error || !data) return ''
-  signed.set(src, { url: data.signedUrl, exp: Date.now() + 55 * 60_000 })
-  return data.signedUrl
+  try {
+    // la marca ?v= cambia cuando un dibujo se vuelve a guardar: esa versión se baja de nuevo
+    return await urlDeArchivo(BUCKET, pathOfSrc(src), undefined, src)
+  } catch {
+    return ''
+  }
 }
 
 const MAX_SIDE = 1800
@@ -66,9 +68,10 @@ export const imageName = (n: string) => {
 
 const MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', pdf: 'application/pdf' }
 
-/** Sube a la carpeta de la persona y devuelve la ruta (o null si falló). */
-export async function upload(uid: string, blob: Blob, ext: string, name: string = crypto.randomUUID()) {
-  const path = `${uid}/${name}.${ext}`
+/** Sube a la carpeta de la persona (o de la página, si se dice cuál) y devuelve la ruta (o null si falló).
+ *  Se cifra solo al subir (fetch del Cofre); las fuentes para la IA («fuente-…») van en claro y se borran al leerse. */
+export async function upload(uid: string, blob: Blob, ext: string, name: string = crypto.randomUUID(), noteId?: string | null) {
+  const path = noteId ? `${uid}/n/${noteId}/${name}.${ext}` : `${uid}/${name}.${ext}`
   const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
     upsert: true,
     contentType: MIME[ext] ?? blob.type,

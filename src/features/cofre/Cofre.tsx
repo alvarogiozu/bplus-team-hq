@@ -67,12 +67,12 @@ async function sellarLoAnterior(uid: string) {
       if (error || !data || (data as unknown[]).length < 500) break
     }
   }
-  for (const t of tablasPersonalesActivas()) await leerTodo(t.tabla, ['id', ...t.cifrar], (q) => q.eq(t.dueno, uid))
+  for (const t of tablasPersonalesActivas()) await leerTodo(t.tabla, [...new Set([t.pk, ...t.extra, ...t.cifrar])], (q) => q.eq(t.dueno, uid))
   const { data: mias } = await supabase.from('space_members').select('space_id').eq('user_id', uid)
   const equipos = (mias ?? []).map((m) => m.space_id)
   if (equipos.length) {
     for (const t of tablasDeEquipoActivas()) {
-      await leerTodo(t.tabla, [...new Set(['id', t.col, ...t.cifrar])], (q) => q.in(t.col, equipos))
+      await leerTodo(t.tabla, [...new Set([t.pk, t.col, ...t.cifrar])], (q) => q.in(t.col, equipos))
     }
   }
   await esperarResellados()

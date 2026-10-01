@@ -1,6 +1,9 @@
 // Las herramientas que Claude usa en tu cuaderno. Todas trabajan con el dueño explícito (el servidor
 // usa la llave de servicio, así que CADA consulta filtra por user_id). No hay herramienta para borrar:
 // eso se hace en la app.
+// Privacidad (el Cofre, docs/privacidad.md): el cuaderno está cifrado en el dispositivo. Claude solo ve y escribe
+// lo que la persona abrió para Claude (libretas con abierta_claude; sus páginas y tarjetas tienen abierta = true).
+// Todo lo demás no existe para este servidor: no puede leerlo.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { embed } from '../_shared/rockie-llm.ts'
 
@@ -22,6 +25,9 @@ export const INSTRUCTIONS = [
   '  Para tomarle examen usa tarjetas_para_hoy, pregunta de a una y registra cada respuesta con registrar_repaso.',
   '- Escribe en el idioma del usuario. Nunca borres: no hay herramienta para borrar; si lo pide, que lo haga en la app.',
   '- Cada resultado trae el enlace para abrir la página en la app: compártelo cuando crees o cambies algo.',
+  '- Privacidad: solo ves los cuadernos que el usuario abrió para Claude; el resto está cifrado y no lo puedes ver.',
+  '  Si te pide algo de otro cuaderno, dile que lo abra para Claude en Rockie › Cuaderno › Conectar con Claude.',
+  '  Las páginas nuevas sin cuaderno van a «Desde Claude».',
 ].join('\n')
 
 // ---------- las herramientas ----------
@@ -218,14 +224,30 @@ type Book = { id: string; name: string; kind: 'carpeta' | 'cuaderno'; parent_id:
 type NoteRow = { id: string; title: string; book_id: string | null; parent_note_id: string | null; kind: string; position: number; updated_at: string }
 
 async function books(ctx: Ctx): Promise<Book[]> {
-  const { data } = await ctx.db.from('cuaderno_books').select('id, name, kind, parent_id, color, position').eq('user_id', ctx.uid).order('position')
-  return (data ?? []) as Book[]
+  const { data } = await ctx.db
+    .from('cuaderno_books')
+    .select('id, name, kind, parent_id, color, position, abierta_claude')
+    .eq('user_id', ctx.uid)
+    .order('position')
+  const all = (data ?? []) as (Book & { abierta_claude: boolean })[]
+  const byId = new Map(all.map((b) => [b.id, b]))
+  const open = (b: Book & { abierta_claude: boolean }): boolean => {
+    for (let cur: (Book & { abierta_claude: boolean }) | undefined = b, i = 0; cur && i < 8; cur = byId.get(cur.parent_id ?? ''), i++) {
+      if (cur.abierta_claude) return true
+    }
+    return false
+  }
+  const abiertas = all.filter(open)
+  const ids = new Set(abiertas.map((b) => b.id))
+  // una abierta dentro de una carpeta cerrada: cuelga de la raíz (el nombre de arriba está cifrado)
+  return abiertas.map(({ abierta_claude: _a, ...b }) => ({ ...b, parent_id: b.parent_id && ids.has(b.parent_id) ? b.parent_id : null }))
 }
 async function notes(ctx: Ctx): Promise<NoteRow[]> {
   const { data } = await ctx.db
     .from('cuaderno_notes')
     .select('id, title, book_id, parent_note_id, kind, position, updated_at')
     .eq('user_id', ctx.uid)
+    .eq('abierta', true)
     .order('position')
     .limit(5000)
   return (data ?? []) as NoteRow[]
@@ -365,7 +387,7 @@ async function makeBook(ctx: Ctx, name: string, kind: Book['kind'], parentId: st
   const color = parentId ? null : (COLOR_ORDER.find((c) => !used.includes(c)) ?? COLOR_ORDER[used.length % COLOR_ORDER.length])
   const { data, error } = await ctx.db
     .from('cuaderno_books')
-    .insert({ user_id: ctx.uid, name: name.slice(0, 80), kind, parent_id: parentId, color, position: Date.now() / 1000 })
+    .insert({ user_id: ctx.uid, name: name.slice(0, 80), kind, parent_id: parentId, color, position: Date.now() / 1000, abierta_claude: true })
     .select('id, name, kind, parent_id, color, position')
     .single()
   if (error) return { error: /niveles/.test(error.message) ? 'Como mucho 4 niveles de carpetas.' : /cuaderno/.test(error.message) ? 'Una carpeta no puede ir dentro de un cuaderno.' : 'No pude crear la carpeta.' }
@@ -462,8 +484,8 @@ async function buscar(ctx: Ctx, args: Args) {
   const k = Math.min(20, Math.max(1, Number(args.limite) || 8))
   const like = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`
   const [byTitle, byBody, semantic, bs] = await Promise.all([
-    ctx.db.from('cuaderno_notes').select('id, title, body, book_id').eq('user_id', ctx.uid).ilike('title', like).limit(k),
-    ctx.db.from('cuaderno_notes').select('id, title, body, book_id').eq('user_id', ctx.uid).ilike('body', like).limit(k),
+    ctx.db.from('cuaderno_notes').select('id, title, body, book_id').eq('user_id', ctx.uid).eq('abierta', true).ilike('title', like).limit(k),
+    ctx.db.from('cuaderno_notes').select('id, title, body, book_id').eq('user_id', ctx.uid).eq('abierta', true).ilike('body', like).limit(k),
     (async () => {
       const v = await embed([q]).catch(() => null)
       if (!v?.[0]) return [] as { id: string; score: number }[]
@@ -476,7 +498,7 @@ async function buscar(ctx: Ctx, args: Args) {
   for (const r of byTitle.data ?? []) found.set(r.id, r)
   const semIds = semantic.map((s) => s.id).filter((id) => !found.has(id))
   if (semIds.length) {
-    const { data } = await ctx.db.from('cuaderno_notes').select('id, title, body, book_id').eq('user_id', ctx.uid).in('id', semIds)
+    const { data } = await ctx.db.from('cuaderno_notes').select('id, title, body, book_id').eq('user_id', ctx.uid).eq('abierta', true).in('id', semIds)
     for (const id of semIds) {
       const r = (data ?? []).find((x) => x.id === id)
       if (r) found.set(r.id, r)
@@ -484,7 +506,7 @@ async function buscar(ctx: Ctx, args: Args) {
   }
   for (const r of byBody.data ?? []) if (!found.has(r.id)) found.set(r.id, r)
   const hits = [...found.values()].slice(0, k)
-  if (!hits.length) return text(`No encontré nada sobre «${q}».`)
+  if (!hits.length) return text(`No encontré nada sobre «${q}» en los cuadernos abiertos para Claude.`)
   const lines = hits.map((n) => {
     const p = plain(n.body)
     const at = fold(p).indexOf(fold(q))
@@ -502,12 +524,13 @@ async function leerPagina(ctx: Ctx, args: Args) {
     .select('id, title, body, book_id, parent_note_id, kind, area, created_at, updated_at')
     .eq('user_id', ctx.uid)
     .eq('id', id)
+    .eq('abierta', true)
     .maybeSingle()
-  if (!n) return oops('No encontré esa página.')
+  if (!n) return oops('No encontré esa página en los cuadernos abiertos para Claude (lo demás está cifrado).')
   const [bs, ns, links, cards] = await Promise.all([
     books(ctx),
     notes(ctx),
-    ctx.db.from('cuaderno_links').select('a_id, b_id, reason').eq('user_id', ctx.uid).or(`a_id.eq.${id},b_id.eq.${id}`).not('b_id', 'is', null).limit(50),
+    ctx.db.from('cuaderno_links').select('a_id, b_id, reason').eq('user_id', ctx.uid).eq('abierta', true).or(`a_id.eq.${id},b_id.eq.${id}`).not('b_id', 'is', null).limit(50),
     ctx.db.from('cuaderno_cards').select('id', { count: 'exact', head: true }).eq('user_id', ctx.uid).eq('note_id', id),
   ])
   const byId = new Map(ns.map((x) => [x.id, x.title]))
@@ -541,6 +564,17 @@ async function crearPaginas(ctx: Ctx, args: Args) {
   const [bs, ns] = await Promise.all([books(ctx), notes(ctx)])
   const where = await bookFor(ctx, args, bs)
   if ('error' in where) return oops(where.error)
+  if (!where.id) {
+    // sin cuaderno quedaría cifrada y Claude ya no la vería: va a «Desde Claude» (abierto para Claude)
+    const ya = bs.find((b) => !b.parent_id && fold(b.name) === fold('Desde Claude'))
+    const b = ya ?? (await makeBook(ctx, 'Desde Claude', 'cuaderno', null, bs))
+    if ('error' in b) return oops(b.error)
+    if (!ya) {
+      bs.push(b)
+      where.created.push('Desde Claude')
+    }
+    where.id = b.id
+  }
   const titles = titleMap(ns)
   const made: NoteRow[] = []
   const lines: string[] = []
@@ -589,8 +623,8 @@ async function crearPaginas(ctx: Ctx, args: Args) {
 async function editarPagina(ctx: Ctx, args: Args) {
   const id = asStr(args.id, 60)
   if (!UUID.test(id)) return oops('Ese id no es de una página.')
-  const { data: n } = await ctx.db.from('cuaderno_notes').select('id, title, body').eq('user_id', ctx.uid).eq('id', id).maybeSingle()
-  if (!n) return oops('No encontré esa página.')
+  const { data: n } = await ctx.db.from('cuaderno_notes').select('id, title, body').eq('user_id', ctx.uid).eq('id', id).eq('abierta', true).maybeSingle()
+  if (!n) return oops('No encontré esa página en los cuadernos abiertos para Claude.')
   const mode = args.modo === 'reemplazar' ? 'reemplazar' : 'agregar'
   const titulo = asStr(args.titulo, 160).trim()
   const add = asStr(args.contenido, MAX_BODY)
@@ -628,8 +662,8 @@ async function conectar(ctx: Ctx, args: Args) {
   const b = asStr(args.b_id, 60)
   const motivo = asStr(args.motivo, 300).trim() || 'Conectadas desde Claude'
   if (!UUID.test(a) || !UUID.test(b) || a === b) return oops('Necesito dos páginas distintas (sus ids).')
-  const { data } = await ctx.db.from('cuaderno_notes').select('id, title').eq('user_id', ctx.uid).in('id', [a, b])
-  if ((data ?? []).length !== 2) return oops('No encontré alguna de las dos páginas.')
+  const { data } = await ctx.db.from('cuaderno_notes').select('id, title').eq('user_id', ctx.uid).eq('abierta', true).in('id', [a, b])
+  if ((data ?? []).length !== 2) return oops('No encontré alguna de las dos páginas en los cuadernos abiertos para Claude.')
   const { error } = await ctx.db.from('cuaderno_links').insert({ user_id: ctx.uid, a_id: a, b_id: b, reason: motivo })
   const t = (id: string) => data!.find((x) => x.id === id)?.title
   if (error?.code === '23505') return text(`«${t(a)}» y «${t(b)}» ya estaban conectadas.`)
@@ -640,8 +674,8 @@ async function conectar(ctx: Ctx, args: Args) {
 async function crearTarjetas(ctx: Ctx, args: Args) {
   const id = asStr(args.pagina_id, 60)
   if (!UUID.test(id)) return oops('Falta la página (pagina_id).')
-  const { data: n } = await ctx.db.from('cuaderno_notes').select('id, title').eq('user_id', ctx.uid).eq('id', id).maybeSingle()
-  if (!n) return oops('No encontré esa página.')
+  const { data: n } = await ctx.db.from('cuaderno_notes').select('id, title').eq('user_id', ctx.uid).eq('id', id).eq('abierta', true).maybeSingle()
+  if (!n) return oops('No encontré esa página en los cuadernos abiertos para Claude.')
   const list = (Array.isArray(args.tarjetas) ? (args.tarjetas as Args[]) : [])
     .map((c) => ({ q: asStr(c.pregunta, 300).trim(), a: asStr(c.respuesta, 600).trim() }))
     .filter((c) => c.q && c.a)
@@ -660,6 +694,7 @@ async function paraHoy(ctx: Ctx, args: Args) {
     .from('cuaderno_cards')
     .select('id, q, a, box, due, note_id')
     .eq('user_id', ctx.uid)
+    .eq('abierta', true)
     .lte('due', day)
     .order('due')
     .order('box')
@@ -675,7 +710,7 @@ async function paraHoy(ctx: Ctx, args: Args) {
 async function registrar(ctx: Ctx, args: Args) {
   const id = asStr(args.tarjeta_id, 60)
   if (!UUID.test(id)) return oops('Falta la tarjeta (tarjeta_id).')
-  const { data: c } = await ctx.db.from('cuaderno_cards').select('id, box, q').eq('user_id', ctx.uid).eq('id', id).maybeSingle()
+  const { data: c } = await ctx.db.from('cuaderno_cards').select('id, box, q').eq('user_id', ctx.uid).eq('id', id).eq('abierta', true).maybeSingle()
   if (!c) return oops('No encontré esa tarjeta.')
   const remembered = args.me_acorde === true
   const day = await today(ctx)

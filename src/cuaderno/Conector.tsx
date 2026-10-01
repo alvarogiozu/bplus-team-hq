@@ -9,6 +9,7 @@ import { timeAgo } from '../lib/dates'
 import { haptic } from '../lib/fx'
 import { supabase } from '../lib/supabase'
 import { CIcon } from './icons'
+import { ckeys, useBooks, type Book } from './data'
 import './cuaderno.css'
 
 // Rockie Cuaderno como conector de Claude (servidor MCP en supabase/functions/cuaderno-mcp).
@@ -184,6 +185,57 @@ async function copy(text: string, what: string) {
   }
 }
 
+/** Qué cuadernos ve Claude. El cuaderno está cifrado (el Cofre): solo lo que la persona abre aquí queda en claro
+ *  para que el conector lo lea y escriba. Al abrir o cerrar, la app reescribe sola esas páginas (ver lib/cofre). */
+function CuadernosParaClaude() {
+  const { userId } = useMe()
+  const qc = useQueryClient()
+  const books = useBooks().data ?? []
+  const [busy, setBusy] = useState<string | null>(null)
+  const abierto = (b: Book) => Boolean((b as Book & { abierta_claude?: boolean }).abierta_claude)
+  const debajo = (id: string): string[] => books.filter((b) => b.parent_id === id).flatMap((b) => [b.id, ...debajo(b.id)])
+
+  async function cambiar(b: Book, abrir: boolean) {
+    if (abrir && !window.confirm(`¿Abrir «${b.name}» para Claude? Sus páginas y tarjetas dejan de estar cifradas para que Claude las pueda leer y escribir.`)) return
+    setBusy(b.id)
+    for (const id of [b.id, ...debajo(b.id)]) {
+      const x = books.find((k) => k.id === id)
+      if (x) await supabase.from('cuaderno_books').update({ abierta_claude: abrir, name: x.name } as never).eq('id', id)
+    }
+    // al volver a leerlas, cada página se guarda abierta (o se vuelve a cifrar) sola
+    await Promise.all([ckeys.books, ckeys.notes, ckeys.cards, ckeys.links].map((k) => qc.invalidateQueries({ queryKey: k(userId) })))
+    setBusy(null)
+    haptic(6)
+    toast(abrir ? `Claude ya puede ver «${b.name}»` : `«${b.name}» volvió a cifrarse: Claude ya no lo ve`)
+  }
+
+  const top = books.filter((b) => !b.parent_id)
+  return (
+    <div className="cu-claude-ver">
+      <h4>Qué puede ver Claude</h4>
+      <p className="cu-muted">
+        Tu cuaderno está cifrado: ni Rockie ni Claude pueden leerlo. Abre para Claude solo los cuadernos que quieras usar con él;
+        esos quedan sin cifrar. Lo que Claude cree sin decir dónde va a «Desde Claude».
+      </p>
+      {top.length === 0 ? (
+        <p className="cu-muted">Todavía no tienes cuadernos.</p>
+      ) : (
+        <ul className="cu-conns" aria-label="Cuadernos abiertos para Claude">
+          {top.map((b) => (
+            <li key={b.id}>
+              <label className="checkline" style={{ margin: 0, flex: 1 }}>
+                <input type="checkbox" checked={abierto(b)} disabled={busy === b.id} onChange={(e) => void cambiar(b, e.target.checked)} />
+                {b.name}
+              </label>
+              <small className="cu-muted">{busy === b.id ? 'Guardando…' : abierto(b) ? 'Claude lo ve' : 'Cifrado'}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export function ClaudeSection() {
   const { userId } = useMe()
   const qc = useQueryClient()
@@ -253,6 +305,8 @@ export function ClaudeSection() {
           <CIcon name="open" size={15} /> Abrir Claude
         </a>
       </div>
+
+      <CuadernosParaClaude />
 
       {conns && conns.length > 0 && (
         <ul className="cu-conns" aria-label="Conexiones activas">

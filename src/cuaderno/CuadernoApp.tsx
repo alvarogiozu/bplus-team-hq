@@ -139,7 +139,7 @@ function DialogHost() {
       {d?.kind === 'conversar' && <ConversarPanel key="conversar" contexto={d.contexto} motivo={d.motivo} />}
       {d?.kind === 'dibujo' && (
         <Suspense key="dibujo" fallback={null}>
-          <DrawSheet drawingId={d.drawingId} initial={d.initial} onSave={d.onSave} />
+          <DrawSheet drawingId={d.drawingId} noteId={d.noteId} initial={d.initial} onSave={d.onSave} />
         </Suspense>
       )}
       </AnimatePresence>

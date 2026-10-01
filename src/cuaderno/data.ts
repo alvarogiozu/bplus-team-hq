@@ -4,6 +4,7 @@ import type { Tables, TablesInsert, TablesUpdate } from '../lib/database.types'
 import { humanError, supabase } from '../lib/supabase'
 import { addDays, todayIn } from '../lib/dates'
 import { toast, toastError } from '../components/Toasts'
+import { recifrarNota } from './recifrar'
 import { useAuth } from '../features/auth/AuthProvider'
 import { dueAfter } from './leitner'
 import { descendantsOf, type BookColor, type BookKind } from './books'
@@ -81,7 +82,8 @@ export const AREAS: { id: Area; label: string; icon: string; hint: string }[] = 
 export const areaOf = (id: string) => AREAS.find((a) => a.id === id) ?? AREAS[4]
 
 // sin la columna embedding: pesa y el cliente no la usa
-const NOTE_COLS = 'id, user_id, title, body, area, kind, color, icon, entry_id, book_id, parent_note_id, position, embedded_at, created_at, updated_at, space_id, ydoc_epoch'
+// abierta = su libreta está abierta para Claude (va en claro a propósito; ver lib/cofre)
+const NOTE_COLS = 'id, user_id, title, body, area, kind, color, icon, entry_id, book_id, parent_note_id, position, embedded_at, created_at, updated_at, space_id, ydoc_epoch, abierta'
 
 export const ckeys = {
   notes: (u: string | null) => ['cu-notes', u] as const,
@@ -261,12 +263,27 @@ function followBook(qc: QueryClient, key: readonly unknown[], id: string, bookId
   })
 }
 
+// ---------- lo que el agente necesita saber (ya abierto en este dispositivo) ----------
+// Con el Cofre, el agente de Rockie ya no lee la base: agent.ts le manda el contexto armado con esto.
+let fuenteActual: { qc: QueryClient; uid: string } | null = null
+
+export function fuenteCuaderno() {
+  const f = fuenteActual
+  return {
+    notas: f?.qc.getQueryData<Note[]>(ckeys.notes(f.uid)) ?? [],
+    libros: f?.qc.getQueryData<Book[]>(ckeys.books(f.uid)) ?? [],
+    enlaces: f?.qc.getQueryData<Link[]>(ckeys.links(f.uid)) ?? [],
+    tarjetas: f?.qc.getQueryData<Card[]>(ckeys.cards(f.uid)) ?? [],
+  }
+}
+
 // ---------- escrituras (cada una devuelve cómo deshacerse) ----------
 export function useCuadernoActions() {
   const qc = useQueryClient()
   const { userId, profile } = useAuth()
   const uid = userId ?? ''
   const tz = profile?.timezone ?? 'America/Lima'
+  fuenteActual = { qc, uid }
 
   const notesNow = useCallback(() => qc.getQueryData<Note[]>(ckeys.notes(uid)) ?? [], [qc, uid])
   const linksNow = useCallback(() => qc.getQueryData<Link[]>(ckeys.links(uid)) ?? [], [qc, uid])
@@ -925,6 +942,8 @@ export function useCuadernoActions() {
         toastError(humanError(error))
         return null
       }
+      // desde ahora se cifra con la llave de la página (la recibe el equipo)
+      await recifrarNota(note.id)
       await refreshNote(note.id)
       return data as string
     },
@@ -938,6 +957,8 @@ export function useCuadernoActions() {
         toastError(humanError(error))
         return false
       }
+      // vuelve a cifrarse con tu llave: lo que escribas después ya no lo abre el equipo
+      await recifrarNota(note.id)
       await refreshNote(note.id)
       return true
     },

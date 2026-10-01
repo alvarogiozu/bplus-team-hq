@@ -5,10 +5,13 @@ import { toast } from '../components/Toasts'
 import { plain } from './text'
 import { openDialog } from './bus'
 import { pathOf, type BookColor } from './books'
-import { areaOf, type Book, type CuadernoActions, type Entry, type HqProject, type Note, type Proposal, type Undo } from './data'
+import { areaOf, fuenteCuaderno, type Book, type CuadernoActions, type Entry, type HqProject, type Note, type Proposal, type Undo } from './data'
+import { actualizarHuellas, parecidas } from './huellas'
 
 // Cliente de la Edge Function cuaderno-agent. Rockie solo PROPONE: aquí se aplican
 // las propuestas que la persona confirma, con su sesión, y se guarda cómo deshacerlas.
+// Con el Cofre la función no lee la base (está cifrada): aquí se arma, con lo que ya está abierto en este
+// dispositivo, el contexto que necesita cada pedido. Eso sale a la IA solo en ese momento y no se guarda allá.
 
 export type Reply = { say: string; proposals: Proposal[]; basic?: boolean; error?: string }
 
@@ -32,15 +35,106 @@ async function invoke<T>(body: Record<string, unknown>): Promise<{ data?: T; err
 
 const NO_AI = 'Rockie necesita la IA para esto y ahora no está disponible. Inténtalo en un rato.'
 
+// ---------- contexto (lo arma el dispositivo) ----------
+
+type Ref = { id: string; title: string; area: string; kind: string; tema: string | null; tema_id: string | null; extracto: string; fecha: string }
+
+function ref(n: Note, porId: Map<string, Note>): Ref {
+  const t = n.parent_note_id ? porId.get(n.parent_note_id) : undefined
+  return {
+    id: n.id,
+    title: n.title,
+    area: n.area,
+    kind: n.kind,
+    tema: t?.title ?? null,
+    tema_id: t?.id ?? null,
+    extracto: plain(n.body).slice(0, 280),
+    fecha: n.created_at.slice(0, 10),
+  }
+}
+
+function datos() {
+  const f = fuenteCuaderno()
+  return { ...f, porId: new Map(f.notas.map((n) => [n.id, n])) }
+}
+
+/** Una nota que quizá no está en memoria (se pide; el fetch del Cofre la abre). */
+async function notaDe(id: string): Promise<Note | null> {
+  const d = datos()
+  const ya = d.porId.get(id)
+  if (ya) return ya
+  const { data } = await supabase.from('cuaderno_notes').select('*').eq('id', id).maybeSingle()
+  return (data as unknown as Note | null) ?? null
+}
+
+/** Las notas que más se parecen a un texto (comparadas en este dispositivo con las huellas cifradas). */
+async function parecidasA(texto: string, excluir: string[], k: number): Promise<Ref[]> {
+  if (!texto.trim()) return []
+  try {
+    const d = datos()
+    const ps = await parecidas(texto, excluir, k)
+    return ps.map((p) => d.porId.get(p.id)).filter((n): n is Note => Boolean(n)).map((n) => ref(n, d.porId))
+  } catch {
+    return []
+  }
+}
+
 export async function processEntry(e: Entry, hoy: string, zona: string): Promise<{ entry?: Entry; basic?: boolean; error?: string }> {
-  const r = await invoke<{ entry: Entry }>({ action: 'procesar', entry_id: e.id, hoy, zona })
-  if (r.data?.entry) return { entry: r.data.entry }
+  const d = datos()
+  const par = await parecidasA(e.text.slice(0, 6000), [], 8)
+  const ya = new Set(par.map((p) => p.id))
+  const recientes = [...d.notas]
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    .filter((n) => !ya.has(n.id))
+    .slice(0, 25)
+    .map((n) => ref(n, d.porId))
+  const cuadernos = d.libros.map((b) => ({ id: b.id, nombre: pathOf(d.libros, b.id) }))
+  const r = await invoke<{ say: string; proposals: Proposal[]; status: string }>({
+    action: 'procesar',
+    hoy,
+    zona,
+    ctx: { entrada: { id: e.id, day: e.day, text: e.text }, parecidas: par, recientes, cuadernos, proyectos: [] },
+  })
+  if (r.data) {
+    // lo que propuso Rockie se guarda en la entrada, cifrado como todo el diario
+    const { data, error } = await supabase
+      .from('cuaderno_entries')
+      .update({ say: r.data.say, proposals: r.data.proposals as never, status: r.data.status })
+      .eq('id', e.id)
+      .select('*')
+      .single()
+    if (error) return { error: humanError(error) }
+    return { entry: data as unknown as Entry }
+  }
   if (r.unconfigured) return { basic: true }
   return { error: r.error }
 }
 
 export async function reviewNote(noteId: string): Promise<Reply> {
-  const r = await invoke<Reply>({ action: 'revisar', note_id: noteId })
+  const d = datos()
+  const n = await notaDe(noteId)
+  if (!n) return { say: '', proposals: [], error: 'No encontré esa nota.' }
+  void actualizarHuellas([n])
+  const tema = n.parent_note_id ? d.porId.get(n.parent_note_id) : undefined
+  const subnotas = d.notas.filter((x) => x.parent_note_id === n.id).slice(0, 30).map((x) => ({ id: x.id, title: x.title }))
+  const enl = d.enlaces.filter((l) => l.a_id === n.id || l.b_id === n.id)
+  const enlazadas = enl.map((l) => (l.b_id ? (l.a_id === n.id ? l.b_id : l.a_id) : null)).filter((x): x is string => Boolean(x))
+  const proyectosEnlazados = enl.map((l) => l.project_id).filter((x): x is string => Boolean(x))
+  const familia = [tema?.id, ...subnotas.map((s) => s.id)].filter((x): x is string => Boolean(x))
+  const par = await parecidasA(`${n.title}\n\n${n.body}`, [n.id, ...enlazadas, ...familia], 8)
+  const r = await invoke<Reply>({
+    action: 'revisar',
+    ctx: {
+      nota: { id: n.id, title: n.title, area: n.area, body: n.body, kind: n.kind, parent_note_id: n.parent_note_id },
+      tema: tema ? { id: tema.id, title: tema.title } : null,
+      subnotas,
+      enlazadas,
+      proyectos_enlazados: proyectosEnlazados,
+      tarjetas: d.tarjetas.filter((c) => c.note_id === n.id).map((c) => c.q),
+      parecidas: par,
+      proyectos: [],
+    },
+  })
   if (r.data) return r.data
   if (r.unconfigured) return { say: '', proposals: [], basic: true, error: NO_AI }
   return { say: '', proposals: [], error: r.error }
@@ -54,7 +148,16 @@ export type Answer = {
   tarjetas: { q: string; a: string }[]
 }
 export async function askAbout(p: { noteId: string; seleccion: string; modo: string; pregunta?: string }): Promise<{ answer?: Answer; error?: string }> {
-  const r = await invoke<Answer>({ action: 'preguntar', note_id: p.noteId, seleccion: p.seleccion, modo: p.modo, pregunta: p.pregunta })
+  const n = await notaDe(p.noteId)
+  if (!n) return { error: 'No encontré esa página.' }
+  const par = await parecidasA(p.seleccion, [n.id], 5)
+  const r = await invoke<Answer>({
+    action: 'preguntar',
+    seleccion: p.seleccion,
+    modo: p.modo,
+    pregunta: p.pregunta,
+    ctx: { nota: { id: n.id, title: n.title, body: n.body }, parecidas: par },
+  })
   if (r.data) return { answer: r.data }
   return { error: r.unconfigured ? NO_AI : r.error }
 }
@@ -77,6 +180,9 @@ export async function learn(p: {
   pdfPath?: string
   bookId?: string | null
 }): Promise<{ plan?: Plan; error?: string }> {
+  const d = datos()
+  const libro = p.bookId ? d.libros.find((b) => b.id === p.bookId) : undefined
+  const par = await parecidasA(`${p.tema}\n${(p.apuntes ?? '').slice(0, 2000)}`.trim() || (p.youtube ?? ''), [], 6)
   const r = await invoke<{ plan: Plan }>({
     action: 'aprender',
     tema: p.tema,
@@ -84,7 +190,12 @@ export async function learn(p: {
     apuntes: p.apuntes || undefined,
     youtube: p.youtube || undefined,
     pdf_path: p.pdfPath || undefined,
-    book_id: p.bookId || undefined,
+    ctx: {
+      cuaderno_existente: libro
+        ? { id: libro.id, nombre: libro.name, paginas: d.notas.filter((n) => n.book_id === libro.id).slice(0, 60).map((n) => n.title) }
+        : null,
+      parecidas: par,
+    },
   })
   if (r.data?.plan) return { plan: r.data.plan }
   return { error: r.unconfigured ? NO_AI : r.error }
@@ -92,14 +203,29 @@ export async function learn(p: {
 
 export type ConvTurn = { role: 'user' | 'rockie'; text: string }
 export async function converse(history: ConvTurn[], contexto: { tipo: string; id?: string }): Promise<{ text?: string; error?: string }> {
-  const r = await invoke<{ text: string }>({ action: 'conversar', history, contexto })
+  let base = ''
+  const excluir: string[] = []
+  if (contexto.tipo === 'nota' && contexto.id) {
+    const n = await notaDe(contexto.id)
+    if (n) {
+      base = `Página de su cuaderno: «${n.title}»\n${n.body.slice(0, 5000)}`
+      excluir.push(n.id)
+    }
+  } else if (contexto.tipo === 'entrada' && contexto.id) {
+    const { data } = await supabase.from('cuaderno_entries').select('day, text').eq('id', contexto.id).maybeSingle()
+    if (data) base = `Lo que contó en su diario el ${data.day}:\n${data.text.slice(0, 5000)}`
+  }
+  const ultimo = [...history].reverse().find((t) => t.role === 'user')?.text ?? ''
+  const memoria = await parecidasA(ultimo, excluir, 4)
+  const r = await invoke<{ text: string }>({ action: 'conversar', history, contexto: { tipo: contexto.tipo }, ctx: { base, parecidas: memoria } })
   if (r.data?.text) return { text: r.data.text }
   return { error: r.unconfigured ? NO_AI : r.error }
 }
 
 /** Lo que dictaste, bien escrito: "ordenar" (subtítulos y viñetas) o "redactar" (prosa). Nunca inventa. */
 export async function redactar(p: { texto: string; modo: 'ordenar' | 'redactar'; noteId?: string }): Promise<{ texto?: string; error?: string }> {
-  const r = await invoke<{ texto: string }>({ action: 'redactar', texto: p.texto, modo: p.modo, note_id: p.noteId })
+  const titulo = p.noteId ? (datos().porId.get(p.noteId)?.title ?? '') : ''
+  const r = await invoke<{ texto: string }>({ action: 'redactar', texto: p.texto, modo: p.modo, titulo })
   if (r.data?.texto) return { texto: r.data.texto }
   return { error: r.unconfigured ? NO_AI : r.error }
 }
@@ -107,14 +233,19 @@ export async function redactar(p: { texto: string; modo: 'ordenar' | 'redactar';
 /** Rockie divide una página larga en subnotas (reparte lo que ya está, sin inventar). */
 export type Division = { indice: string; partes: { titulo: string; cuerpo: string }[] }
 export async function dividirNota(noteId: string): Promise<{ division?: Division; error?: string }> {
-  const r = await invoke<Division>({ action: 'dividir', note_id: noteId })
+  const n = await notaDe(noteId)
+  if (!n) return { error: 'No encontré esa página.' }
+  const r = await invoke<Division>({ action: 'dividir', ctx: { nota: { id: n.id, title: n.title, body: n.body, kind: n.kind } } })
   if (r.data?.partes?.length) return { division: r.data }
   return { error: r.unconfigured ? NO_AI : r.error }
 }
 
-/** Recalcula la huella de significado de notas que cambiaron (sin esperar). */
+/** Recalcula la huella de significado de notas que cambiaron (sin esperar). Se guarda cifrada. */
 export function embedNotes(ids: string[]) {
-  if (ids.length) void invoke({ action: 'embed', note_ids: ids })
+  if (!ids.length) return
+  const d = datos()
+  const notas = ids.map((id) => d.porId.get(id)).filter((n): n is Note => Boolean(n))
+  if (notas.length) void actualizarHuellas(notas).catch(() => undefined)
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
