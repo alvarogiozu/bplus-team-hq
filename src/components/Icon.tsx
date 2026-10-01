@@ -189,6 +189,13 @@ const PATHS: Record<string, ReactNode> = {
 const FILLED: Record<string, ReactNode> = {
   flame: <path d="M12 3s5 4.5 5 9a5 5 0 0 1-10 0c0-1.5.5-3 1.5-4.5C9 9 10 10 11 10c0-3 1-5.5 1-7z" />,
   star: <path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.2l5.9-.9z" />,
+  lock: (
+    <>
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      <path d="M12 15v2" />
+    </>
+  ),
 }
 
 export type IconName = keyof typeof PATHS | keyof typeof FILLED

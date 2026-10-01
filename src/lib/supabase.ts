@@ -1,6 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './database.types'
 import { env } from './env'
+import { Llavero } from './cofre/llavero'
+import { crearFetchCifrado, envolverRealtime } from './cofre/fetchCifrado'
 
 const KEEP_KEY = 'hq.keep-session'
 
@@ -32,11 +34,23 @@ export function setKeepSession(keep: boolean) {
   safe(() => localStorage.setItem(KEEP_KEY, keep ? '1' : '0'), undefined)
 }
 
-export const supabase = createClient<Database>(
-  env.supabaseUrl || 'http://localhost:54321',
-  env.supabaseAnonKey || 'missing-anon-key',
-  { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true } },
+const URL_BASE = env.supabaseUrl || 'http://localhost:54321'
+// el Cofre se crea después del cliente (lo usa para leer sus llaves); el fetch lo busca recién al usarse
+let llavero: Llavero | null = null
+
+// Todo lo que entra y sale de la base pasa por el Cofre: las columnas de privacidad.json se cifran en este
+// dispositivo antes de salir y se abren al volver (ver lib/cofre y docs/privacidad.md).
+export const supabase = envolverRealtime(
+  createClient<Database>(URL_BASE, env.supabaseAnonKey || 'missing-anon-key', {
+    auth: { storage: authStorage, persistSession: true, autoRefreshToken: true },
+    global: { fetch: crearFetchCifrado(URL_BASE, () => llavero) },
+  }),
+  () => llavero,
 )
+
+/** El Cofre de quien tiene la sesión (AuthProvider lo inicia al entrar). */
+export const cofre = new Llavero(supabase as unknown as SupabaseClient, new URL(URL_BASE).hostname.split('.')[0])
+llavero = cofre
 
 /** Mensaje humano a partir de un error de Supabase/Postgres. */
 export function humanError(e: unknown): string {

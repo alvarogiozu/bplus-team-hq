@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/privacidad.mjs && tsc -b && vite build",
+    "privacidad": "node scripts/privacidad.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty",
     "lint": "eslint .",

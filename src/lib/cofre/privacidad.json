@@ -1,0 +1,500 @@
+{
+  "_lee_esto": [
+    "Registro de privacidad de Rockie OS: CADA columna de texto o JSON de la base tiene que estar aquí.",
+    "  cifrar  = se cifra en el dispositivo antes de salir (el servidor y el dueño de Rockie solo ven 🔒).",
+    "  publico = no se cifra, con el MOTIVO (el servidor la necesita para funcionar o no es contenido de nadie).",
+    "  servidor = secreto que solo el servidor usa (tokens de terceros): se cifra con una llave del servidor.",
+    "llave: de dónde sale la llave: personal (tu maestra) · espacio:<columna con el id del equipo> · nota:<columna>.",
+    "estado: activo = ya se cifra · pendiente = clasificado, se activa en su tanda (ver docs/privacidad.md).",
+    "npm run build falla si una migración agrega una columna de texto que no esté aquí (scripts/privacidad.mjs)."
+  ],
+  "tablas": {
+    "rockie_turns": {
+      "llave": "personal",
+      "estado": "activo",
+      "dueno": "user_id",
+      "cifrar": [
+        "text"
+      ],
+      "publico": {
+        "app": "en qué app se dijo (para mostrar la conversación)",
+        "role": "quién habla: tú o Rockie"
+      }
+    },
+    "agenda_calendars": {
+      "llave": "personal",
+      "estado": "activo",
+      "dueno": "user_id",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "color": "apariencia",
+        "icon": "apariencia"
+      }
+    },
+    "agenda_groups": {
+      "llave": "personal",
+      "estado": "activo",
+      "dueno": "user_id",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {}
+    },
+    "agenda_hobbies": {
+      "llave": "personal",
+      "estado": "activo",
+      "dueno": "user_id",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "icon": "apariencia",
+        "color": "apariencia"
+      }
+    },
+    "agenda_reserves": {
+      "llave": "personal",
+      "estado": "activo",
+      "dueno": "user_id",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "icon": "apariencia",
+        "color": "apariencia"
+      }
+    },
+    "agenda_items": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "4-agenda-google",
+      "dueno": "user_id",
+      "cifrar": [
+        "title",
+        "notes",
+        "subtasks"
+      ],
+      "publico": {
+        "color": "apariencia",
+        "icon": "apariencia",
+        "gcal_event_id": "id del evento en Google (no su contenido)",
+        "visibility": "si tu equipo te ve «Ocupado» o no: el servidor arma la disponibilidad"
+      }
+    },
+    "agenda_prefs": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "4-agenda-google",
+      "dueno": "user_id",
+      "cifrar": [
+        "routine"
+      ],
+      "publico": {
+        "google_hidden": "ids de calendarios de Google escondidos (no sus nombres)",
+        "availability": "tus horas libres: el servidor las cruza para «Buscar hueco» con tu equipo",
+        "share_level": "si tu equipo ve el título de tus eventos o solo «Ocupado»: el servidor lo aplica"
+      }
+    },
+    "agenda_google": {
+      "llave": "ninguna",
+      "estado": "pendiente",
+      "tanda": "4-agenda-google",
+      "cifrar": [],
+      "servidor": {
+        "refresh_token": "permiso de Google: solo lo usa el servidor para sincronizar",
+        "sync_token": "marca de sincronización de Google: solo la usa el servidor"
+      },
+      "publico": {
+        "email": "la cuenta de Google conectada; la escribe el servidor al conectar",
+        "rockie_cal_id": "id del calendario «Rockie» en Google",
+        "scopes": "qué permisos se le dieron a Google"
+      }
+    },
+    "cuaderno_notes": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "3-cuaderno",
+      "dueno": "user_id",
+      "cifrar": [
+        "title",
+        "body"
+      ],
+      "publico": {
+        "area": "área de la vida (cuerpo/mente/alma/trabajo) para ordenar",
+        "kind": "tipo (nota/pizarra)",
+        "color": "apariencia",
+        "icon": "apariencia (ícono)"
+      }
+    },
+    "cuaderno_entries": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "3-cuaderno",
+      "dueno": "user_id",
+      "cifrar": [
+        "text",
+        "say",
+        "proposals"
+      ],
+      "publico": {
+        "source": "de dónde vino (voz/texto)",
+        "status": "en qué paso va"
+      }
+    },
+    "cuaderno_links": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "3-cuaderno",
+      "dueno": "user_id",
+      "cifrar": [
+        "reason"
+      ],
+      "publico": {}
+    },
+    "cuaderno_cards": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "3-cuaderno",
+      "dueno": "user_id",
+      "cifrar": [
+        "q",
+        "a"
+      ],
+      "publico": {}
+    },
+    "cuaderno_books": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "3-cuaderno",
+      "dueno": "user_id",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "color": "apariencia",
+        "kind": "tipo de libreta",
+        "icon": "apariencia (ícono)"
+      }
+    },
+    "cuaderno_drawings": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "3-cuaderno",
+      "dueno": "user_id",
+      "cifrar": [
+        "strokes"
+      ],
+      "publico": {
+        "paper": "tipo de hoja (lisa/rayas/cuadros)"
+      }
+    },
+    "cuaderno_boards": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "3-cuaderno",
+      "dueno": "user_id",
+      "cifrar": [
+        "scene"
+      ],
+      "publico": {}
+    },
+    "cuaderno_note_updates": {
+      "llave": "nota:note_id",
+      "estado": "pendiente",
+      "tanda": "3-cuaderno",
+      "cifrar": [
+        "data"
+      ],
+      "publico": {}
+    },
+    "agent_messages": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "sin uso hoy",
+      "dueno": "user_id",
+      "cifrar": [
+        "content"
+      ],
+      "publico": {
+        "role": "quién habla"
+      }
+    },
+    "spaces": {
+      "llave": "espacio:id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "name",
+        "tagline",
+        "about",
+        "links",
+        "mission"
+      ],
+      "publico": {}
+    },
+    "space_members": {
+      "llave": "espacio:space_id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "role_title",
+        "job_description"
+      ],
+      "publico": {
+        "role": "permisos (dueño/miembro): el servidor los aplica"
+      }
+    },
+    "areas": {
+      "llave": "espacio:space_id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "color": "apariencia"
+      }
+    },
+    "projects": {
+      "llave": "espacio:space_id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "name",
+        "description",
+        "links"
+      ],
+      "publico": {
+        "color": "apariencia"
+      }
+    },
+    "tasks": {
+      "llave": "espacio:space_id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "title",
+        "notes",
+        "proof_url"
+      ],
+      "publico": {
+        "status": "el servidor valida y ordena con esto",
+        "priority": "orden",
+        "validation": "cómo se valida",
+        "proof_image_path": "ruta del archivo de prueba (el archivo va cifrado)"
+      }
+    },
+    "events": {
+      "llave": "espacio:space_id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "title",
+        "description",
+        "location_or_link"
+      ],
+      "publico": {
+        "external_provider": "de qué calendario vino",
+        "external_id": "id en ese calendario"
+      }
+    },
+    "goals": {
+      "llave": "espacio:space_id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "title",
+        "description",
+        "unit"
+      ],
+      "publico": {
+        "kind": "tipo de meta",
+        "status_override": "estado (el servidor calcula el ritmo)"
+      }
+    },
+    "goal_checkins": {
+      "llave": "espacio:space_id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "note"
+      ],
+      "publico": {}
+    },
+    "material_folders": {
+      "llave": "espacio:space_id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "color": "apariencia"
+      }
+    },
+    "materials": {
+      "llave": "espacio:space_id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "name",
+        "note",
+        "url"
+      ],
+      "publico": {
+        "kind": "tipo (archivo/enlace/nota)",
+        "storage_path": "ruta del archivo (el archivo va cifrado)",
+        "mime": "tipo de archivo, para mostrarlo"
+      }
+    },
+    "team_achievements": {
+      "llave": "espacio:space_id",
+      "estado": "pendiente",
+      "tanda": "2-equipos",
+      "cifrar": [
+        "title",
+        "description"
+      ],
+      "publico": {
+        "icon": "apariencia",
+        "color": "apariencia"
+      }
+    },
+    "activity": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "verb": "qué pasó (creó/validó…)",
+        "entity_type": "sobre qué",
+        "summary": "lo arma el servidor; los títulos que lleva adentro van cifrados",
+        "data": "lo arma el servidor; los títulos que lleva adentro van cifrados"
+      }
+    },
+    "profiles": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "username": "con él se entra: el servidor tiene que poder buscarlo",
+        "display_name": "tu nombre visible para tu equipo",
+        "color": "apariencia",
+        "accent": "apariencia",
+        "avatar_rockie": "apariencia de tu Rockie",
+        "timezone": "el servidor la usa para la agenda y Google"
+      }
+    },
+    "invites": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "code": "el servidor lo busca para dejarte entrar"
+      }
+    },
+    "event_attendees": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "response": "sí/no/quizás: el servidor calcula la disponibilidad"
+      }
+    },
+    "xp_log": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "mode": "cómo se ganó la XP"
+      }
+    },
+    "achievements_unlocked": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "achievement_id": "id de un logro del catálogo fijo"
+      }
+    },
+    "cuaderno_tokens": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "name": "etiqueta de la conexión (p. ej. «Claude»)",
+        "token_hash": "huella del token, nunca el token",
+        "hint": "últimos caracteres para reconocerla",
+        "kind": "tipo de conexión",
+        "client_id": "app conectada",
+        "refresh_hash": "huella, nunca el token",
+        "scope": "permisos pedidos"
+      }
+    },
+    "cuaderno_oauth_clients": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "client_id": "maquinaria de la conexión con Claude (no tiene tus notas)",
+        "client_name": "nombre de la app",
+        "redirect_uris": "a dónde vuelve el permiso",
+        "kind": "tipo de registro"
+      }
+    },
+    "cuaderno_oauth_codes": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "code_hash": "huella del código (dura minutos)",
+        "client_id": "app",
+        "client_name": "app",
+        "redirect_uri": "a dónde vuelve",
+        "code_challenge": "prueba PKCE",
+        "scope": "permisos",
+        "resource": "recurso pedido"
+      }
+    },
+    "cofre_cuentas": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "kid": "nombre de tu llave maestra (no la llave)",
+        "publica": "llave pública: es pública por diseño",
+        "privada": "va cifrada con tu maestra",
+        "recuperacion": "tu maestra cifrada con tu código de recuperación"
+      }
+    },
+    "cofre_ambitos": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "ambito": "tipo (equipo/nota)",
+        "kid": "nombre de la llave vigente (no la llave)"
+      }
+    },
+    "cofre_sobres": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "kid": "nombre de la llave",
+        "ambito": "tipo",
+        "sellado": "la llave sellada: solo su destinatario la abre"
+      }
+    },
+    "cofre_traspasos": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "kid": "nombre de la llave",
+        "paquete": "tu maestra cifrada con el código de traspaso (15 min)"
+      }
+    }
+  }
+}

@@ -1,6 +1,25 @@
 import { expect, type Page } from '@playwright/test'
 
 export const PASS = 'qa-pass-1234'
+// los usuarios qa.* nacen con Cofre y este código de recuperación (scripts/qa.mjs)
+export const CODIGO_COFRE = 'QA00-C0FR-E000-0000-0000-0001'
+
+/** Después de «Entrar»: abre el Cofre del usuario de prueba (o lo crea si el usuario es nuevo). */
+export async function pasarCofre(page: Page) {
+  const crear = page.getByRole('button', { name: 'Crear mi Cofre' })
+  const abrir = page.getByRole('button', { name: 'Abrir mi Cofre' })
+  await expect(crear.or(abrir)).toBeVisible({ timeout: 15_000 })
+  if (await crear.isVisible()) {
+    await crear.click()
+    const codigo = ((await page.getByLabel('Código').textContent()) ?? '').replace(/[^0-9A-Z]/g, '')
+    await page.getByLabel('Para confirmar, escribe los últimos 4 caracteres').fill(codigo.slice(-4))
+    await page.getByRole('button', { name: 'Ya lo guardé' }).click()
+  } else {
+    await page.getByPlaceholder('XXXX-XXXX-XXXX').fill(CODIGO_COFRE)
+    await abrir.click()
+  }
+  await expect(crear.or(abrir)).toHaveCount(0, { timeout: 15_000 })
+}
 
 export async function login(page: Page, username = 'qa.alvaro', theme: 'light' | 'dark' = 'light') {
   await page.addInitScript((t) => localStorage.setItem('hq.theme', t), theme)
@@ -8,6 +27,7 @@ export async function login(page: Page, username = 'qa.alvaro', theme: 'light' |
   await page.getByLabel('Usuario').fill(username)
   await page.getByLabel('Contraseña').fill(PASS)
   await page.getByRole('button', { name: 'Entrar' }).click()
+  await pasarCofre(page)
   await expect(page).toHaveURL(/\/hoy/)
   await expect(page.getByText(/Buen(os|as) (días|tardes|noches)/)).toBeVisible()
 }
@@ -20,5 +40,6 @@ export async function loginAgenda(page: Page, username = 'qa.alvaro', theme: 'li
   await page.getByLabel('Usuario').fill(username)
   await page.getByLabel('Contraseña').fill(PASS)
   await page.getByRole('button', { name: 'Entrar' }).click()
+  await pasarCofre(page)
   await expect(page).toHaveURL(/\/agenda/)
 }

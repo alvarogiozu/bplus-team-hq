@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../../lib/supabase'
+import { cofre, supabase } from '../../lib/supabase'
 import { borrarDatos } from '../../lib/cacheDatos'
 import type { Profile } from '../../lib/types'
 
@@ -21,10 +21,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      void cofre.iniciar(data.session?.user.id ?? null)
       setSession(data.session)
       setReady(true)
     })
     const { data } = supabase.auth.onAuthStateChange((event, s) => {
+      void cofre.iniciar(s?.user.id ?? null)
       setSession(s)
       if (event === 'SIGNED_OUT') {
         qc.clear()

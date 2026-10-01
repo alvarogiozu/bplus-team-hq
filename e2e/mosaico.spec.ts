@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { login, PASS } from './helpers'
+import { login, PASS, pasarCofre } from './helpers'
 
 // Pantalla dividida en mosaico (hasta 6: 3 columnas, arriba/abajo) en el Cuaderno y en el escritorio
 // de Rockie OS, con el mismo arrastre ligero de siempre: al arrastrar una pestaña se ilumina dónde cae
@@ -120,6 +120,7 @@ test('Escritorio: al medio de verdad, abajo a la derecha, arriba si te quedas y 
   await page.getByLabel('Usuario').fill('qa.alvaro')
   await page.getByLabel('Contraseña').fill(PASS)
   await page.getByRole('button', { name: 'Entrar' }).click()
+  await pasarCofre(page)
   await expect(page).toHaveURL(/\/inicio/)
   const dock = page.getByRole('navigation', { name: 'Dock' })
   for (const app of ['Agenda', 'Proyectos', 'Cuaderno']) {

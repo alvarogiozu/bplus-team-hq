@@ -238,6 +238,7 @@ function ProfileMenu({ at, onClose }: { at: { x: number; y: number }; onClose: (
       <button role="menuitem" onClick={() => { toggle(); onClose() }}>
         <Icon name={theme === 'dark' ? 'sun' : 'moon'} /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}
       </button>
+      <button role="menuitem" onClick={() => go('/cofre')}><Icon name="lock" /> Tu Cofre</button>
       <button role="menuitem" onClick={() => go('/cambiar-clave')}><Icon name="key" /> Cambiar contraseña</button>
       <hr />
       <button role="menuitem" onClick={() => signOut()}><Icon name="logout" /> Cerrar sesión</button>

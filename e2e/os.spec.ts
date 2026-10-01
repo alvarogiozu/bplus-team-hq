@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { PASS } from './helpers'
+import { PASS, pasarCofre } from './helpers'
 
 // Rockie OS: una sola cuenta, un Inicio con las cuatro apps y un selector en cada una.
 
@@ -9,6 +9,7 @@ test('al entrar se llega al Inicio con las cuatro apps', async ({ page }) => {
   await page.getByLabel('Usuario').fill('qa.alvaro')
   await page.getByLabel('Contraseña').fill(PASS)
   await page.getByRole('button', { name: 'Entrar' }).click()
+  await pasarCofre(page)
   await expect(page).toHaveURL(/\/inicio$/)
   await expect(page.getByRole('heading', { name: /Buen(os|as) (días|tardes|noches), / })).toBeVisible()
   for (const app of ['Hábitos', 'Agenda', 'Equipo', 'Cuaderno']) {
@@ -48,6 +49,7 @@ test('Hábitos vive en /habitos del mismo sitio y los links de amistad llegan ah
   await page.getByLabel('Usuario').fill('qa.alvaro')
   await page.getByLabel('Contraseña').fill(PASS)
   await page.getByRole('button', { name: 'Entrar' }).click()
+  await pasarCofre(page)
   await expect(page).toHaveURL(/\/inicio$/)
   await page.getByRole('link', { name: /^Hábitos/ }).first().click()
   await expect(page).toHaveURL(/\/habitos\//)
@@ -62,6 +64,7 @@ test('el menú del selector se cierra con Escape', async ({ page }) => {
   await page.getByLabel('Usuario').fill('qa.alvaro')
   await page.getByLabel('Contraseña').fill(PASS)
   await page.getByRole('button', { name: 'Entrar' }).click()
+  await pasarCofre(page)
   await expect(page).toHaveURL(/\/inicio$/)
   await page.goto('/agenda')
   const btn = page.getByRole('button', { name: /Cambiar de app/ })

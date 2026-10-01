@@ -5,6 +5,7 @@
 // Lee .secrets/service.env (service role: nunca al repo, nunca al navegador).
 import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
+import { cifrarValor, envolverConCodigo, exportarLlave, exportarPrivada, nuevaIdentidad, nuevaLlave, nuevoKid } from '../src/lib/cofre/cripto.ts'
 
 const env = Object.fromEntries(
   readFileSync(new URL('../.secrets/service.env', import.meta.url), 'utf8')
@@ -29,6 +30,27 @@ async function as(username) {
   return c
 }
 
+// Código de recuperación de los Cofres de prueba (e2e/helpers.ts lo escribe al entrar). Solo usuarios qa.*.
+const CODIGO_COFRE = 'QA00-C0FR-E000-0000-0000-0001'
+
+async function cofreQa(username) {
+  const c = await as(username)
+  const { data: yo } = await c.auth.getUser()
+  const { data: ya } = await c.from('cofre_cuentas').select('kid').eq('user_id', yo.user.id).maybeSingle()
+  if (ya) return
+  const llave = await nuevaLlave()
+  const kid = nuevoKid('p')
+  const id = await nuevaIdentidad()
+  const { error } = await c.from('cofre_cuentas').insert({
+    user_id: yo.user.id,
+    kid,
+    publica: id.publica,
+    privada: await cifrarValor(llave, kid, await exportarPrivada(id.privada)),
+    recuperacion: await envolverConCodigo(CODIGO_COFRE, await exportarLlave(llave)),
+  })
+  if (error) throw new Error(`cofre ${username}: ${error.message}`)
+}
+
 async function ensureUser(u) {
   const { error } = await admin.auth.admin.createUser({
     email: `${u.username}@${DOMAIN}`,
@@ -41,6 +63,7 @@ async function ensureUser(u) {
 
 async function seed() {
   for (const u of [...USERS, INTRUDER]) await ensureUser(u)
+  for (const u of [...USERS, INTRUDER]) await cofreQa(u.username)
   const owner = await as(USERS[0].username)
   const { data: sid, error } = await owner.rpc('create_space', { p_name: 'B+' })
   if (error) throw error

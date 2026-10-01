@@ -4,6 +4,7 @@ import { Rockie } from '../components/Rockie'
 import { useAuth } from '../features/auth/AuthProvider'
 import { ChangePasswordPage, InviteRoute, LoginPage, RegisterPage } from '../features/auth/AuthPages'
 import { SpaceProvider, WelcomePage } from '../features/spaces/SpaceProvider'
+import CofrePage, { CofreGate } from '../features/cofre/Cofre'
 import { useIsMobile, useMedia } from '../lib/useMedia'
 import { enVentana, ESCRITORIO_Q, sinEscritorio } from '../os/ventana'
 import { adelantarPantallaInicial, pantallas } from './pantallas'
@@ -65,7 +66,12 @@ function RequireAuth() {
   if (loading) return <Splash />
   if (!session) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />
   if (profile?.must_change_password && loc.pathname !== '/cambiar-clave') return <Navigate to="/cambiar-clave" replace />
-  return <Outlet />
+  // nada de la app se muestra sin el Cofre abierto (ver features/cofre)
+  return (
+    <CofreGate uid={session.user.id} cargando={<Splash />}>
+      <Outlet />
+    </CofreGate>
+  )
 }
 
 /** Login/registro: si ya había sesión al llegar, directo al Inicio (no reacciona al login en curso). */
@@ -112,6 +118,7 @@ export function App() {
         <Route element={<RequireAuth />}>
           <Route path="/cambiar-clave" element={<ChangePasswordPage />} />
           <Route path="/bienvenida" element={<WelcomePage />} />
+          <Route path="/cofre" element={<CofrePage />} />
           <Route
             path="/oauth/authorize"
             element={
