@@ -37,6 +37,8 @@
   <body>
     <div id="root"></div>
     <canvas id="confetti" aria-hidden="true"></canvas>
+    <!-- antes que la app: así las animaciones ya nacen con la pausa de ventana escondida (src/os/arranque.ts) -->
+    <script type="module" src="/src/os/arranque.ts"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

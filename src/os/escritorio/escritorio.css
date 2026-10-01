@@ -97,6 +97,8 @@
 }
 .esc-win-tile .ico { width: 30px; height: 30px; }
 @keyframes escLatido { 50% { transform: scale(1.07); } }
+/* el latido es solo mientras la ventana arranca (después la portada queda invisible y no debe seguir animando) */
+.esc-win.lista .esc-win-tile, .esc-win.oculta .esc-win-tile { animation: none; }
 .esc-win-bar {
   flex: none; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 6px 0 10px; background: var(--card);
   border-bottom: 1.5px solid var(--card-line); font-size: var(--t-xs); user-select: none; -webkit-user-select: none;

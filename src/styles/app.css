@@ -86,6 +86,9 @@ svg { display: block; }
 .rockie.still { animation: none; }
 @keyframes rfloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 .rockie .eye { transform-origin: center; transform-box: fill-box; animation: rblink 4s infinite; }
+/* los avatares (still) tampoco parpadean: van repetidos en cada fila y, siendo SVG, cada parpadeo se
+   repinta en el hilo principal; con listas largas eso trababa la página (el Rockie grande sigue vivo) */
+.rockie.still .eye { animation: none; }
 @keyframes rblink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.08); } 98% { transform: scaleY(1); } }
 .rockie.celebrate { animation: rjump 0.8s var(--spring); }
 @keyframes rjump { 0% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-16px) rotate(-12deg) scale(1.08); } 60% { transform: translateY(-6px) rotate(10deg); } 100% { transform: translateY(0) rotate(0); } }
@@ -521,7 +524,14 @@ svg { display: block; }
 @keyframes boxpop { 0% { transform: scale(0.6) rotate(-12deg); } 60% { transform: scale(1.18) rotate(4deg); } 100% { transform: scale(1) rotate(0); } }
 
 /* En línea: punto verde (barra lateral, tira del equipo, responsables) */
-.online { position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 999px; background: var(--green); border: 2px solid var(--paper); box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 60%, transparent); animation: onlinepulse 2.4s ease-out infinite; }
+.online { position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 999px; }
+/* el pulso es un anillo detrás del punto que crece y se desvanece (transform + opacity: lo anima la
+   tarjeta gráfica). Antes animaba box-shadow, que se repinta en cada cuadro, y hay uno por fila de
+   tarea: con listas largas eso trababa la página. El punto va encima (::after), igual que antes. */
+.online::before, .online::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+.online::before { background: color-mix(in srgb, var(--green) 55%, transparent); animation: onlinering 2.4s ease-out infinite; }
+.online::after { background: var(--green); border: 2px solid var(--paper); }
+@keyframes onlinering { 0% { transform: scale(1); opacity: 1; } 70%, 100% { transform: scale(2.1); opacity: 0; } }
 @keyframes onlinepulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 6px transparent; } }
 .side .team .tm .online { right: auto; left: -2px; }
 
@@ -565,7 +575,8 @@ svg { display: block; }
 .sw[aria-checked='true'] { border-color: var(--ink); }
 
 @media (prefers-reduced-motion: reduce) {
-  .online, .trow .box.on { animation: none; }
+  .online::before, .trow .box.on { animation: none; }
+  .online::before { opacity: 0; }
 }
 
 /* ==== Rockie del HQ: voz + IA (mismo botón que Rockie Agenda) ==== */

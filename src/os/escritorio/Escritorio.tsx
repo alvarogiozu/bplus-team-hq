@@ -554,13 +554,16 @@ export default function Escritorio() {
       const d = marcos.current.get(id)?.contentDocument?.documentElement
       d?.toggleAttribute('data-sin-izq', sinIzq(id))
       d?.toggleAttribute('data-sin-der', sinDer(id))
+      // la que no se ve duerme: no anima ni repinta (si no, le roba el hilo a la que usas; os/arranque.ts)
+      d?.toggleAttribute('data-dormida', !(est.current.abiertas.includes(id) && visibles.has(id)))
     } catch {
       /* ventana cargando */
     }
   }
   useEffect(() => {
-    for (const id of s.abiertas) marcar.current(id)
-  }, [lados, rects, s.abiertas, listas])
+    // también las precargadas (dormidas desde que nacen)
+    for (const id of marcos.current.keys()) marcar.current(id)
+  }, [lados, rects, s.abiertas, listas, visibles, dormidas])
 
   // ---------- animación (FLIP): lo nuevo aparece, lo que se queda se desliza, lo que se va se va ----------
   const antes = useRef(new Map<AppId, Rect>())

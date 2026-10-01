@@ -10,6 +10,7 @@ import './os/os.css'
 import { App } from './app/App'
 import { AuthProvider } from './features/auth/AuthProvider'
 import { Toasts } from './components/Toasts'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { envReady } from './lib/env'
 import { enVentana } from './os/ventana'
 import { guardarDatos, restaurarDatos } from './lib/cacheDatos'
@@ -41,7 +42,9 @@ if (!envReady) {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
           <Toasts />
         </AuthProvider>
       </QueryClientProvider>
