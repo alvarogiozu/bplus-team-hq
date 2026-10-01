@@ -1,37 +1,73 @@
-import { useMemo, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Icon } from '../components/Icon'
-import { idsDe } from '../lib/mosaico'
 import { useCuadernoActions, useNotes, type Note } from './data'
 import { IconoDividir } from './Dividido'
 import { CIcon, ItemIcon } from './icons'
 import { Popover, RUTA, TIPO_NOTA, useDivision } from './ui'
 
-// Las notas abiertas como pestañas (como en el navegador y en Obsidian). La del panel con foco va
-// resaltada y las que se ven en otro panel, marcadas (como las pestañas de las apps). Tocar una la abre
-// en el panel con foco; Ctrl + clic o ◫ la abre al lado; arrastrarla la lleva adonde quieras (se ilumina
-// dónde cae, igual que con las apps) y arrastrarla entre pestañas las reordena. El + abre una página o
-// pizarra nueva o una que ya tienes.
+// Las pestañas de UN panel (como los grupos de pestañas de Obsidian): cada panel de la pantalla dividida
+// tiene las suyas arriba y la que se ve va resaltada (con la raya de color en el panel con foco). Tocar
+// una la muestra en este panel; Ctrl + clic o ◫ la abre al lado. Arrastrarla la lleva adonde quieras: a
+// un costado (se ilumina dónde cae) se muda con su etiqueta a ese panel nuevo; sobre las pestañas de otro
+// panel, pasa a ese grupo; entre las de aquí, se reordenan. El + abre una página o pizarra en este panel.
 
-export function Pestanas() {
+export function Pestanas({ panel }: { panel: string }) {
   const div = useDivision()
   const notes = useNotes().data
   const porId = useMemo(() => new Map((notes ?? []).map((n) => [n.id, n])), [notes])
   const [masAt, setMasAt] = useState<HTMLElement | null>(null)
-  const fila = useRef<HTMLDivElement>(null)
-  const enFoco = div.foco === RUTA ? div.actual : div.foco
-  const arrastrandoPestana = div.arrastre && div.arrastre !== RUTA && div.pestanas.includes(div.arrastre)
-  const visibles = useMemo(() => new Set([div.actual, ...idsDe(div.mos)]), [div.actual, div.mos])
+  const [llega, setLlega] = useState(false)
+  const antes = useRef<string | null>(null)
+  const tabs = div.tabsDe(panel)
+  const vista = panel === RUTA ? div.actual : panel
+  const activa = !div.partida || div.foco === panel
+  const arrastrada = div.arrastre && div.arrastre !== RUTA && div.pestanas.includes(div.arrastre) ? div.arrastre : null
+  const deAqui = Boolean(arrastrada && div.panelDe(arrastrada) === panel)
+  useEffect(() => {
+    if (!div.arrastre) setLlega(false)
+  }, [div.arrastre])
+
+  // una pestaña sobre esta barra: si es de aquí se reordena en vivo; si es de otro panel se marca la
+  // barra y, al soltar, pasa a este grupo (antesDe undefined = sobre la barra, sin cambiar la posición)
+  const sobre = (e: DragEvent, antesDe: string | null | undefined) => {
+    if (!arrastrada) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    if (deAqui) {
+      if (antesDe !== undefined && antesDe !== arrastrada) div.ordenar(arrastrada, antesDe)
+      return
+    }
+    if (antesDe !== undefined) antes.current = antesDe
+    if (!llega) setLlega(true)
+  }
 
   return (
-    <nav className="cu-pestanas" aria-label="Notas abiertas">
-      <div className="cu-pestanas-fila" role="tablist" ref={fila}>
+    <nav
+      className={`cu-pestanas${activa ? ' activa' : ''}${llega ? ' llega' : ''}`}
+      aria-label="Pestañas de este panel"
+      onDragOver={(e) => sobre(e, undefined)}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setLlega(false)
+      }}
+      onDrop={(e) => {
+        if (!arrastrada) return
+        e.preventDefault()
+        e.stopPropagation()
+        const id = e.dataTransfer.getData(TIPO_NOTA) || arrastrada
+        div.setArrastre(null)
+        setLlega(false)
+        if (!deAqui) div.moverAGrupo(id, panel, antes.current)
+        antes.current = null
+      }}
+    >
+      <div className="cu-pestanas-fila" role="tablist">
         <AnimatePresence initial={false}>
-          {div.pestanas.map((id, i) => {
+          {tabs.map((id, i) => {
             const n = porId.get(id)
             const titulo = n?.title?.trim() || 'Sin título'
-            const visible = visibles.has(id)
-            const on = id === enFoco
+            const on = id === vista
             return (
               <motion.div
                 key={id}
@@ -43,8 +79,8 @@ export function Pestanas() {
                 role="tab"
                 tabIndex={0}
                 aria-selected={on}
-                className={`cu-pestana${on ? ' on' : ''}${div.partida && visible && !on ? ' vis' : ''}${div.arrastre === id ? ' arrastrada' : ''}`}
-                title={visible ? titulo : `${titulo} · Ctrl + clic o arrástrala para abrirla al lado`}
+                className={`cu-pestana${on ? ' on' : ''}${div.arrastre === id ? ' arrastrada' : ''}`}
+                title={on ? titulo : `${titulo} · Ctrl + clic o arrástrala para abrirla al lado`}
                 draggable
                 // arrastre nativo (motion usa onDragStart para sus gestos): se engancha en captura
                 onDragStartCapture={(e: DragEvent<HTMLDivElement>) => {
@@ -54,14 +90,15 @@ export function Pestanas() {
                 }}
                 onDragEndCapture={() => div.setArrastre(null)}
                 onDragOver={(e) => {
-                  // entre pestañas: se reordenan en vivo
-                  if (!arrastrandoPestana || div.arrastre === id) return
-                  e.preventDefault()
                   const r = e.currentTarget.getBoundingClientRect()
-                  div.ordenar(div.arrastre!, e.clientX < r.left + r.width / 2 ? id : (div.pestanas[i + 1] ?? null))
+                  sobre(e, e.clientX < r.left + r.width / 2 ? id : (tabs[i + 1] ?? null))
                 }}
-                onClick={(e) => (e.ctrlKey || e.metaKey ? div.abrirAlLado(id) : div.abrir(id))}
-                onKeyDown={(e) => e.key === 'Enter' && div.abrir(id)}
+                onClick={(e) => {
+                  if (e.ctrlKey || e.metaKey) return div.abrirAlLado(id)
+                  div.setFoco(panel)
+                  div.cambiarEn(panel, id)
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && div.cambiarEn(panel, id)}
                 onAuxClick={(e) => {
                   if (e.button === 1) {
                     e.preventDefault()
@@ -71,7 +108,7 @@ export function Pestanas() {
               >
                 <ItemIcon value={n?.icon} fallback={n?.kind === 'pizarra' ? 'board' : 'note'} size={15} />
                 <span className="cu-pestana-t">{titulo}</span>
-                {!visible && (
+                {!on && (
                   <button
                     type="button"
                     className="cu-pestana-div"
@@ -103,21 +140,20 @@ export function Pestanas() {
         <button
           type="button"
           className={`cu-pestana-mas${masAt ? ' on' : ''}`}
-          onClick={(e) => setMasAt(masAt ? null : e.currentTarget)}
-          aria-label="Nueva pestaña"
-          aria-haspopup="dialog"
-          title="Página o pizarra nueva, o abrir una que ya tienes"
-          onDragOver={(e) => {
-            if (!arrastrandoPestana) return
-            e.preventDefault()
-            div.ordenar(div.arrastre!, null)
+          onClick={(e) => {
+            div.setFoco(panel)
+            setMasAt(masAt ? null : e.currentTarget)
           }}
+          aria-label="Nueva pestaña en este panel"
+          aria-haspopup="dialog"
+          title="Página o pizarra nueva, o abrir una que ya tienes (en este panel)"
+          onDragOver={(e) => sobre(e, null)}
         >
           <Icon name="plus" className="sm" />
         </button>
       </div>
-      {div.pestanas.length > 2 && (
-        <button type="button" className="cu-pestanas-otras" onClick={div.cerrarOtras} title="Deja solo las que se ven">
+      {tabs.length > 2 && (
+        <button type="button" className="cu-pestanas-otras" onClick={() => div.cerrarOtras(panel)} title="Deja en este panel solo la que se ve">
           Cerrar las demás
         </button>
       )}

@@ -13,7 +13,8 @@ import { uno, type Destino, type Mosaico } from '../lib/mosaico'
 // ---------- pantalla dividida en mosaico (hasta 6 paneles, como el escritorio de Rockie OS) ----------
 // El panel RUTA muestra lo que marca la dirección (Hoy, Carpetas, una nota…); los demás, notas abiertas
 // al lado (src/lib/mosaico.ts). La pestaña que tocas se abre en el panel con foco (el último que tocaste).
-export const RUTA = 'ruta'
+import { RUTA } from './grupos'
+export { RUTA }
 export type Division = {
   mos: Mosaico
   /** hay más de un panel */
@@ -22,8 +23,14 @@ export type Division = {
   foco: string
   /** la nota que muestra el panel RUTA (si muestra una) */
   actual: string | null
-  /** las pestañas, en su orden */
+  /** las pestañas, en su orden (cada una vive en un panel, como en Obsidian) */
   pestanas: string[]
+  /** el panel al que pertenece una pestaña: RUTA o el id de la nota que muestra ese panel */
+  panelDe: (id: string) => string
+  /** las pestañas de un panel, en su orden */
+  tabsDe: (panel: string) => string[]
+  /** cómo queda el mosaico si esa pestaña sale de su panel (sobre esto se calcula dónde cae al arrastrarla) */
+  baseSin: (id: string) => Mosaico
   /** la nota que se está arrastrando (para iluminar dónde cae) */
   arrastre: string | null
   setFoco: (panel: string) => void
@@ -39,7 +46,10 @@ export type Division = {
   cerrarPestana: (id: string) => void
   /** mueve una pestaña antes de otra (null = al final) */
   ordenar: (id: string, antesDe: string | null) => void
-  cerrarOtras: () => void
+  /** la pasa al grupo de otro panel (soltarla en sus pestañas) y la muestra ahí */
+  moverAGrupo: (id: string, panel: string, antesDe: string | null) => void
+  /** deja en ese panel (por defecto, el del foco) solo la pestaña que se ve */
+  cerrarOtras: (panel?: string) => void
 }
 const nada = () => {}
 export const DivisionCtx = createContext<Division>({
@@ -48,6 +58,9 @@ export const DivisionCtx = createContext<Division>({
   foco: RUTA,
   actual: null,
   pestanas: [],
+  panelDe: () => RUTA,
+  tabsDe: () => [],
+  baseSin: () => uno(RUTA),
   arrastre: null,
   setFoco: nada,
   setMos: nada,
@@ -58,6 +71,7 @@ export const DivisionCtx = createContext<Division>({
   cerrarPanel: nada,
   cerrarPestana: nada,
   ordenar: nada,
+  moverAGrupo: nada,
   cerrarOtras: nada,
 })
 export const useDivision = () => useContext(DivisionCtx)

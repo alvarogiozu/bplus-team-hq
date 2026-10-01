@@ -10,6 +10,7 @@ import { canvasDpr, inkOutline, inkSvg, smoothPoints } from './ink'
 import { countWords, joinSpoken, plain, splitByHeadings, spoken, subnoteName } from './text'
 import { asScene, edgePoint, ownedBy, ownerAt, sceneText, strokeTouches, transformStroke, type BItem } from './board'
 import type { Book, Link, Note } from './data'
+import { mudarGrupo, panelDeEn, RUTA, vecina } from './grupos'
 
 const note = (id: string, area: Note['area']): Note => ({
   id,
@@ -459,5 +460,28 @@ describe('resaltado con colores y hoja de dibujo', () => {
     expect(crosses(at(890), 904)).toBe(false)
     expect(crosses(at(902), 904)).toBe(true) // su borde ya toca la línea
     expect(crosses(at(950), 904)).toBe(true)
+  })
+})
+
+describe('pestañas por panel (como en Obsidian)', () => {
+  // la principal (ruta) muestra A; el panel de la derecha muestra C; B quedó en la principal y D en el de la derecha
+  const mos = { cols: [{ ids: [RUTA], h: 0.5 }, { ids: ['C'], h: 0.5 }], ws: [0.5, 0.5] }
+  const lugar = { mos, actual: 'A', grupo: { B: RUTA, D: 'C' } }
+  it('cada pestaña es del panel donde se ve o donde quedó', () => {
+    expect(panelDeEn('A', lugar)).toBe(RUTA)
+    expect(panelDeEn('C', lugar)).toBe('C')
+    expect(panelDeEn('B', lugar)).toBe(RUTA)
+    expect(panelDeEn('D', lugar)).toBe('C')
+    // su panel ya no está: vuelve a la principal
+    expect(panelDeEn('D', { ...lugar, mos: { cols: [{ ids: [RUTA], h: 0.5 }], ws: [1] } })).toBe(RUTA)
+  })
+  it('al irse una pestaña queda a la vista la de su izquierda (o la de su derecha si era la primera)', () => {
+    const orden = ['A', 'B', 'C', 'D']
+    expect(vecina(['A', 'B'], 'B', orden)).toBe('A')
+    expect(vecina(['A', 'B'], 'A', orden)).toBe('B')
+    expect(vecina(['C'], 'C', orden)).toBeNull()
+  })
+  it('un panel que cambia de nota se lleva su grupo (la de antes queda como pestaña)', () => {
+    expect(mudarGrupo({ D: 'C', B: RUTA }, 'C', 'D')).toEqual({ D: 'D', B: RUTA, C: 'D' })
   })
 })

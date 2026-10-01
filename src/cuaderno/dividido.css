@@ -29,8 +29,14 @@
 .cu-dv.moviendo.y { cursor: row-resize; }
 .cu-dv.moviendo .cu-pane, .cu-dv.arrastrando .cu-pane { pointer-events: none; }
 
-/* ---------- pestañas: como las del navegador ---------- */
-.cu-pestana.vis { background: color-mix(in srgb, var(--paper) 55%, transparent); color: var(--ink); }
+/* ---------- pestañas: cada panel con las suyas arriba (grupos, como en Obsidian) ---------- */
+.cu-pane > .cu-pestanas { position: relative; }
+/* la raya de color de la pestaña que se ve, solo en el panel con foco (en los demás va tenue) */
+.cu-pestanas:not(.activa) .cu-pestana.on::before { background: var(--card-line); }
+.cu-pestanas:not(.activa) .cu-pestana.on { color: var(--ink-soft); }
+/* mientras se arrastra una pestaña, las barras quedan encima de las zonas: soltar ahí = a ese grupo */
+.cu-dv.arrastrando .cu-pane > .cu-pestanas { pointer-events: auto; z-index: 31; }
+.cu-pestanas.llega { background: color-mix(in srgb, var(--berry) 10%, var(--paper-alt)); box-shadow: inset 0 -3px 0 var(--berry); }
 .cu-pestana.arrastrada { opacity: 0.45; }
 .cu-pestana .cu-pestana-div { color: var(--ink-muted); }
 .cu-pestana-mas {

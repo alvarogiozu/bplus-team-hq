@@ -105,8 +105,8 @@ function Shell() {
         <div className={`cu${mobile ? ' is-mobile' : ''}`} data-width={width}>
           {!mobile && <Sidebar badges={badges} />}
           <main className={`cu-main${panel ? ' has-panel' : ''}`}>
-            {!mobile && <Pestanas />}
-            <AreaDividida fallback={<div className="cu-loading" aria-busy="true" aria-label="Cargando" />}>
+            {/* cada panel con sus pestañas arriba (como en Obsidian); en el celular, sin pestañas */}
+            <AreaDividida fallback={<div className="cu-loading" aria-busy="true" aria-label="Cargando" />} barra={mobile ? undefined : (panel) => <Pestanas panel={panel} />}>
               <Suspense
                 fallback={
                   <div className="cu-loading" aria-busy="true" aria-label="Cargando">

@@ -6,14 +6,16 @@ import { lsGet, lsSet } from '../lib/storage'
 import { cuenta, destinoEn, frenoArriba, idsDe, MAX_COLS, moverHorizontal, moverVertical, poner, quitar, rects, reemplazar, sano, separadores, uno, zonasDe, type Destino, type Mosaico, type Rect } from '../lib/mosaico'
 import { useNotes } from './data'
 import { DivisionCtx, PanelIdCtx, RUTA, TIPO_NOTA, useDivision, type Division } from './ui'
+import { mudarGrupo, panelDeEn, vecina } from './grupos'
 import './dividido.css'
 
 // Pantalla dividida del Cuaderno igual que las apps del escritorio de Rockie OS: hasta 6 paneles (3
-// columnas, cada una entera o partida arriba/abajo). Arrastras una pestaña y se ilumina dónde cae: a la
-// izquierda, al medio, a la derecha, arriba o abajo. Si arrastras la nota que ya ves, se MUEVE (la
-// principal pasa a otra pestaña) con animación. Sin barras extra: las pestañas de arriba son las
-// asas; una nota se quita de la pantalla dividida con la × de su pestaña o desde su ⋯. Los separadores
-// reparten el ancho y el alto (doble clic = iguales). Todo se recuerda.
+// columnas, cada una entera o partida arriba/abajo). Como en Obsidian, cada panel tiene SUS pestañas
+// arriba (un grupo): arrastras una pestaña y se ilumina dónde cae (izquierda, al medio, derecha, arriba,
+// abajo o en el centro de otro panel) y la pestaña se MUDA con su etiqueta a ese panel; su panel de antes
+// muestra la vecina o se cierra si quedó vacío. Soltarla en las pestañas de otro panel la suma a ese
+// grupo. La × cierra la pestaña (la última cierra el panel). Los separadores reparten el ancho y el alto
+// (doble clic = iguales). Todo se recuerda.
 const NotaLateral = lazy(() => import('./Nota').then((m) => ({ default: m.NotaDe })))
 const GAP = 8
 const MAX_PESTANAS = 24
@@ -58,6 +60,18 @@ function porDefecto(m: Mosaico): Destino {
   return { t: 'cambiar', col: 0, fila: 0 }
 }
 
+type Est = { mos: Mosaico; foco: string; pestanas: string[]; actual: string | null; grupo: Record<string, string> }
+
+function leerGrupos(clave: string): Record<string, string> {
+  try {
+    const v = JSON.parse(lsGet(clave) || '{}') as unknown
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+    return Object.fromEntries(Object.entries(v).filter((e): e is [string, string] => typeof e[1] === 'string'))
+  } catch {
+    return {}
+  }
+}
+
 export function useDivisionEstado(mobile: boolean): Division {
   const { userId } = useMe()
   const nav = useNavigate()
@@ -67,28 +81,39 @@ export function useDivisionEstado(mobile: boolean): Division {
   const [mos, setMosS] = useState<Mosaico>(() => leerMosaico(userId))
   const [foco, setFoco] = useState<string>(RUTA)
   const [pestanas, setPestanas] = useState<string[]>(() => leerLista(`cu.pestanas.${userId}`))
+  const [grupo, setGrupo] = useState<Record<string, string>>(() => leerGrupos(`cu.grupos.${userId}`))
   const [arrastre, setArrastre] = useState<string | null>(null)
-  const est = useRef({ mos, foco, pestanas, actual })
-  est.current = { mos, foco, pestanas, actual }
+  // la pestaña recién cerrada: mientras la dirección no cambie, no se vuelve a abrir sola
+  const cerrada = useRef<string | null>(null)
+  const est = useRef<Est>({ mos, foco, pestanas, actual, grupo })
+  est.current = { mos, foco, pestanas, actual, grupo }
 
   const setMos = useCallback((m: Mosaico) => setMosS(idsDe(m).includes(RUTA) ? m : uno(RUTA)), [])
   useEffect(() => lsSet(`cu.mosaico.${userId}`, JSON.stringify(mos)), [mos, userId])
   useEffect(() => lsSet(`cu.pestanas.${userId}`, JSON.stringify(pestanas)), [pestanas, userId])
+  useEffect(() => lsSet(`cu.grupos.${userId}`, JSON.stringify(grupo)), [grupo, userId])
 
   // abrir una nota (en cualquier panel) = su pestaña
   const lados = idsDe(mos).filter((x) => x !== RUTA)
   const ladosClave = lados.join('|')
   useEffect(() => {
-    const nuevas = [actual, ...ladosClave.split('|')].filter((x): x is string => Boolean(x))
+    const nuevas = [actual, ...ladosClave.split('|')].filter((x): x is string => Boolean(x) && x !== cerrada.current)
     setPestanas((l) => {
       const faltan = nuevas.filter((x) => !l.includes(x))
       return faltan.length ? [...l, ...faltan].slice(-MAX_PESTANAS) : l
     })
   }, [actual, ladosClave])
-  // la principal abrió una nota que estaba al lado: se "mueve" a la principal (nunca dos veces)
+  // la principal abrió una nota: es de su grupo. Si se veía en otro panel, se MUEVE (nunca dos veces):
+  // ese panel pasa a su pestaña vecina, o se cierra si era la única
   useEffect(() => {
+    if (actual !== cerrada.current) cerrada.current = null
     if (!actual) return
-    setMosS((m) => (idsDe(m).includes(actual) ? quitar(m, actual) : m))
+    const s = est.current
+    if (idsDe(s.mos).includes(actual)) {
+      const sig = vecina(s.pestanas.filter((x) => panelDeEn(x, s) === actual), actual, s.pestanas)
+      setMosS((m) => (idsDe(m).includes(actual) ? (sig ? reemplazar(m, actual, sig) : quitar(m, actual)) : m))
+      setGrupo((g) => ({ ...(sig ? mudarGrupo(g, actual, sig) : g), [actual]: RUTA }))
+    } else setGrupo((g) => (g[actual] === RUTA ? g : { ...g, [actual]: RUTA }))
     setFoco((f) => (f === actual ? RUTA : f))
   }, [actual])
   // notas borradas: fuera de los paneles y de las pestañas
@@ -104,77 +129,118 @@ export function useDivisionEstado(mobile: boolean): Division {
   }, [mos, foco])
 
   return useMemo<Division>(() => {
-    /** a qué pasa la principal cuando su nota se va a otro panel: otra pestaña que no se vea (o Hoy) */
-    const otraParaRuta = (sin: string[]) => {
-      const libre = [...est.current.pestanas].reverse().find((x) => !sin.includes(x))
-      return libre ? `/cuaderno/nota/${libre}` : '/cuaderno'
-    }
-    const abrirAlLado = (id: string, d?: Destino) => {
-      const { mos: base, actual: a } = est.current
-      const sinId = quitar(base, id)
-      const dest = d ?? porDefecto(sinId)
-      if (dest.t === 'cambiar' && sinId.cols[dest.col]?.ids[dest.fila] === RUTA) {
-        // soltarla sobre la principal = abrirla ahí (la que ya se ve ahí, se queda)
-        if (id === RUTA) return
-        setFoco(RUTA)
-        if (id === a) return
-        setMosS(sinId)
-        nav(`/cuaderno/nota/${id}`)
-        return
+    const tabsEn = (panel: string, s: Est = est.current) => s.pestanas.filter((x) => panelDeEn(x, s) === panel)
+    const vistaEn = (panel: string, s: Est = est.current) => (panel === RUTA ? s.actual : panel)
+    /** lo que queda cuando la pestaña `id` sale de su panel (sin quitarla de las pestañas) */
+    const salir = (id: string, s: Est = est.current) => {
+      const p = panelDeEn(id, s)
+      let m = s.mos
+      let g: Record<string, string> = { ...s.grupo }
+      let ir: string | null = null
+      let sig: string | null = null
+      let rutaVacia = false
+      if (vistaEn(p, s) === id) {
+        sig = vecina(tabsEn(p, s), id, s.pestanas)
+        if (p === RUTA) {
+          if (sig) ir = `/cuaderno/nota/${sig}`
+          else rutaVacia = true
+        } else if (sig) {
+          m = reemplazar(m, id, sig)
+          g = mudarGrupo(g, id, sig)
+        } else m = quitar(m, id)
       }
-      const next = poner(base, id, dest)
-      if (!idsDe(next).includes(RUTA)) return
-      setMosS(next)
-      setFoco(id)
-      // la nota que ves en la principal se MUEVE: la principal pasa a otra pestaña (o a Hoy)
-      if (id === a) nav(otraParaRuta([id, ...idsDe(next)]))
+      delete g[id]
+      return { panel: p, mos: m, grupo: g, ir, sig, rutaVacia }
     }
-    const abrir = (id: string, nueva = false) => {
-      const { mos: base, foco: f, actual: a } = est.current
-      if (idsDe(base).includes(id)) return setFoco(id)
-      if (id === a) return setFoco(RUTA)
-      if (f !== RUTA && idsDe(base).includes(f)) {
-        setMosS(reemplazar(base, f, id))
-        return setFoco(id)
+    /** la principal se quedó sin pestañas: el primer panel de al lado toma su lugar (o queda Hoy) */
+    const cerrarRuta = (m: Mosaico, g: Record<string, string>) => {
+      const primera = idsDe(m).find((x) => x !== RUTA)
+      if (!primera) {
+        setGrupo(g)
+        return nav('/cuaderno')
       }
+      setMosS(reemplazar(quitar(m, RUTA), primera, RUTA))
+      setGrupo(mudarGrupo(g, primera, RUTA))
       setFoco(RUTA)
-      // una página recién creada abre con su título listo para escribir
-      nav(`/cuaderno/nota/${id}${nueva ? "?nueva=1" : ""}`)
+      nav(`/cuaderno/nota/${primera}`)
     }
-    const cambiarEn = (panel: string, id: string) => {
-      const { mos: base, actual: a } = est.current
-      if (panel === RUTA) {
+    /** muestra `id` (que no se ve en ningún panel) en ese panel: entra a su grupo */
+    const mostrarEn = (panel: string, id: string, nueva = false) => {
+      const s = est.current
+      if (panel === RUTA || !idsDe(s.mos).includes(panel)) {
+        setGrupo((g) => ({ ...g, [id]: RUTA }))
+        setFoco(RUTA)
+        // una página recién creada abre con su título listo para escribir
+        return nav(`/cuaderno/nota/${id}${nueva ? '?nueva=1' : ''}`)
+      }
+      setMosS(reemplazar(s.mos, panel, id))
+      setGrupo((g) => mudarGrupo(g, panel, id))
+      setFoco(id)
+    }
+
+    const abrirAlLado = (id: string, d?: Destino) => {
+      const s = est.current
+      const out = salir(id, s)
+      const base = out.mos
+      const dest = d ?? porDefecto(base)
+      const enDestino = dest.t === 'cambiar' ? base.cols[dest.col]?.ids[dest.fila] : undefined
+      if (enDestino === RUTA) {
+        // soltarla sobre la principal = abrirla ahí (entra a su grupo)
+        if (id === s.actual) return setFoco(RUTA)
+        setMosS(base)
+        setGrupo({ ...out.grupo, [id]: RUTA })
         setFoco(RUTA)
         return nav(`/cuaderno/nota/${id}`)
       }
-      if (id === a) return setFoco(RUTA)
-      if (idsDe(base).includes(id)) return setFoco(id)
-      setMosS(reemplazar(base, panel, id))
+      let next = poner(base, id, dest)
+      if (!idsDe(next).includes(RUTA)) return
+      // soltarla en el centro de otro panel la suma a ese grupo: la que se veía ahí queda como pestaña
+      let g = enDestino ? mudarGrupo(out.grupo, enDestino, id) : { ...out.grupo, [id]: id }
+      if (out.rutaVacia) {
+        // movió la única pestaña de la principal: la principal va con ella (como en Obsidian)
+        next = reemplazar(quitar(next, RUTA), id, RUTA)
+        g = mudarGrupo(g, id, RUTA)
+        setMosS(next)
+        setGrupo(g)
+        return setFoco(RUTA)
+      }
+      setMosS(next)
+      setGrupo(g)
       setFoco(id)
+      if (out.ir) nav(out.ir)
+    }
+    const abrir = (id: string, nueva = false) => {
+      const s = est.current
+      if (idsDe(s.mos).includes(id)) return setFoco(id)
+      if (id === s.actual) return setFoco(RUTA)
+      mostrarEn(s.foco, id, nueva)
+    }
+    const cambiarEn = (panel: string, id: string) => {
+      const s = est.current
+      if (vistaEn(panel, s) === id) return setFoco(panel)
+      if (id === s.actual) return setFoco(RUTA)
+      if (idsDe(s.mos).includes(id)) return setFoco(id)
+      mostrarEn(panel, id)
     }
     const cerrarPanel = (panel: string) => {
-      const { mos: base, foco: f } = est.current
-      if (panel === RUTA) {
-        // cerrar la principal: la primera de al lado pasa a ser la principal (en su lugar)
-        const primera = idsDe(base).find((x) => x !== RUTA)
-        if (!primera) return
-        setMosS(reemplazar(quitar(base, RUTA), primera, RUTA))
-        setFoco(RUTA)
-        return nav(`/cuaderno/nota/${primera}`)
-      }
-      setMosS(quitar(base, panel))
-      if (f === panel) setFoco(RUTA)
+      const s = est.current
+      if (panel === RUTA) return cerrarRuta(s.mos, s.grupo)
+      // quitarlo de la pantalla dividida: sus pestañas pasan a la principal
+      setMosS(quitar(s.mos, panel))
+      setGrupo((g) => mudarGrupo(g, panel, RUTA))
+      if (s.foco === panel) setFoco(RUTA)
     }
     const cerrarPestana = (id: string) => {
-      const { pestanas: ps, mos: base, actual: a } = est.current
-      const i = ps.indexOf(id)
-      const resto = ps.filter((x) => x !== id)
-      setPestanas(resto)
-      if (idsDe(base).includes(id)) return cerrarPanel(id)
-      if (id === a) {
-        const libres = resto.filter((x) => !idsDe(base).includes(x))
-        nav(libres.length ? `/cuaderno/nota/${libres[Math.min(Math.max(0, i - 1), libres.length - 1)]}` : '/cuaderno')
-      }
+      const s = est.current
+      cerrada.current = id
+      setPestanas(s.pestanas.filter((x) => x !== id))
+      const out = salir(id, s)
+      // era la última de su panel: el panel se cierra (la principal, si se queda vacía, cede su lugar)
+      if (out.rutaVacia) return cerrarRuta(s.mos, out.grupo)
+      setMosS(out.mos)
+      setGrupo(out.grupo)
+      if (out.panel !== RUTA && s.foco === id) setFoco(out.sig ?? RUTA)
+      if (out.ir) nav(out.ir)
     }
     const ordenar = (id: string, antesDe: string | null) =>
       setPestanas((l) => {
@@ -183,18 +249,49 @@ export function useDivisionEstado(mobile: boolean): Division {
         sin.splice(j < 0 ? sin.length : j, 0, id)
         return sin.join('|') === l.join('|') ? l : sin
       })
-    const cerrarOtras = () => {
-      const { mos: base, actual: a } = est.current
-      const vis = new Set([a, ...idsDe(base)])
-      setPestanas((l) => l.filter((x) => vis.has(x)))
+    const moverAGrupo = (id: string, panel: string, antesDe: string | null) => {
+      const s = est.current
+      if (panelDeEn(id, s) === panel) return ordenar(id, antesDe)
+      const out = salir(id, s)
+      let m = out.mos
+      let g = out.grupo
+      let destino = panel
+      if (out.rutaVacia) {
+        // la principal se quedó sin pestañas: el panel que la recibe pasa a ser la principal
+        m = reemplazar(quitar(m, RUTA), panel, RUTA)
+        g = mudarGrupo(g, panel, RUTA)
+        destino = RUTA
+      }
+      ordenar(id, antesDe)
+      if (destino === RUTA) {
+        setMosS(m)
+        setGrupo({ ...g, [id]: RUTA })
+        setFoco(RUTA)
+        return nav(`/cuaderno/nota/${id}`)
+      }
+      setMosS(reemplazar(m, destino, id))
+      setGrupo(mudarGrupo(g, destino, id))
+      setFoco(id)
+      if (out.ir) nav(out.ir)
+    }
+    const cerrarOtras = (panel?: string) => {
+      const s = est.current
+      const p = panel ?? (idsDe(s.mos).includes(s.foco) ? s.foco : RUTA)
+      const vis = vistaEn(p, s)
+      const fuera = new Set(tabsEn(p, s).filter((x) => x !== vis))
+      setPestanas((l) => l.filter((x) => !fuera.has(x)))
     }
     const m = mobile ? uno(RUTA) : mos
+    const vista: Est = { mos: m, foco, pestanas, actual, grupo }
     return {
       mos: m,
       partida: cuenta(m) > 1,
       foco: mobile ? RUTA : foco,
       actual,
       pestanas,
+      panelDe: (id) => panelDeEn(id, vista),
+      tabsDe: (panel) => tabsEn(panel, vista),
+      baseSin: (id) => salir(id, vista).mos,
       arrastre,
       setFoco,
       setMos,
@@ -205,9 +302,10 @@ export function useDivisionEstado(mobile: boolean): Division {
       cerrarPanel,
       cerrarPestana,
       ordenar,
+      moverAGrupo,
       cerrarOtras,
     }
-  }, [mobile, mos, foco, actual, pestanas, arrastre, nav, setMos])
+  }, [mobile, mos, foco, actual, pestanas, grupo, arrastre, nav, setMos])
 }
 
 export function DivisionProvider({ value, children }: { value: Division; children: ReactNode }) {
@@ -226,7 +324,7 @@ function nombreRuta(path: string, titulo: (id: string) => string) {
 }
 
 /** El área de contenido: la principal (la ruta) y las notas abiertas al lado, en mosaico. */
-export function AreaDividida({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
+export function AreaDividida({ children, fallback, barra }: { children: ReactNode; fallback: ReactNode; barra?: (panel: string) => ReactNode }) {
   const div = useDivision()
   const loc = useLocation()
   const notes = useNotes().data
@@ -278,14 +376,15 @@ export function AreaDividida({ children, fallback }: { children: ReactNode; fall
 
   // ---------- arrastrar una pestaña: las mismas zonas que las apps del escritorio ----------
   // se calculan una sola vez al empezar; al mover solo se ilumina la que toca
+  const baseSin = div.baseSin
   const zonas = useMemo(() => {
     const id = div.arrastre
     if (!id || !tam.w) return []
     // la nota que ya ves en la principal: soltarla ahí mismo es "Aquí" (se queda). Una que ya se ve al
     // lado: el centro de otra es "En lugar de …". Una que no se ve, con la principal sola: "Aquí".
     const aqui = id === div.actual ? RUTA : idsDe(div.mos).includes(id) ? null : undefined
-    return zonasDe(quitar(div.mos, id), tam.w, tam.h, GAP, nombre, { aqui })
-  }, [div.arrastre, div.actual, div.mos, tam, nombre])
+    return zonasDe(baseSin(id), tam.w, tam.h, GAP, nombre, { aqui })
+  }, [div.arrastre, div.actual, div.mos, baseSin, tam, nombre])
   // cada arrastre empieza de cero
   useEffect(() => {
     freno.current = frenoArriba()
@@ -293,7 +392,7 @@ export function AreaDividida({ children, fallback }: { children: ReactNode; fall
   const destino = (e: DragEvent, id: string) => {
     const caja = box.current!.getBoundingClientRect()
     const arriba = freno.current((e.clientY - caja.top) / caja.height, performance.now())
-    return destinoEn(quitar(div.mos, id), e.clientX - caja.left, e.clientY - caja.top, caja.width, caja.height, GAP, nombre, { arriba }).d
+    return destinoEn(div.baseSin(id), e.clientX - caja.left, e.clientY - caja.top, caja.width, caja.height, GAP, nombre, { arriba }).d
   }
   const arrastrada = div.arrastre
 
@@ -342,6 +441,8 @@ export function AreaDividida({ children, fallback }: { children: ReactNode; fall
           onPointerDownCapture={() => partida && div.foco !== pid && div.setFoco(pid)}
         >
           <PanelIdCtx.Provider value={pid}>
+            {/* las pestañas de este panel (su grupo), como en Obsidian */}
+            {barra?.(pid)}
             {pid === RUTA ? (
               children
             ) : (
