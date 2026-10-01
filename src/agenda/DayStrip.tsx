@@ -6,6 +6,8 @@ import { useDropTarget, type DragPayload } from './drag'
 // La tira de la semana: tocar cambia de día, deslizar cambia de semana y soltar una piedra
 // sobre un día la mueve a ese día (la tira "traga" la piedra).
 
+export const SLIDE = { type: 'spring' as const, stiffness: 520, damping: 34 }
+
 export function DayStrip(p: {
   day: string
   today: string
@@ -65,7 +67,8 @@ function DayCell({ d, day, today, dots, onPick, onDropDay }: { d: string; day: s
     >
       <small>{WEEKDAY_NAMES[weekday(d)].slice(0, 3)}</small>
       <span className="ag-day-num">
-        {sel && <span className="ag-day-sel" />}
+        {/* el recuadro se desliza de un día al otro (también al pasar de semana: del 29 al 1) */}
+        {sel && <motion.span layoutId="ag-day-sel" className="ag-day-sel" transition={SLIDE} />}
         <b>{Number(d.slice(8))}</b>
       </span>
       <span className="ag-dots" aria-hidden="true">

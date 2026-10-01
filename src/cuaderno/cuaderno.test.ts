@@ -8,7 +8,7 @@ import { crosses, growLine, touches } from './Draw'
 import { HighlightMark, TextColorMark } from './extensions'
 import { canvasDpr, inkOutline, inkSvg, smoothPoints } from './ink'
 import { countWords, joinSpoken, plain, splitByHeadings, spoken, subnoteName } from './text'
-import { asScene, edgePoint, sceneText, strokeTouches } from './board'
+import { asScene, edgePoint, ownedBy, ownerAt, sceneText, strokeTouches, transformStroke, type BItem } from './board'
 import type { Book, Link, Note } from './data'
 
 const note = (id: string, area: Note['area']): Note => ({
@@ -371,6 +371,61 @@ describe('tinta suave (ink.ts)', () => {
   })
   it('la densidad del lienzo no se pasa de memoria', () => {
     expect(canvasDpr(4000, 3000)).toBe(1)
+  })
+  it('con lápiz, la presión normal da el grosor elegido (antes salía casi el doble)', () => {
+    const line = (pr: number) => {
+      const p: number[] = []
+      for (let i = 0; i <= 100; i += 2) p.push(i, 0, pr)
+      return p
+    }
+    // el grosor a mitad del trazo (lejos de las puntas redondas)
+    const mid = (o: number[][]) => {
+      const ys = o.filter((q) => q[0] > 40 && q[0] < 60).map((q) => q[1])
+      return Math.max(...ys) - Math.min(...ys)
+    }
+    const normal = inkOutline({ p: line(0.5).map((v, i) => (i % 3 === 2 ? (i % 6 === 2 ? 0.49 : 0.51) : v)), s: 6 }, false, true)
+    expect(mid(normal)).toBeGreaterThan(5)
+    expect(mid(normal)).toBeLessThan(7)
+    const strong = inkOutline({ p: line(1), s: 6 }, false, true)
+    expect(mid(strong)).toBeLessThan(6 * 1.65)
+  })
+  it('el lápiz que toca con presión casi nula no deja el inicio en aguja', () => {
+    const p: number[] = []
+    for (let i = 0; i <= 40; i++) p.push(i, 0, i === 0 ? 0.05 : 0.6)
+    const sm = smoothPoints(p, 1, 4)
+    expect(sm[0].slice(0, 2)).toEqual([0, 0]) // la punta sigue donde la pusiste
+    expect(sm[0][2]).toBeGreaterThan(0.35) // pero su presión se promedia con las vecinas
+  })
+})
+
+describe('imágenes en la pizarra', () => {
+  const img: BItem = { id: 'img', t: 'image', x: 0, y: 0, w: 200, ar: 0.5, src: 'cuaderno://u/a.webp' }
+  const box = (it: BItem) => ({ x: it.x, y: it.y, w: it.w, h: it.t === 'image' ? it.w * it.ar : 40 })
+  it('una imagen que todavía sube (copia local) nunca se guarda', () => {
+    const s = asScene({
+      items: [img, { ...img, id: 'local', src: 'blob:http://x/1' }, { ...img, id: 'sin-ar', ar: 0 }],
+    })
+    expect(s.items.map((i) => i.id)).toEqual(['img'])
+  })
+  it('el texto de la pizarra cuenta las imágenes', () => {
+    const s = asScene({ items: [img, { ...img, id: 'b', name: 'Mitosis' }] })
+    expect(sceneText(s, () => '')).toBe('- Imagen\n- Imagen: Mitosis')
+  })
+  it('lo escrito encima es de la imagen de más arriba (los textos no tapan, las páginas no reciben)', () => {
+    const txt: BItem = { id: 't', t: 'text', x: 10, y: 10, w: 100, text: 'hola', size: 1 }
+    const page: BItem = { id: 'p', t: 'page', x: 150, y: 0, w: 100, noteId: 'n' }
+    expect(ownerAt([img, txt], 20, 20, box)?.id).toBe('img')
+    expect(ownerAt([img, page], 160, 20, box)).toBeNull()
+    expect(ownerAt([img], 500, 20, box)).toBeNull()
+    expect(ownedBy(img)).toEqual({ o: 'img', b: 1 })
+    expect(ownedBy({ id: 'n', t: 'note', x: 0, y: 0, w: 1, c: 'amber', text: '' })).toEqual({ o: 'n' })
+  })
+  it('un trazo acompaña a su imagen al moverla y al agrandarla', () => {
+    const st = { id: 's', c: 'ink' as const, s: 4, p: [10, 10, 0.5, 20, 30, 0.5] }
+    expect(transformStroke(st, 1, 0, 0, 5, -5).p).toEqual([15, 5, 0.5, 25, 25, 0.5])
+    const big = transformStroke(st, 2, 0, 0, 0, 0)
+    expect(big.p).toEqual([20, 20, 0.5, 40, 60, 0.5])
+    expect(big.s).toBe(8)
   })
 })
 

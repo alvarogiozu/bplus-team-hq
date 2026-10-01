@@ -172,14 +172,19 @@ export function parseMarkdown(md: string) {
 // ---------- pizarras como JSON Canvas (el formato de Obsidian) ----------
 const CANVAS_COLOR: Record<string, string> = { coral: '1', amber: '3', green: '4', accent: '5', berry: '6' }
 
-export function sceneToCanvas(raw: unknown, pathOf: Map<string, string>, strokesNote = true) {
+export function sceneToCanvas(raw: unknown, pathOf: Map<string, string>, strokesNote = true, attachments?: Map<string, string>) {
   const s: Scene = asScene(raw)
   const nodes: Record<string, unknown>[] = []
   const hOf = (t: string, size = 1) => (t === 'note' ? 120 : t === 'page' ? 120 : 50 * size)
   for (const it of s.items) {
-    const h = it.t === 'text' ? hOf('text', it.size) : hOf(it.t)
+    const h = it.t === 'image' ? Math.round(it.w * it.ar) : it.t === 'text' ? hOf('text', it.size) : hOf(it.t)
     const base = { id: it.id, x: Math.round(it.x), y: Math.round(it.y), width: Math.round(it.w), height: h }
-    if (it.t === 'page') {
+    if (it.t === 'image') {
+      // la imagen viaja a _adjuntos como las de las páginas (Obsidian la muestra en el canvas)
+      const name = attachName(it.src)
+      attachments?.set(name, it.src)
+      nodes.push({ ...base, type: 'file', file: `${ATTACH_DIR}/${name}` })
+    } else if (it.t === 'page') {
       const p = pathOf.get(it.noteId)
       nodes.push(p ? { ...base, type: 'file', file: p } : { ...base, type: 'text', text: 'Página borrada' })
     } else if (it.t === 'note') nodes.push({ ...base, type: 'text', text: it.text, color: CANVAS_COLOR[it.c] ?? '3' })

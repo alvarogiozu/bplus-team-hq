@@ -59,6 +59,37 @@ export async function fetchHabitosHoy(): Promise<HabitosHoy> {
   return { signedIn: true, habits, streak, best: s?.best ?? 0 }
 }
 
+// ---------- tus hábitos en la Agenda: en sus días y a su hora ----------
+export type HabitPlan = { id: string; name: string; time: string; type: string; icon: string | null; color: string | null; /** lunes = 0, como en Hábitos */ days: number[] }
+export type HabitosRango = { signedIn: false } | { signedIn: true; habits: HabitPlan[]; /** día → hábitos cumplidos */ done: Record<string, string[]> }
+
+/** Tus hábitos activos y lo que cumpliste entre `from` y `to` (incluidos). */
+export async function fetchHabitosRango(from: string, to: string): Promise<HabitosRango> {
+  const c = bplus()
+  if (!c) return { signedIn: false }
+  const { data } = await c.auth.getSession()
+  const session = data.session
+  if (!session) return { signedIn: false }
+  const uid = session.user.id
+  const [h, cmp] = await Promise.all([
+    c.from('habits').select('id, name, time, type, icon, color, days').eq('user_id', uid).eq('active', true),
+    c.from('completions').select('habit_id, date, mode').eq('user_id', uid).gte('date', from).lte('date', to),
+  ])
+  if (h.error) throw h.error
+  const done: Record<string, string[]> = {}
+  for (const x of (cmp.data ?? []) as { habit_id: string; date: string; mode: string }[]) {
+    if (x.mode === 'tomorrow') continue
+    ;(done[x.date] ??= []).push(x.habit_id)
+  }
+  const habits = ((h.data ?? []) as HabitRow[])
+    .filter((x) => Array.isArray(x.days))
+    .map((x) => ({ id: x.id, name: x.name, time: x.time ?? '', type: x.type ?? 'salud', icon: x.icon, color: x.color, days: x.days! }))
+  return { signedIn: true, habits, done }
+}
+
+/** "7:30" → 450 minutos */
+export const habitMin = toMin
+
 // ---------- tu Rockie (lo que elegiste en la Tienda de Hábitos) ----------
 export type RockieLook = { stone: string; equipped: Record<string, string | null> }
 

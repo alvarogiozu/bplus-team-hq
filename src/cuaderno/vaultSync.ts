@@ -42,7 +42,7 @@ async function collect(d: VaultData): Promise<OutFile[]> {
   }
   for (const n of d.notes) {
     const path = pathOf.get(n.id)!
-    const text = n.kind === 'pizarra' ? sceneToCanvas(scenes.get(n.id) ?? {}, pathOf) : noteToMarkdown(n, ctx, attachments)
+    const text = n.kind === 'pizarra' ? sceneToCanvas(scenes.get(n.id) ?? {}, pathOf, true, attachments) : noteToMarkdown(n, ctx, attachments)
     out.push({ path, text, hash: hashText(text), noteId: n.id })
   }
   for (const [name, src] of attachments) if (isStored(src)) out.push({ path: `${ATTACH_DIR}/${name}`, attach: src, hash: hashText(src) })

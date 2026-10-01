@@ -8,25 +8,31 @@ export type Ink = 'ink' | 'coral' | 'amber' | 'green' | 'accent' | 'berry'
 /** Papeles de las notas adhesivas. */
 export type Paper = 'amber' | 'green' | 'accent' | 'berry' | 'coral'
 
-/** Un trazo: p = [x, y, presión, …] en coordenadas del mundo; m = resaltador. */
-export type BStroke = { id: string; c: Ink; s: number; m?: 1; p: number[] }
+/**
+ * Un trazo: p = [x, y, presión, …] en coordenadas del mundo; m = resaltador; o = la imagen o nota
+ * sobre la que se escribió (se mueve y se borra con ella); b = sobre una imagen: usa la tinta de papel
+ * claro (paperVar), que se ve sobre la captura en tema claro u oscuro.
+ */
+export type BStroke = { id: string; c: Ink; s: number; m?: 1; o?: string; b?: 1; p: number[] }
 export type BItem =
   | { id: string; t: 'note'; x: number; y: number; w: number; c: Paper; text: string }
-  | { id: string; t: 'text'; x: number; y: number; w: number; text: string; size: 1 | 2 | 3 }
+  | { id: string; t: 'text'; x: number; y: number; w: number; text: string; size: 1 | 2 | 3; c?: Ink; o?: string; b?: 1 }
   | { id: string; t: 'page'; x: number; y: number; w: number; noteId: string }
+  /** Una imagen pegada (captura, foto): src = "cuaderno://<uid>/<archivo>", ar = alto / ancho. */
+  | { id: string; t: 'image'; x: number; y: number; w: number; ar: number; src: string; name?: string }
 /** Una flecha de a → b (ids de elementos). */
 export type BLink = { id: string; a: string; b: string }
 export type Scene = { v: 1; strokes: BStroke[]; items: BItem[]; links: BLink[] }
 
 export const EMPTY_SCENE: Scene = { v: 1, strokes: [], items: [], links: [] }
 
-export const INKS: { id: Ink; label: string; cssVar: string }[] = [
-  { id: 'ink', label: 'Tinta', cssVar: '--ink' },
-  { id: 'coral', label: 'Terracota', cssVar: '--cu-tx-coral' },
-  { id: 'amber', label: 'Ámbar', cssVar: '--cu-tx-amber' },
-  { id: 'green', label: 'Verde', cssVar: '--cu-tx-green' },
-  { id: 'accent', label: 'Azul', cssVar: '--cu-tx-accent' },
-  { id: 'berry', label: 'Mora', cssVar: '--cu-tx-berry' },
+export const INKS: { id: Ink; label: string; cssVar: string; paperVar: string }[] = [
+  { id: 'ink', label: 'Tinta', cssVar: '--ink', paperVar: '--pen-tinta' },
+  { id: 'coral', label: 'Terracota', cssVar: '--cu-tx-coral', paperVar: '--pen-coral' },
+  { id: 'amber', label: 'Ámbar', cssVar: '--cu-tx-amber', paperVar: '--pen-ambar' },
+  { id: 'green', label: 'Verde', cssVar: '--cu-tx-green', paperVar: '--pen-verde' },
+  { id: 'accent', label: 'Azul', cssVar: '--cu-tx-accent', paperVar: '--pen-azul' },
+  { id: 'berry', label: 'Mora', cssVar: '--cu-tx-berry', paperVar: '--pen-mora' },
 ]
 export const PAPERS: { id: Paper; label: string }[] = [
   { id: 'amber', label: 'Ámbar' },
@@ -38,7 +44,10 @@ export const PAPERS: { id: Paper; label: string }[] = [
 /** Grosores en px de pantalla (el trazo se ve igual de grueso con cualquier zoom al dibujarlo). */
 export const SIZES = { pen: [2.5, 5, 9], marker: [14, 24, 36], eraser: [10, 20, 36] } as const
 /** Ancho inicial de cada elemento, en unidades del mundo. */
-export const ITEM_W = { note: 200, text: 280, page: 240 } as const
+export const ITEM_W = { note: 200, text: 280, page: 240, image: 360 } as const
+/** Límites del ancho al estirar (las imágenes pueden quedar chiquitas o enormes). */
+export const ITEM_MIN_W = { note: 120, text: 60, page: 160, image: 40 } as const
+export const ITEM_MAX_W = { note: 720, text: 1200, page: 720, image: 4000 } as const
 
 export const newId = () => Math.random().toString(36).slice(2, 10)
 export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
@@ -51,7 +60,14 @@ export function asScene(raw: unknown): Scene {
   return {
     v: 1,
     strokes: arr(o.strokes).filter((s) => typeof s?.id === 'string' && Array.isArray(s.p)) as unknown as BStroke[],
-    items: arr(o.items).filter((i) => typeof i?.id === 'string' && typeof i.x === 'number' && typeof i.y === 'number') as unknown as BItem[],
+    items: arr(o.items).filter(
+      (i) =>
+        typeof i?.id === 'string' &&
+        typeof i.x === 'number' &&
+        typeof i.y === 'number' &&
+        // una imagen necesita su archivo guardado (nunca la copia local que se ve mientras sube)
+        (i.t !== 'image' || (typeof i.src === 'string' && i.src.startsWith('cuaderno://') && typeof i.ar === 'number' && i.ar > 0)),
+    ) as unknown as BItem[],
     links: arr(o.links).filter((l) => typeof l?.a === 'string' && typeof l?.b === 'string') as unknown as BLink[],
   }
 }
@@ -64,11 +80,14 @@ export function sceneText(s: Scene, titleOf: (noteId: string) => string): string
   const label = (id: string) => {
     const it = s.items.find((i) => i.id === id)
     if (!it) return ''
-    return it.t === 'page' ? `«${titleOf(it.noteId)}»` : `«${oneLine(it.text).slice(0, 60)}»`
+    if (it.t === 'page') return `«${titleOf(it.noteId)}»`
+    if (it.t === 'image') return `«${it.name || 'Imagen'}»`
+    return `«${oneLine(it.text).slice(0, 60)}»`
   }
   const lines: string[] = []
   for (const it of s.items) {
     if (it.t === 'page') lines.push(`- Página: ${titleOf(it.noteId)}`)
+    else if (it.t === 'image') lines.push(it.name ? `- Imagen: ${oneLine(it.name)}` : '- Imagen')
     else if (it.text.trim()) lines.push(`- ${oneLine(it.text)}`)
   }
   for (const l of s.links) {
@@ -131,3 +150,29 @@ export function sceneBounds(s: Scene, heightOf: (it: BItem) => number): Box | nu
   }
   return x0 === Infinity ? null : { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
 }
+
+/** El trazo movido (dx, dy) y escalado f desde (ox, oy): lo escrito sobre una imagen la acompaña. */
+export function transformStroke(st: BStroke, f: number, ox: number, oy: number, dx: number, dy: number): BStroke {
+  const p = st.p.slice()
+  for (let i = 0; i + 1 < p.length; i += 3) {
+    p[i] = Math.round((ox + (p[i] - ox) * f + dx) * 10) / 10
+    p[i + 1] = Math.round((oy + (p[i + 1] - oy) * f + dy) * 10) / 10
+  }
+  return { ...st, p, s: f === 1 ? st.s : Math.max(0.1, Math.round(st.s * f * 100) / 100) }
+}
+
+/**
+ * Sobre qué se escribe en (x, y): la imagen o nota de más arriba (los textos son transparentes:
+ * se mira debajo; una página no recibe apuntes). Lo escrito ahí la acompaña.
+ */
+export function ownerAt(items: BItem[], x: number, y: number, boxOf: (it: BItem) => Box, skip?: string): BItem | null {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i]
+    if (it.id === skip || it.t === 'text') continue
+    const b = boxOf(it)
+    if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return it.t === 'image' || it.t === 'note' ? it : null
+  }
+  return null
+}
+/** Las marcas de "escrito encima de…" para un trazo o texto nuevo. */
+export const ownedBy = (owner: BItem | null): { o?: string; b?: 1 } => (owner ? { o: owner.id, ...(owner.t === 'image' ? { b: 1 as const } : {}) } : {})

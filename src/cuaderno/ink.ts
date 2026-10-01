@@ -61,22 +61,31 @@ export function smoothPoints(p: number[], step: number, radius: number): number[
     const rr = Math.min(r, i, n - 1 - i)
     let sx = 0
     let sy = 0
-    let sp = 0
     let sw = 0
     for (let k = -rr; k <= rr; k++) {
       const wk = w[Math.abs(k)]
       const q = out[i + k]
       sx += q[0] * wk
       sy += q[1] * wk
-      sp += q[2] * wk
       sw += wk
     }
-    res[i] = [sx / sw, sy / sw, sp / sw]
+    // la presión sí se promedia completa también en las puntas: el lápiz suele tocar el papel con
+    // presión casi nula en el primer instante y eso dejaba el inicio en "aguja"
+    let sp = 0
+    let pw = 0
+    for (let k = -r; k <= r; k++) {
+      const j = i + k
+      if (j < 0 || j >= n) continue
+      const wk = w[Math.abs(k)]
+      sp += out[j][2] * wk
+      pw += wk
+    }
+    res[i] = [sx / sw, sy / sw, sp / pw]
   }
   return res
 }
 
-const easeOut = (t: number) => Math.sin((t * Math.PI) / 2)
+const linear = (t: number) => t
 
 /** El contorno del trazo (un polígono cerrado). `final` = ya se soltó el lápiz. */
 export function inkOutline(st: InkStroke, marker: boolean, final: boolean): number[][] {
@@ -85,9 +94,11 @@ export function inkOutline(st: InkStroke, marker: boolean, final: boolean): numb
   const pts = smoothPoints(st.p, step, st.s * (marker ? 0.6 : pressured ? 0.55 : 0.9))
   return getStroke(pts, {
     size: st.s,
-    // lápiz: la presión afina y engrosa; mouse, dedo o resaltador: parejo
-    thinning: pressured ? 0.5 : 0,
-    easing: pressured ? easeOut : (t) => t,
+    // lápiz: la presión afina y engrosa alrededor del grosor elegido (presión normal = ese grosor;
+    // suave ≈ 0,6× y fuerte ≈ 1,5×). Mouse, dedo o resaltador: parejo, como un lapicero.
+    // (Antes la curva iba de 1× a 1,8×: con lápiz todo salía más grueso que lo elegido.)
+    thinning: pressured ? 0.55 : 0,
+    easing: linear,
     smoothing: 0.6,
     // ya viene suave: casi sin retraso detrás del lápiz
     streamline: 0.12,
@@ -145,12 +156,22 @@ export function canvasDpr(cssW: number, cssH: number) {
   return Math.max(1, d)
 }
 
+/** ¿Es la goma del lápiz (la punta de atrás del Surface Pen, Wacom…)? Borra sin cambiar de herramienta. */
+export const isEraserTip = (e: PointerEvent) => e.pointerType === 'pen' && (e.button === 5 || (e.buttons & 32) === 32)
+
+/** Todos los puntos que trajo un movimiento (si el navegador no los da, al menos el evento mismo). */
+export function coalesced(e: PointerEvent): PointerEvent[] {
+  const list = e.getCoalescedEvents?.()
+  return list && list.length ? list : [e]
+}
+
 /** Los puntos que el sistema predice que vienen (el lápiz se siente pegado a la tinta); solo se pintan en vivo. */
 export function predicted(e: PointerEvent, map: (ev: PointerEvent) => { x: number; y: number }, last: number[]): number[] {
   const evs = (e.getPredictedEvents?.() ?? []) as PointerEvent[]
   const pr = last[last.length - 1] ?? 0.5
   const out: number[] = []
-  for (const ev of evs.slice(0, 3)) {
+  // dos bastan: más adelante el pronóstico se pasa en las curvas y la punta "tiembla"
+  for (const ev of evs.slice(0, 2)) {
     const q = map(ev)
     out.push(q.x, q.y, pr)
   }

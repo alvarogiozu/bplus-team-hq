@@ -106,6 +106,14 @@ describe('bóveda (Markdown como Obsidian)', () => {
     expect(c.nodes.some((n) => n.id === 'trazos')).toBe(true)
   })
 
+  it('las imágenes de la pizarra viajan a _adjuntos como nodos de archivo', () => {
+    const attachments = new Map<string, string>()
+    const scene = { v: 1, strokes: [], items: [{ id: 'i', t: 'image', x: 10, y: 20, w: 300, ar: 0.5, src: 'cuaderno://u1/abc.webp?v=k1' }], links: [] }
+    const c = JSON.parse(sceneToCanvas(scene, new Map(), true, attachments)) as { nodes: Record<string, unknown>[] }
+    expect(c.nodes[0]).toMatchObject({ type: 'file', file: '_adjuntos/abc.webp', width: 300, height: 150 })
+    expect(attachments.get('abc.webp')).toBe('cuaderno://u1/abc.webp?v=k1')
+  })
+
   it('zip y huellas', () => {
     expect(crc32(new TextEncoder().encode('hello')).toString(16)).toBe('3610a686')
     const z = zipFiles([{ path: 'a.md', data: new TextEncoder().encode('hola') }])
