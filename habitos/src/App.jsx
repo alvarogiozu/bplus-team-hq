@@ -6,9 +6,7 @@ import useDesktop from './lib/useDesktop.js'
 import AppShell from './components/AppShell.jsx'
 import Splash from './components/Splash.jsx'
 import Login from './routes/Login.jsx'
-import Maintenance from './routes/Maintenance.jsx'
 import InviteLanding from './routes/InviteLanding.jsx'
-import { consumeCrewBypassFromUrl, isAppPaused } from './lib/appPause.js'
 
 // Hoy (donde se entra) va en el primer archivo. Las demás pestañas se bajan aparte y en silencio apenas
 // abre la app (precargarPestanas); al cambiar de pestaña, el router usa startTransition (main.jsx):
@@ -100,10 +98,7 @@ function RouteFallback() {
 }
 
 export default function App() {
-  consumeCrewBypassFromUrl()
-
-  const { seenOnboarding, authReady, needsAuth, user } = useStore()
-  const paused = isAppPaused(user)
+  const { seenOnboarding, authReady, needsAuth } = useStore()
   const { pathname } = useLocation()
   const desktop = useDesktop()
 
@@ -187,9 +182,8 @@ export default function App() {
       || pathname.startsWith('/invita/')
       || esPwa
       || RUTA_APP.test(pathname)
-    // Pausa de taller: quien intenta entrar ve el anuncio (no el login).
     const vista = quiereLogin
-      ? (paused ? 'paused' : 'login')
+      ? 'login'
       : (pathname === '/' || pathname === '/bienvenida')
         ? 'landing'
         : '404'
@@ -205,9 +199,6 @@ export default function App() {
           transition={{ duration: 0 }}
           style={{ position: 'absolute', inset: 0 }}
         >
-          {vista === 'paused' && (
-            <div className="app-phone"><Maintenance /></div>
-          )}
           {vista === 'login' && (
             <div className="app-phone"><Login /></div>
           )}
@@ -232,15 +223,6 @@ export default function App() {
       <Suspense fallback={<div style={{ position: 'absolute', inset: 0, background: 'var(--paper)' }} />}>
         <Landing />
       </Suspense>
-    )
-  }
-
-  // Sesion abierta + taller en curso: nadie entra a la app hasta reabrir.
-  if (paused) {
-    return (
-      <div className="app-root">
-        <div className="app-phone"><Maintenance /></div>
-      </div>
     )
   }
 
