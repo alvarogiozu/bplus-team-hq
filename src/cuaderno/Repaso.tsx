@@ -10,7 +10,7 @@ import { chainOf } from './books'
 import { NONE, areaOf, useBooks, useCards, useCuadernoActions, useDays, useNotes, type Card } from './data'
 import { CIcon } from './icons'
 import { dueToday, streakOf } from './leitner'
-import { OsMenu, useIsMobile } from './ui'
+import { useIsMobile } from './ui'
 
 /** Una sesión corta y enfocada: la pregunta, "ver respuesta", y dos botones. */
 export default function Repaso() {
@@ -111,7 +111,6 @@ export default function Repaso() {
           <span className={`cu-streak${streak > 0 ? ' on' : ''}`} title="Días seguidos repasando">
             <CIcon name="flame" size={17} /> {streak}
           </span>
-          {mobile && <OsMenu />}
         </header>
 
         <div className="cu-read cu-rev">

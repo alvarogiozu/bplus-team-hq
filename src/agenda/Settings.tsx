@@ -1,10 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Sheet } from '../components/Sheet'
-import { AccentPicker } from '../components/AccentPicker'
-import { ThemeChoice } from '../components/ThemeChoice'
-import { useMe } from '../features/auth/AuthProvider'
-import { signOut } from '../features/auth/credentials'
 import type { Json } from '../lib/database.types'
 import { WEEKDAY_NAMES } from '../lib/dates'
 import type { Routine } from './blocks'
@@ -17,7 +13,6 @@ import { speechSupported } from './voice'
 
 // Ajustes mínimos: tu horario, tus duraciones rápidas, el tema y tu cuenta. Nada más.
 export function AgendaSettings({ open, onClose, anchors }: { open: boolean; onClose: () => void; anchors: { wake: number; sleep: number } }) {
-  const { profile } = useMe()
   const prefs = usePrefs().data
   const { savePrefs } = useAgendaActions()
   const [add, setAdd] = useState('')
@@ -144,33 +139,13 @@ export function AgendaSettings({ open, onClose, anchors }: { open: boolean; onCl
       </section>
 
       <section className="ag-set">
-        <b className="ag-card-t">Apariencia</b>
+        <b className="ag-card-t">La bienvenida</b>
         <p className="hint" style={{ margin: '0 0 10px' }}>
-          El mismo tema y color en el HQ, la Agenda y el Cuaderno.
-        </p>
-        <ThemeChoice />
-        <div style={{ marginTop: 12 }}>
-          <AccentPicker />
-        </div>
-      </section>
-
-      <section className="ag-set">
-        <b className="ag-card-t">Cuenta</b>
-        <p className="hint" style={{ margin: '0 0 10px' }}>
-          @{profile.username} · mismas credenciales que el HQ
+          El tema, tu color, tu contraseña y cerrar sesión están en tus <Link to="/ajustes">Ajustes</Link>, los mismos en todas las apps.
         </p>
         <div className="ag-set-btns">
-          <Link className="btn ghost sm" to="/cambiar-clave">
-            Cambiar contraseña
-          </Link>
-          <Link className="btn ghost sm" to="/hoy">
-            <AIcon name="team" size={16} /> Ir al HQ
-          </Link>
           <button className="btn ghost sm" onClick={() => void savePrefs({ onboarded_at: null })}>
             Ver la bienvenida otra vez
-          </button>
-          <button className="btn danger sm" onClick={() => signOut()}>
-            Cerrar sesión
           </button>
         </div>
       </section>

@@ -14,7 +14,9 @@ const PAGES = [
   ['materiales', '/materiales'],
   ['proyectos', '/proyectos'],
   ['equipo', '/equipo'],
+  ['ajustes-proyecto', '/proyecto/ajustes'],
   ['ajustes', '/ajustes'],
+  ['perfil', '/perfil'],
 ] as const
 
 for (const theme of ['light', 'dark'] as const) {

@@ -894,7 +894,7 @@ export default function Hoy() {
     return (
       <div className="hoy-screen">
         {fiestaHoy && <Confetti onDone={() => setFiestaHoy(false)} />}
-        <StreakToast streak={streak} triggerKey={lastToast} milestone={MILESTONES.includes(streak)} position="top" />
+        <StreakToast streak={streak} triggerKey={lastToast} milestone={MILESTONES.includes(streak)} position="bottom" />
         <CameraCaptureSheet
           open={!!cameraHabitId}
           onClose={() => setCameraHabitId(null)}
@@ -938,7 +938,7 @@ export default function Hoy() {
   return (
     <div className="hoy-screen hm">
       {fiestaHoy && <Confetti onDone={() => setFiestaHoy(false)} />}
-      <StreakToast streak={streak} triggerKey={lastToast} milestone={MILESTONES.includes(streak)} position="top" />
+      <StreakToast streak={streak} triggerKey={lastToast} milestone={MILESTONES.includes(streak)} position="bottom" />
 
       <CameraCaptureSheet
         open={!!cameraHabitId}
@@ -953,17 +953,13 @@ export default function Hoy() {
       <HoyMovilTop
         fecha={fechaHoy()}
         saludo={saludo}
-        pills={<>
-          <HudPill emoji={<Flame size={13} lit={streak > 0} />} value={streak} color="var(--coral)" pulseKey={doneCount} />
-          <HudPill emoji="🪙" value={coins} color="var(--amber)" />
-        </>}
+        pills={<HudPill emoji="🪙" value={coins} color="var(--amber)" />}
         week={weekStrip}
         dayOffset={hoyView === 'cal' ? calDayOffset : 0}
         onPickDay={(off) => {
           setCalDayOffset(off)
           setHoyView(off === 0 ? 'cartas' : 'cal')
         }}
-        onCreate={() => setCreating(true)}
       />
       <HoyMovilAvance label={accionesLabel} done={completadosCount} total={totalAcciones} pct={pctAcciones} view={hoyView} onView={setHoyView} />
 
@@ -1172,6 +1168,8 @@ export default function Hoy() {
               todoHecho={!hoyItems.some((h) => h.status === 'scheduled')}
             />
           )}
+          {/* seguir sumando: aquí abajo, no en la barra de arriba */}
+          {hoyItems.length > 0 && <AgregarHabito onClick={() => setCreating(true)} />}
 
           {hoyItems.length > 0 && (
             <div className="hoy-stage-foot">
@@ -1256,6 +1254,7 @@ export default function Hoy() {
               ))}
             </>
           )}
+          <AgregarHabito onClick={() => setCreating(true)} />
         </div>
       )}
 
@@ -1389,7 +1388,22 @@ export default function Hoy() {
         </div>
       )}
 
+      {/* la racha, solo cuando ya vale la pena (3 días o más): abajo y al centro, justo sobre el menú */}
+      {streak >= 3 && (
+        <div className="hm-racha">
+          <HudPill emoji={<Flame size={13} lit />} value={streak} suffix=" días de racha" color="var(--coral)" pulseKey={doneCount} />
+        </div>
+      )}
+
       {sheets}
     </div>
+  )
+}
+
+function AgregarHabito({ onClick }) {
+  return (
+    <button type="button" className="hm-add q" onClick={onClick}>
+      <i className="ti ti-plus" /> Agregar hábito
+    </button>
   )
 }

@@ -20,6 +20,7 @@ import { DatePop, StylePop, TimePop } from './Popovers'
 import { useCalendarMap } from './calendars'
 import { byPriority, useGroups } from './groups'
 import { fmtDur, hhmm, tsToMin } from './time'
+import { useIsMobile } from '../lib/useMedia'
 
 export type Draft = {
   title: string
@@ -43,18 +44,6 @@ export type EditorState = { mode: 'new'; draft: Draft } | { mode: 'edit'; id: st
 export const editorStore = createStore<EditorState>(null)
 export const openEditor = (s: EditorState) => editorStore.set(s)
 const close = () => editorStore.set(null)
-
-function useIsMobile() {
-  const q = '(max-width: 767px)'
-  const [m, setM] = useState(() => matchMedia(q).matches)
-  useEffect(() => {
-    const mq = matchMedia(q)
-    const on = () => setM(mq.matches)
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
-  }, [])
-  return m
-}
 
 /** Contenedor: panel a la derecha en PC, hoja que se arrastra hacia abajo en el celular. */
 function Panel({ children, color, label }: { children: (startDrag: (e: React.PointerEvent) => void) => ReactNode; color: string; label: string }) {

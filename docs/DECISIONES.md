@@ -454,3 +454,54 @@ páginas con el vocabulario de alemán y créame tarjetas", "tómame examen con 
   enlace + conexión en el mapa; las páginas nuevas se indexan para la búsqueda por significado.
 - **Llaves personales** (Ajustes → Avanzado) para apps sin inicio de sesión: se generan en el navegador, se muestran
   una vez y viajan solo en el encabezado `Authorization` (nunca en la URL).
+
+### Rockie OS en el celular — barra, pie, Rockie y cuenta globales (oct 2026)
+
+Plan y estado detallado: `UX-UI-Estandarizacion-Plan.md`. Checkpoint previo: tag `checkpoint/pre-ux-movil`.
+
+**Un esqueleto, no cuatro.** Cada app tenía su barra de arriba y su pie (Proyectos `.topbar`/`.bottomnav`, Cuaderno
+`.cu-tabs`, Agenda su dock, Hábitos el suyo) y en Cuaderno, en el celular, no había cómo salir a otra app. Ahora las
+del sitio comparten `src/os/movil/MovilShell.tsx`: `MovilTop` (selector · título · acciones · cuenta), `MovilNav` (2 ·
+Rockie · 2, la sección activa con el color de la app) y `RockieCentro`. Es solo para el celular (< 768 px): en PC las
+apps viven en las ventanas del escritorio de Rockie OS, que ya cambian de app. Hábitos es otra página (otro código):
+copia las mismas medidas y gestos en su propio JSX.
+
+**Un solo corte celular/computadora: 767 px** (`lib/useMedia`). Había tres `useIsMobile` (Cuaderno en 899 px); con
+cortes distintos el pie aparecía y desaparecía en tamaños distintos según la app.
+
+**Rockie: mismo botón, mismo gesto, el cerebro de cada app.** Toca = escribirle · mantén = hablarle (al soltar,
+envía), en las cinco. Se unificó lo que ve y toca la persona, no el agente: cada app sigue mandando el pedido al suyo
+(`hqAgent`, `agenda-agent`, `cuaderno-agent`, la voz de Hábitos) porque cada uno sabe actuar sobre sus datos (las
+propuestas "fantasma" de la Agenda, insertar en la página del Cuaderno). El chat ya era uno solo (`rockie_turns`).
+El botón va en un portal a `<body>`: dentro de cada app había reglas de CSS (`.cu-rk > *`, `.rk` sin eventos) que lo
+estiraban o lo dejaban sin toque.
+
+**El Rockie es el de Hábitos.** `components/Rockie.tsx` dibuja `os/RockieArt` (la geoda con su piedra y accesorios)
+en vez de la piedra con carita: la mascota y tú con tu look (`rockieLook()`, lo que Hábitos guarda en este
+navegador); otra persona, un Rockie sobre su color de perfil (no conocemos su look de Hábitos).
+
+**La cuenta es global y corta.** Arriba a la derecha, en todas las apps: tu foto (Google) o tu inicial. Menú de 3:
+**Perfil · Ajustes · Cerrar sesión**. Lo que es de una app no va ahí (cambiar de proyecto, equipo y materiales ya
+están en su barra o su pie). `/perfil` y `/ajustes` son de la cuenta, no de una app; el tema vive solo en Ajustes.
+Los ajustes propios de cada app se abren desde «De cada app» con `?ajustes=1` (Agenda, Cuaderno),
+`/habitos/ajustes` y `/proyecto/ajustes` (antes `/ajustes`, que ahora es el de la cuenta). En el celular, Agenda y
+Cuaderno pierden su tuerca de arriba (dos tuercas confundían); en PC la conservan, ya sin tema ni cuenta.
+
+**Con el Cofre** (llegó en paralelo, `fc62dba`/`458e656`): «Tu Cofre» (`/cofre`) es de tu cuenta, así que va en
+**Ajustes → Privacidad**, no como cuarta opción del menú. Al integrar el acceso único con Google/B+ con el Cofre:
+`cofre.iniciar()` se llama en cada punto donde cambia la sesión, pero **solo con el usuario de Rockie OS**; si la sesión
+activa es solo la de B+ (no se pudo abrir la de Rockie OS), el Cofre queda cerrado, porque sus llaves no son de esa
+cuenta. En `habitos/src/lib/hqChat.js` el cliente de Rockie OS conserva el `fetch` cifrado y el Llavero, y usa
+`autoRefreshToken: true`: con el acceso único es Hábitos quien abre esa sesión y debe mantenerla viva aunque sea la
+única pestaña.
+
+**La racha solo cuando vale la pena (3 días o más)** y abajo, sobre el menú, donde no interrumpe. El aviso de racha
+solo sale al validar (cambia `triggerKey`): Hábitos arranca con una racha de ejemplo (3) hasta que llegan tus datos y
+eso lo hacía destellar al entrar.
+
+**Lo que se descubrió de paso.** Los archivos del prototipo vanilla (`agenda.html`, `app.js`, `db.js`, `styles.css`,
+`supabase/schema.sql`), borrados en `ca25ae1`, habían reaparecido sin trackear; en desarrollo Vite servía
+`agenda.html` en `/agenda` con carga completa (desde Hábitos) y parecían dos agendas. Se sacaron del repo. En la
+consola de Hábitos en local aparecen `GET /blocks` 404 y `PATCH profiles` 400: el Supabase de B+ de `.env.local` no
+tiene la tabla `blocks` (migración `0018_moderacion` de Bplus-Comeback) ni la columna `profiles.rockie_shop`; el
+código ya los ignora y no tienen que ver con esto.

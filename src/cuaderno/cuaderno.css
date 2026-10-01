@@ -12,7 +12,6 @@
   --cu-wide: 1080px;
   --cu-narrow: 460px;
   --cu-bar-room: 140px;
-  --cu-tabs-h: 64px;
   --cu-ico: 40px;
   --cu-dot: 12px;
   --cu-modal-w: 640px;
@@ -52,8 +51,7 @@
 .cu .btn.sm {
   min-height: var(--tap);
 }
-.cu a.btn,
-.cu-osmenu a {
+.cu a.btn {
   text-decoration: none;
 }
 
@@ -157,11 +155,6 @@
 }
 .cu-os:hover {
   background: var(--paper);
-}
-.cu-osmenu {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s1);
 }
 
 /* ---------- área principal y páginas ---------- */
@@ -1304,7 +1297,7 @@
   font-size: var(--t-md);
 }
 
-/* ---------- móvil: una columna, barra inferior de 5 destinos ---------- */
+/* ---------- móvil: una columna; la barra de arriba y el pie son los comunes (os/movil) ---------- */
 .cu.is-mobile .cu-center {
   padding: 0 var(--screen-x) calc(var(--cu-bar-room) + var(--s6));
 }
@@ -1344,53 +1337,8 @@
 }
 .cu-rk.mobile {
   position: fixed;
-  bottom: calc(var(--cu-tabs-h) + env(safe-area-inset-bottom) + var(--s5));
+  bottom: calc(var(--mnav-room) + var(--s5));
   padding: 0 var(--screen-x);
-}
-.cu-rk > .cu-dockmic {
-  position: fixed;
-  left: 50%;
-  bottom: calc(env(safe-area-inset-bottom) + var(--s3));
-  width: auto;
-  transform: translateX(-50%);
-  z-index: 45;
-}
-.cu-dockmic .rk-mic.big {
-  margin-top: 0;
-}
-.cu-tabs {
-  position: relative;
-  z-index: 30;
-  height: calc(var(--cu-tabs-h) + env(safe-area-inset-bottom));
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  padding: 0 var(--s2) env(safe-area-inset-bottom);
-  background: var(--card);
-  border-top: 1.5px solid var(--card-line);
-}
-.cu-tab {
-  height: var(--cu-tabs-h);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--s1);
-  color: var(--ink-muted);
-  font-size: var(--t-3xs);
-  font-weight: 700;
-  text-decoration: none;
-}
-.cu-tab.active {
-  color: var(--accent-ink);
-}
-.cu-tab-ico {
-  position: relative;
-  display: grid;
-}
-.cu-tab-ico .cu-badge {
-  position: absolute;
-  top: calc(var(--s2) * -1);
-  right: calc(var(--s3) * -1);
 }
 
 /* ============================================================
@@ -1826,7 +1774,7 @@ textarea.cu-input { resize: none; }
 
 /* ---------- pizarra infinita ---------- */
 .cu-center.cu-boardwrap { display: flex; flex-direction: column; overflow: hidden; padding-bottom: var(--s5); }
-.cu.is-mobile .cu-center.cu-boardwrap { padding-bottom: calc(var(--cu-tabs-h) + env(safe-area-inset-bottom) + var(--s2)); }
+.cu.is-mobile .cu-center.cu-boardwrap { padding-bottom: var(--s3); }
 .cu-boardbar { display: flex; flex-direction: column; align-items: stretch; gap: var(--s2); padding-bottom: var(--s3); }
 .cu-board-title { align-self: flex-start; width: min(100%, calc(var(--s12) * 10)); min-width: 0; min-height: var(--tap); padding: 0 var(--s3); border-radius: var(--r-md); border: 1.5px solid transparent; background: transparent; font-family: var(--serif); font-size: var(--t-xl); font-weight: 700; color: var(--ink); }
 .cu-board-title:hover, .cu-board-title:focus { border-color: var(--card-line); background: var(--card); outline: none; }

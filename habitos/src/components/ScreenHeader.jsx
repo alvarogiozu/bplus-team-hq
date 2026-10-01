@@ -1,5 +1,6 @@
 import useDesktop from '../lib/useDesktop.js'
 import OsSwitcher from './OsSwitcher.jsx'
+import CuentaBoton from './CuentaBoton.jsx'
 
 // Cabecera editorial reutilizable: kicker de fecha en mayusculas + titulo coral serif + linea ambar.
 // El coral serif es la firma "academica" del vault (como los encabezados de las lecciones).
@@ -21,7 +22,10 @@ export default function ScreenHeader({ date, title, color = 'var(--title)', cent
       <div style={{ padding: `${padTop} var(--screen-x) 0`, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', minHeight: 32, gap: 'var(--space-2)' }}>
           {desktop ? (kicker ?? <div />) : <OsSwitcher />}
-          {children}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            {children}
+            {!desktop && <CuentaBoton />}
+          </div>
         </div>
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
           {!desktop && kicker && <div style={{ marginBottom: 'var(--space-1)' }}>{kicker}</div>}
@@ -51,6 +55,8 @@ export default function ScreenHeader({ date, title, color = 'var(--title)', cent
       {!desktop && (
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <OsSwitcher />
+          <div style={{ flex: 1 }} />
+          <CuentaBoton />
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

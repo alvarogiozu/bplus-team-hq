@@ -62,7 +62,7 @@ export default function TodayPage() {
   return (
     <div className="content">
       <div className="hello">
-        <Rockie color={profile.color} size={72} sleepy={isNight(hour)} reactive />
+        <Rockie size={72} sleepy={isNight(hour)} reactive />
         <div>
           <div className="date">{fmtDayLong(today)}</div>
           <h1>

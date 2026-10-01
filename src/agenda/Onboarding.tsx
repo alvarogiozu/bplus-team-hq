@@ -6,6 +6,8 @@ import { todayIn } from '../lib/dates'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useAgendaActions } from './data'
 import { AIcon } from './icons'
+import { MovilTop } from '../os/movil/MovilShell'
+import { useIsMobile } from '../lib/useMedia'
 import { guessIcon } from './localAgent'
 import { hhmm, nowMinIn } from './time'
 import { TimePick } from './TimePick'
@@ -22,6 +24,7 @@ export function Onboarding() {
   const [sleep, setSleep] = useState(22 * 60)
   const [firsts, setFirsts] = useState<{ title: string; start: number; icon: string }[]>([])
   const [busy, setBusy] = useState(false)
+  const mobile = useIsMobile()
   const tz = profile?.timezone ?? 'America/Lima'
 
   const go = (n: number) => {
@@ -40,7 +43,9 @@ export function Onboarding() {
 
   const night = step === 4
   return (
-    <main className="ob">
+    <>
+    {mobile && <MovilTop />}
+    <main className={`ob${mobile ? ' with-top' : ''}`}>
       <div className="ob-backdrop" aria-hidden="true">
         {Array.from({ length: 9 }, (_, i) => (
           <span key={i} style={{ ['--i' as string]: i } as CSSProperties} />
@@ -105,6 +110,7 @@ export function Onboarding() {
         </footer>
       </motion.section>
     </main>
+    </>
   )
 }
 

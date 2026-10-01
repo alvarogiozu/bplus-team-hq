@@ -18,6 +18,8 @@ export const pantallas = {
   materiales: () => import('../features/materials/MaterialsPage'),
   equipo: () => import('../features/team/TeamPage'),
   ajustes: () => import('../features/settings/SettingsPage'),
+  /** tu Perfil y tus Ajustes: globales, no de una app */
+  cuenta: () => import('../features/cuenta/CuentaPages'),
   // el Equipo en el celular: mismas rutas y mismos datos, composición propia
   hoyMovil: () => import('../features/movil/HoyMovil'),
   tareasMovil: () => import('../features/movil/TareasMovil'),

@@ -162,7 +162,7 @@ export function WelcomePage() {
     <main className="authwrap">
       <div className="card authcard">
         <div style={{ display: 'grid', placeItems: 'center' }}>
-          <Rockie color={profile?.color} size={76} />
+          <Rockie size={76} />
         </div>
         <h1>Hola, {profile?.display_name ?? 'de nuevo'}</h1>
         <p className="lead">Crea tu primer proyecto: puede ser solo tuyo (tu tesis, un curso, algo personal) o para trabajar con más gente.</p>

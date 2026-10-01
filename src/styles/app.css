@@ -85,11 +85,12 @@ svg { display: block; }
 .rockie { animation: rfloat 3s ease-in-out infinite; will-change: transform; }
 .rockie.still { animation: none; }
 @keyframes rfloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-.rockie .eye { transform-origin: center; transform-box: fill-box; animation: rblink 4s infinite; }
-/* los avatares (still) tampoco parpadean: van repetidos en cada fila y, siendo SVG, cada parpadeo se
-   repinta en el hilo principal; con listas largas eso trababa la página (el Rockie grande sigue vivo) */
-.rockie.still .eye { animation: none; }
-@keyframes rblink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.08); } 98% { transform: scaleY(1); } }
+/* el Rockie de Hábitos (os/RockieArt) en todas las apps; una persona va sobre su color */
+.rockie { display: grid; place-items: center; flex: none; }
+.rockie.persona { border-radius: 50%; background: var(--rk); box-shadow: 0 2px 0 color-mix(in srgb, var(--rk) 70%, #000); }
+/* los avatares (still) tampoco parpadean: van repetidos en cada fila y cada parpadeo se repinta;
+   con listas largas eso trababa la página (el Rockie grande sigue vivo) */
+.rockie.still .os-blink { animation: none; }
 .rockie.celebrate { animation: rjump 0.8s var(--spring); }
 @keyframes rjump { 0% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-16px) rotate(-12deg) scale(1.08); } 60% { transform: translateY(-6px) rotate(10deg); } 100% { transform: translateY(0) rotate(0); } }
 .rockie.listening { animation: rlisten 1s ease-in-out infinite; }
@@ -142,8 +143,6 @@ svg { display: block; }
    Cambiar de vista nunca mueve la cabecera ni los filtros. */
 .content { flex: 1; width: 100%; max-width: 1440px; margin: 0 auto; padding: var(--s6) var(--s8) var(--s6); }
 
-.topbar { display: none; }
-.bottomnav { display: none; }
 
 .pagehead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); margin-bottom: var(--s4); }
 .pagehead h1 { font-size: var(--t-3xl); color: var(--title); }
@@ -421,22 +420,8 @@ svg { display: block; }
   .shell, .shell.collapsed { display: block; }
   .side { display: none; }
   .content { padding: var(--s4) 16px calc(96px + env(safe-area-inset-bottom)); }
-  .topbar {
-    display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 30;
-    padding: calc(8px + env(safe-area-inset-top)) 16px 8px; background: var(--paper); border-bottom: 1px solid var(--card-line);
-  }
-  .topbar .logo { font-family: var(--serif); font-weight: 700; font-size: var(--t-xl); color: var(--brand-logo); }
-  .topbar .sp { display: inline-flex; align-items: center; gap: 2px; min-height: 36px; max-width: 42vw; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; }
-  .topbar .sp .ico { flex: none; }
-  .bottomnav {
-    display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-    padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1.5px solid var(--card-line);
-    box-shadow: 0 -6px 18px rgba(87, 82, 121, 0.1);
-  }
-  .bottomnav a { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 52px; justify-content: center; color: var(--ink-muted); text-decoration: none; font-size: var(--t-3xs); font-weight: 700; border-radius: var(--r-md); }
-  .bottomnav a.active { color: var(--nc, var(--accent-ink)); }
-  .bottomnav .rockiebtn { justify-self: center; width: 64px; height: 64px; border-radius: 999px; background: var(--navbar-blue); box-shadow: 0 5px 0 var(--navbar-blue-edge), var(--shadow-card); display: grid; place-items: center; margin-top: -26px; touch-action: none; user-select: none; -webkit-user-select: none; }
-  .bottomnav .rockiebtn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--navbar-blue-edge); }
+  .mtop .sp { display: inline-flex; align-items: center; gap: 2px; min-height: 36px; max-width: 42vw; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; }
+  .mtop .sp .ico { flex: none; }
   .agentbar.desktop { display: none; }
   .pagehead h1 { font-size: var(--t-2xl); }
   .grid2 { grid-template-columns: 1fr; }

@@ -15,7 +15,7 @@ const PAGE: Record<string, string> = {
   '/tareas': 'Tareas',
   '/proyectos': 'Proyectos',
   '/equipo': 'Equipo',
-  '/ajustes': 'Ajustes',
+  '/proyecto/ajustes': 'Ajustes del proyecto',
 }
 
 /** Se monta una vez (Layout): anuncia que estoy aquí y escucha a los demás. */

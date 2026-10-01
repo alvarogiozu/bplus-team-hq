@@ -1,12 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router'
 import { Icon } from '../components/Icon'
-import { APPS, appOf, type OsApp } from './apps'
+import { APPS, appOf, appTint as tint } from './apps'
 import { enVentana } from './ventana'
 import './os.css'
-
-const tint = (a: OsApp) => ({ ['--app' as string]: a.color, ['--app-edge' as string]: a.edge }) as CSSProperties
 
 /** Las cuatro apps + Inicio, como filas (el selector y los menús móviles las comparten). */
 export function AppList({ onPick }: { onPick?: () => void }) {

@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router'
+import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useSearchParams } from 'react-router'
 import { AnimatePresence, MotionConfig } from 'motion/react'
 import { Rockie } from '../components/Rockie'
 import { AppSwitcher } from '../os/AppSwitcher'
+import { MovilNav, MovilTop } from '../os/movil/MovilShell'
 import { useMe } from '../features/auth/AuthProvider'
 import { CuadernoSettings, useVaultAutoSync } from './Ajustes'
 import { AprenderDialog } from './Aprender'
@@ -93,6 +94,15 @@ function Shell() {
     setTyping(false)
     setSummon(false)
   }, [loc.pathname])
+  // ?ajustes=1: llegas desde tus Ajustes generales («De cada app») y se abren los del cuaderno
+  const [params, setParams] = useSearchParams()
+  useEffect(() => {
+    if (params.get('ajustes') !== '1') return
+    openDialog({ kind: 'ajustes' })
+    const next = new URLSearchParams(params)
+    next.delete('ajustes')
+    setParams(next, { replace: true })
+  }, [params, setParams])
 
   // el repaso y las páginas son para enfocarse: en PC, sin la barra de Rockie encima
   const quiet = loc.pathname.startsWith('/cuaderno/repaso') || loc.pathname.startsWith('/cuaderno/nota/')
@@ -105,6 +115,10 @@ function Shell() {
         <div className={`cu${mobile ? ' is-mobile' : ''}`} data-width={width}>
           {!mobile && <Sidebar badges={badges} />}
           <main className={`cu-main${panel ? ' has-panel' : ''}`}>
+            {/* en el celular, la barra común de Rockie OS; una página abierta se queda con su propia cabecera */}
+            {mobile && !loc.pathname.startsWith('/cuaderno/nota/') && (
+              <MovilTop />
+            )}
             {/* cada panel con sus pestañas arriba (como en Obsidian); en el celular, sin pestañas */}
             <AreaDividida fallback={<div className="cu-loading" aria-busy="true" aria-label="Cargando" />} barra={mobile ? undefined : (panel) => <Pestanas panel={panel} />}>
               <Suspense
@@ -119,7 +133,13 @@ function Shell() {
             </AreaDividida>
             {(!quiet || mobile || summon) && <CaptureBar ref={barRef} mobile={mobile} typing={typing} onTyping={setTyping} />}
           </main>
-          {mobile && <TabBar badges={badges} />}
+          {mobile && (
+            <MovilNav
+              room
+              label="Navegación del cuaderno"
+              tabs={NAV.map((d) => ({ key: d.to, to: d.to, end: d.end, label: d.label, icon: <CIcon name={d.icon} size={22} />, badge: badges[d.icon] }))}
+            />
+          )}
           <DialogHost />
         </div>
       </MotionConfig>
@@ -181,26 +201,5 @@ function Sidebar({ badges }: { badges: Record<string, number> }) {
         </button>
       </div>
     </aside>
-  )
-}
-
-function TabBar({ badges }: { badges: Record<string, number> }) {
-  const left = NAV.slice(0, 2)
-  const right = NAV.slice(2)
-  const item = (d: (typeof NAV)[number]) => (
-    <NavLink key={d.to} to={d.to} end={d.end} className="cu-tab">
-      <span className="cu-tab-ico">
-        <CIcon name={d.icon} size={22} />
-        {badges[d.icon] > 0 && <b className="cu-badge">{badges[d.icon]}</b>}
-      </span>
-      <span>{d.label}</span>
-    </NavLink>
-  )
-  return (
-    <nav className="cu-tabs" aria-label="Navegación del cuaderno">
-      {left.map(item)}
-      <span className="cu-tab-gap" aria-hidden="true" />
-      {right.map(item)}
-    </nav>
   )
 }

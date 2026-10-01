@@ -18,6 +18,7 @@ import { AIcon } from './icons'
 import { localPropose } from './localAgent'
 import type { Ghost } from './Timeline'
 import { listenHint, useHandsFree, useMicPress, useVoice, type VoiceMode } from './voice'
+import { RockieCentro } from '../os/movil/MovilShell'
 
 // card = cómo se veía al proponer (si no, tras mover diría «15:00 → 15:00»)
 type PropState = { p: Proposal; card: Card; st: 'pending' | 'done' | 'skip'; undo?: Undo | null }
@@ -37,7 +38,7 @@ type Entry =
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
-export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: string; nowMin: number; mobile: boolean; onGhosts: (g: Ghost[]) => void; onFocusDay: (d: string) => void; onNew: () => void; google?: GEvent[] }>(
+export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: string; nowMin: number; mobile: boolean; onGhosts: (g: Ghost[]) => void; onFocusDay: (d: string) => void; google?: GEvent[] }>(
   function RockieBar(p, inputRef) {
     const { profile } = useAuth()
     const itemsData = useItems().data
@@ -216,7 +217,6 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
 
     const mic = (
       <MicButton
-        big={p.mobile}
         listening={voice.listening}
         level={voice.level}
         disabled={!voice.supported}
@@ -239,7 +239,7 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
     )
 
     return (
-      <div className={`rk${p.mobile ? ' mobile' : ''}`}>
+      <div className={`rk${p.mobile ? ' mobile' : ''}`} data-rockie>
         <AnimatePresence>
           {voice.listening && <Listening key="listen" text={voice.text} level={voice.level} mode={voice.mode} />}
         </AnimatePresence>
@@ -380,22 +380,22 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
               {typing && (
                 <motion.form key="typing" className="rk-bar" onSubmit={submit} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}>
                   <input ref={inputRef} autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="Pídele algo a Rockie…" aria-label="Pídele algo a Rockie" enterKeyHint="send" />
+                  {handsBtn}
                   <button className="rk-send" aria-label="Enviar" disabled={!text.trim()}>
                     <AIcon name="send" size={18} />
                   </button>
                 </motion.form>
               )}
             </AnimatePresence>
-            <div className="rk-dock">
-              <button className={`rk-side${typing ? ' on' : ''}`} onClick={() => setTyping(!typing)} aria-label="Escribirle a Rockie">
-                <AIcon name="keyboard" size={22} />
-              </button>
-              {mic}
-              {handsBtn}
-              <button className="rk-side" onClick={p.onNew} aria-label="Nuevo">
-                <AIcon name="plus" size={24} />
-              </button>
-            </div>
+            {/* el Rockie del centro, el mismo de todas las apps: toca para escribir · mantén para hablar */}
+            <RockieCentro
+              listening={voice.listening}
+              level={voice.level}
+              pressed={typing}
+              onTap={() => setTyping(!typing)}
+              onHold={voice.supported ? () => voice.start({ mode: 'hold' }) : undefined}
+              onRelease={() => voice.stop()}
+            />
           </>
         ) : (
           <form className="rk-bar" onSubmit={submit} onFocus={() => (thread.length || chat.turns.length) && setOpen(true)}>
@@ -416,12 +416,12 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
   },
 )
 
-export function MicButton(p: { big: boolean; listening: boolean; level: MotionValue<number>; disabled: boolean; onDown: () => void; onUp: () => void }) {
+export function MicButton(p: { listening: boolean; level: MotionValue<number>; disabled: boolean; onDown: () => void; onUp: () => void }) {
   const ring = useTransform(p.level, [0, 1], [1, 1.7])
   return (
     <motion.button
       type="button"
-      className={`rk-mic${p.big ? ' big' : ''}${p.listening ? ' on' : ''}`}
+      className={`rk-mic${p.listening ? ' on' : ''}`}
       aria-label={p.listening ? 'Terminar y enviar' : 'Hablarle a Rockie'}
       aria-pressed={p.listening}
       title={p.disabled ? 'Tu navegador no dicta: usa Chrome, Edge o Safari' : 'Toca para hablar y otra vez para enviar · o mantén presionado'}
@@ -440,7 +440,7 @@ export function MicButton(p: { big: boolean; listening: boolean; level: MotionVa
       whileTap={{ scale: 0.92 }}
     >
       {p.listening && <motion.span className="rk-mic-ring" style={{ scale: ring }} />}
-      {p.big ? <Rockie color="var(--brand)" size={46} listening={p.listening} reactive /> : <AIcon name="mic" size={19} />}
+      <AIcon name="mic" size={19} />
     </motion.button>
   )
 }

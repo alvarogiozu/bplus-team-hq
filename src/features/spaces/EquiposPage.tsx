@@ -8,6 +8,8 @@ import { Rockie } from '../../components/Rockie'
 import { addDays, todayIn } from '../../lib/dates'
 import { humanError, supabase } from '../../lib/supabase'
 import { enVentana } from '../../os/ventana'
+import { MovilTop } from '../../os/movil/MovilShell'
+import { useIsMobile } from '../../lib/useMedia'
 import { useMe } from '../auth/AuthProvider'
 import { colorDeProyecto, crearProyecto } from './crear'
 import { useSpace, type Membership } from './SpaceProvider'
@@ -61,6 +63,7 @@ export default function EquiposPage() {
   const { spaceId, memberships, setSpaceId } = useSpace()
   const { userId, profile } = useMe()
   const nav = useNavigate()
+  const mobile = useIsMobile()
   const today = todayIn(profile.timezone ?? undefined)
   const resumen = useResumenes(
     memberships.map((m) => m.space_id),
@@ -74,14 +77,16 @@ export default function EquiposPage() {
   }
 
   return (
+    <>
+    {mobile && <MovilTop />}
     <main className="eqs">
-      {!enVentana() && (
+      {!mobile && !enVentana() && (
         <Link to="/inicio" className="eqs-volver">
           <Icon name="collapse" className="sm" /> Inicio
         </Link>
       )}
       <header className="eqs-head">
-        <Rockie color={profile.color} size={64} />
+        <Rockie size={64} />
         <div>
           <h1>¿En qué proyecto trabajas hoy, {(profile.display_name || profile.username || 'Usuario').split(' ')[0]}?</h1>
           <p>Cada proyecto tiene sus tareas y sus metas. Puede ser solo tuyo o compartido con tu gente.</p>
@@ -95,6 +100,7 @@ export default function EquiposPage() {
         <NuevoEquipo onListo={entrar} />
       </div>
     </main>
+    </>
   )
 }
 

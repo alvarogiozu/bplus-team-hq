@@ -96,7 +96,7 @@ export default function AutorizarPage() {
     <main className="authwrap cu-oauth">
       <div className="card authcard">
         <div className="cu-oauth-pair" aria-hidden="true">
-          <Rockie color={profile.color} size={64} />
+          <Rockie size={64} />
           <span className="cu-oauth-dots">
             <i />
             <i />

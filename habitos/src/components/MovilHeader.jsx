@@ -1,4 +1,5 @@
 import OsSwitcher from './OsSwitcher.jsx'
+import CuentaBoton from './CuentaBoton.jsx'
 
 // Cabecera del celular (lienzo «B+ móvil con Rockie al centro»): arriba el selector
 // de apps y, a la derecha, lo propio de la pantalla (pills, un botón); debajo el
@@ -19,6 +20,7 @@ export default function MovilHeader({ kicker, title, right, action, back, childr
         )}
         <div style={{ flex: 1 }} />
         {right}
+        <CuentaBoton />
       </div>
       {kicker && (
         <div className="q" style={{ marginTop: 'var(--space-4)', fontSize: 'var(--text-2xs)', fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--ink-muted)' }}>

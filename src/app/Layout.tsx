@@ -1,6 +1,5 @@
 import { Suspense, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
-import { createPortal } from 'react-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { Icon, type IconName } from '../components/Icon'
 import { Rockie } from '../components/Rockie'
 import { Sheet } from '../components/Sheet'
@@ -9,7 +8,6 @@ import { lsGet, lsSet } from '../lib/storage'
 import { levelOf, xpByUser } from '../lib/xp'
 import { hourIn, isNight } from '../lib/dates'
 import { useMe } from '../features/auth/AuthProvider'
-import { signOut } from '../features/auth/credentials'
 import { useSpace } from '../features/spaces/SpaceProvider'
 import { useMembers, useXp } from '../features/data/queries'
 import { useRealtime } from '../features/data/realtime'
@@ -19,11 +17,13 @@ import { ValidateDialog } from '../features/tasks/ValidateDialog'
 import { NewTaskDialog } from '../features/tasks/NewTaskDialog'
 import { AgentCapture } from '../features/agent/AgentCapture'
 import { openNewTask } from '../features/tasks/dialogs'
-import { setAccent, useTheme } from './theme'
+import { setAccent } from './theme'
+import { Avatar, CuentaMenu } from '../features/cuenta/Cuenta'
 import { useAchievementWatcher } from '../features/team/achievements'
 import { AchievementDialog } from '../features/team/TeamAchievements'
 import { AppSwitcher } from '../os/AppSwitcher'
-import { useIsMobile } from '../lib/useMedia'
+import { MOBILE_Q, useIsMobile } from '../lib/useMedia'
+import { MovilNav, MovilTop, RockieCentro } from '../os/movil/MovilShell'
 import { Faces } from '../features/movil/bits'
 import { NuevaTareaMovil, TareaSheetMovil } from '../features/movil/TareaSheet'
 import '../features/movil/movil.css'
@@ -56,8 +56,9 @@ export function Layout() {
   const xp = xpByUser(useXp().data ?? [])
   const sideKey = `hq.sidebar.${userId}`
   const [collapsed, setCollapsed] = useState(() => lsGet(sideKey) === '1')
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const [menu, setMenu] = useState<HTMLElement | null>(null)
   const [agentOpen, setAgentOpen] = useState(false)
+  const [agentListen, setAgentListen] = useState(false)
   const agentRef = useRef<HTMLInputElement>(null)
   const loc = useLocation()
   const night = isNight(hourIn(profile.timezone))
@@ -70,7 +71,7 @@ export function Layout() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
-        if (matchMedia('(max-width: 767px)').matches) setAgentOpen(true)
+        if (matchMedia(MOBILE_Q).matches) setAgentOpen(true)
         else agentRef.current?.focus()
       }
     }
@@ -83,10 +84,6 @@ export function Layout() {
   const toggleSide = () => {
     lsSet(sideKey, collapsed ? '0' : '1')
     setCollapsed(!collapsed)
-  }
-  const openMenu = (el: HTMLElement, up: boolean) => {
-    const r = el.getBoundingClientRect()
-    setMenu({ x: Math.min(r.left, innerWidth - 240), y: up ? r.top - 8 : r.bottom + 8 })
   }
 
   return (
@@ -122,12 +119,12 @@ export function Layout() {
           ))}
         </div>
         <div className="foot">
-          <NavLink to="/ajustes" className="navlink" title="Ajustes">
+          <NavLink to="/proyecto/ajustes" className="navlink" title="Ajustes del proyecto">
             <Icon name="settings" />
-            <span className="hide-collapsed">Ajustes</span>
+            <span className="hide-collapsed">Ajustes del proyecto</span>
           </NavLink>
-          <button className="me-btn" onClick={(e) => openMenu(e.currentTarget, true)} aria-haspopup="menu" aria-label="Tu perfil">
-            <Rockie color={profile.color} size={32} still />
+          <button className="me-btn" onClick={(e) => setMenu(menu ? null : e.currentTarget)} aria-haspopup="menu" aria-label="Tu cuenta: perfil, ajustes y cerrar sesión">
+            <Avatar size={32} />
             <span className="who hide-collapsed">
               <b>{profile.display_name}</b>
               <span className="hint">@{profile.username}</span>
@@ -141,22 +138,24 @@ export function Layout() {
       </aside>
 
       <div className="main">
-        <header className="topbar">
-          <AppSwitcher />
-          <Link to="/equipos" className="sp" aria-label={`Proyecto ${equipo}. Cambiar de proyecto`}>
-            {equipo}
-            <Icon name="chevron" className="sm" />
-          </Link>
-          <span className="spacer" />
-          {onlineOthers.length > 0 && (
-            <NavLink to="/equipo" className="em-topfaces" aria-label={`${onlineOthers.length} del equipo en línea`}>
-              <Faces ids={onlineOthers} size={26} max={3} />
-            </NavLink>
-          )}
-          <button className="me-btn" style={{ width: 'auto' }} onClick={(e) => openMenu(e.currentTarget, false)} aria-haspopup="menu" aria-label="Tu perfil, equipo y ajustes">
-            <Rockie color={profile.color} size={34} still />
-          </button>
-        </header>
+        {mobile && (
+          <MovilTop
+            actions={
+              <>
+                {onlineOthers.length > 0 && (
+                  <NavLink to="/equipo" className="em-topfaces" aria-label={`${onlineOthers.length} del equipo en línea`}>
+                    <Faces ids={onlineOthers} size={26} max={3} />
+                  </NavLink>
+                )}
+              </>
+            }
+          >
+            <Link to="/equipos" className="sp" aria-label={`Proyecto ${equipo}. Cambiar de proyecto`}>
+              {equipo}
+              <Icon name="chevron" className="sm" />
+            </Link>
+          </MovilTop>
+        )}
 
         <Suspense fallback={<div className="content"><ListSkeleton /></div>}>
           <Outlet />
@@ -168,81 +167,50 @@ export function Layout() {
           </div>
         </div>
 
-        <nav className="bottomnav em-nav" aria-label="Navegación">
-          <NavLink to="/hoy">
-            <Icon name="today" />
-            Hoy
-          </NavLink>
-          <NavLink to="/tareas" className={() => (inPath('/tareas') ? 'active' : '')}>
-            <Icon name="tasks" />
-            Tareas
-          </NavLink>
-          <button className="rockiebtn" aria-label="Pídele algo a Rockie" onClick={() => setAgentOpen(true)}>
-            <Rockie color="var(--brand)" size={44} reactive />
-          </button>
-          <NavLink to="/metas" className={() => (inPath('/metas') ? 'active' : '')}>
-            <Icon name="goal" />
-            Metas
-          </NavLink>
-          <NavLink to="/equipo" className={() => (inPath('/equipo', '/materiales', '/ajustes') ? 'active' : '')}>
-            <Icon name="team" />
-            Equipo
-          </NavLink>
-        </nav>
+        {mobile && (
+          <>
+            <MovilNav
+              label="Secciones del proyecto"
+              // en Proyectos, el color de la app es el principal de cada persona
+              tint={{ ['--app' as string]: 'var(--accent)', ['--app-edge' as string]: 'var(--accent-edge)' }}
+              tabs={[
+                { key: 'hoy', to: '/hoy', label: 'Hoy', icon: <Icon name="today" /> },
+                { key: 'tareas', to: '/tareas', label: 'Tareas', icon: <Icon name="tasks" />, active: inPath('/tareas') },
+                { key: 'metas', to: '/metas', label: 'Metas', icon: <Icon name="goal" />, active: inPath('/metas') },
+                { key: 'equipo', to: '/equipo', label: 'Equipo', icon: <Icon name="team" />, active: inPath('/equipo', '/materiales', '/proyecto') },
+              ]}
+            />
+            <RockieCentro
+              pressed={agentOpen}
+              onTap={() => setAgentOpen(true)}
+              onHold={() => {
+                setAgentListen(true)
+                setAgentOpen(true)
+              }}
+              onRelease={() => dispatchEvent(new Event('rockie:soltar'))}
+            />
+          </>
+        )}
       </div>
 
-      <Sheet open={agentOpen} onClose={() => setAgentOpen(false)} title="Pídele algo a Rockie">
-        <AgentCapture autoFocus inline onDone={() => setAgentOpen(false)} />
+      <Sheet
+        open={agentOpen}
+        onClose={() => {
+          setAgentOpen(false)
+          setAgentListen(false)
+        }}
+        title="Pídele algo a Rockie"
+      >
+        <AgentCapture autoFocus={!agentListen} listen={agentListen} inline onDone={() => setAgentOpen(false)} />
         <button className="btn ghost sm" style={{ marginTop: 12 }} onClick={() => { setAgentOpen(false); openNewTask() }}>
           <Icon name="plus" className="sm" /> Nueva tarea con formulario
         </button>
       </Sheet>
-      {menu && <ProfileMenu at={menu} onClose={() => setMenu(null)} />}
+      {menu && <CuentaMenu anchor={menu} onClose={() => setMenu(null)} />}
       {mobile ? <TareaSheetMovil /> : <TaskPanel />}
       <ValidateDialog />
       {mobile ? <NuevaTareaMovil /> : <NewTaskDialog />}
       <AchievementDialog />
     </div>
-  )
-}
-
-function ProfileMenu({ at, onClose }: { at: { x: number; y: number }; onClose: () => void }) {
-  const nav = useNavigate()
-  const { theme, toggle } = useTheme()
-  const ref = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState(at)
-  useEffect(() => {
-    const el = ref.current
-    if (el && at.y > innerHeight / 2) setPos({ x: at.x, y: at.y - el.offsetHeight })
-    el?.querySelector('button')?.focus()
-    const onDown = (e: MouseEvent) => !el?.contains(e.target as Node) && onClose()
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    setTimeout(() => addEventListener('mousedown', onDown))
-    addEventListener('keydown', onKey)
-    return () => {
-      removeEventListener('mousedown', onDown)
-      removeEventListener('keydown', onKey)
-    }
-  }, [at, onClose])
-  const go = (to: string) => {
-    onClose()
-    nav(to)
-  }
-  return createPortal(
-    <div ref={ref} className="menu" role="menu" style={{ left: Math.max(8, pos.x), top: Math.max(8, pos.y) }}>
-      <button role="menuitem" onClick={() => go('/equipos')}><Icon name="projects" /> Cambiar de proyecto</button>
-      <button role="menuitem" className="mobile-flex" onClick={() => go('/materiales')}><Icon name="folder" /> Materiales</button>
-      <button role="menuitem" className="mobile-flex" onClick={() => go('/equipo')}><Icon name="team" /> Equipo</button>
-      <button role="menuitem" className="mobile-flex" onClick={() => go('/ajustes')}><Icon name="settings" /> Ajustes</button>
-      <button role="menuitem" onClick={() => go('/inicio')}><Icon name="home" /> Inicio de Rockie</button>
-      <button role="menuitem" onClick={() => { toggle(); onClose() }}>
-        <Icon name={theme === 'dark' ? 'sun' : 'moon'} /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}
-      </button>
-      <button role="menuitem" onClick={() => go('/cofre')}><Icon name="lock" /> Tu Cofre</button>
-      <button role="menuitem" onClick={() => go('/cambiar-clave')}><Icon name="key" /> Cambiar contraseña</button>
-      <hr />
-      <button role="menuitem" onClick={() => signOut()}><Icon name="logout" /> Cerrar sesión</button>
-    </div>,
-    document.body,
   )
 }

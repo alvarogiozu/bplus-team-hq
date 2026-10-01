@@ -27,6 +27,8 @@ const TareasMovil = lazy(pantallas.tareasMovil)
 const MetasMovil = lazy(pantallas.metasMovil)
 const EquipoMovil = lazy(pantallas.equipoMovil)
 const EquiposPage = lazy(pantallas.equipos)
+const PerfilPage = lazy(() => pantallas.cuenta().then((m) => ({ default: m.PerfilPage })))
+const AjustesPage = lazy(() => pantallas.cuenta().then((m) => ({ default: m.AjustesPage })))
 
 const Escritorio = lazy(pantallas.escritorio)
 
@@ -129,6 +131,9 @@ export function App() {
               </Suspense>
             }
           />
+          {/* tu cuenta: la misma desde cualquier app */}
+          <Route path="/perfil" element={<Suspense fallback={<Splash />}><PerfilPage /></Suspense>} />
+          <Route path="/ajustes" element={<Suspense fallback={<Splash />}><AjustesPage /></Suspense>} />
           <Route index element={<Navigate to="/inicio" replace />} />
           <Route element={<EscritorioGate />}>
             <Route
@@ -174,7 +179,7 @@ export function App() {
               <Route path="/metas" element={<Adapt desk={<GoalsPage />} movil={<MetasMovil />} />} />
               <Route path="/materiales" element={<MaterialsPage />} />
               <Route path="/equipo" element={<Adapt desk={<TeamPage />} movil={<EquipoMovil />} />} />
-              <Route path="/ajustes" element={<SettingsPage />} />
+              <Route path="/proyecto/ajustes" element={<SettingsPage />} />
             </Route>
           </Route>
         </Route>

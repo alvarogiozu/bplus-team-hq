@@ -40,7 +40,8 @@ export function HudPills({ pulseKey }) {
   const { streak, coins } = useStore()
   return (
     <>
-      <HudPill emoji={<Flame size={13} lit={streak > 0} />} value={streak} color="var(--coral)" pulseKey={pulseKey} />
+      {/* la racha solo cuando ya vale la pena (3 días o más) */}
+      {streak >= 3 && <HudPill emoji={<Flame size={13} lit />} value={streak} color="var(--coral)" pulseKey={pulseKey} />}
       <HudPill emoji="🪙" value={coins} color="var(--amber)" />
     </>
   )

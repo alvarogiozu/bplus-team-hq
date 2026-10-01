@@ -1,4 +1,5 @@
 import OsSwitcher from '../components/OsSwitcher.jsx'
+import CuentaBoton from '../components/CuentaBoton.jsx'
 import ProgressBar from '../components/ProgressBar.jsx'
 
 // Hoy en el celular (lienzo «B+ móvil con Rockie al centro»): arriba el selector de apps y tus
@@ -12,17 +13,14 @@ const pill = {
   fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--ink)', boxSizing: 'border-box', whiteSpace: 'nowrap',
 }
 
-export function HoyMovilTop({ fecha, saludo, pills, week, dayOffset, onPickDay, onCreate }) {
+export function HoyMovilTop({ fecha, saludo, pills, week, dayOffset, onPickDay }) {
   return (
     <div className="hm-top" style={{ padding: 'calc(var(--space-4) + env(safe-area-inset-top, 0px)) var(--screen-x) 0', flexShrink: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
         <OsSwitcher />
         <div style={{ flex: 1 }} />
         {pills}
-        <button type="button" onClick={onCreate} aria-label="Nuevo hábito" title="Nuevo hábito" className="q"
-          style={{ ...pill, width: 'var(--tap-min)', height: 'var(--tap-min)', padding: 0, justifyContent: 'center', borderRadius: '50%', cursor: 'pointer', background: 'var(--brand)', borderColor: 'transparent', color: '#fff', boxShadow: '0 3px 0 var(--brand-edge)', fontSize: 'var(--text-xl)' }}>
-          <i className="ti ti-plus" />
-        </button>
+        <CuentaBoton />
       </div>
       <div className="q" style={{ marginTop: 'var(--space-3)', fontSize: 'var(--text-2xs)', fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--ink-muted)' }}>{fecha}</div>
       <h1 className="s" style={{ margin: '4px 0 0', fontSize: 'var(--text-3xl)', lineHeight: 1.15, color: 'var(--title)', letterSpacing: '-0.3px' }}>{saludo}</h1>

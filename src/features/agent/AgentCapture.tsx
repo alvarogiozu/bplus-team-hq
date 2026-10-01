@@ -27,8 +27,8 @@ type Card = { p: HqProposal; st: 'pending' | 'done' | 'skip' | 'undone'; undo?: 
 type Handoff = { app: ChatApp; pedido: string; area?: LifeArea | null }
 type Reply = { say: string; cards: Card[]; handoffs: Handoff[]; answer?: { text: string; refs: string[] }; question?: { q: string; options: string[] }; basic?: boolean; error?: string }
 
-export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; autoFocus?: boolean; inline?: boolean }>(function AgentCapture(
-  { onDone, autoFocus, inline },
+export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; autoFocus?: boolean; inline?: boolean; listen?: boolean }>(function AgentCapture(
+  { onDone, autoFocus, inline, listen },
   ref,
 ) {
   const { userId, profile } = useAuth()
@@ -56,6 +56,14 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
   const voice = useVoice({ onFinal: (t) => void send(t, true) })
   const hands = useHandsFree(voice, thinking)
   const press = useMicPress(voice, () => haptic(12))
+  // Rockie del centro mantenido (celular): se abre escuchando y, al soltarlo, envía
+  useEffect(() => {
+    if (!listen || !voice.supported) return
+    voice.start({ mode: 'hold' })
+    const soltar = () => voice.stop()
+    addEventListener('rockie:soltar', soltar)
+    return () => removeEventListener('rockie:soltar', soltar)
+  }, [listen]) // eslint-disable-line react-hooks/exhaustive-deps
   const replyRef = useRef(reply)
   replyRef.current = reply
 

@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { AccentPicker } from '../components/AccentPicker'
 import { Icon } from '../components/Icon'
 import { Sheet } from '../components/Sheet'
-import { ThemeChoice } from '../components/ThemeChoice'
-import { useAuth, useMe } from '../features/auth/AuthProvider'
-import { signOut } from '../features/auth/credentials'
+import { useAuth } from '../features/auth/AuthProvider'
 import { timeAgo } from '../lib/dates'
 import { haptic } from '../lib/fx'
 import { NONE, useBooks, useCuadernoActions, useLinks, useNotes, useProjects } from './data'
@@ -25,20 +22,12 @@ import {
   type SyncResult,
 } from './vaultSync'
 
-// Ajustes del cuaderno: lo de Rockie OS que se comparte (tema y color, iguales en HQ, Agenda y
-// Cuaderno) y lo propio del cuaderno (dictado y tu bóveda en Markdown).
+// Ajustes del cuaderno: solo lo propio del cuaderno (páginas, dictado, Claude y tu bóveda en Markdown).
+// Lo de tu cuenta (tema, color, contraseña, sesión) vive en los Ajustes generales (/ajustes).
 export function CuadernoSettings({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { profile } = useMe()
   const [lang, setLang] = useState(dictLang)
   return (
     <Sheet open={open} onClose={onClose} title="Ajustes del cuaderno">
-      <section className="cu-set">
-        <h3>Apariencia</h3>
-        <p className="cu-muted">El mismo tema y color en el HQ, la Agenda y el Cuaderno (y en todas tus pestañas).</p>
-        <ThemeChoice />
-        <AccentPicker />
-      </section>
-
       <PagesSection />
 
       {open && <ClaudeSection />}
@@ -72,19 +61,13 @@ export function CuadernoSettings({ open, onClose }: { open: boolean; onClose: ()
       {open && <VaultSection />}
 
       <section className="cu-set">
-        <h3>Cuenta</h3>
-        <p className="cu-muted">@{profile.username} · las mismas credenciales que el HQ</p>
-        <div className="cu-set-btns">
-          <Link className="btn ghost sm" to="/ajustes" onClick={onClose}>
-            <CIcon name="settings" size={16} /> Ajustes del HQ
+        <p className="cu-muted">
+          El tema, tu color, tu contraseña y cerrar sesión están en tus{' '}
+          <Link to="/ajustes" onClick={onClose}>
+            Ajustes
           </Link>
-          <Link className="btn ghost sm" to="/cambiar-clave" onClick={onClose}>
-            Cambiar contraseña
-          </Link>
-          <button className="btn danger sm" onClick={() => signOut()}>
-            Cerrar sesión
-          </button>
-        </div>
+          , los mismos en todas las apps.
+        </p>
       </section>
     </Sheet>
   )

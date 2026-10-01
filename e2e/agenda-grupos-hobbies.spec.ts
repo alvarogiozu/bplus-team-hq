@@ -20,7 +20,7 @@ async function rockie(page: Page, text: string, proposals: unknown[]) {
   await page.route('**/functions/v1/agenda-agent', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ say: 'Esto te propongo:', proposals }) }))
   await expect(page.locator('.tl-block').first()).toBeVisible()
   const bar = page.getByRole('textbox', { name: 'Pídele algo a Rockie' })
-  if (!(await bar.isVisible())) await page.getByRole('button', { name: 'Escribirle a Rockie' }).click()
+  if (!(await bar.isVisible())) await page.getByRole('button', { name: /toca para escribirle/ }).click()
   await bar.fill(text)
   await bar.press('Enter')
   if (proposals.length > 1) await page.locator('.rk-all').last().click()

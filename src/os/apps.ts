@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { IconName } from '../components/Icon'
 
 // Rockie OS: las cuatro apps viven en una sola (misma cuenta, misma base, un solo Rockie).
@@ -24,7 +25,7 @@ export const APPS: OsApp[] = [
   { id: 'cuaderno', name: 'Cuaderno', path: '/cuaderno', icon: 'notebook', color: '#b4637a', edge: '#944d63', blurb: 'Notas, ideas y repasos' },
 ]
 
-const EQUIPO_PATHS = ['/equipos', '/hoy', '/tareas', '/proyectos', '/metas', '/materiales', '/equipo', '/ajustes']
+const EQUIPO_PATHS = ['/equipos', '/hoy', '/tareas', '/proyectos', '/metas', '/materiales', '/equipo', '/proyecto']
 
 /** A qué app pertenece una ruta (null = Inicio u otra pantalla común). */
 export function appOf(pathname: string): OsApp | null {
@@ -35,3 +36,6 @@ export function appOf(pathname: string): OsApp | null {
   if (EQUIPO_PATHS.includes(first)) return APPS[2]
   return null
 }
+
+/** El color de una app como variables (--app / --app-edge) para teñir lo que va dentro. */
+export const appTint = (a: OsApp) => ({ ['--app' as string]: a.color, ['--app-edge' as string]: a.edge }) as CSSProperties

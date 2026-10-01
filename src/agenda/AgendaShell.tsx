@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'react-router'
 import { AppSwitcher } from '../os/AppSwitcher'
+import { MovilNav, MovilTop } from '../os/movil/MovilShell'
+import { useIsMobile, useMedia } from '../lib/useMedia'
 import { AnimatePresence, motion } from 'motion/react'
 import { Sheet } from '../components/Sheet'
 import { toast, toastError } from '../components/Toasts'
@@ -43,29 +45,6 @@ function useClock(tz: string) {
     return () => clearInterval(id)
   }, [tz])
   return t
-}
-
-function useMedia(q: string) {
-  const [m, setM] = useState(() => matchMedia(q).matches)
-  useEffect(() => {
-    const mq = matchMedia(q)
-    const on = () => setM(mq.matches)
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
-  }, [q])
-  return m
-}
-
-function useIsMobile() {
-  const q = '(max-width: 767px)'
-  const [m, setM] = useState(() => matchMedia(q).matches)
-  useEffect(() => {
-    const mq = matchMedia(q)
-    const on = () => setM(mq.matches)
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
-  }, [])
-  return m
 }
 
 /** Primer hueco libre del día con espacio para `dur` minutos (desde ahora si es hoy). */
@@ -141,6 +120,21 @@ export function AgendaShell() {
   const closePeople = () => {
     const next = new URLSearchParams(params)
     next.delete('personas')
+    setParams(next, { replace: true })
+  }
+  // ?ajustes=1: llegas desde tus Ajustes generales («De cada app») y se abren los de la agenda
+  useEffect(() => {
+    if (params.get('ajustes') !== '1') return
+    setSettingsOpen(true)
+    const next = new URLSearchParams(params)
+    next.delete('ajustes')
+    setParams(next, { replace: true })
+  }, [params, setParams])
+  // el día (la vista de siempre): sin el mes en grande ni la de personas
+  const verDia = () => {
+    const next = new URLSearchParams(params)
+    next.delete('personas')
+    next.delete('vista')
     setParams(next, { replace: true })
   }
   const setMonthOpen = (on: boolean, d?: string) => {
@@ -377,6 +371,65 @@ export function AgendaShell() {
   const [y, m] = day.split('-').map(Number)
   const monthName = MONTH_NAMES[m - 1]
 
+  const monthPicker = (
+    <div className="ag-month-wrap">
+      <button className="ag-month" onClick={() => setPicker(!picker)} aria-label="Elegir fecha">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span key={monthName} initial={{ y: -14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 14, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
+            {monthName[0].toUpperCase() + monthName.slice(1)}
+          </motion.span>
+        </AnimatePresence>
+        <span className="ag-year">{y}</span>
+        <AIcon name="down" size={16} />
+      </button>
+      <DatePop
+        open={picker}
+        onClose={() => setPicker(false)}
+        day={day}
+        today={today}
+        onChange={(d) => {
+          if (d) setDay(d)
+          setPicker(false)
+        }}
+      />
+    </div>
+  )
+  const arrows = (
+    <div className="ag-arrows">
+      {/* en el mes en grande, las flechas cambian de mes */}
+      <button className="ag-iconbtn" onClick={() => setDay(monthOpen ? shiftMonthDay(day, -1) : addDays(day, -1))} aria-label={monthOpen ? 'Mes anterior' : 'Día anterior'}>
+        <AIcon name="left" size={18} />
+      </button>
+      <button className="ag-iconbtn" onClick={() => setDay(monthOpen ? shiftMonthDay(day, 1) : addDays(day, 1))} aria-label={monthOpen ? 'Mes siguiente' : 'Día siguiente'}>
+        <AIcon name="right" size={18} />
+      </button>
+    </div>
+  )
+  const todayBtn = (
+    <AnimatePresence>
+      {day !== today && (
+        <motion.button className="ag-today" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }} onClick={() => setDay(today)}>
+          Hoy
+        </motion.button>
+      )}
+    </AnimatePresence>
+  )
+  const headActions = (
+    <>
+      {!wide && (
+        <button className="ag-iconbtn" onClick={() => setCalsOpen(true)} aria-label="Calendarios" title="Calendarios">
+          <AIcon name="calendar" size={19} />
+        </button>
+      )}
+      {/* en el celular, los ajustes de la agenda se abren desde tus Ajustes (el avatar): sin dos tuercas */}
+      {!mobile && (
+        <button className="ag-iconbtn" onClick={() => setSettingsOpen(true)} aria-label="Ajustes de la agenda">
+          <AIcon name="settings" size={19} />
+        </button>
+      )}
+    </>
+  )
+
   const inbox = (
     <Inbox
       items={inboxItems}
@@ -436,61 +489,28 @@ export function AgendaShell() {
       )}
 
       <main className="ag-main">
-        <header className="ag-head">
-          {mobile && (
-            <button className="ag-iconbtn" onClick={() => setInboxOpen(true)} aria-label={`Inbox, ${inboxItems.length} pendientes`}>
-              <AIcon name="inbox" size={20} />
-              {inboxItems.length > 0 && <b className="ag-badge">{inboxItems.length}</b>}
-            </button>
-          )}
-          <div className="ag-month-wrap">
-            <button className="ag-month" onClick={() => setPicker(!picker)} aria-label="Elegir fecha">
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.span key={monthName} initial={{ y: -14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 14, opacity: 0 }} transition={{ type: 'spring', stiffness: 500, damping: 32 }}>
-                  {monthName[0].toUpperCase() + monthName.slice(1)}
-                </motion.span>
-              </AnimatePresence>
-              <span className="ag-year">{y}</span>
-              <AIcon name="down" size={16} />
-            </button>
-            <DatePop
-              open={picker}
-              onClose={() => setPicker(false)}
-              day={day}
-              today={today}
-              onChange={(d) => {
-                if (d) setDay(d)
-                setPicker(false)
-              }}
-            />
-          </div>
-          <div className="ag-arrows">
-            {/* en el mes en grande, las flechas cambian de mes */}
-            <button className="ag-iconbtn" onClick={() => setDay(monthOpen ? shiftMonthDay(day, -1) : addDays(day, -1))} aria-label={monthOpen ? 'Mes anterior' : 'Día anterior'}>
-              <AIcon name="left" size={18} />
-            </button>
-            <button className="ag-iconbtn" onClick={() => setDay(monthOpen ? shiftMonthDay(day, 1) : addDays(day, 1))} aria-label={monthOpen ? 'Mes siguiente' : 'Día siguiente'}>
-              <AIcon name="right" size={18} />
-            </button>
-          </div>
-          <AnimatePresence>
-            {day !== today && (
-              <motion.button className="ag-today" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }} onClick={() => setDay(today)}>
-                Hoy
-              </motion.button>
-            )}
-          </AnimatePresence>
-          <span className="spacer" />
-          <AppSwitcher compact={mobile} />
-          {!wide && (
-            <button className="ag-iconbtn" onClick={() => setCalsOpen(true)} aria-label="Calendarios" title="Calendarios">
-              <AIcon name="calendar" size={19} />
-            </button>
-          )}
-          <button className="ag-iconbtn" onClick={() => setSettingsOpen(true)} aria-label="Ajustes de la agenda">
-            <AIcon name="settings" size={19} />
-          </button>
-        </header>
+        {mobile ? (
+          // en el celular, como las demás apps: la barra común de Rockie OS («Agenda ▾» · calendarios y
+          // ajustes) y debajo la cabecera de la página (el mes, Hoy y las flechas)
+          <>
+            <MovilTop actions={headActions} />
+            <header className="ag-head">
+              {monthPicker}
+              <span className="spacer" />
+              {todayBtn}
+              {arrows}
+            </header>
+          </>
+        ) : (
+          <header className="ag-head">
+            {monthPicker}
+            {arrows}
+            {todayBtn}
+            <span className="spacer" />
+            <AppSwitcher />
+            {headActions}
+          </header>
+        )}
 
         {peopleOpen ? (
           <PeopleView
@@ -569,9 +589,21 @@ export function AgendaShell() {
           </>
         )}
 
-        <RockieBar ref={barRef} day={day} today={today} nowMin={nowMin} mobile={mobile} onGhosts={setGhosts} onFocusDay={setDay} onNew={newHere} google={view.google} />
+        <RockieBar ref={barRef} day={day} today={today} nowMin={nowMin} mobile={mobile} onGhosts={setGhosts} onFocusDay={setDay} google={view.google} />
 
-        {!mobile && !peopleOpen && !monthOpen && (
+        {mobile && (
+          <MovilNav
+            label="Vistas de la agenda"
+            tabs={[
+              { key: 'dia', label: 'Día', icon: <AIcon name="sun" size={22} />, active: !monthOpen && !peopleOpen, onClick: verDia },
+              { key: 'mes', label: 'Mes', icon: <AIcon name="month" size={22} />, active: monthOpen, onClick: () => setMonthOpen(true) },
+              { key: 'personas', label: 'Personas', icon: <AIcon name="team" size={22} />, active: peopleOpen, onClick: openPeople },
+              { key: 'inbox', label: 'Inbox', icon: <AIcon name="inbox" size={22} />, active: inboxOpen, onClick: () => setInboxOpen(true), badge: inboxItems.length },
+            ]}
+          />
+        )}
+
+        {!peopleOpen && !monthOpen && (
           <motion.button className="ag-fab" onClick={newHere} aria-label="Nuevo" whileHover={{ scale: 1.06, rotate: 90 }} whileTap={{ scale: 0.92 }} transition={{ type: 'spring', stiffness: 400, damping: 16 }}>
             <AIcon name="plus" size={26} strokeWidth={2.4} />
           </motion.button>

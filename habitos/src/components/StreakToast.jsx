@@ -11,34 +11,60 @@ import Confetti from './Confetti.jsx'
 // llama, entrada con mas rebote y titulo de HITO (Ola 4 emotional design).
 export default function StreakToast({ streak = 3, triggerKey = 0, subtitle = '¡RACHA ACTIVA!', milestone = false, position = 'bottom' }) {
   const [show, setShow] = useState(false)
+  // al entrar la racha todavía es la de ejemplo (3) hasta que llegan tus datos: el aviso solo sale
+  // cuando `triggerKey` cambia de verdad (validaste), nunca al montar ni porque la racha se cargó
+  const firstKey = useRef(triggerKey)
+  const streakRef = useRef(streak)
+  streakRef.current = streak
 
   useEffect(() => {
-    if (streak <= 0) return
+    if (triggerKey === firstKey.current) return
+    // solo cuando ya vale la pena (3 días o más)
+    if (streakRef.current < 3) return
     const t0 = setTimeout(() => setShow(true), 350)
     const t1 = setTimeout(() => setShow(false), milestone ? 3800 : 3000)
     return () => {
       clearTimeout(t0)
       clearTimeout(t1)
     }
-  }, [triggerKey, streak, milestone])
+  }, [triggerKey, milestone])
+
+  // si la racha baja mientras se ve, se va
+  useEffect(() => {
+    if (streak < 3) setShow(false)
+  }, [streak])
 
   const isBottom = position === 'bottom'
 
   return (
     <AnimatePresence>
       {show && (
-        <motion.div
-          initial={{ y: isBottom ? 24 : -24, x: '-50%', opacity: 0, scale: milestone ? 0.85 : 0.95 }}
-          animate={{ y: 0, x: '-50%', opacity: 1, scale: 1 }}
-          exit={{ y: isBottom ? 24 : -24, x: '-50%', opacity: 0, scale: 0.95 }}
-          transition={{ type: 'spring', stiffness: 340, damping: milestone ? 20 : 28 }}
-          onClick={() => setShow(false)}
-          title="Toca para descartar"
+        // el marco centra; el cartel se puede deslizar a un lado para descartarlo (o tocarlo)
+        <div
           style={{
             position: 'absolute',
-            ...(isBottom ? { bottom: 'calc(var(--space-4) + 72px)' } : { top: 'var(--space-5)' }),
-            left: '50%',
+            ...(isBottom ? { bottom: 'var(--space-3)' } : { top: 'var(--space-5)' }),
+            left: 0,
+            right: 0,
             zIndex: 60,
+            display: 'flex',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+          }}
+        >
+        <motion.div
+          initial={{ y: isBottom ? 24 : -24, opacity: 0, scale: milestone ? 0.85 : 0.95 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          exit={{ y: isBottom ? 24 : -24, opacity: 0, scale: 0.95 }}
+          transition={{ type: 'spring', stiffness: 340, damping: milestone ? 20 : 28 }}
+          drag="x"
+          dragSnapToOrigin
+          onDragEnd={(_, info) => { if (Math.abs(info.offset.x) > 60) setShow(false) }}
+          onClick={() => setShow(false)}
+          title="Toca o desliza para descartar"
+          style={{
+            pointerEvents: 'auto',
+            touchAction: 'pan-y',
             display: 'flex',
             alignItems: 'center',
             gap: 10,
@@ -72,6 +98,7 @@ export default function StreakToast({ streak = 3, triggerKey = 0, subtitle = '¡
             </div>
           </div>
         </motion.div>
+        </div>
       )}
     </AnimatePresence>
   )

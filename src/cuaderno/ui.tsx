@@ -1,10 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AppList } from '../os/AppSwitcher'
-import { enVentana } from '../os/ventana'
 import { motion } from 'motion/react'
-import { Sheet } from '../components/Sheet'
-import { openDialog } from './bus'
 import { buildTree, flatten, iconOf, pathOf, spine } from './books'
 import type { Book } from './data'
 import { CIcon, ItemIcon } from './icons'
@@ -93,44 +89,8 @@ export function useHasPanel(on: boolean) {
   }, [on, set])
 }
 
-export function useIsMobile() {
-  const q = '(max-width: 899px)'
-  const [m, setM] = useState(() => matchMedia(q).matches)
-  useEffect(() => {
-    const mq = matchMedia(q)
-    const on = () => setM(mq.matches)
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
-  }, [])
-  return m
-}
-
-/** Móvil: lo que en PC vive al pie de la barra lateral (HQ, agenda, ajustes). */
-export function OsMenu() {
-  const [open, setOpen] = useState(false)
-  return (
-    <>
-      <button className="iconbtn" onClick={() => setOpen(true)} aria-label="Más opciones">
-        <CIcon name="more" size={20} />
-      </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Tus apps">
-        <div className="cu-osmenu">
-          {/* en el escritorio de Rockie OS las pestañas ya cambian de app */}
-          {!enVentana() && <AppList onPick={() => setOpen(false)} />}
-          <button
-            className="cu-os"
-            onClick={() => {
-              setOpen(false)
-              openDialog({ kind: 'ajustes' })
-            }}
-          >
-            <CIcon name="settings" size={18} /> Ajustes (tema, dictado, bóveda)
-          </button>
-        </div>
-      </Sheet>
-    </>
-  )
-}
+// el corte celular/computadora es el mismo en todas las apps (lib/useMedia)
+export { useIsMobile } from '../lib/useMedia'
 
 // ---------- menú emergente anclado a un botón ----------
 export function Popover(p: { anchor: HTMLElement | null; open: boolean; onClose: () => void; children: ReactNode; label: string }) {

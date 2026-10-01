@@ -76,3 +76,69 @@ Todo lo de abajo es solo visual/front; no necesita cambios de BD.
 6. **Hábitos:** replicar TopBar/Footer/Rockie con un CSS compartido y los mismos nombres de clase.
 7. Pruebas e2e (Playwright) en viewport móvil: cambiar de app desde cada app, Rockie abre la misma hoja en las 4, footer oculto con teclado.
 8. Aparte, cuando haya acceso a BD: racha y monedas globales (sección E).
+
+---
+
+## 5. Estado de la implementación (2026-10-01)
+
+Checkpoint previo a todo esto: tag local `checkpoint/pre-ux-movil` (commit `6828daf`).
+Decisiones y razones: `docs/DECISIONES.md` → «Rockie OS en el celular».
+
+### Hecho
+
+**Esqueleto común en el celular** (`src/os/movil/MovilShell.tsx` + `movil-shell.css`; solo < 768 px, nunca en el
+escritorio de PC ni dentro de sus ventanas)
+* `MovilTop`: «App ▾» a la izquierda (el `AppSwitcher` de siempre), el título/contexto de la app, sus acciones y, al
+  final, **tu cuenta** (`CuentaBoton`). Fondo `--paper`, borde sutil con el color de la app (`--app`).
+* `MovilNav`: pie flotante de 5 ranuras (2 secciones · Rockie · 2 secciones); la sección activa lleva el color de la
+  app (`appTint` de `os/apps.ts`); contador opcional por sección; `room` reserva su alto en el flujo.
+  Se esconde mientras escribes en una página o formulario (no al escribirle a Rockie: `[data-rockie]`).
+* `RockieCentro`: el botón de Rockie, igual en todas las apps (72 px, azul Rockie fijo `--rockie: #2a82ad`, insignia de
+  micrófono, nombre «Rockie» debajo). Se dibuja en un portal a `<body>` para que ningún CSS de una app lo deforme.
+  **Gesto único: toca = escribirle · mantén = hablarle (al soltar, envía).** Lleva tu Rockie de Hábitos (`RockieArt`
+  con `rockieLook()`); el "cerebro" sigue siendo el de cada app.
+
+**Por app**
+* **Proyectos** (`app/Layout.tsx`): barra común (selector · nombre del proyecto ▾ · quién está en línea · cuenta) y pie
+  Hoy · Tareas · Rockie · Metas · Equipo. Mantener Rockie abre la hoja ya escuchando (`AgentCapture listen`).
+  `/equipos` (elegir proyecto) también tiene la barra común.
+* **Agenda**: barra común («Agenda ▾» · Calendarios · cuenta) y, debajo, la cabecera de página como en las demás (el
+  mes, «Hoy» y ‹ ›). Pie: Día · Mes · Rockie · Personas · Inbox (con contador). «Nuevo» es un botón flotante sobre el
+  pie; manos libres va en la barra de escribir. Márgenes laterales `--screen-x`. La bienvenida (Onboarding) también
+  tiene la barra común (se puede salir a otra app).
+* **Cuaderno**: barra común en todas sus pantallas menos dentro de una página (que tiene su cabecera); pie Hoy ·
+  Carpetas · Mapa · Repaso. Se fue el «⋯ Tus apps» de cada cabecera.
+* **Inicio**: barra y pie comunes (en el pie, las cuatro apps); Rockie con tu look y la cara de cómo va tu día.
+* **Hábitos** (otra página, `habitos/`): su selector y su pie ya eran el modelo. Se sumó «mantén para hablar» a su
+  Rockie, el avatar de cuenta arriba (`components/CuentaBoton.jsx`), y en Hoy: sin «+» arriba («+ Agregar hábito» va
+  debajo de las acciones y al final de la lista), la racha abajo y centrada sobre el menú solo con 3 días o más.
+
+**Cuenta global** (`src/features/cuenta/`)
+* Arriba a la derecha en todas las apps: tu foto (la de Google) o tu inicial sobre tu color. Menú de 3 opciones:
+  **Perfil · Ajustes · Cerrar sesión** (el mismo en el escritorio de PC, que suma la posición del dock).
+* `/perfil` (nombre, color) y `/ajustes` (tema, color principal, zona horaria, contraseña, Privacidad → Tu Cofre,
+  «De cada app» y cerrar sesión). **El tema vive solo aquí.** Los ajustes de cada app se abren desde «De cada app»
+  (`/agenda?ajustes=1`, `/cuaderno?ajustes=1`, `/habitos/ajustes`, `/proyecto/ajustes`).
+* Los ajustes del proyecto pasan a `/proyecto/ajustes` (nombre, áreas, datos). En el celular, Agenda y Cuaderno ya no
+  tienen su tuerca arriba; en PC la conservan (solo con lo propio de cada app).
+
+**Rockie en todas partes**
+* `components/Rockie.tsx` dibuja el Rockie de Hábitos (`os/RockieArt`) en vez de la piedra con carita: la mascota (o
+  tú) con tu look; otra persona, un Rockie sobre su color de perfil.
+
+**Correcciones de paso**
+* Dos agendas: unos archivos sueltos del prototipo viejo (`agenda.html`, `app.js`, `db.js`, `styles.css`,
+  `supabase/schema.sql`, borrados en `ca25ae1`) habían reaparecido; en desarrollo, `/agenda` con carga completa (desde
+  Hábitos) servía ese `agenda.html`. Se sacaron del proyecto (respaldo fuera del repo).
+* Agenda: el ícono de «Despertar»/«A dormir» desaparecía cuando ya había pasado (coral sobre coral).
+* Proyectos: el ícono del anillo vacío casi no se veía; la racha «0 días» ya no se muestra (solo desde 3).
+* Hábitos: el aviso de racha se quedaba pegado (o destellaba al entrar) mientras cargaba la racha real; ahora solo sale
+  al validar y con 3 días o más, se va solo y se puede deslizar para descartarlo.
+* Un solo corte celular/computadora: 767 px (`lib/useMedia`) en todas las apps (Cuaderno usaba 899 px).
+
+### Pendiente
+* Íconos con trazos de Tabler en `<Icon>`: requiere bajar el paquete `@tabler/icons` (npm). Agenda y Cuaderno guardan
+  nombres de ícono en la base (íconos elegibles): la unión de los tres sets debe conservarlos.
+* Racha y monedas globales en la barra de arriba (sección E: necesita datos de Hábitos).
+* El look de Hábitos de los demás (hoy cada persona es un Rockie base sobre su color).
+* Verificación e2e completa (`npm run e2e` necesita `SUPABASE_SERVICE_ROLE_KEY`).

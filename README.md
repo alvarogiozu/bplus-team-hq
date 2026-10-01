@@ -109,6 +109,16 @@ le pasa una temporal; al entrar, se le pide cambiarla.
 Vercel (proyecto `bplus-team-hq`), SPA con rewrites a `index.html`; `/agenda.html` redirige a
 `/tareas?vista=calendario`. Las variables `VITE_*` deben existir en el proyecto de Vercel.
 
+## Rockie OS en el celular
+
+En el celular (< 768 px) todas las apps comparten la misma barra de arriba («App ▾» · título · tu cuenta) y el mismo
+pie flotante (2 secciones · **Rockie** · 2 secciones): `src/os/movil/MovilShell.tsx`. Rockie es el mismo botón en
+todas: **toca para escribirle, mantén para hablarle**; cada app responde con su propio agente.
+
+Tu cuenta es global: tu foto o inicial arriba a la derecha → **Perfil** (`/perfil`), **Ajustes** (`/ajustes`: tema,
+color, zona horaria, contraseña y los ajustes de cada app) y **Cerrar sesión**. Los ajustes del proyecto están en
+`/proyecto/ajustes`. Detalle y razones: `UX-UI-Estandarizacion-Plan.md` y `docs/DECISIONES.md`.
+
 ## Rockie Agenda (`/agenda`)
 
 La agenda personal del día, con la misma cuenta del HQ. Vive en este mismo repo y en el mismo Supabase

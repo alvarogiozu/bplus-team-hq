@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Icon } from '../components/Icon'
 import { fmtDayLong, greeting, hourIn, isNight, timeAgo, todayIn } from '../lib/dates'
 import { supabase } from '../lib/supabase'
-import { useMedia } from '../lib/useMedia'
+import { useIsMobile } from '../lib/useMedia'
+import { MovilNav, MovilTop, RockieCentro } from './movil/MovilShell'
 import { useMe } from '../features/auth/AuthProvider'
-import { signOut } from '../features/auth/credentials'
+import { CuentaBoton } from '../features/cuenta/Cuenta'
 import { APP_META, useRockieChat } from '../features/agent/chat'
-import { setAccent, useTheme } from '../app/theme'
+import { setAccent } from '../app/theme'
 import { APPS, type AppId, type OsApp } from './apps'
 import { faceFor, fetchHabitosHoy, rockieLook } from './habitos'
 import { RockieArt } from './RockieArt'
@@ -88,50 +89,6 @@ function Ring({ done, total, size = 44, stroke = 5, color, children }: { done: n
 }
 
 /** Celular: tu inicial abre el tema y cerrar sesión (el lienzo deja arriba solo tu avatar). */
-function Cuenta({ nombre, theme, toggle }: { nombre: string; theme: string; toggle: () => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const fuera = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('pointerdown', fuera)
-    document.addEventListener('keydown', esc)
-    return () => {
-      document.removeEventListener('pointerdown', fuera)
-      document.removeEventListener('keydown', esc)
-    }
-  }, [open])
-  return (
-    <div className="os-cuenta" ref={ref}>
-      <button type="button" className="os-avatar" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} aria-label="Tu cuenta">
-        {(nombre || '?').charAt(0).toUpperCase()}
-      </button>
-      {open && (
-        <div className="os-cuenta-menu" role="menu">
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              toggle()
-              setOpen(false)
-            }}
-          >
-            <Icon name={theme === 'dark' ? 'sun' : 'moon'} className="sm" /> {theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
-          </button>
-          <button type="button" role="menuitem" onClick={() => signOut()}>
-            <Icon name="logout" className="sm" /> Cerrar sesión
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
 type Entry = { key: string; app: AppId; min: number | null; title: string; tag: string; done: boolean; to?: string }
 
 /** `escritorio`: la barra de Rockie que va arriba cuando el Inicio vive en el escritorio (PC). */
@@ -148,8 +105,7 @@ export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
       b()
     }
   }, [escritorio])
-  const { theme, toggle } = useTheme()
-  const mobile = useMedia('(max-width: 719px)')
+  const mobile = useIsMobile()
   const tz = profile.timezone
   const today = todayIn(tz)
   const hour = hourIn(tz)
@@ -278,18 +234,19 @@ export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
     },
   ]
 
-  // Celular (lienzo «B+ móvil», Tus apps): marca + avatar, saludo con Rockie, las cuatro apps,
-  // lo último que le pediste y, abajo, el Rockie para hablarle (abre su voz en Hábitos).
+  // Celular (lienzo «B+ móvil», Tus apps): la barra y el pie comunes de Rockie OS (en el pie, las
+  // cuatro apps), saludo con Rockie, las apps, lo último que le pediste y tu día. El Rockie del
+  // centro es el de siempre: toca para escribirle · mantén para hablarle (su voz vive en Hábitos).
   if (mobile) {
     return (
+      <>
+      <MovilTop compact>
+        <div className="os-brand">
+          <span className="os-word">Rockie</span>
+          <span className="os-kicker">Tus apps, un solo Rockie</span>
+        </div>
+      </MovilTop>
       <div className="os-home os-home--m">
-        <header className="os-top">
-          <div className="os-brand">
-            <span className="os-word">Rockie</span>
-            <span className="os-kicker">Tus apps, un solo Rockie</span>
-          </div>
-          <Cuenta nombre={first} theme={theme} toggle={toggle} />
-        </header>
 
         <section className="os-hero os-hero--m">
           <RockieArt size={72} stone={look.stone} equipped={look.equipped} eyes={face.eyes} mouth={face.mouth} />
@@ -371,22 +328,26 @@ export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
           )}
         </section>
 
-        {/* Rockie abre su conversación (no graba solo); para hablarle de una, el micrófono de al lado */}
-        <nav className="os-dock" aria-label="Rockie">
-          <a className="os-dock-side" href="/habitos/hoy?voz=escribir" aria-label="Escribirle a Rockie">
-            <Icon name="keyboard" />
-          </a>
-          <a className="os-dock-mic" href="/habitos/hoy?voz=ver" aria-label="Abrir a Rockie">
-            <span className="os-dock-btn">
-              <RockieArt size={58} stone={look.stone} equipped={look.equipped} eyes={face.eyes} mouth={face.mouth} />
-            </span>
-            <small>Rockie</small>
-          </a>
-          <a className="os-dock-side hablar" href="/habitos/hoy?voz=escuchar" aria-label="Hablarle a Rockie">
-            <Icon name="mic" />
-          </a>
-        </nav>
       </div>
+      <MovilNav
+        label="Tus apps"
+        tabs={APPS.map((a) => ({
+          key: a.id,
+          to: a.path,
+          label: a.name,
+          icon: (
+            <span style={{ color: a.color, display: 'grid' }}>
+              <Icon name={a.icon} />
+            </span>
+          ),
+        }))}
+      />
+      <RockieCentro
+        avatar={<RockieArt size={58} stone={look.stone} equipped={look.equipped} eyes={face.eyes} mouth={face.mouth} />}
+        onTap={() => location.assign('/habitos/hoy?voz=escribir')}
+        onHold={() => location.assign('/habitos/hoy?voz=escuchar')}
+      />
+      </>
     )
   }
 
@@ -398,12 +359,7 @@ export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
             <span className="os-word">Rockie</span>
             <span className="os-kicker">{fmtDayLong(today)}</span>
           </div>
-          <button className="iconbtn" onClick={toggle} aria-label={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
-            <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-          </button>
-          <button className="iconbtn" onClick={() => signOut()} aria-label="Cerrar sesión" title="Cerrar sesión">
-            <Icon name="logout" />
-          </button>
+          <CuentaBoton />
         </header>
       )}
 

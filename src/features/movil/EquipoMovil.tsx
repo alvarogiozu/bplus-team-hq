@@ -108,12 +108,12 @@ export default function EquipoMovil() {
           <b>Invitar</b>
           <small>{isOwner ? 'Enlace que dura 7 días' : 'Pídeselo al dueño'}</small>
         </button>
-        <Link to="/ajustes" className="em-tile" style={{ ['--tc' as string]: 'var(--navbar-blue)' } as CSSProperties}>
+        <Link to="/proyecto/ajustes" className="em-tile" style={{ ['--tc' as string]: 'var(--navbar-blue)' } as CSSProperties}>
           <span className="em-tile-ic">
             <Icon name="settings" />
           </span>
           <b>Ajustes</b>
-          <small>Áreas, colores y cuenta</small>
+          <small>Nombre, áreas y datos</small>
         </Link>
       </div>
 

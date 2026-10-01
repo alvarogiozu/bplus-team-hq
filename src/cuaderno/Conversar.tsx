@@ -208,7 +208,6 @@ export function ConversarPanel(p: { contexto: ConvContext; motivo?: string }) {
             aria-label="Tu mensaje para Rockie"
           />
           <MicButton
-            big={false}
             listening={voice.listening}
             level={voice.level}
             disabled={!voice.supported}

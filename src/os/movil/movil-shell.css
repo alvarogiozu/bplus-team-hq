@@ -1,0 +1,140 @@
+/* ============================================================
+   Rockie OS en el celular (m*): la misma barra de arriba, el mismo pie flotante y el mismo
+   Rockie al centro en Proyectos, Agenda y Cuaderno (Hábitos los copia con estas medidas).
+   El color de la sección activa es el de la app (--app / --app-edge, de os/apps.ts).
+   ============================================================ */
+:root {
+  /* el azul de Rockie, fijo (no cambia con el color que elige cada persona): el mismo de Hábitos */
+  --rockie: #2a82ad;
+  --rockie-edge: #1d6489;
+  --mtop-h: calc(60px + env(safe-area-inset-top));
+  --mnav-h: 68px;
+  --mnav-gap: 10px;
+  /* lo que el contenido debe dejar libre abajo para no quedar detrás del pie */
+  --mnav-room: calc(var(--mnav-h) + var(--mnav-gap) + var(--s3) + env(safe-area-inset-bottom));
+}
+
+/* ---------- barra de arriba ---------- */
+.mtop {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: calc(var(--s2) + env(safe-area-inset-top)) var(--screen-x) var(--s2);
+  background: var(--paper);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--app, var(--brand)) 16%, transparent);
+}
+.mtop-sp { flex: 1; min-width: 0; }
+.mtop-acts { display: flex; align-items: center; gap: var(--s1); flex: none; }
+
+/* ---------- pie flotante ---------- */
+.mnav {
+  position: fixed;
+  z-index: 60;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--mnav-gap) + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+  padding: 6px;
+  background: var(--card);
+  border: 1.5px solid var(--card-line);
+  border-radius: 26px;
+  box-shadow: 0 4px 0 var(--card-edge), var(--shadow-card);
+}
+.mnav-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 54px;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: none;
+  color: var(--ink-muted);
+  font: 700 var(--t-3xs) var(--sans);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s var(--glide), color 0.2s, box-shadow 0.2s, transform 0.12s var(--glide);
+}
+.mnav-tab > span:last-child { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mnav-ico { position: relative; display: grid; place-items: center; }
+.mnav-ico svg { width: 22px; height: 22px; }
+.mnav-tab.active { background: var(--app, var(--accent)); color: var(--on-color); box-shadow: 0 3px 0 var(--app-edge, var(--accent-edge)); }
+.mnav-tab:active { transform: translateY(2px); }
+.mnav-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--title);
+  color: var(--on-color);
+  font: 800 10px/18px var(--sans);
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--card);
+}
+.mnav-tab.active .mnav-badge { box-shadow: 0 0 0 2px var(--app, var(--accent)); }
+.mnav-room { flex: none; height: var(--mnav-room); }
+/* el hueco de Rockie lleva su nombre abajo, como en Hábitos */
+.mnav-gap { align-self: stretch; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; color: var(--rockie); font: 700 var(--t-3xs) var(--sans); pointer-events: none; }
+
+/* ---------- Rockie al centro ---------- */
+.m-rockie {
+  position: fixed;
+  z-index: 61;
+  left: 50%;
+  bottom: calc(var(--mnav-gap) + env(safe-area-inset-bottom) + 28px);
+  width: 72px;
+  height: 72px;
+  margin-left: -36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--rockie);
+  box-shadow: 0 5px 0 var(--rockie-edge), var(--shadow-card);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, transform 0.12s var(--glide), box-shadow 0.12s;
+}
+.m-rockie:active, .m-rockie.pressed { transform: translateY(3px); box-shadow: 0 2px 0 var(--rockie-edge), var(--shadow-card); }
+.m-rockie.on { background: var(--title); box-shadow: 0 5px 0 var(--coral-edge), var(--shadow-card); }
+.m-rockie-mic {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--card-line);
+  color: var(--rockie);
+  display: grid;
+  place-items: center;
+}
+.m-rockie-mic svg { width: 13px; height: 13px; }
+.m-rockie.on .m-rockie-mic { color: var(--title); }
+.m-rockie-ring { position: absolute; inset: -7px; border-radius: 999px; border: 3px solid var(--title); opacity: 0.45; pointer-events: none; }
+
+/* escribiendo en una página o un formulario: el teclado ocupa el lugar del pie */
+html.m-escribiendo .mnav,
+html.m-escribiendo .m-rockie { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mnav-tab, .m-rockie { transition: none; }
+}

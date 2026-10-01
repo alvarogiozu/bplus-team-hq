@@ -50,8 +50,11 @@
 @keyframes eqsin {
   from { opacity: 0; transform: translateY(12px) scale(0.97); }
 }
+/* en el celular, debajo de la barra común de Rockie OS (os/movil) */
+@media (max-width: 767px) {
+  .eqs { min-height: calc(100dvh - var(--mtop-h)); padding: var(--s2) var(--screen-x) max(var(--s8), env(safe-area-inset-bottom)); }
+}
 @media (max-width: 640px) {
-  .eqs { padding-left: var(--s4); padding-right: var(--s4); }
   .eqs-head { align-items: flex-start; }
   .eqs-head h1 { font-size: var(--t-2xl); }
   .eqs-grid { grid-template-columns: 1fr; gap: var(--s4); }

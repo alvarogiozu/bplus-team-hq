@@ -28,7 +28,7 @@ import { CIcon, ItemIcon } from './icons'
 import { MEMORY_LABEL, memoryOf, type Memory } from './leitner'
 import { ColorPick, IconPick } from './pickers'
 import { plain } from './text'
-import { BookPicker, OsMenu, Popover, useIsMobile } from './ui'
+import { BookPicker, Popover, useIsMobile } from './ui'
 
 export { ColorPick }
 
@@ -140,7 +140,6 @@ export function CuadernosPage() {
               </button>
             </>
           )}
-          {mobile && <OsMenu />}
         </header>
 
         <div className="cu-wide">
@@ -403,7 +402,6 @@ export function CuadernoPage() {
             </small>
           </div>
           <span className="spacer" />
-          {mobile && <OsMenu />}
         </header>
 
         <div className="cu-read">

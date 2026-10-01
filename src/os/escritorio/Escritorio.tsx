@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent as RPointerEvent } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { Icon } from '../../components/Icon'
 import { useMe } from '../../features/auth/AuthProvider'
 import { signOut } from '../../features/auth/credentials'
-import { setAccent, useTheme } from '../../app/theme'
+import { setAccent } from '../../app/theme'
+import { Avatar } from '../../features/cuenta/Cuenta'
 import { lsGet, lsSet } from '../../lib/storage'
 import { ZonasSoltar } from '../../components/ZonasSoltar'
 import { alBorde, cuenta as cuantas, desdeLista, destinoEn, frenoArriba, idsDe, lugarDe, moverHorizontal, moverVertical, poner, quitar, rects as rectsDe, reemplazar, sano, separadores, uno, VACIO as MOS_VACIO, zonasDe, type Destino, type Mosaico } from '../../lib/mosaico'
@@ -208,7 +209,7 @@ function historialPropio(w: Window) {
 
 export default function Escritorio() {
   const { userId, profile } = useMe()
-  const { theme, toggle } = useTheme()
+  const nav = useNavigate()
   const loc = useLocation()
   useEffect(() => setAccent(profile.accent ?? null), [profile.accent])
   const clave = `rockie.escritorio.${userId}`
@@ -785,20 +786,18 @@ export default function Escritorio() {
             <kbd>Ctrl K</kbd>
           </button>
           <div className="esc-cuenta">
-            <button className="esc-avatar" onClick={() => setCuenta((v) => !v)} aria-haspopup="menu" aria-expanded={cuenta} aria-label="Tu cuenta">
-              {(profile.display_name || '?').charAt(0).toUpperCase()}
+            <button className="esc-avatar" onClick={() => setCuenta((v) => !v)} aria-haspopup="menu" aria-expanded={cuenta} aria-label="Tu cuenta: perfil, ajustes y cerrar sesión">
+              <Avatar size={38} />
             </button>
             {cuenta && (
               <div className="esc-menu esc-menu--cuenta" role="menu" onMouseLeave={() => setCuenta(false)}>
                 <b>{profile.display_name}</b>
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    toggle()
-                    setCuenta(false)
-                  }}
-                >
-                  <Icon name={theme === 'dark' ? 'sun' : 'moon'} className="sm" /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}
+                {/* tu cuenta (la misma de todas las apps) y, aparte, dónde va el dock de este escritorio */}
+                <button role="menuitem" onClick={() => nav('/perfil')}>
+                  <Icon name="user" className="sm" /> Perfil
+                </button>
+                <button role="menuitem" onClick={() => nav('/ajustes')}>
+                  <Icon name="settings" className="sm" /> Ajustes
                 </button>
                 <LadosDock lado={ladoDock} elegir={setLadoDock} />
                 <button role="menuitem" onClick={() => signOut()}>

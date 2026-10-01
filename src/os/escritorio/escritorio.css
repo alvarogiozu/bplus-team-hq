@@ -56,7 +56,7 @@
 .esc-buscar:hover { border-color: var(--brand); }
 .esc-buscar span { flex: 1; text-align: left; }
 .esc-cuenta { position: relative; flex: none; }
-.esc-avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 999px; background: var(--amber); box-shadow: 0 3px 0 var(--amber-edge); font-family: var(--serif); font-size: var(--t-md); font-weight: 700; color: #fff; }
+.esc-avatar { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; border-radius: 999px; background: none; }
 
 /* ---------- menús (pestaña y cuenta) ---------- */
 .esc-menu-capa { position: fixed; inset: 0; z-index: 119; }

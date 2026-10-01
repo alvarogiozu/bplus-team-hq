@@ -9,7 +9,7 @@ import { burst, celebrateRockie, haptic, pointOf } from '../lib/fx'
 import { acceptProposal, reopen, type Look } from './agent'
 import { openDialog } from './bus'
 import { useBusy, useCapture, useToday } from './capture'
-import { OsMenu, useHasPanel, useIsMobile } from './ui'
+import { useHasPanel, useIsMobile } from './ui'
 import {
   NONE,
   areaOf,
@@ -266,7 +266,6 @@ export default function Hoy() {
             <CIcon name="chat" size={17} />
             {!mobile && ' Conversar'}
           </button>
-          {mobile && <OsMenu />}
         </header>
 
         <div className="cu-read">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, useAnimationControls } from 'framer-motion'
 import { useStore, useVidaMode } from '../data/mockStore.jsx'
@@ -23,10 +23,23 @@ const tabsFor = (vidaMode) => [
 ]
 
 // Rockie del centro: se suscribe al store SOLO para celebrar (salta al validar) y para su look.
+// El mismo gesto que en Agenda, Proyectos y Cuaderno: toca = abre su conversación · mantén = le hablas.
 function RockieBoton() {
   const { celebration, emotion, equipped, rockieColor, level } = useStore()
   const controls = useAnimationControls()
   const [burst, setBurst] = useState(0)
+  const hold = useRef(null)
+  const held = useRef(false)
+  useEffect(() => () => clearTimeout(hold.current), [])
+  const down = () => {
+    held.current = false
+    hold.current = setTimeout(() => {
+      hold.current = null
+      held.current = true
+      abrirVoz('escuchar')
+    }, 260)
+  }
+  const cancel = () => { clearTimeout(hold.current); hold.current = null }
 
   useEffect(() => {
     if (!celebration) return
@@ -39,7 +52,17 @@ function RockieBoton() {
   }, [celebration, controls])
 
   return (
-    <button type="button" className="nav-rockie-btn" onClick={abrirVoz} aria-label="Hablar con Rockie" data-coach="nav-rockie">
+    <button
+      type="button"
+      className="nav-rockie-btn"
+      onPointerDown={down}
+      onPointerUp={cancel}
+      onPointerCancel={cancel}
+      onContextMenu={(e) => e.preventDefault()}
+      onClick={() => { if (held.current) held.current = false; else abrirVoz('ver') }}
+      aria-label="Rockie: toca para abrir su conversación, mantén para hablarle"
+      data-coach="nav-rockie"
+    >
       <motion.span className="nav-rockie-face" animate={controls}>
         <Rockie emotion={emotion ?? { eyes: 1, mouth: 6 }} size={58} float={false} still moods={false} equipped={equipped} color={rockieColor} stage={stageOfLevel(level ?? 1)} />
       </motion.span>

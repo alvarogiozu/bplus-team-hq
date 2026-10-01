@@ -466,6 +466,16 @@
 .hoy-screen.hm .hoy-stage { gap: 0; padding-top: var(--space-2); }
 .hoy-screen.hm .hoy-stage-foot { display: none; }
 
+/* «Agregar hábito»: debajo de las acciones del día (en el celular no hay «+» arriba) */
+.hm-add {
+  align-self: center; display: inline-flex; align-items: center; gap: var(--space-2); flex-shrink: 0;
+  min-height: var(--tap-min); margin: var(--space-3) auto 0; padding: 0 var(--space-4);
+  border: 1.5px dashed var(--card-line); border-radius: var(--r-pill); background: none;
+  color: var(--ink-soft); font-weight: 700; font-size: var(--text-sm); cursor: pointer;
+}
+.hm-add:active { transform: translateY(2px); }
+/* la racha: abajo, centrada, justo sobre el menú (no interrumpe el saludo ni las cartas) */
+.hm-racha { margin-top: auto; padding: var(--space-3) var(--screen-x) var(--space-2); display: flex; justify-content: center; flex-shrink: 0; }
 .hm-acts { position: relative; z-index: 20; width: 100%; box-sizing: border-box; padding: var(--space-2) var(--screen-x) 0; display: flex; flex-direction: column; gap: var(--space-3); flex-shrink: 0; }
 .hm-photo {
   display: flex; align-items: center; gap: var(--space-3); width: 100%; height: 56px; padding: 0 var(--space-4);

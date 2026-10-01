@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Rockie } from '../components/Rockie'
 import { haptic } from '../lib/fx'
 import { Listening, MicButton } from '../agenda/RockieBar'
+import { RockieCentro } from '../os/movil/MovilShell'
 import { useVoice } from '../agenda/voice'
 import { useCapture } from './capture'
 import { colorOf, iconOf, kindLabel, noteColorOf, pathOf, spine, type BookColor } from './books'
@@ -126,36 +127,21 @@ export const CaptureBar = forwardRef<
     }
   }
 
-  // PC: toca para dictar (se detiene solo) · mantén para hablar.
-  // Móvil (Rockie del centro): toca para escribir · mantén para hablar.
-  const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const mic = (big: boolean) => (
+  // La barra (PC y celular): toca para dictar (se detiene solo) · mantén para hablar.
+  // En el celular, el Rockie del centro (os/movil): toca para escribir · mantén para hablar.
+  const mic = (
     <MicButton
-      big={big}
       listening={voice.listening}
       level={voice.level}
-      disabled={!voice.supported && !big}
+      disabled={!voice.supported}
       onDown={() => {
         if (voice.listening) return voice.stop()
         pressAt.current = Date.now()
-        if (!big) {
-          haptic(12)
-          return voice.start({ autoStop: true })
-        }
-        hold.current = setTimeout(() => {
-          hold.current = undefined
-          haptic(12)
-          voice.start()
-        }, 260)
+        haptic(12)
+        voice.start({ autoStop: true })
       }}
       onUp={() => {
-        if (hold.current) {
-          clearTimeout(hold.current)
-          hold.current = undefined
-          p.onTyping(!p.typing)
-          return
-        }
-        if (voice.listening && (big || Date.now() - pressAt.current > 380)) voice.stop()
+        if (voice.listening && Date.now() - pressAt.current > 380) voice.stop()
       }}
     />
   )
@@ -186,7 +172,7 @@ export const CaptureBar = forwardRef<
           Ctrl K
         </span>
       )}
-      {mic(false)}
+      {mic}
       <button className="cu-send" aria-label="Guardar en tu diario" disabled={!text.trim()}>
         <CIcon name="send" size={18} />
       </button>
@@ -194,7 +180,7 @@ export const CaptureBar = forwardRef<
   )
 
   return (
-    <div className={`cu-rk${p.mobile ? ' mobile' : ''}`}>
+    <div className={`cu-rk${p.mobile ? ' mobile' : ''}`} data-rockie>
       <AnimatePresence>
         {voice.listening && <Listening key="listen" text={voice.text} level={voice.level} />}
       </AnimatePresence>
@@ -272,7 +258,16 @@ export const CaptureBar = forwardRef<
       ) : (
         form
       )}
-      {p.mobile && <div className="cu-dockmic">{mic(true)}</div>}
+      {p.mobile && (
+        <RockieCentro
+          listening={voice.listening}
+          level={voice.level}
+          pressed={p.typing}
+          onTap={() => p.onTyping(!p.typing)}
+          onHold={voice.supported ? () => voice.start() : undefined}
+          onRelease={() => voice.stop()}
+        />
+      )}
     </div>
   )
 })

@@ -95,7 +95,7 @@ export default function HoyMovil() {
             {greeting(hour)}, <span>{(profile.display_name || profile.username || 'Usuario').split(' ')[0]}</span>
           </h1>
         </div>
-        <Rockie color={profile.color} size={56} sleepy={isNight(hour)} reactive />
+        <Rockie size={56} sleepy={isNight(hour)} reactive />
       </header>
 
       {/* cómo va tu día */}
@@ -106,7 +106,7 @@ export default function HoyMovil() {
               <b>{day.doneToday.length}</b>/{total}
             </span>
           ) : (
-            <Icon name="sparkle" />
+            <Icon name="sparkle" className="em-ring-ic" />
           )}
         </Ring>
         <div className="em-pulse-t">
@@ -120,9 +120,12 @@ export default function HoyMovil() {
                   : `Te ${day.pending === 1 ? 'queda 1' : `quedan ${day.pending}`} para hoy`}
           </b>
           <span className="em-pills" hidden={tasksQ.isLoading}>
-            <span className="em-pill flame">
-              <Icon name="flame" className="sm" /> {streak} {streak === 1 ? 'día' : 'días'}
-            </span>
+            {/* la racha, solo cuando ya vale la pena (3 días o más) */}
+            {streak >= 3 && (
+              <span className="em-pill flame">
+                <Icon name="flame" className="sm" /> {streak} días
+              </span>
+            )}
             <span className="em-pill">
               <Icon name="star" className="sm" /> {teamXp(xp)} XP
             </span>

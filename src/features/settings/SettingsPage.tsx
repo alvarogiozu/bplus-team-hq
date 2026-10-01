@@ -1,25 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Sheet } from '../../components/Sheet'
-import { AccentPicker } from '../../components/AccentPicker'
-import { ColorPick, Select } from '../../components/Select'
+import { ColorPick } from '../../components/Select'
 import { toast, toastError } from '../../components/Toasts'
-import { PALETTE, TIMEZONES } from '../../lib/colors'
+import { PALETTE } from '../../lib/colors'
 import { todayIn } from '../../lib/dates'
 import { humanError, supabase } from '../../lib/supabase'
 import type { Json } from '../../lib/database.types'
-import { useMe } from '../auth/AuthProvider'
-import { signOut } from '../auth/credentials'
 import { useSpace } from '../spaces/SpaceProvider'
 import { keys, useAreas, useSpaceRow } from '../data/queries'
-import { ThemeChoice } from '../../components/ThemeChoice'
 
+// Ajustes del proyecto (los de tu cuenta —tema, color, zona horaria, contraseña— son globales: /ajustes).
 // Ajustes mínimos. Si algo necesita un menú para entenderse, está mal.
 export default function SettingsPage() {
   const { spaceId, isOwner } = useSpace()
-  const { userId, profile } = useMe()
   const qc = useQueryClient()
   const space = useSpaceRow().data
   const areas = useAreas().data ?? []
@@ -48,15 +43,9 @@ export default function SettingsPage() {
     qc.invalidateQueries({ queryKey: keys.areas(spaceId) })
   }
 
-  async function setTimezone(tz: string) {
-    const { error } = await supabase.from('profiles').update({ timezone: tz }).eq('id', userId)
-    if (error) return toastError(humanError(error))
-    qc.invalidateQueries({ queryKey: ['profile'] })
-  }
-
   return (
     <div className="content settings">
-      <header className="pagehead"><h1>Ajustes</h1></header>
+      <header className="pagehead"><h1>Ajustes del proyecto</h1></header>
 
       <section className="card pad">
         <div className="sectionh"><h2>Espacio</h2></div>
@@ -82,28 +71,6 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="card pad">
-        <div className="sectionh"><h2>Tu cuenta</h2></div>
-        <p className="hint">Usuario: <b>@{profile.username}</b></p>
-        <label className="lbl" htmlFor="s-tz">Zona horaria</label>
-        <Select
-          id="s-tz"
-          label="Zona horaria"
-          variant="field"
-          searchable
-          value={profile.timezone}
-          onChange={setTimezone}
-          options={Array.from(new Set([profile.timezone, ...TIMEZONES])).map((tz) => ({ value: tz, label: tz.replace(/_/g, ' ') }))}
-        />
-        <label className="lbl">Tu color principal</label>
-        <AccentPicker />
-        <label className="lbl">Tema (el mismo en HQ, Agenda y Cuaderno)</label>
-        <ThemeChoice />
-        <div className="row" style={{ flexWrap: 'wrap', marginTop: 16 }}>
-          <Link className="btn ghost sm" to="/cambiar-clave"><Icon name="key" className="sm" /> Cambiar contraseña</Link>
-          <button className="btn danger sm" onClick={() => signOut()}><Icon name="logout" className="sm" /> Cerrar sesión</button>
-        </div>
-      </section>
 
       <DataSection isOwner={isOwner} />
     </div>

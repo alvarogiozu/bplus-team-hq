@@ -1,7 +1,7 @@
 /* ============================================================
    EQUIPO EN EL CELULAR (em-*)
    Composición propia para menos de 768 px: tarjetas grandes con canto, pastillas que se deslizan,
-   hojas que suben desde abajo y una barra flotante con Rockie al centro. El color de la app es el
+   hojas que suben desde abajo; el pie con Rockie al centro es el común de os/movil. El color de la app es el
    principal de cada persona (--accent), igual que en la computadora.
    ============================================================ */
 :root {
@@ -11,25 +11,10 @@
   --em-ink: var(--accent-ink);
 }
 
-/* ---------- marco: barra de arriba y barra flotante de abajo ---------- */
+/* ---------- marco (la barra de arriba y el pie con Rockie: os/movil/MovilShell) ---------- */
 @media (max-width: 767px) {
   .content.em-page { padding: var(--s2) var(--s4) calc(124px + env(safe-area-inset-bottom)); }
-  .topbar { border-bottom: 0; }
   .em-topfaces { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 2px; text-decoration: none; }
-
-  .bottomnav.em-nav {
-    left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom));
-    align-items: center; padding: 6px; border-radius: 26px; border: 1.5px solid var(--card-line);
-    box-shadow: 0 4px 0 var(--card-edge), var(--shadow-card);
-  }
-  .bottomnav.em-nav a {
-    min-height: 54px; gap: 3px; border-radius: 18px; font-size: var(--t-3xs); color: var(--ink-muted);
-    transition: background 0.2s var(--glide), color 0.2s, box-shadow 0.2s, transform 0.12s var(--glide);
-  }
-  .bottomnav.em-nav a .ico { width: 22px; height: 22px; }
-  .bottomnav.em-nav a.active { background: var(--em); color: var(--on-color); box-shadow: 0 3px 0 var(--em-edge); }
-  .bottomnav.em-nav a:active { transform: translateY(2px); }
-  .bottomnav.em-nav .rockiebtn { margin-top: -30px; }
 
   /* tablero: columnas que se deslizan de borde a borde */
   .em-page .board { margin: 0 calc(-1 * var(--s4)); padding: 0 var(--s4) 12px; gap: var(--s3); }
@@ -335,3 +320,6 @@
 @media (max-width: 767px) {
   .mpage > .mmeter { margin-bottom: var(--s4); }
 }
+
+/* el anillo sin tareas: su ícono grande y en el color de la app (antes casi no se veía) */
+.em-pulse .em-ring-ic { width: 30px; height: 30px; color: var(--em); }

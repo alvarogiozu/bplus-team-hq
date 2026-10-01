@@ -31,7 +31,7 @@ import { buildGlobal, distToSegment, fold, neighbors, nodeRadius, type GEdge, ty
 import { CIcon, ItemIcon } from './icons'
 import { MEMORY_LABEL, memoryOf, type Memory } from './leitner'
 import { plain } from './text'
-import { OsMenu, useHasPanel, useIsMobile } from './ui'
+import { useHasPanel, useIsMobile } from './ui'
 
 // El Mapa: todo lo que sabes, conectado. Dos vistas:
 //  · Grafo (como Obsidian): cada carpeta, cuaderno y sección es un núcleo de su color unido a sus
@@ -186,7 +186,6 @@ export default function Mapa() {
             ))}
           </div>
           <span className="spacer" />
-          {mobile && <OsMenu />}
         </header>
 
         <div className="cu-maptools">

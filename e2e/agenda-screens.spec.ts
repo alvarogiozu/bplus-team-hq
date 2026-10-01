@@ -19,7 +19,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.keyboard.press('Escape')
     await page.keyboard.press('Escape')
     const bar = page.getByRole('textbox', { name: 'Pídele algo a Rockie' })
-    if (!(await bar.isVisible())) await page.getByRole('button', { name: 'Escribirle a Rockie' }).click()
+    if (!(await bar.isVisible())) await page.getByRole('button', { name: /toca para escribirle/ }).click()
     await bar.fill('almorzar pasado mañana a la 1 por 1 hora')
     await bar.press('Enter')
     await expect(page.locator('.rk-card').last()).toBeVisible({ timeout: 30_000 })
