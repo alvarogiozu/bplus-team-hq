@@ -37,7 +37,9 @@ export type FaseCofre = 'sin-sesion' | 'cargando' | 'nuevo' | 'bloqueado' | 'abi
 export type EstadoCofre = { fase: FaseCofre; error?: string }
 
 /** De dónde sale la llave de una fila: lo personal usa la maestra; lo compartido, la llave de su ámbito. */
-export type Ambito = { tipo: 'personal' } | { tipo: 'espacio' | 'nota'; id: string }
+/** espacio = un equipo · nota = una página compartida · agenda = lo de tu agenda que ve tu equipo (id = tu user id) */
+export type AmbitoCompartido = 'espacio' | 'nota' | 'agenda'
+export type Ambito = { tipo: 'personal' } | { tipo: AmbitoCompartido; id: string }
 
 type Cuenta = { kid: string; publica: Publica; privada: string; recuperacion: Envuelto }
 type Guardada = { kid: string; llave: CryptoKey }
@@ -442,11 +444,11 @@ export class Llavero {
   }
 
   private async crearLlaveDeAmbito(
-    a: { tipo: 'espacio' | 'nota'; id: string },
+    a: { tipo: AmbitoCompartido; id: string },
     anterior: string | null,
   ): Promise<{ kid: string; llave: CryptoKey } | null> {
     const llave = await nuevaLlave()
-    const kid = nuevoKid(a.tipo === 'espacio' ? 's' : 'n')
+    const kid = nuevoKid(a.tipo === 'espacio' ? 's' : a.tipo === 'nota' ? 'n' : 'a')
     const raw = await exportarLlave(llave)
     // primero el sobre propio (si algo falla después, nadie queda con una llave que no puede abrir)
     const yo = await this.miPublica()
@@ -475,7 +477,7 @@ export class Llavero {
   }
 
   /** Todas las llaves (también las viejas) que esta persona tiene de un ámbito, para meterlas en una invitación. */
-  async llavesDe(a: { tipo: 'espacio' | 'nota'; id: string }): Promise<Record<string, string>> {
+  async llavesDe(a: { tipo: AmbitoCompartido; id: string }): Promise<Record<string, string>> {
     await this.llaveParaEscribir(a) // que exista al menos una
     await this.cargarSobres(true)
     const out: Record<string, string> = {}
@@ -488,7 +490,7 @@ export class Llavero {
   }
 
   /** Guarda como propias las llaves que trajo una invitación (cada una sellada para la pública de esta persona). */
-  async adoptarLlaves(a: { tipo: 'espacio' | 'nota'; id: string }, llaves: Record<string, string>): Promise<number> {
+  async adoptarLlaves(a: { tipo: AmbitoCompartido; id: string }, llaves: Record<string, string>): Promise<number> {
     await this.listo()
     if (!this.publica) return 0
     let n = 0

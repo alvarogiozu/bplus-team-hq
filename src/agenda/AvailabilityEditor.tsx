@@ -7,6 +7,7 @@ import { WORK_DEFAULT, cleanAvail, hasAvail, type Avail, type ShareLevel, type V
 import { useAgendaActions, usePrefs } from './data'
 import { AIcon } from './icons'
 import { TimePick } from './TimePick'
+import { recifrarAgendaVisible } from './recifrar'
 
 // Tu horario para el equipo (como el horario laboral de Google Calendar) y qué ve tu equipo de tus
 // eventos. Lo usan los Ajustes de la Agenda y la página del Equipo.
@@ -95,7 +96,11 @@ export function AvailabilityEditor() {
             className={`ag-chip${level === v ? ' on' : ''}`}
             title={hint}
             onClick={() => {
-              chain.current = chain.current.then(() => savePrefs({ share_level: v })).finally(() => void qc.invalidateQueries({ queryKey: ['team-avail'] }))
+              chain.current = chain.current
+                .then(() => savePrefs({ share_level: v }))
+                // lo que tu equipo puede leer cambia de llave (ver agenda/recifrar)
+                .then(() => recifrarAgendaVisible())
+                .finally(() => void qc.invalidateQueries({ queryKey: ['team-avail'] }))
             }}
           >
             <AIcon name={v === 'busy' ? 'clock' : 'eye'} size={15} /> {label}

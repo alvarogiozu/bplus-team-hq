@@ -67,9 +67,8 @@
       }
     },
     "agenda_items": {
-      "llave": "personal",
-      "estado": "pendiente",
-      "tanda": "4-agenda-google",
+      "llave": "agendaItem",
+      "estado": "activo",
       "dueno": "user_id",
       "cifrar": [
         "title",
@@ -81,12 +80,12 @@
         "icon": "apariencia",
         "gcal_event_id": "id del evento en Google (no su contenido)",
         "visibility": "si tu equipo te ve «Ocupado» o no: el servidor arma la disponibilidad"
-      }
+      },
+      "_llave": "tu llave; la de tu agenda (la reciben solo quienes comparten un equipo contigo) si la actividad se muestra con título en Buscar hueco"
     },
     "agenda_prefs": {
       "llave": "personal",
-      "estado": "pendiente",
-      "tanda": "4-agenda-google",
+      "estado": "activo",
       "dueno": "user_id",
       "cifrar": [
         "routine"
@@ -99,8 +98,7 @@
     },
     "agenda_google": {
       "llave": "ninguna",
-      "estado": "pendiente",
-      "tanda": "4-agenda-google",
+      "estado": "activo",
       "cifrar": [],
       "servidor": {
         "refresh_token": "permiso de Google: solo lo usa el servidor para sincronizar",

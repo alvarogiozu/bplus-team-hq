@@ -5,7 +5,7 @@
 
 import registro from './privacidad.json'
 import { BLOQUEADO, RE_SOBRE, cifrarArchivo, cifrarValor, descifrarArchivo, descifrarValor, esCifrado, kidDeArchivo } from './cripto'
-import type { Ambito, Llavero } from './llavero'
+import type { Ambito, AmbitoCompartido, Llavero } from './llavero'
 
 type Regla = {
   llave: string
@@ -35,8 +35,14 @@ export function reglaActiva(tabla: string): Regla | null {
 /** Tablas personales que ya se cifran (para sellar lo que se guardó antes del Cofre). */
 export function tablasPersonalesActivas(): { tabla: string; cifrar: string[]; dueno: string; pk: string; extra: string[] }[] {
   return Object.entries(TABLAS)
-    .filter(([, r]) => r.estado === 'activo' && r.llave === 'personal' && r.cifrar.length && r.dueno)
-    .map(([tabla, r]) => ({ tabla, cifrar: r.cifrar, dueno: r.dueno!, pk: r.pk ?? 'id', extra: [r.enClaroSi, r.llaveSi?.si].filter((x): x is string => Boolean(x)) }))
+    .filter(([, r]) => r.estado === 'activo' && (r.llave === 'personal' || r.llave === 'agendaItem') && r.cifrar.length && r.dueno)
+    .map(([tabla, r]) => ({
+      tabla,
+      cifrar: r.cifrar,
+      dueno: r.dueno!,
+      pk: r.pk ?? 'id',
+      extra: [r.enClaroSi, r.llaveSi?.si, ...(r.llave === 'agendaItem' ? ['visibility', 'user_id'] : [])].filter((x): x is string => Boolean(x)),
+    }))
 }
 
 /** Tablas de equipo que ya se cifran, con la columna que dice de qué equipo es cada fila. */
@@ -145,9 +151,35 @@ async function datosDeFila(c: Contexto, f: Fila, cols: string[]): Promise<Fila> 
   return out
 }
 
+// Cuánto de tu agenda ve tu equipo (Ajustes de disponibilidad): 'details' = el título de lo que no marcaste aparte
+let nivel: { uid: string; valor: string; t: number } | null = null
+async function nivelAgenda(c: Contexto): Promise<string> {
+  const uid = c.l.usuario ?? ''
+  if (nivel && nivel.uid === uid && Date.now() - nivel.t < 30_000) return nivel.valor
+  const r = await c.crudo(`${c.url.origin}/rest/v1/agenda_prefs?select=share_level&user_id=eq.${encodeURIComponent(uid)}`, {
+    headers: { apikey: c.headers.get('apikey') ?? '', Authorization: c.headers.get('Authorization') ?? '' },
+  })
+  const filas = r.ok ? ((await r.json()) as Fila[]) : []
+  nivel = { uid, valor: String(filas[0]?.share_level ?? 'busy'), t: Date.now() }
+  return nivel.valor
+}
+
+/** Tras cambiar cuánto ve tu equipo: la próxima decisión vuelve a preguntar. */
+export function olvidarNivelAgenda() {
+  nivel = null
+}
+
 /** Con qué llave se cifra esta fila; null = va en claro a propósito (libreta abierta para Claude). */
 async function decidir(c: Contexto, f: Fila): Promise<Ambito | null> {
   const r = c.regla
+  if (r.llave === 'agendaItem') {
+    // lo que tu equipo ve con título (Buscar hueco) va con tu llave de agenda; lo demás, con la tuya
+    const d = await datosDeFila(c, f, ['visibility', 'user_id'])
+    const vis = d.visibility as string | null | undefined
+    const compartida = vis === 'public' || (vis == null && (await nivelAgenda(c)) === 'details')
+    const yo = (d.user_id as string | undefined) ?? c.l.usuario ?? ''
+    return compartida && yo ? { tipo: 'agenda', id: yo } : { tipo: 'personal' }
+  }
   const base = r.llaveSi && 'si' in r.llaveSi ? r.llaveSi : null
   const necesito = [r.enClaroSi, base?.si, r.llave.includes(':') ? r.llave.split(':')[1] : null, base?.llave.split(':')[1]]
     .filter((x): x is string => Boolean(x))
@@ -155,7 +187,7 @@ async function decidir(c: Contexto, f: Fila): Promise<Ambito | null> {
   if (r.enClaroSi && d[r.enClaroSi] === true) return null
   const llave = base && d[base.si] != null ? base.llave : r.llave
   if (llave === 'personal') return { tipo: 'personal' }
-  const [tipo, col] = llave.split(':') as ['espacio' | 'nota', string]
+  const [tipo, col] = llave.split(':') as [AmbitoCompartido, string]
   let id = d[col] as string | undefined
   if (!id && col === 'id' && c.metodo === 'POST') {
     // fila nueva cuya llave es la suya propia: nace con su id para poder cifrarla ya
@@ -292,7 +324,7 @@ function ambitoDeArchivo(regla: ReglaArchivo, ruta: string[]): Ambito {
   if (regla.llave === 'personal') return { tipo: 'personal' }
   // Cuaderno: <uid>/n/<nota>/… = imagen de una página (llave de la página: sirve si se comparte); el resto es tuyo
   if (regla.llave === 'cuaderno') return ruta[1] === 'n' && ruta[2] ? { tipo: 'nota', id: ruta[2] } : { tipo: 'personal' }
-  const [tipo, i] = regla.llave.split(':') as ['espacio' | 'nota', string]
+  const [tipo, i] = regla.llave.split(':') as [AmbitoCompartido, string]
   const id = ruta[Number(i)]
   if (!id) throw new ErrorCofre('No se pudo saber con qué llave cifrar este archivo.')
   return { tipo, id }

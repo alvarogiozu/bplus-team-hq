@@ -8,6 +8,7 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { akeys, type AgendaItem, type Undo } from './data'
 import { gkeys, type Group } from './groups'
 import { localToIso } from './time'
+import { sincronizarGoogle } from './gsync'
 
 // ---------- Calendarios propios ----------
 export type Calendar = Tables<'agenda_calendars'>
@@ -288,8 +289,9 @@ export function useGoogleSync(enabled: boolean) {
       if (Date.now() - last < 45_000) return
       last = Date.now()
       try {
-        const r = await callGoogle<{ changed?: number }>({ action: 'sync' })
-        if (alive && r.changed) qc.invalidateQueries({ queryKey: akeys.items(userId) })
+        // se aplica aquí (cifrado): el servidor ya no puede leer la agenda
+        const changed = await sincronizarGoogle()
+        if (alive && changed) qc.invalidateQueries({ queryKey: akeys.items(userId) })
       } catch {
         // sin red o Google caído: se intenta en la próxima vuelta
       }

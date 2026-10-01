@@ -5,11 +5,14 @@
 //    borras aquí se sube (action push); lo que cambias allá en «Rockie» vuelve (action sync, con
 //    syncToken). Cada evento lleva extendedProperties.private.rockie = id del ítem.
 //
-// El refresh_token vive SOLO en public.agenda_google (sin políticas = solo service_role);
-// el navegador nunca lo ve. Flujo OAuth por redirección:
+// El refresh_token vive SOLO en public.agenda_google (sin políticas = solo service_role), cifrado con la
+// llave del servidor (COFRE_SERVIDOR_KEY); el navegador nunca lo ve.
+// Privacidad (el Cofre, docs/privacidad.md): la agenda está cifrada y esta función NO la lee. Para subir, la app
+// manda lo que hay que subir (ya abierto); al bajar, devuelve lo que cambió en Google y la app lo aplica cifrado. Flujo OAuth por redirección:
 //   1. POST {action:'auth_url', return_to} -> URL de consentimiento de Google (state firmado)
 //   2. Google -> GET esta función ?code&state -> guarda el token -> 302 a return_to?gcal=ok
-// Acciones POST (con la sesión de la persona): status · auth_url · calendars · events · disconnect · push · sync
+// Acciones POST (con la sesión de la persona): status · auth_url · calendars · events · disconnect ·
+//   push {items, deleted} · sync -> {cambios, token} · sync_ok {token} · enlazar {pares}
 //
 // Requisitos: secrets GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (cliente OAuth web) y, en Google
 // Cloud, esta URL como "URI de redirección autorizado". Se despliega con --no-verify-jwt (el
@@ -79,14 +82,56 @@ const back = (r: string, params: Record<string, string>) => {
   return Response.redirect(u.toString(), 302)
 }
 
+// ---------- el permiso de Google, cifrado en la base ----------
+// El refresh_token es un secreto que solo usa este servidor: se guarda cifrado (AES-256-GCM) con una llave
+// que vive en los secrets de las funciones (COFRE_SERVIDOR_KEY), así una copia de la base no sirve de nada.
+// Formato: srv1.<base64url(iv ‖ cifrado)>. Los guardados antes de esto se cifran la próxima vez que se usan.
+const deB64u = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), (c) => c.charCodeAt(0))
+let llaveServidor: Promise<CryptoKey | null> | null = null
+function servidor(): Promise<CryptoKey | null> {
+  llaveServidor ??= (async () => {
+    const raw = Deno.env.get('COFRE_SERVIDOR_KEY')
+    if (!raw) return null
+    return crypto.subtle.importKey('raw', deB64u(raw), 'AES-GCM', false, ['encrypt', 'decrypt'])
+  })()
+  return llaveServidor
+}
+async function sellarSecreto(texto: string): Promise<string> {
+  const k = await servidor()
+  if (!k) return texto // sin llave configurada queda como antes (se avisa en el log)
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, k, enc.encode(texto)))
+  const out = new Uint8Array(12 + ct.length)
+  out.set(iv)
+  out.set(ct, 12)
+  return `srv1.${b64u(out)}`
+}
+async function abrirSecreto(valor: string): Promise<string | null> {
+  if (!valor.startsWith('srv1.')) return valor
+  const k = await servidor()
+  if (!k) return null
+  try {
+    const b = deB64u(valor.slice(5))
+    return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b.subarray(0, 12) }, k, b.subarray(12)))
+  } catch {
+    return null
+  }
+}
+
 // ---------- Google ----------
 async function tokenFor(userId: string): Promise<string | null> {
   const { data } = await admin.from('agenda_google').select('refresh_token').eq('user_id', userId).maybeSingle()
   if (!data) return null
+  const refresh = await abrirSecreto(data.refresh_token)
+  if (!refresh) return null
+  // uno guardado antes del cifrado: se cifra ya
+  if (!data.refresh_token.startsWith('srv1.') && (await servidor())) {
+    await admin.from('agenda_google').update({ refresh_token: await sellarSecreto(refresh) }).eq('user_id', userId)
+  }
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, refresh_token: data.refresh_token, grant_type: 'refresh_token' }),
+    body: new URLSearchParams({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, refresh_token: refresh, grant_type: 'refresh_token' }),
   })
   const j = await res.json()
   if (!res.ok) {
@@ -109,7 +154,6 @@ type Row = {
   id: string; title: string; notes: string; day: string | null; end_day: string | null
   start_min: number | null; duration_min: number; gcal_event_id: string | null
 }
-const ITEM_COLS = 'id, title, notes, day, end_day, start_min, duration_min, gcal_event_id'
 type GEv = {
   id: string; status?: string; summary?: string; description?: string; recurrence?: string[]; recurringEventId?: string
   start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }
@@ -200,33 +244,58 @@ async function pushOne(token: string, calId: string, it: Row, tz: string, uid: s
     const r = await gcal(token, `${path}/${encodeURIComponent(it.gcal_event_id)}`, { method: 'PUT', body: JSON.stringify({ ...ev, status: 'confirmed' }) })
     if (r.ok) return
     if (r.status !== 404 && r.status !== 410) {
-      console.error('actualizar evento', r.status, await r.text())
+      console.error('actualizar evento', r.status)
       return
     }
   }
   const r = await gcal(token, path, { method: 'POST', body: JSON.stringify(ev) })
   if (!r.ok) {
-    console.error('crear evento', r.status, await r.text())
+    console.error('crear evento', r.status)
     return
   }
   const created = await r.json()
+  // solo el enlace (qué evento de Google es): el contenido no se toca aquí
   await admin.from('agenda_items').update({ gcal_event_id: created.id }).eq('id', it.id).eq('user_id', uid)
 }
 
-/** Primera vez: sube lo que ya tenías agendado (del último mes en adelante). */
-async function pushAll(token: string, calId: string, uid: string, tz: string) {
-  const from = addDay(localOf(new Date().toISOString(), tz).day, -30)
-  const { data } = await admin.from('agenda_items').select(ITEM_COLS).eq('user_id', uid).gte('day', from).order('day').limit(200)
-  for (const it of (data ?? []) as Row[]) await pushOne(token, calId, it, tz, uid)
+/** Lo que manda la app para subir (ya abierto en el dispositivo), revisado y con topes. */
+function filasDe(v: unknown): Row[] {
+  const DIA = /^\d{4}-\d{2}-\d{2}$/
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+  return (Array.isArray(v) ? v : [])
+    .map((x: Record<string, unknown>) => ({
+      id: typeof x?.id === 'string' && UUID.test(x.id) ? x.id : '',
+      title: typeof x?.title === 'string' ? x.title.slice(0, 300) : '',
+      notes: typeof x?.notes === 'string' ? x.notes.slice(0, 8000) : '',
+      day: typeof x?.day === 'string' && DIA.test(x.day) ? x.day : null,
+      end_day: typeof x?.end_day === 'string' && DIA.test(x.end_day) ? x.end_day : null,
+      start_min: typeof x?.start_min === 'number' ? Math.max(0, Math.min(2879, Math.round(x.start_min))) : null,
+      duration_min: typeof x?.duration_min === 'number' ? Math.max(5, Math.min(1440, Math.round(x.duration_min))) : 30,
+      gcal_event_id: typeof x?.gcal_event_id === 'string' ? x.gcal_event_id.slice(0, 200) : null,
+    }))
+    .filter((r) => r.id && r.title)
+    .slice(0, 50)
 }
 
-/** Trae lo que cambió en «Rockie» desde Google (syncToken). Devuelve cuántos ítems cambiaron. */
-async function pull(token: string, calId: string, uid: string, tz: string): Promise<number> {
+type Cambio = {
+  tipo: 'borrado' | 'cambio' | 'nuevo'
+  gid: string
+  rid?: string
+  title?: string
+  notes?: string
+  day?: string
+  end_day?: string | null
+  start_min?: number | null
+  duration_min?: number | null
+}
+
+/** Lo que cambió en «Rockie» desde Google (syncToken). No escribe la agenda: la app lo aplica (cifrado). */
+async function cambiosDe(token: string, calId: string, uid: string, tz: string): Promise<{ cambios: Cambio[]; next: string | null }> {
   const { data: gl } = await admin.from('agenda_google').select('sync_token').eq('user_id', uid).maybeSingle()
   let syncToken: string | null = gl?.sync_token ?? null
   let pageToken: string | null = null
   let next: string | null = null
-  let changed = 0
+  const cambios: Cambio[] = []
   const path = `/calendars/${encodeURIComponent(calId)}/events`
   for (let page = 0; page < 10; page++) {
     const q = new URLSearchParams({ showDeleted: 'true', maxResults: '250' })
@@ -242,10 +311,21 @@ async function pull(token: string, calId: string, uid: string, tz: string): Prom
     }
     if (!r.ok) {
       console.error('leer Rockie', r.status)
-      return changed
+      return { cambios, next: null }
     }
     const j = await r.json()
-    for (const e of (j.items ?? []) as GEv[]) changed += await applyEvent(token, path, e, uid, tz)
+    for (const e of (j.items ?? []) as GEv[]) {
+      if (e.recurrence || e.recurringEventId) continue // lo que se repite se queda en Google
+      const rid = e.extendedProperties?.private?.rockie
+      if (e.status === 'cancelled') {
+        if (rid) cambios.push({ tipo: 'borrado', gid: e.id, rid })
+        continue
+      }
+      const f = fromEvent(e, tz)
+      if (!f) continue
+      if (rid) cambios.push({ tipo: 'cambio', gid: e.id, rid, ...f })
+      else cambios.push({ tipo: 'nuevo', gid: e.id, ...f, notes: (e.description ?? '').replace(/\n*Desde Rockie Agenda$/, '').slice(0, 8000) })
+    }
     if (j.nextPageToken) {
       pageToken = j.nextPageToken
       continue
@@ -253,67 +333,7 @@ async function pull(token: string, calId: string, uid: string, tz: string): Prom
     next = j.nextSyncToken ?? null
     break
   }
-  if (next) await admin.from('agenda_google').update({ sync_token: next }).eq('user_id', uid)
-  return changed
-}
-
-async function applyEvent(token: string, path: string, e: GEv, uid: string, tz: string): Promise<number> {
-  if (e.recurrence || e.recurringEventId) return 0 // lo que se repite se queda en Google
-  const rid = e.extendedProperties?.private?.rockie
-  if (e.status === 'cancelled') {
-    if (!rid) return 0
-    // borrado en Google: si el ítem sigue enlazado a ESTE evento, se borra aquí también
-    const { data } = await admin.from('agenda_items').delete().eq('user_id', uid).eq('id', rid).eq('gcal_event_id', e.id).select('id')
-    return data?.length ? 1 : 0
-  }
-  const f = fromEvent(e, tz)
-  if (!f) return 0
-  if (rid) {
-    const { data: it } = await admin.from('agenda_items').select(ITEM_COLS).eq('user_id', uid).eq('id', rid).maybeSingle()
-    if (!it) {
-      // el ítem ya no existe en la agenda: el evento sobra
-      await gcal(token, `${path}/${encodeURIComponent(e.id)}`, { method: 'DELETE' })
-      return 0
-    }
-    const row = it as Row
-    if (row.gcal_event_id && row.gcal_event_id !== e.id) return 0
-    const same =
-      row.title === f.title && row.day === f.day && row.start_min === f.start_min && (row.end_day ?? null) === f.end_day &&
-      (f.start_min == null || row.duration_min === f.duration_min)
-    if (same && row.gcal_event_id === e.id) return 0
-    await admin
-      .from('agenda_items')
-      .update({ title: f.title, day: f.day, start_min: f.start_min, end_day: f.end_day, ...(f.duration_min ? { duration_min: f.duration_min } : {}), gcal_event_id: e.id })
-      .eq('id', row.id)
-      .eq('user_id', uid)
-    return same ? 0 : 1
-  }
-  // creado en Google dentro de «Rockie»: entra a la agenda
-  const { data: cal } = await admin.from('agenda_calendars').select('id, color').eq('user_id', uid).eq('hidden', false).order('position').limit(1).maybeSingle()
-  const { data: row, error } = await admin
-    .from('agenda_items')
-    .insert({
-      user_id: uid,
-      title: f.title,
-      day: f.day,
-      start_min: f.start_min,
-      end_day: f.end_day,
-      duration_min: f.duration_min ?? 60,
-      icon: 'calendar',
-      color: cal?.color ?? '#cf7358',
-      calendar_id: cal?.id ?? null,
-      notes: (e.description ?? '').replace(/\n*Desde Rockie Agenda$/, ''),
-      subtasks: [],
-      gcal_event_id: e.id,
-    })
-    .select('id')
-    .single()
-  if (error || !row) {
-    console.error('importar evento', error?.message)
-    return 0
-  }
-  await gcal(token, `${path}/${encodeURIComponent(e.id)}`, { method: 'PATCH', body: JSON.stringify({ extendedProperties: { private: { rockie: row.id } } }) })
-  return 1
+  return { cambios: cambios.slice(0, 500), next }
 }
 
 type GEvent = { id: string; cal: string; calName: string; title: string; start: string; end: string; allDay: boolean; color: string; link: string | null }
@@ -348,7 +368,7 @@ Deno.serve(async (req) => {
     }
     const { error } = await admin
       .from('agenda_google')
-      .upsert({ user_id: st.u, refresh_token: tok.refresh_token, email, scopes: String(tok.scope ?? ''), connected_at: new Date().toISOString() })
+      .upsert({ user_id: st.u, refresh_token: await sellarSecreto(tok.refresh_token), email, scopes: String(tok.scope ?? ''), connected_at: new Date().toISOString() })
     if (error) {
       console.error('guardar token', error.message)
       return back(r, { gcal: 'error', motivo: 'guardar' })
@@ -365,7 +385,17 @@ Deno.serve(async (req) => {
   const user = auth?.user
   if (!user) return json({ error: 'Inicia sesión otra vez.' }, 401)
 
-  let body: { action?: string; return_to?: string; from?: string; to?: string; ids?: string[]; deleted?: string[] }
+  let body: {
+    action?: string
+    return_to?: string
+    from?: string
+    to?: string
+    ids?: string[]
+    deleted?: string[]
+    items?: unknown[]
+    token?: string
+    pares?: { gid?: string; rid?: string }[]
+  }
   try {
     body = await req.json()
   } catch {
@@ -401,7 +431,8 @@ Deno.serve(async (req) => {
   if (body.action === 'disconnect') {
     const { data } = await admin.from('agenda_google').select('refresh_token').eq('user_id', user.id).maybeSingle()
     if (data) {
-      await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(data.refresh_token)}`, { method: 'POST' }).catch(() => null)
+      const refresh = await abrirSecreto(data.refresh_token)
+      if (refresh) await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(refresh)}`, { method: 'POST' }).catch(() => null)
       await admin.from('agenda_google').delete().eq('user_id', user.id)
     }
     return json({ ok: true })
@@ -413,25 +444,39 @@ Deno.serve(async (req) => {
   const { data: link } = await admin.from('agenda_google').select('rockie_cal_id, scopes').eq('user_id', user.id).maybeSingle()
   const rockieCal = link?.rockie_cal_id ?? null
 
-  if (body.action === 'push' || body.action === 'sync') {
+  if (body.action === 'push' || body.action === 'sync' || body.action === 'sync_ok' || body.action === 'enlazar') {
     if (!canWrite(link?.scopes)) return json({ error: 'Reconecta Google para que la agenda también escriba allá.', needsReconnect: true }, 409)
     const tz = await tzOf(user.id)
     const cal = await ensureCal(token, user.id, tz)
     if (!cal) return json({ error: 'No pude preparar tu calendario «Rockie» en Google.' }, 502)
-    if (cal.created) await pushAll(token, cal.id, user.id, tz)
     if (body.action === 'push') {
       for (const gid of (body.deleted ?? []).filter((x) => typeof x === 'string').slice(0, 50)) {
         await gcal(token, `/calendars/${encodeURIComponent(cal.id)}/events/${encodeURIComponent(gid)}`, { method: 'DELETE' })
       }
-      const ids = (body.ids ?? []).filter((x) => typeof x === 'string').slice(0, 50)
-      if (ids.length) {
-        const { data: rows } = await admin.from('agenda_items').select(ITEM_COLS).eq('user_id', user.id).in('id', ids)
-        for (const it of (rows ?? []) as Row[]) await pushOne(token, cal.id, it, tz, user.id)
+      for (const it of filasDe(body.items)) await pushOne(token, cal.id, it, tz, user.id)
+      // recién creado: la app manda todo lo reciente
+      return json({ ok: true, creado: cal.created })
+    }
+    if (body.action === 'enlazar') {
+      const pares = (Array.isArray(body.pares) ? body.pares : [])
+        .filter((p): p is { gid: string; rid: string } => typeof p?.gid === 'string' && typeof p?.rid === 'string')
+        .slice(0, 100)
+      for (const p of pares) {
+        await gcal(token, `/calendars/${encodeURIComponent(cal.id)}/events/${encodeURIComponent(p.gid)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ extendedProperties: { private: { rockie: p.rid } } }),
+        })
       }
       return json({ ok: true })
     }
-    const changed = await pull(token, cal.id, user.id, tz)
-    return json({ ok: true, changed, calendar: cal.id })
+    if (body.action === 'sync_ok') {
+      // la app ya aplicó los cambios: Google puede olvidarlos
+      if (typeof body.token === 'string' && body.token) await admin.from('agenda_google').update({ sync_token: body.token }).eq('user_id', user.id)
+      return json({ ok: true })
+    }
+    if (cal.created) return json({ ok: true, creado: true, cambios: [], token: null })
+    const { cambios, next } = await cambiosDe(token, cal.id, user.id, tz)
+    return json({ ok: true, cambios, token: next, calendar: cal.id })
   }
 
   if (body.action === 'calendars') {
