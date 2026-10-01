@@ -453,6 +453,10 @@ export default function Escritorio() {
     return () => removeEventListener('message', on)
   }, [abrirPath])
 
+  // cuándo llegó cada ventana a su ruta y cuántas veces rebotó hace poco (para cortar ciclos)
+  const llegada = useRef(new Map<AppId, number>())
+  const rebotes = useRef(new Map<AppId, number[]>())
+
   /** Una ventana cambió de ruta: si se fue a otra app, esa app se abre en su pestaña y esta vuelve atrás. */
   const alNavegar = useCallback(
     (id: AppId, path: string) => {
@@ -466,18 +470,35 @@ export default function Escritorio() {
         return // entrar, cambiar clave, bienvenida: se quedan en la ventana
       }
       if (destino.id !== id) {
+        const ahora = Date.now()
+        const recientes = (rebotes.current.get(id) ?? []).filter((t) => ahora - t < 15_000)
+        recientes.push(ahora)
+        rebotes.current.set(id, recientes)
+        // Una ruta que al abrirse ya manda a otra app (p. ej. /habitos/hq → /hoy) no sirve para volver:
+        // volver a ella recargaba la ventana sin fin (cientos de veces, hasta que Chrome daba la página
+        // por caída). Si saltó solita al poco de llegar, o ya rebotó hace poco, vuelve al inicio de su app.
+        const solita = ahora - (llegada.current.get(id) ?? 0) < 2500
+        const porTi = ahora - ultimaActividad.current < 2000
+        if (solita || recientes.length > 2) {
+          rutas.current[id] = APP[id].path
+          guardar()
+        }
         w?.history.back()
-        // por si no había a dónde volver: se recarga en lo último que tenía
-        setTimeout(() => {
-          try {
-            if (w && appOf(w.location.pathname)?.id !== id) w.location.replace(rutas.current[id] ?? APP[id].path)
-          } catch {
-            /* ventana cerrada */
-          }
-        }, 600)
-        abrir(destino.id, path)
+        // por si no había a dónde volver: se recarga en lo último que tenía (si sigue rebotando, se deja)
+        if (recientes.length <= 3)
+          setTimeout(() => {
+            try {
+              if (w && appOf(w.location.pathname)?.id !== id) w.location.replace(rutas.current[id] ?? APP[id].path)
+            } catch {
+              /* ventana cerrada */
+            }
+          }, 600)
+        // abrir la otra app si la pediste tú (o es la primera vez) desde una ventana abierta: una
+        // precargada que salta sola nunca te saca de lo que estás haciendo
+        if (est.current.abiertas.includes(id) && (porTi || recientes.length === 1)) abrir(destino.id, path)
         return
       }
+      if (rutas.current[id] !== path) llegada.current.set(id, Date.now())
       rutas.current[id] = path
       guardar()
       const { foco, vista } = est.current
@@ -513,6 +534,8 @@ export default function Escritorio() {
       w.addEventListener('popstate', avisar)
       w.addEventListener('keydown', teclas, true)
       w.document.addEventListener('pointerdown', () => dispatch({ t: 'foco', id }), true)
+      // recién cargada: si ya está en otra app, fue su ruta la que la mandó ahí (ver alNavegar)
+      llegada.current.set(id, Date.now())
       avisar()
     } catch {
       /* otra dirección: no debería pasar (mismo sitio) */

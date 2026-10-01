@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useStore, PENDING_INVITE_KEY } from './data/mockStore.jsx'
 import useDesktop from './lib/useDesktop.js'
@@ -79,8 +79,19 @@ const RUTA_APP = /^\/(hoy|juntos|rockie|progreso|metas|ajustes|onboarding|amigos
 // Fallback neutro: llena la pantalla con el color papel para que no haya
 // destello blanco mientras llega el chunk de la ruta.
 /** Rockie OS: el cuartel del equipo es la app Equipo (otra página del sitio). */
+const EN_VENTANA = (() => { try { return window.self !== window.top } catch { return true } })()
 function ToEquipo() {
-  useEffect(() => { window.location.replace('/hoy') }, [])
+  const navigate = useNavigate()
+  useEffect(() => {
+    // Suelto: carga completa de Equipo. Dentro del escritorio NO se reemplaza esta ventana por otra app
+    // (el escritorio la devolvía aquí y se recargaba sin fin): se le pide que abra Proyectos en su
+    // pestaña (solo si esta ventana está a la vista) y Hábitos vuelve a su inicio.
+    if (!EN_VENTANA) return window.location.replace('/hoy')
+    if (!document.documentElement.hasAttribute('data-dormida')) {
+      try { window.parent.postMessage({ rockieOS: 'abrir', path: '/hoy' }, window.location.origin) } catch { /* sin escritorio */ }
+    }
+    navigate('/hoy', { replace: true })
+  }, [navigate])
   return null
 }
 
