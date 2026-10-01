@@ -5,10 +5,13 @@ import { supabase } from '../../lib/supabase'
 // Firmware…), que no tienen sentido para una tesis o un curso: el proyecto nace sin áreas y cada
 // quien crea las suyas en Ajustes.
 export async function crearProyecto(nombre: string): Promise<{ id: string | null; error: unknown }> {
-  const { data, error } = await supabase.rpc('create_space', { p_name: nombre.trim() })
+  // El nombre va cifrado con la llave del proyecto, y esa llave recién puede existir cuando el proyecto existe:
+  // nace con un nombre provisional y en seguida se le pone el real (el Cofre lo cifra al guardarlo).
+  const { data, error } = await supabase.rpc('create_space', { p_name: 'Proyecto' })
   if (error || !data) return { id: null, error }
   await supabase.from('areas').delete().eq('space_id', data)
-  return { id: data, error: null }
+  const { error: e2 } = await supabase.from('spaces').update({ name: nombre.trim() || 'Mi proyecto' }).eq('id', data)
+  return { id: data, error: e2 ?? null }
 }
 
 // colores bien distintos entre sí (sin los tonos casi iguales de la paleta)

@@ -6,6 +6,8 @@ import { humanError, supabase } from '../../lib/supabase'
 import { PALETTE } from '../../lib/colors'
 import { useAuth } from './AuthProvider'
 import { hayCuentaHabitos } from '../../os/cuentas'
+import { guardarInvitacionDeLaUrl } from '../cofre/invitaciones'
+import { BLOQUEADO, esCifrado } from '../../lib/cofre/cripto'
 import {
   changePassword, googleEnabled, normalizeUsername, passwordStrength, signIn, signInWithGoogle, signUp, usernameAvailable, usernameError,
 } from './credentials'
@@ -211,7 +213,14 @@ export function RegisterPage() {
 
   return (
     <AuthShell
-      title={invite?.valid ? `Únete a ${invite.space_name}` : 'Crea tu cuenta'}
+      title={
+        invite?.valid
+          ? // el nombre del proyecto va cifrado: quien todavía no es parte no lo puede leer
+            esCifrado(invite.space_name) || invite.space_name === BLOQUEADO
+            ? 'Únete al proyecto'
+            : `Únete a ${invite.space_name}`
+          : 'Crea tu cuenta'
+      }
       lead={invite?.valid ? 'Te invitaron a su equipo. Elige tu usuario y tu Rockie.' : 'Una sola cuenta para tus hábitos, tu agenda, tu equipo y tu cuaderno.'}
       color={color}
     >
@@ -264,6 +273,8 @@ export function InviteRoute() {
   const nav = useNavigate()
   const qc = useQueryClient()
   const [error, setError] = useState('')
+  // la llave del equipo que trae el enlace (#k=…) se guarda ya, antes de cualquier redirección
+  useEffect(() => guardarInvitacionDeLaUrl(code), [code])
   useEffect(() => {
     if (loading) return
     if (!session) {

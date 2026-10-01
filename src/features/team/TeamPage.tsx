@@ -13,6 +13,7 @@ import { teamStreak, teamXp } from '../../lib/xp'
 import type { Member } from '../../lib/types'
 import { useMe } from '../auth/AuthProvider'
 import { useSpace } from '../spaces/SpaceProvider'
+import { secretoDeInvitacion } from '../cofre/invitaciones'
 import { keys, useSpaceRow, useXp } from '../data/queries'
 import { useLookup } from '../tasks/bits'
 import { PersonaSheet } from './PersonaSheet'
@@ -380,6 +381,13 @@ export function InviteBox({ isOwner }: { isOwner: boolean }) {
       return data?.[0] ?? null
     },
   })
+  // el enlace lleva la llave del equipo (después del #, que nunca llega al servidor): quien entra lee al instante
+  const secreto = useQuery({
+    queryKey: ['invite-llave', inv.data?.id],
+    enabled: Boolean(isOwner && inv.data),
+    staleTime: Infinity,
+    queryFn: () => secretoDeInvitacion(inv.data!.id, spaceId),
+  })
   if (!isOwner) return <p className="hint" style={{ marginBottom: 20 }}>Para sumar a alguien, pídele al dueño del espacio el enlace de invitación.</p>
 
   async function regenerate() {
@@ -387,7 +395,7 @@ export function InviteBox({ isOwner }: { isOwner: boolean }) {
     if (error) return toastError(humanError(error))
     qc.invalidateQueries({ queryKey: ['invite', spaceId] })
   }
-  const link = inv.data ? `${location.origin}/invitacion/${inv.data.code}` : ''
+  const link = inv.data ? `${location.origin}/invitacion/${inv.data.code}${secreto.data ? `#k=${secreto.data}` : ''}` : ''
   return (
     <div className="card invitebox">
       <div style={{ flex: 1, minWidth: 220 }}>

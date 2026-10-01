@@ -223,8 +223,7 @@
     },
     "spaces": {
       "llave": "espacio:id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "name",
         "tagline",
@@ -236,8 +235,7 @@
     },
     "space_members": {
       "llave": "espacio:space_id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "role_title",
         "job_description"
@@ -248,8 +246,7 @@
     },
     "areas": {
       "llave": "espacio:space_id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "name"
       ],
@@ -259,8 +256,7 @@
     },
     "projects": {
       "llave": "espacio:space_id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "name",
         "description",
@@ -272,8 +268,7 @@
     },
     "tasks": {
       "llave": "espacio:space_id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "title",
         "notes",
@@ -288,8 +283,7 @@
     },
     "events": {
       "llave": "espacio:space_id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "title",
         "description",
@@ -302,8 +296,7 @@
     },
     "goals": {
       "llave": "espacio:space_id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "title",
         "description",
@@ -316,17 +309,16 @@
     },
     "goal_checkins": {
       "llave": "espacio:space_id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "note"
       ],
-      "publico": {}
+      "publico": {},
+      "sellarCon": "cofre_sellar"
     },
     "material_folders": {
       "llave": "espacio:space_id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "name"
       ],
@@ -336,8 +328,7 @@
     },
     "materials": {
       "llave": "espacio:space_id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "name",
         "note",
@@ -351,8 +342,7 @@
     },
     "team_achievements": {
       "llave": "espacio:space_id",
-      "estado": "pendiente",
-      "tanda": "2-equipos",
+      "estado": "activo",
       "cifrar": [
         "title",
         "description"
@@ -363,14 +353,16 @@
       }
     },
     "activity": {
-      "llave": "ninguna",
+      "llave": "espacio:space_id",
       "estado": "activo",
-      "cifrar": [],
+      "sellarCon": "cofre_sellar",
+      "cifrar": [
+        "summary",
+        "data"
+      ],
       "publico": {
-        "verb": "qué pasó (creó/validó…)",
-        "entity_type": "sobre qué",
-        "summary": "lo arma el servidor; los títulos que lleva adentro van cifrados",
-        "data": "lo arma el servidor; los títulos que lleva adentro van cifrados"
+        "verb": "qué pasó (creó/validó…): para el ícono",
+        "entity_type": "sobre qué (tarea/logro)"
       }
     },
     "profiles": {
@@ -495,6 +487,30 @@
         "kid": "nombre de la llave",
         "paquete": "tu maestra cifrada con el código de traspaso (15 min)"
       }
+    },
+    "cofre_invitaciones": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "paquete": "llaves del equipo cerradas con el secreto que va en el enlace (después del #)"
+      }
+    }
+  },
+  "archivos": {
+    "_lee_esto": "Buckets de Storage: se suben cifrados (fetchCifrado) y se muestran con lib/cofre/archivos.ts. llave espacio:<n> = el id del equipo es el segmento n de la ruta.",
+    "materiales": {
+      "llave": "espacio:0",
+      "estado": "activo"
+    },
+    "proofs": {
+      "llave": "espacio:0",
+      "estado": "activo"
+    },
+    "cuaderno": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "tanda": "3-cuaderno"
     }
   }
 }

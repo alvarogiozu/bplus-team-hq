@@ -152,6 +152,37 @@ describe('fetch cifrado', () => {
     expect(res.status).toBe(423)
   })
 
+  it('un texto cifrado que adentro trae otros (actividad sellada) se abre entero', async () => {
+    const { l, llave, kid } = await llaveroFalso()
+    const titulo = await cifrarValor(llave, kid, 'Armar el carrito')
+    const resumen = await cifrarValor(llave, kid, `creó «${titulo}»`)
+    expect(await abrirJson(l, JSON.stringify({ summary: resumen }))).toEqual({ summary: 'creó «Armar el carrito»' })
+  })
+
+  it('los archivos suben cifrados y bajan abiertos, con su tipo', async () => {
+    const { l } = await llaveroFalso()
+    let guardado: Blob | null = null
+    const crudo = (async (_u: string, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'POST') {
+        guardado = (init!.body as FormData).get('') as Blob
+        return new Response('{"Key":"x"}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return new Response(guardado, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } })
+    }) as unknown as typeof fetch
+    const f = crearFetchCifrado('https://x.supabase.co', () => l, crudo)
+    const fd = new FormData()
+    fd.append('cacheControl', '3600')
+    fd.append('', new Blob(['Contrato secreto'], { type: 'text/plain' }))
+    const url = 'https://x.supabase.co/storage/v1/object/materiales/equipo-1/abc/contrato.txt'
+    await f(url, { method: 'POST', body: fd })
+    const bytes = new Uint8Array(await guardado!.arrayBuffer())
+    expect(new TextDecoder().decode(bytes.slice(0, 4))).toBe('CFB1')
+    expect(new TextDecoder().decode(bytes)).not.toContain('Contrato')
+    const res = await f(url, { method: 'GET' })
+    expect(res.headers.get('Content-Type')).toBe('text/plain')
+    expect(await res.text()).toBe('Contrato secreto')
+  })
+
   it('las tablas que no se cifran pasan igual', async () => {
     const { l } = await llaveroFalso()
     let enviado = ''

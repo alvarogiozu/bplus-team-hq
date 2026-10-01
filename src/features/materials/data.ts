@@ -5,6 +5,7 @@ import { humanError, supabase } from '../../lib/supabase'
 import { toast, toastError } from '../../components/Toasts'
 import { keys } from '../data/queries'
 import { useSpace } from '../spaces/SpaceProvider'
+import { abrirArchivo, resubirCifrado, urlDeArchivo } from '../../lib/cofre/archivos'
 
 // Materiales del equipo: carpetas + archivos (bucket privado `materiales`) + enlaces.
 // Todo el espacio en caché (son cientos como mucho); Realtime invalida.
@@ -19,9 +20,10 @@ export function useFolders() {
   return useQuery({
     queryKey: keys.folders(spaceId),
     queryFn: async () => {
-      const { data, error } = await supabase.from('material_folders').select('*').eq('space_id', spaceId).order('position').order('name')
+      // el nombre va cifrado: el desempate por nombre se hace aquí, ya abierto
+      const { data, error } = await supabase.from('material_folders').select('*').eq('space_id', spaceId).order('position')
       if (error) throw error
-      return data as Folder[]
+      return (data as Folder[]).sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, 'es'))
     },
   })
 }
@@ -38,26 +40,33 @@ export function useMaterials() {
   })
 }
 
-/** Enlace firmado (1 h) para ver o bajar un archivo privado. */
+/** Un archivo de antes del Cofre se vuelve a subir cifrado (y el de en claro se borra). */
+const migrarMaterial = (ruta: string) => async (datos: Blob) => {
+  const nueva = await resubirCifrado(BUCKET, ruta, datos)
+  if (!nueva) return
+  const { error } = await supabase.from('materials').update({ storage_path: nueva }).eq('storage_path', ruta)
+  if (error) await supabase.storage.from(BUCKET).remove([nueva])
+  else await supabase.storage.from(BUCKET).remove([ruta])
+}
+
+/** URL local de un archivo privado (va cifrado: se baja y se abre aquí). */
 export function useSignedUrl(path: string | null | undefined) {
   return useQuery({
     queryKey: ['material-url', path],
     enabled: Boolean(path),
-    staleTime: 50 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path!, 3600)
-      if (error) throw error
-      return data.signedUrl
-    },
+    staleTime: Infinity,
+    queryFn: () => urlDeArchivo(BUCKET, path!, migrarMaterial(path!)),
   })
 }
 
 export async function openMaterial(m: Material, download = false) {
   if (m.kind === 'link' && m.url) return void window.open(m.url, '_blank', 'noopener,noreferrer')
   if (!m.storage_path) return
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(m.storage_path, 3600, download ? { download: m.name } : undefined)
-  if (error) return void toastError(humanError(error))
-  window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+  try {
+    await abrirArchivo(BUCKET, m.storage_path, m.name, download)
+  } catch (e) {
+    toastError(humanError(e))
+  }
 }
 
 /** Nombre seguro para la ruta del bucket (sin tildes, espacios ni símbolos raros). */

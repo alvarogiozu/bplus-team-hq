@@ -14,6 +14,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   abrirConCodigo,
   abrirSellado,
+  b64u,
+  deB64u,
   cifrarValor,
   descifrarValor,
   envolverConCodigo,
@@ -78,6 +80,10 @@ export class Llavero {
   private publica: Publica | null = null
   private llaves = new Map<string, CryptoKey>()
   private sellados = new Map<string, Sellado>()
+  /** De qué ámbito es cada llave que llegó en un sobre («espacio:<id>»). */
+  private ambitoDeKid = new Map<string, string>()
+  /** Llaves que se buscaron y no estaban (para no pedir la lista de sobres en cada valor). */
+  private faltantes = new Map<string, number>()
   private actuales = new Map<string, { kid: string; rotar: boolean; t: number }>()
   private creando = new Map<string, Promise<{ kid: string; llave: CryptoKey } | null>>()
   private estado: EstadoCofre = { fase: 'sin-sesion' }
@@ -172,6 +178,8 @@ export class Llavero {
     this.abiertos.clear()
     this.llaves.clear()
     this.sellados.clear()
+    this.ambitoDeKid.clear()
+    this.faltantes.clear()
     this.actuales.clear()
     this.creando.clear()
     this.ultimaCargaSobres = 0
@@ -358,7 +366,13 @@ export class Llavero {
     const ya = this.llaves.get(kid)
     if (ya) return ya
     if (!this.privada) return null
-    if (!this.sellados.has(kid)) await this.cargarSobres(false)
+    if (!this.sellados.has(kid) && Date.now() - (this.faltantes.get(kid) ?? 0) > 3_000) {
+      // una llave que no se conocía (recién creada en otra ventana o entregada por alguien del equipo): se
+      // vuelve a pedir la lista, esperando antes la que ya iba (pudo empezar antes de que llegara este sobre)
+      this.faltantes.set(kid, Date.now())
+      if (this.cargaSobres) await this.cargaSobres
+      await this.cargarSobres(true)
+    }
     const s = this.sellados.get(kid)
     if (!s) return null
     try {
@@ -376,14 +390,25 @@ export class Llavero {
     if (!forzar && Date.now() - this.ultimaCargaSobres < 5_000) return Promise.resolve()
     this.cargaSobres = (async () => {
       try {
-        const { data } = await this.db.from('cofre_sobres').select('kid, sellado').eq('para', this.uid!)
-        for (const r of (data ?? []) as { kid: string; sellado: Sellado }[]) this.sellados.set(r.kid, r.sellado)
+        const { data } = await this.db.from('cofre_sobres').select('kid, sellado, ambito, ambito_id').eq('para', this.uid!)
+        for (const r of (data ?? []) as { kid: string; sellado: Sellado; ambito: string; ambito_id: string }[]) {
+          this.sellados.set(r.kid, r.sellado)
+          this.ambitoDeKid.set(r.kid, `${r.ambito}:${r.ambito_id}`)
+        }
       } finally {
         this.ultimaCargaSobres = Date.now()
         this.cargaSobres = null
       }
     })()
     return this.cargaSobres
+  }
+
+  /** ¿Llegaron llaves nuevas (alguien del equipo te entregó la suya)? Para volver a pedir lo que se veía con 🔒. */
+  async revisarSobres(): Promise<boolean> {
+    if (!this.privada) return false
+    const antes = this.sellados.size
+    await this.cargarSobres(true)
+    return this.sellados.size > antes
   }
 
   /** Llave con la que se cifra lo nuevo de un ámbito. null = esta persona aún no la tiene (no se guarda nada). */
@@ -444,8 +469,45 @@ export class Llavero {
       return k ? { kid: kidActual, llave: k } : null
     }
     this.llaves.set(kid, llave)
+    this.ambitoDeKid.set(kid, `${a.tipo}:${a.id}`)
     await this.repartirPendientes()
     return { kid, llave }
+  }
+
+  /** Todas las llaves (también las viejas) que esta persona tiene de un ámbito, para meterlas en una invitación. */
+  async llavesDe(a: { tipo: 'espacio' | 'nota'; id: string }): Promise<Record<string, string>> {
+    await this.llaveParaEscribir(a) // que exista al menos una
+    await this.cargarSobres(true)
+    const out: Record<string, string> = {}
+    for (const [kid, amb] of this.ambitoDeKid) {
+      if (amb !== `${a.tipo}:${a.id}`) continue
+      const k = await this.llavePorKid(kid)
+      if (k) out[kid] = b64u(await exportarLlave(k))
+    }
+    return out
+  }
+
+  /** Guarda como propias las llaves que trajo una invitación (cada una sellada para la pública de esta persona). */
+  async adoptarLlaves(a: { tipo: 'espacio' | 'nota'; id: string }, llaves: Record<string, string>): Promise<number> {
+    await this.listo()
+    if (!this.publica) return 0
+    let n = 0
+    for (const [kid, cruda] of Object.entries(llaves)) {
+      const raw = deB64u(cruda)
+      const { error } = await this.db.from('cofre_sobres').insert({
+        kid,
+        para: this.uid,
+        ambito: a.tipo,
+        ambito_id: a.id,
+        sellado: await sellarPara(this.publica, raw),
+      })
+      if (error && !/duplicate|unique/i.test(error.message)) continue
+      this.llaves.set(kid, await importarLlave(raw))
+      this.ambitoDeKid.set(kid, `${a.tipo}:${a.id}`)
+      this.abiertos.clear() // lo que se mostró con 🔒 ahora se puede abrir
+      n++
+    }
+    return n
   }
 
   private async miPublica(): Promise<Publica> {

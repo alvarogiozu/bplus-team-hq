@@ -4,13 +4,15 @@
 // Si una pantalla nueva escribe en una tabla registrada, queda cifrada sin hacer nada más.
 
 import registro from './privacidad.json'
-import { BLOQUEADO, RE_SOBRE, cifrarValor, descifrarValor, esCifrado } from './cripto'
+import { BLOQUEADO, RE_SOBRE, cifrarArchivo, cifrarValor, descifrarArchivo, descifrarValor, esCifrado, kidDeArchivo } from './cripto'
 import type { Ambito, Llavero } from './llavero'
 
-type Regla = { llave: string; estado: string; cifrar: string[]; dueno?: string }
+type Regla = { llave: string; estado: string; cifrar: string[]; dueno?: string; sellarCon?: string }
+type ReglaArchivo = { llave: string; estado: string }
 type Fila = Record<string, unknown>
 
 const TABLAS = registro.tablas as unknown as Record<string, Regla>
+const ARCHIVOS = ((registro as unknown as { archivos?: Record<string, ReglaArchivo> }).archivos ?? {}) as Record<string, ReglaArchivo>
 
 export function reglaActiva(tabla: string): Regla | null {
   const r = TABLAS[tabla]
@@ -22,6 +24,25 @@ export function tablasPersonalesActivas(): { tabla: string; cifrar: string[]; du
   return Object.entries(TABLAS)
     .filter(([, r]) => r.estado === 'activo' && r.llave === 'personal' && r.cifrar.length && r.dueno)
     .map(([tabla, r]) => ({ tabla, cifrar: r.cifrar, dueno: r.dueno! }))
+}
+
+/** Tablas de equipo que ya se cifran, con la columna que dice de qué equipo es cada fila. */
+export function tablasDeEquipoActivas(): { tabla: string; cifrar: string[]; col: string }[] {
+  return Object.entries(TABLAS)
+    .filter(([, r]) => r.estado === 'activo' && r.llave.startsWith('espacio:') && r.cifrar.length)
+    .map(([tabla, r]) => ({ tabla, cifrar: r.cifrar, col: r.llave.split(':')[1] }))
+}
+
+/** Huella de lo que se cifra hoy: cuando cambia (una tanda nueva), se vuelve a barrer lo viejo. */
+export function versionDelRegistro(): string {
+  const activas = Object.entries(TABLAS)
+    .filter(([, r]) => r.estado === 'activo' && r.cifrar.length)
+    .map(([t, r]) => `${t}:${r.cifrar.join('+')}`)
+    .sort()
+    .join(',')
+  let h = 0
+  for (let i = 0; i < activas.length; i++) h = (h * 31 + activas.charCodeAt(i)) | 0
+  return (h >>> 0).toString(36)
 }
 
 class ErrorCofre extends Error {}
@@ -37,29 +58,35 @@ const debeCifrar = (v: unknown) => !vacio(v) && !esCifrado(v)
 
 // ——— abrir lo que llega ———
 
-async function abrirSobre(l: Llavero, sobre: string): Promise<unknown> {
+async function abrirSobre(l: Llavero, sobre: string, nivel: number): Promise<unknown> {
   const abiertos = l.abiertos
   if (abiertos.has(sobre)) return abiertos.get(sobre)
   const json = sobre.startsWith('cj1.')
   const k = await l.llavePorKid(sobre.split('.')[1])
   if (!k) return json ? null : BLOQUEADO // sin guardar: la llave puede llegar después
+  let v: unknown
   try {
-    const v = await descifrarValor(k, sobre)
-    if (abiertos.size > 5000) abiertos.delete(abiertos.keys().next().value!)
-    abiertos.set(sobre, v)
-    return v
+    v = await descifrarValor(k, sobre)
   } catch {
     return json ? null : BLOQUEADO
   }
+  // un texto cifrado que adentro trae otros (la actividad sellada: «creó «cf1…»»): se abren también
+  if (nivel < 2) {
+    const adentro = JSON.stringify(v)
+    if (adentro.match(RE_SOBRE)) v = await abrirJson(l, adentro, nivel + 1)
+  }
+  if (abiertos.size > 5000) abiertos.delete(abiertos.keys().next().value!)
+  abiertos.set(sobre, v)
+  return v
 }
 
 /** Parsea un JSON abriendo cada valor cifrado (enteros o metidos dentro de un texto). */
-export async function abrirJson(l: Llavero, texto: string): Promise<unknown> {
+export async function abrirJson(l: Llavero, texto: string, nivel = 0): Promise<unknown> {
   const sobres = texto.match(RE_SOBRE)
   if (!sobres) return JSON.parse(texto)
   await l.listo()
   const unicos = [...new Set(sobres)]
-  const mapa = new Map(await Promise.all(unicos.map(async (s) => [s, await abrirSobre(l, s)] as const)))
+  const mapa = new Map(await Promise.all(unicos.map(async (s) => [s, await abrirSobre(l, s, nivel)] as const)))
   return JSON.parse(texto, (_k, v) => {
     if (typeof v !== 'string' || !v.includes('1.')) return v
     if (mapa.has(v)) return mapa.get(v)
@@ -79,11 +106,6 @@ export async function abrirObjeto<T>(l: Llavero, o: T): Promise<T> {
 function filtroEq(url: URL, col: string): string | null {
   const f = url.searchParams.get(col)
   return f?.startsWith('eq.') ? f.slice(3) : null
-}
-
-/** Valor para un filtro de PostgREST (entre comillas si trae caracteres reservados). */
-function pgrst(v: string): string {
-  return /^[\w\- áéíóúñÁÉÍÓÚÑüÜ]*$/.test(v) ? v : `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 }
 
 type Contexto = { l: Llavero; tabla: string; regla: Regla; url: URL; headers: Headers; crudo: typeof fetch }
@@ -135,7 +157,21 @@ function respuestaError(message: string): Response {
 
 // ——— sellar lo que todavía está en claro (lo de antes del Cofre o lo que escribió el servidor) ———
 
+// una fila por vez; si no se pudo (la llave del equipo todavía no llegaba, sin conexión…) se reintenta al
+// volver a leerla, pero no antes de un minuto
 const resellando = new Map<string, Promise<void>>()
+const fallidos = new Map<string, number>()
+
+function anotar(clave: string, intento: Promise<boolean>) {
+  const p = intento
+    .catch(() => false)
+    .then((ok) => {
+      resellando.delete(clave)
+      if (ok) fallidos.delete(clave)
+      else fallidos.set(clave, Date.now())
+    })
+  resellando.set(clave, p)
+}
 
 function resellar(envuelto: typeof fetch, c: Contexto, filas: Fila[]) {
   if (c.l.fase !== 'abierto') return
@@ -144,24 +180,44 @@ function resellar(envuelto: typeof fetch, c: Contexto, filas: Fila[]) {
     if (typeof id !== 'string') continue
     const cols = c.regla.cifrar.filter((col) => col in f && debeCifrar(f[col]))
     const clave = `${c.tabla}:${id}`
-    if (!cols.length || resellando.has(clave)) continue
-    const cambios: Fila = {}
-    const q = new URLSearchParams({ id: `eq.${id}` })
-    for (const col of cols) {
-      cambios[col] = f[col]
-      // solo si nadie lo cambió mientras tanto (los textos largos y los JSON no se comparan)
-      if (typeof f[col] === 'string' && (f[col] as string).length <= 200) q.set(col, `eq.${pgrst(f[col] as string)}`)
-    }
+    if (!cols.length || resellando.has(clave) || Date.now() - (fallidos.get(clave) ?? 0) < 60_000) continue
     const h = new Headers({
       apikey: c.headers.get('apikey') ?? '',
       Authorization: c.headers.get('Authorization') ?? '',
       'Content-Type': 'application/json',
       Prefer: 'return=minimal',
     })
-    const p = envuelto(`${c.url.origin}${c.url.pathname}?${q}`, { method: 'PATCH', headers: h, body: JSON.stringify(cambios) })
-      .then(() => undefined)
-      .catch(() => undefined)
-    resellando.set(clave, p)
+    if (c.regla.sellarCon) {
+      // tabla que nadie edita (la arma el servidor): la base solo acepta cambiar texto en claro por su versión cifrada
+      anotar(
+        clave,
+        (async () => {
+          const k = await c.l.llaveParaEscribir(await ambitoDe(c, f))
+          if (!k) return false
+          const campos: Fila = {}
+          for (const col of cols) campos[col] = await cifrarValor(k.llave, k.kid, f[col])
+          const r = await c.crudo(`${c.url.origin}/rest/v1/rpc/${c.regla.sellarCon}`, {
+            method: 'POST',
+            headers: h,
+            body: JSON.stringify({ p_tabla: c.tabla, p_id: id, p_campos: campos }),
+          })
+          return r.ok
+        })(),
+      )
+      continue
+    }
+    const cambios: Fila = {}
+    const q = new URLSearchParams({ id: `eq.${id}` })
+    for (const col of cols) {
+      cambios[col] = f[col]
+      // solo si nadie lo cambió mientras tanto (los textos largos y los JSON no se comparan).
+      // En un filtro eq. el valor va tal cual: las comillas solo se usan dentro de in.(…) y or=(…)
+      if (typeof f[col] === 'string' && (f[col] as string).length <= 200) q.set(col, `eq.${f[col] as string}`)
+    }
+    anotar(
+      clave,
+      envuelto(`${c.url.origin}${c.url.pathname}?${q}`, { method: 'PATCH', headers: h, body: JSON.stringify(cambios) }).then((r) => r.ok),
+    )
   }
 }
 
@@ -170,18 +226,115 @@ export async function esperarResellados(): Promise<void> {
   await Promise.all(resellando.values())
 }
 
+// ——— archivos (Storage): se suben cifrados y se bajan abiertos ———
+// Dentro del cifrado va también el tipo (image/jpeg…), para devolver el archivo tal cual era.
+
+const RESERVADAS = new Set(['sign', 'upload', 'move', 'copy', 'info', 'list', 'public', 'authenticated', 'render'])
+
+/** Archivos (bucket/ruta) que se bajaron sin cifrar: quien los muestra puede volver a subirlos cifrados. */
+export const archivosEnClaro = new Set<string>()
+
+function ambitoDeArchivo(regla: ReglaArchivo, ruta: string[]): Ambito {
+  if (regla.llave === 'personal') return { tipo: 'personal' }
+  const [tipo, i] = regla.llave.split(':') as ['espacio' | 'nota', string]
+  const id = ruta[Number(i)]
+  if (!id) throw new ErrorCofre('No se pudo saber con qué llave cifrar este archivo.')
+  return { tipo, id }
+}
+
+function empacar(mime: string, datos: Uint8Array): Uint8Array {
+  const m = new TextEncoder().encode(mime.slice(0, 200))
+  const out = new Uint8Array(1 + m.length + datos.length)
+  out[0] = m.length
+  out.set(m, 1)
+  out.set(datos, 1 + m.length)
+  return out
+}
+
+function desempacar(b: Uint8Array): { mime: string; datos: Uint8Array } {
+  const n = b[0]
+  return { mime: new TextDecoder().decode(b.subarray(1, 1 + n)), datos: b.subarray(1 + n) }
+}
+
+async function cifrarSubida(l: Llavero, regla: ReglaArchivo, ruta: string[], body: BodyInit): Promise<BodyInit> {
+  await l.listo()
+  if (l.fase !== 'abierto') throw new ErrorCofre('Abre tu Cofre para subir archivos.')
+  const k = await l.llaveParaEscribir(ambitoDeArchivo(regla, ruta))
+  if (!k) throw new ErrorCofre('Todavía no tienes la llave de este equipo: te llega cuando alguien del equipo abra Rockie.')
+  const cifrar = async (b: Blob) => {
+    const plano = empacar(b.type || 'application/octet-stream', new Uint8Array(await b.arrayBuffer()))
+    return new Blob([await cifrarArchivo(k.llave, k.kid, plano)], { type: b.type })
+  }
+  if (body instanceof FormData) {
+    const fd = new FormData()
+    for (const [clave, valor] of body.entries()) {
+      if (valor instanceof Blob) fd.append(clave, await cifrar(valor), valor instanceof File ? valor.name : 'blob')
+      else fd.append(clave, valor)
+    }
+    return fd
+  }
+  if (body instanceof Blob) return cifrar(body)
+  if (body instanceof ArrayBuffer) return cifrar(new Blob([body]))
+  if (ArrayBuffer.isView(body)) return cifrar(new Blob([body as Uint8Array]))
+  throw new ErrorCofre('Este archivo no se pudo cifrar.')
+}
+
+async function abrirDescarga(l: Llavero, clave: string, activo: boolean, res: Response): Promise<Response> {
+  const bytes = new Uint8Array(await res.arrayBuffer())
+  const headers = new Headers(res.headers)
+  headers.delete('Content-Length')
+  const kid = kidDeArchivo(bytes)
+  if (!kid) {
+    if (activo) archivosEnClaro.add(clave)
+    return new Response(bytes, { status: res.status, statusText: res.statusText, headers })
+  }
+  await l.listo()
+  const k = await l.llavePorKid(kid)
+  if (!k) return respuestaError('Este archivo está en un Cofre del que este dispositivo aún no tiene la llave.')
+  try {
+    const { mime, datos } = desempacar(await descifrarArchivo(k, bytes))
+    headers.set('Content-Type', mime)
+    return new Response(datos, { status: res.status, statusText: res.statusText, headers })
+  } catch {
+    return respuestaError('No se pudo abrir este archivo.')
+  }
+}
+
+async function pasarArchivo(l: Llavero, url: string, init: RequestInit | undefined, crudo: typeof fetch): Promise<Response> {
+  const metodo = (init?.method ?? 'GET').toUpperCase()
+  const resto = decodeURIComponent(new URL(url).pathname.split('/storage/v1/object/')[1] ?? '')
+  const [bucket, ...ruta] = resto.split('/')
+  if (!bucket || RESERVADAS.has(bucket)) return crudo(url, init)
+  const regla = ARCHIVOS[bucket]
+  const activo = regla?.estado === 'activo'
+  if ((metodo === 'POST' || metodo === 'PUT') && activo && init?.body) {
+    try {
+      return crudo(url, { ...init, body: await cifrarSubida(l, regla, ruta, init.body) })
+    } catch (e) {
+      if (e instanceof ErrorCofre) return respuestaError(e.message)
+      throw e
+    }
+  }
+  const res = await crudo(url, init)
+  if (metodo !== 'GET' || !res.ok) return res
+  return abrirDescarga(l, `${bucket}/${ruta.join('/')}`, activo, res)
+}
+
 // ——— el fetch ———
 
 export function crearFetchCifrado(base: string, llavero: () => Llavero | null, crudo: typeof fetch = (...a) => fetch(...a)): typeof fetch {
   const raiz = base.replace(/\/$/, '')
   const rest = `${raiz}/rest/v1/`
   const funciones = `${raiz}/functions/v1/`
+  const archivos = `${raiz}/storage/v1/object/`
 
   const envuelto: typeof fetch = async (input, init) => {
     const l = llavero()
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-    if (!l || l.fase === 'sin-sesion' || !(url.startsWith(rest) || url.startsWith(funciones))) return crudo(input, init)
+    if (!l || l.fase === 'sin-sesion') return crudo(input, init)
+    if (url.startsWith(archivos)) return pasarArchivo(l, url, init, crudo)
     if (url.startsWith(funciones)) return abrirRespuesta(await crudo(input, init), l)
+    if (!url.startsWith(rest)) return crudo(input, init)
 
     const u = new URL(url)
     const tabla = decodeURIComponent(u.pathname.slice(u.pathname.indexOf('/rest/v1/') + 9).split('/')[0])

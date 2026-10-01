@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { resubirCifrado, urlDeArchivo } from '../../lib/cofre/archivos'
 
 // Fotos de prueba: se achican en el navegador (máx. 1600 px, JPEG) antes de subir a Storage.
 // Carpeta = id del espacio: así la RLS de Storage deja verlas solo a los miembros.
@@ -27,7 +28,16 @@ export async function uploadProof(spaceId: string, taskId: string, file: File): 
   return path
 }
 
+/** La foto va cifrada: se baja y se abre aquí (URL local). Las de antes del Cofre se vuelven a subir cifradas. */
 export async function proofUrl(path: string): Promise<string | null> {
-  const { data } = await supabase.storage.from('proofs').createSignedUrl(path, 3600)
-  return data?.signedUrl ?? null
+  try {
+    return await urlDeArchivo('proofs', path, async (datos) => {
+      const nueva = await resubirCifrado('proofs', path, datos)
+      if (!nueva) return
+      const { error } = await supabase.from('tasks').update({ proof_image_path: nueva }).eq('proof_image_path', path)
+      await supabase.storage.from('proofs').remove([error ? nueva : path])
+    })
+  } catch {
+    return null
+  }
 }

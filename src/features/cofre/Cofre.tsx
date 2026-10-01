@@ -3,16 +3,19 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { usarInvitacionPendiente } from './invitaciones'
 import { Rockie } from '../../components/Rockie'
 import { Icon } from '../../components/Icon'
 import { cofre, supabase } from '../../lib/supabase'
-import { esperarResellados, tablasPersonalesActivas } from '../../lib/cofre/fetchCifrado'
+import { esperarResellados, tablasDeEquipoActivas, tablasPersonalesActivas, versionDelRegistro } from '../../lib/cofre/fetchCifrado'
 import { normalizarCodigo } from '../../lib/cofre/cripto'
 import { signOut } from '../auth/credentials'
 
 const CLAVE_TRASPASO = 'cofre.traspaso'
 const pendienteGuardar = (uid: string) => `cofre.guardar-codigo.${uid}`
-const ultimoSellado = (uid: string) => `cofre.sellado.${uid}`
+// con la versión del registro: cuando se activa una tanda nueva, se vuelve a barrer en seguida
+const ultimoSellado = (uid: string) => `cofre.sellado.${versionDelRegistro()}.${uid}`
 
 function leer(k: string): string | null {
   try {
@@ -49,16 +52,27 @@ function useCofre() {
   )
 }
 
-/** Cierra con la llave lo que se guardó antes del Cofre (o lo que el servidor escribió en claro). */
+/** Cierra con la llave lo que se guardó antes del Cofre (o lo que el servidor escribió en claro): lo personal y lo
+ *  de cada equipo. Leer basta: el fetch del Cofre sella cada fila en claro que encuentra. */
 async function sellarLoAnterior(uid: string) {
-  for (const t of tablasPersonalesActivas()) {
+  type Consulta = {
+    eq: (c: string, v: string) => Consulta
+    in: (c: string, v: string[]) => Consulta
+    range: (a: number, b: number) => PromiseLike<{ data: unknown; error: unknown }>
+  }
+  const leerTodo = async (tabla: string, cols: string[], filtro: (q: Consulta) => Consulta) => {
     for (let desde = 0; ; desde += 500) {
-      const { data, error } = await supabase
-        .from(t.tabla as never)
-        .select(['id', ...t.cifrar].join(','))
-        .eq(t.dueno, uid)
-        .range(desde, desde + 499)
+      const q = supabase.from(tabla as never).select(cols.join(',')) as unknown as Consulta
+      const { data, error } = await filtro(q).range(desde, desde + 499)
       if (error || !data || (data as unknown[]).length < 500) break
+    }
+  }
+  for (const t of tablasPersonalesActivas()) await leerTodo(t.tabla, ['id', ...t.cifrar], (q) => q.eq(t.dueno, uid))
+  const { data: mias } = await supabase.from('space_members').select('space_id').eq('user_id', uid)
+  const equipos = (mias ?? []).map((m) => m.space_id)
+  if (equipos.length) {
+    for (const t of tablasDeEquipoActivas()) {
+      await leerTodo(t.tabla, [...new Set(['id', t.col, ...t.cifrar])], (q) => q.in(t.col, equipos))
     }
   }
   await esperarResellados()
@@ -335,13 +349,35 @@ export function CofreGate({ uid, cargando, children }: { uid: string; cargando: 
   const [codigoNuevo, setCodigoNuevo] = useState<string | null>(null)
   const [, refrescar] = useState(0)
 
+  const qc = useQueryClient()
+
   useEffect(() => {
     // una vez al día, sella lo que el servidor haya escrito en claro (sin molestar)
     if (estado.fase !== 'abierto' || leer(pendienteGuardar(uid))) return
     const ultimo = Number(leer(ultimoSellado(uid)) ?? 0)
     if (Date.now() - ultimo > 86_400_000) void sellarLoAnterior(uid)
-    void cofre.repartirPendientes()
   }, [estado.fase, uid])
+
+  useEffect(() => {
+    // Llaves de equipo: entregar las que tengo a quien recién llegó, y recibir las que me entregaron.
+    // Lo que se veía con 🔒 se vuelve a pedir en cuanto llega su llave.
+    if (estado.fase !== 'abierto') return
+    let vivo = true
+    const vuelta = async () => {
+      const llego = (await usarInvitacionPendiente().catch(() => false)) || (await cofre.revisarSobres().catch(() => false))
+      if (vivo && llego) void qc.invalidateQueries()
+      await cofre.repartirPendientes().catch(() => 0)
+    }
+    void vuelta()
+    const t = setInterval(vuelta, 60_000)
+    const alVolver = () => document.visibilityState === 'visible' && void vuelta()
+    document.addEventListener('visibilitychange', alVolver)
+    return () => {
+      vivo = false
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', alVolver)
+    }
+  }, [estado.fase, qc])
 
   switch (estado.fase) {
     case 'sin-sesion':

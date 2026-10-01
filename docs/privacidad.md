@@ -56,7 +56,7 @@ ni Supabase, ni alguien que robe una copia de la base.
 | Tanda | Qué | Estado |
 |---|---|---|
 | 1 | Base: llavero, fetch cifrado, puerta, traspaso/recuperación, guardián del build. Activo: conversaciones con Rockie (`rockie_turns`), nombres de calendarios, grupos, hobbies y reservas | ✅ |
-| 2 | Equipos/proyectos: tareas, metas, eventos, materiales (+ archivos), logros, nombre y misión del equipo; invitaciones que llevan la llave | ⏳ |
+| 2 | Equipos/proyectos: tareas, metas y avances, eventos, materiales (+ archivos y fotos de prueba), logros, actividad, nombre y misión del equipo; invitaciones con la llave en el enlace (#k=…); reparto automático de llaves a quien llega | ✅ |
 | 3 | Cuaderno: notas, diario, tarjetas, dibujos, pizarras, notas compartidas en vivo (Yjs); agente y conector de Claude sin leer la base | ⏳ |
 | 4 | Agenda: actividades + sincronización con Google desde el cliente; token de Google cifrado en el servidor | ⏳ |
 | 5 | Hábitos (base de B+): hábitos, fotos de prueba, chat de grupos, amigos | ⏳ |
