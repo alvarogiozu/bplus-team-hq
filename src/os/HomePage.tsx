@@ -14,6 +14,8 @@ import { APPS, type AppId, type OsApp } from './apps'
 import { faceFor, fetchHabitosHoy, rockieLook } from './habitos'
 import { RockieArt } from './RockieArt'
 import { useEscritorio } from './escritorio/contexto'
+import { pantallas } from '../app/pantallas'
+import { precargar, precargarPagina } from '../lib/precarga'
 import './os.css'
 
 const APP = Object.fromEntries(APPS.map((a) => [a.id, a])) as Record<AppId, OsApp>
@@ -135,6 +137,17 @@ type Entry = { key: string; app: AppId; min: number | null; title: string; tag: 
 /** `escritorio`: la barra de Rockie que va arriba cuando el Inicio vive en el escritorio (PC). */
 export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
   const { userId, profile } = useMe()
+  // en el celular (sin escritorio) las apps son pantallas de esta misma página: se bajan mientras miras
+  // el Inicio, y Hábitos (que es otra página) deja sus archivos listos en el caché
+  useEffect(() => {
+    if (escritorio) return
+    const a = precargar([pantallas.agenda, pantallas.cuaderno, pantallas.equipos, pantallas.layout])
+    const b = precargarPagina('/habitos/')
+    return () => {
+      a()
+      b()
+    }
+  }, [escritorio])
   const { theme, toggle } = useTheme()
   const mobile = useMedia('(max-width: 719px)')
   const tz = profile.timezone

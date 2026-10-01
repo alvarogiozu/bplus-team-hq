@@ -28,6 +28,8 @@ import { Faces } from '../features/movil/bits'
 import { NuevaTareaMovil, TareaSheetMovil } from '../features/movil/TareaSheet'
 import '../features/movil/movil.css'
 import { colorDeProyecto } from '../features/spaces/crear'
+import { precargar } from '../lib/precarga'
+import { pantallasDelProyecto } from './pantallas'
 
 type Dest = { to: string; label: string; icon: IconName; color: string }
 const DESKTOP: Dest[] = [
@@ -46,6 +48,8 @@ export function Layout() {
   const members = useMembers().data ?? []
   usePresenceTracker()
   useAchievementWatcher()
+  // las demás pantallas del proyecto se bajan en silencio: pasar de Tareas a Metas no espera nada
+  useEffect(() => precargar(pantallasDelProyecto()), [])
   // tu color principal viaja con tu perfil (en otro equipo se ve igual)
   useEffect(() => setAccent(profile.accent ?? null), [profile.accent])
   const online = presenceStore.use()

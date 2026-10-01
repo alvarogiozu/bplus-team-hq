@@ -4,27 +4,30 @@ import { Rockie } from '../components/Rockie'
 import { useAuth } from '../features/auth/AuthProvider'
 import { ChangePasswordPage, InviteRoute, LoginPage, RegisterPage } from '../features/auth/AuthPages'
 import { SpaceProvider, WelcomePage } from '../features/spaces/SpaceProvider'
-import TodayPage from '../features/today/TodayPage'
 import { useIsMobile, useMedia } from '../lib/useMedia'
 import { enVentana, ESCRITORIO_Q, sinEscritorio } from '../os/ventana'
-import { Layout } from './Layout'
+import { adelantarPantallaInicial, pantallas } from './pantallas'
 
-const TasksPage = lazy(() => import('../features/views/TasksPage'))
-const GoalsPage = lazy(() => import('../features/goals/GoalsPage'))
-const MaterialsPage = lazy(() => import('../features/materials/MaterialsPage'))
-const TeamPage = lazy(() => import('../features/team/TeamPage'))
-const SettingsPage = lazy(() => import('../features/settings/SettingsPage'))
-const AgendaApp = lazy(() => import('../agenda/AgendaApp'))
-const CuadernoApp = lazy(() => import('../cuaderno/CuadernoApp'))
-const HomePage = lazy(() => import('../os/HomePage'))
+// cada pantalla se baja aparte (pantallas.ts); la que se va a mostrar se pide ya, en paralelo con la sesión
+adelantarPantallaInicial()
+const Layout = lazy(() => pantallas.layout().then((m) => ({ default: m.Layout })))
+const TodayPage = lazy(pantallas.hoy)
+const TasksPage = lazy(pantallas.tareas)
+const GoalsPage = lazy(pantallas.metas)
+const MaterialsPage = lazy(pantallas.materiales)
+const TeamPage = lazy(pantallas.equipo)
+const SettingsPage = lazy(pantallas.ajustes)
+const AgendaApp = lazy(pantallas.agenda)
+const CuadernoApp = lazy(pantallas.cuaderno)
+const HomePage = lazy(pantallas.inicio)
 // el Equipo en el celular: mismas rutas y mismos datos, composición propia
-const HoyMovil = lazy(() => import('../features/movil/HoyMovil'))
-const TareasMovil = lazy(() => import('../features/movil/TareasMovil'))
-const MetasMovil = lazy(() => import('../features/movil/MetasMovil'))
-const EquipoMovil = lazy(() => import('../features/movil/EquipoMovil'))
-const EquiposPage = lazy(() => import('../features/spaces/EquiposPage'))
+const HoyMovil = lazy(pantallas.hoyMovil)
+const TareasMovil = lazy(pantallas.tareasMovil)
+const MetasMovil = lazy(pantallas.metasMovil)
+const EquipoMovil = lazy(pantallas.equipoMovil)
+const EquiposPage = lazy(pantallas.equipos)
 
-const Escritorio = lazy(() => import('../os/escritorio/Escritorio'))
+const Escritorio = lazy(pantallas.escritorio)
 
 /** Misma ruta, dos composiciones: la de la computadora y la del celular. */
 function Adapt({ desk, movil }: { desk: ReactNode; movil: ReactNode }) {
@@ -88,7 +91,9 @@ function ToHabitos() {
 function SpaceShell() {
   return (
     <SpaceProvider fallback={<Splash />}>
-      <Layout />
+      <Suspense fallback={<Splash />}>
+        <Layout />
+      </Suspense>
     </SpaceProvider>
   )
 }

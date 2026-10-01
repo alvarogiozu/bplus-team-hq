@@ -18,6 +18,7 @@ import { BookTree } from './Tree'
 import { Pestanas } from './Pestanas'
 import { AreaDividida, DivisionProvider, useDivisionEstado } from './Dividido'
 import { usePageWidth } from './prefs'
+import { precargar } from '../lib/precarga'
 import { PanelCtx, useIsMobile } from './ui'
 import Hoy from './Hoy'
 import '../agenda/agenda.css'
@@ -69,6 +70,8 @@ function Shell() {
   const open = useOpenEntries().data?.length ?? 0
   // tu bóveda en Markdown (si conectaste una carpeta) se mantiene al día sola
   useVaultAutoSync()
+  // abrir una página, el mapa o el repaso no espera la descarga
+  useEffect(() => precargar([() => import('./Nota'), () => import('./Mapa'), () => import('./Repaso')]), [])
   const width = usePageWidth()
   const division = useDivisionEstado(mobile)
 

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { TeamStrip } from '../team/TeamStrip'
 import { ColorsSheet } from './ColorsSheet'
 import { Icon, type IconName } from '../../components/Icon'
@@ -116,21 +116,14 @@ function Tareas({ spaceId }: { spaceId: string }) {
         <LoadError error={q.error} onRetry={() => q.refetch()} />
       ) : (
         <Suspense fallback={<ListSkeleton />}>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={view}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
-            >
+          {/* la vista nueva entra ya (sin esperar a que la anterior salga) */}
+          <motion.div key={view} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.12, ease: [0.2, 0.8, 0.2, 1] }}>
               {view === 'lista' && <ListView tasks={shown} />}
               {view === 'tablero' && <BoardView tasks={shown} />}
               {view === 'calendario' && <WeekView tasks={shown} />}
               {view === 'gantt' && <GanttView tasks={shown} />}
               {view === 'panel' && <DashboardView tasks={shown} filtered={shown.length !== (q.data ?? []).length} />}
-            </motion.div>
-          </AnimatePresence>
+          </motion.div>
         </Suspense>
       )}
       <ColorsSheet open={colorsOpen} onClose={() => setColorsOpen(false)} />

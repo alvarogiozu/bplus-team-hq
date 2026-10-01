@@ -35,7 +35,7 @@ import Analytics from './components/Analytics.jsx'
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <BrowserRouter basename="/habitos">
+      <BrowserRouter basename="/habitos" future={{ v7_startTransition: true }}>
         <StoreProvider>
           <HQProvider>
             <PageMeta />

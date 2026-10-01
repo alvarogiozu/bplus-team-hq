@@ -10,16 +10,55 @@ import Maintenance from './routes/Maintenance.jsx'
 import InviteLanding from './routes/InviteLanding.jsx'
 import { consumeCrewBypassFromUrl, isAppPaused } from './lib/appPause.js'
 
-// Pestanas principales EAGER: evita el blank de Suspense al cambiar de tab
-// (eso era el parpadeo). Lazy solo para rutas raras / marketing / desktop.
-import Onboarding from './routes/Onboarding.jsx'
+// Hoy (donde se entra) va en el primer archivo. Las demás pestañas se bajan aparte y en silencio apenas
+// abre la app (precargarPestanas); al cambiar de pestaña, el router usa startTransition (main.jsx):
+// se sigue viendo la actual hasta que la nueva está lista, así no vuelve el parpadeo de Suspense.
+// Los estilos de las pestañas siguen llegando desde el arranque (varias clases se comparten entre
+// pantallas, p. ej. .amg-cta o .flow-screen de Amigos.css); solo su código se baja aparte.
+import './routes/Onboarding.css'
 import Hoy from './routes/Hoy.jsx'
-import Amigos from './routes/Amigos.jsx'
-import RockieScreen from './routes/RockieScreen.jsx'
-import Tienda from './routes/Tienda.jsx'
-import Progreso from './routes/Progreso.jsx'
-import MetasHouse from './routes/MetasHouse.jsx'
-import Ajustes from './routes/Ajustes.jsx'
+import './routes/Amigos.css'
+import './routes/desk/JuntosDesk.css'
+import './routes/RockieMovil.css'
+import './routes/desk/RockieDesk.css'
+import './routes/desk/TiendaDesk.css'
+import './routes/Progreso.css'
+import './routes/desk/ProgresoDesk.css'
+import './components/MetasHabitosSwitch.css'
+import './components/HabitProgressSheet.css'
+import './components/MetaProgressSheet.css'
+import './routes/MetasHouse.css'
+import './routes/VidaMovil.css'
+import './routes/desk/AjustesDesk.css'
+const PESTANAS = {
+  metas: () => import('./routes/MetasHouse.jsx'),
+  juntos: () => import('./routes/Amigos.jsx'),
+  progreso: () => import('./routes/Progreso.jsx'),
+  rockie: () => import('./routes/RockieScreen.jsx'),
+  ajustes: () => import('./routes/Ajustes.jsx'),
+  tienda: () => import('./routes/Tienda.jsx'),
+  onboarding: () => import('./routes/Onboarding.jsx'),
+}
+const Onboarding = lazy(PESTANAS.onboarding)
+const Amigos = lazy(PESTANAS.juntos)
+const RockieScreen = lazy(PESTANAS.rockie)
+const Tienda = lazy(PESTANAS.tienda)
+const Progreso = lazy(PESTANAS.progreso)
+const MetasHouse = lazy(PESTANAS.metas)
+const Ajustes = lazy(PESTANAS.ajustes)
+
+/** La pestaña a la que se llega se pide ya; las demás, cuando el navegador está libre (de a una). */
+function precargarPestanas(pathname) {
+  const primera = pathname.split('/')[1]
+  if (PESTANAS[primera]) PESTANAS[primera]()
+  const c = navigator.connection
+  if (c?.saveData || /(^|-)2g$/.test(c?.effectiveType ?? '')) return
+  const todas = Object.values(PESTANAS)
+  const cola = () => todas.reduce((p, f) => p.then(() => f()).catch(() => undefined), Promise.resolve())
+  if ('requestIdleCallback' in window) requestIdleCallback(cola, { timeout: 3000 })
+  else setTimeout(cola, 1200)
+}
+precargarPestanas(window.location.pathname.replace(/^\/habitos/, ''))
 
 const Landing = lazy(() => import('./landing/Landing.jsx'))
 const TeamHqLanding = lazy(() => import('./landing/TeamHq.jsx'))

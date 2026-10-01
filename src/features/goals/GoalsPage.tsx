@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'react-router'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { Icon, type IconName } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
 import { ListSkeleton, LoadError } from '../../components/States'
@@ -105,8 +105,8 @@ export default function GoalsPage() {
       ) : all.length === 0 ? (
         <EmptyGoals />
       ) : (
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
+        // la vista nueva entra ya (sin esperar a que la anterior salga)
+        <motion.div key={tab} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.12 }}>
             {tab === 'mapa' && (
               <GoalMap
                 roots={vista.roots}
@@ -118,8 +118,7 @@ export default function GoalsPage() {
             {tab === 'equipo' && <TreeList roots={vista.roots} onOpen={openGoal} />}
             {tab === 'areas' && <ByTeam all={vista.all} onOpen={openGoal} />}
             {tab === 'mias' && <Mine all={vista.all} onOpen={openGoal} />}
-          </motion.div>
-        </AnimatePresence>
+        </motion.div>
       )}
 
       <GoalPanel byId={tree.byId} all={all} />

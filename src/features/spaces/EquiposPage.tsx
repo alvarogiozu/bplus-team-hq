@@ -1,4 +1,6 @@
-import { useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import { pantallas, pantallasDelProyecto } from '../../app/pantallas'
+import { precargar } from '../../lib/precarga'
 import { Link, useNavigate } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
@@ -54,6 +56,8 @@ function useResumenes(ids: string[], userId: string, today: string) {
 }
 
 export default function EquiposPage() {
+  // mientras eliges, ya se bajan el marco y las pantallas del proyecto: entrar es instantáneo
+  useEffect(() => precargar([pantallas.layout, ...pantallasDelProyecto()], 500), [])
   const { spaceId, memberships, setSpaceId } = useSpace()
   const { userId, profile } = useMe()
   const nav = useNavigate()

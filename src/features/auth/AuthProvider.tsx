@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session } from '@supabase/supabase-js'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
+import { borrarDatos } from '../../lib/cacheDatos'
 import type { Profile } from '../../lib/types'
 
 type AuthCtx = {
@@ -25,7 +26,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     const { data } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s)
-      if (event === 'SIGNED_OUT') qc.clear()
+      if (event === 'SIGNED_OUT') {
+        qc.clear()
+        borrarDatos()
+      }
     })
     return () => data.subscription.unsubscribe()
   }, [qc])

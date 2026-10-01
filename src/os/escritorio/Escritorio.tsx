@@ -5,6 +5,7 @@ import { useMe } from '../../features/auth/AuthProvider'
 import { signOut } from '../../features/auth/credentials'
 import { setAccent, useTheme } from '../../app/theme'
 import { lsGet, lsSet } from '../../lib/storage'
+import { cuandoLibre } from '../../lib/precarga'
 import HomePage from '../HomePage'
 import { APPS, appOf, type AppId, type OsApp } from '../apps'
 import { rockieLook } from '../habitos'
@@ -23,6 +24,8 @@ import './escritorio.css'
 
 const APP = Object.fromEntries(APPS.map((a) => [a.id, a])) as Record<AppId, OsApp>
 const ORDEN: AppId[] = APPS.map((a) => a.id)
+/** en qué orden se precargan las apps (las que más cuesta arrancar primero) */
+const PRECARGA: AppId[] = ['equipo', 'cuaderno', 'agenda', 'habitos']
 const GAP = 10
 /** Dónde vive el dock (lo elige cada quien; se guarda en este dispositivo). */
 type LadoDock = 'abajo' | 'arriba' | 'izq' | 'der'
@@ -231,6 +234,46 @@ export default function Escritorio() {
     const t = setTimeout(() => setVivas(new Set(est.current.abiertas)), 1400)
     return () => clearTimeout(t)
   }, [])
+  // Apps precargadas: mientras miras el Inicio, cada app arranca escondida (de a una, cuando el
+  // navegador está libre; primero las que ya usaste). Abrirla después es instantáneo: ya está lista.
+  const [dormidas, setDormidas] = useState<AppId[]>([])
+  const cargadas = useRef(new Set<AppId>())
+  const ultimaActividad = useRef(0)
+  const precargarApps = useRef<() => void>(() => {})
+  const cancelarPrecarga = useRef<() => void>(() => {})
+  const reprogramar = (ms: number) => {
+    cancelarPrecarga.current()
+    cancelarPrecarga.current = cuandoLibre(() => precargarApps.current(), ms)
+  }
+  precargarApps.current = () => {
+    // nunca mientras escribes o haces clic, y de a una: la siguiente espera a que la anterior termine
+    if (Date.now() - ultimaActividad.current < 1200) return reprogramar(900)
+    if ([...marcos.current.keys()].some((k) => !cargadas.current.has(k))) return reprogramar(700)
+    const memoria = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8
+    // primero las que ya usaste; después Proyectos, Cuaderno, Agenda y Hábitos
+    const orden = [...PRECARGA].sort((a, b) => Number(Boolean(rutas.current[b])) - Number(Boolean(rutas.current[a]))).slice(0, memoria < 4 ? 1 : PRECARGA.length)
+    const id = orden.find((x) => !est.current.abiertas.includes(x) && !marcos.current.has(x))
+    if (!id) return
+    setSrc((p) => (p[id] ? p : { ...p, [id]: rutas.current[id] ?? APP[id].path }))
+    setVivas((v) => (v.has(id) ? v : new Set(v).add(id)))
+    setDormidas((d) => (d.includes(id) ? d : [...d, id]))
+    reprogramar(1000)
+  }
+  useEffect(() => {
+    const actividad = () => {
+      ultimaActividad.current = Date.now()
+    }
+    addEventListener('pointerdown', actividad, true)
+    addEventListener('keydown', actividad, true)
+    return () => {
+      removeEventListener('pointerdown', actividad, true)
+      removeEventListener('keydown', actividad, true)
+    }
+  }, [])
+  useEffect(() => {
+    cancelarPrecarga.current = cuandoLibre(() => precargarApps.current(), 2500)
+    return () => cancelarPrecarga.current()
+  }, [])
 
   const [cmd, setCmd] = useState<{ escuchar: boolean } | null>(null)
   const [menu, setMenu] = useState<{ id: AppId; x: number; y: number } | null>(null)
@@ -310,8 +353,10 @@ export default function Escritorio() {
   const abrir = useCallback(
     (id: AppId, path?: string, donde: Donde = 'aqui') => {
       if (path) rutas.current[id] = path
-      if (!est.current.abiertas.includes(id) || !marcos.current.has(id)) setSrc((p) => ({ ...p, [id]: path ?? p[id] ?? rutas.current[id] ?? APP[id].path }))
-      else if (path) navegar(id, path)
+      // si la app ya vive (abierta o precargada) se la lleva a la ruta sin recargarla
+      if (marcos.current.has(id)) {
+        if (path) navegar(id, path)
+      } else setSrc((p) => ({ ...p, [id]: path ?? p[id] ?? rutas.current[id] ?? APP[id].path }))
       setVivas((v) => (v.has(id) ? v : new Set(v).add(id)))
       dispatch({ t: 'abrir', id, donde })
     },
@@ -327,8 +372,11 @@ export default function Escritorio() {
     [abrir],
   )
 
+  // cerrar una app la termina de verdad (podría tener el micrófono abierto); luego se vuelve a
+  // precargar limpia, así reabrirla sigue siendo instantáneo
   const cerrar = (id: AppId) => {
     dispatch({ t: 'cerrar', id })
+    setDormidas((d) => d.filter((x) => x !== id))
     setSrc((p) => {
       const n = { ...p }
       delete n[id]
@@ -339,6 +387,8 @@ export default function Escritorio() {
       n.delete(id)
       return n
     })
+    cargadas.current.delete(id)
+    reprogramar(3000)
   }
 
   // ---------- teclado: aquí y dentro de cada ventana ----------
@@ -429,9 +479,16 @@ export default function Escritorio() {
   /** Al cargar una ventana: se entera de sus cambios de ruta, sus atajos y de cuándo la tocas. */
   const alCargar = (id: AppId) => {
     setListas((l) => (l.has(id) ? l : new Set(l).add(id)))
+    cargadas.current.add(id)
     const w = marcos.current.get(id)?.contentWindow
     if (!w) return
     try {
+      // lo que haces dentro de una ventana también cuenta como "estás ocupado" (la precarga espera)
+      const actividad = () => {
+        ultimaActividad.current = Date.now()
+      }
+      w.addEventListener('pointerdown', actividad, true)
+      w.addEventListener('keydown', actividad, true)
       w.document.documentElement.dataset.ventana = ''
       marcar.current(id)
       historialPropio(w)
@@ -704,9 +761,11 @@ export default function Escritorio() {
             />
           </div>
 
-          {s.abiertas.map((id) => {
-            const r = rects.get(id) ?? ultimo.current.get(id) ?? { x: 0, y: 0, w: tam.w, h: tam.h }
-            const ve = visibles.has(id)
+          {[...s.abiertas, ...dormidas.filter((d) => !s.abiertas.includes(d))].map((id) => {
+            // las precargadas esperan escondidas y a tamaño completo (así se arman como en la computadora)
+            const abierta = s.abiertas.includes(id)
+            const r = (abierta && (rects.get(id) ?? ultimo.current.get(id))) || { x: 0, y: 0, w: tam.w, h: tam.h }
+            const ve = abierta && visibles.has(id)
             const a = APP[id]
             return (
               <section
