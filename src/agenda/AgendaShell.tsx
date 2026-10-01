@@ -11,7 +11,7 @@ import { anchorsOf, dayContent, dotsFor, lastFreeSlot, type Block } from './bloc
 import { anchorOk, AnchorSheet, type AnchorEdit } from './AnchorSheet'
 import { cleanAvail, rangesOn } from './availability'
 import { CalendarsPanel } from './CalendarsPanel'
-import { useCalendarMap, useCalendarsRealtime, useGoogleCalendars, useGoogleEvents, useGoogleReturn, useGoogleStatus, useGoogleSync } from './calendars'
+import { useCalendarMap, useCalendarsRealtime, useGoogleEvents, useGoogleIds, useGoogleReturn, useGoogleStatus, useGoogleSync } from './calendars'
 import { useAgendaActions, useAgendaRealtime, useHq, useItems, usePrefs, type AgendaItem } from './data'
 import { DayStrip } from './DayStrip'
 import { useDayActions, useDayMap, useDaysRealtime } from './days'
@@ -19,6 +19,8 @@ import { useDrag, useDraggable, type DragPayload } from './drag'
 import { EditorHost, openEditor, type Draft } from './Editor'
 import { useGroupsRealtime, type Group } from './groups'
 import { FillSheet } from './FillSheet'
+import { openHabitos, useAgendaHabits, useHabitsShown } from './habitos'
+import { MonthView, shiftMonthDay } from './MonthView'
 import { ReservesPanel } from './ReservesPanel'
 import { fitInReserve, reserveUsage, useReserveActions, useReservesRealtime } from './reserves'
 import { useHobbies, useHobbiesRealtime, useHobbyActions, type Hobby } from './hobbies'
@@ -93,6 +95,8 @@ export function AgendaShell() {
   const actions = useAgendaActions()
   // Disponibilidad de personas del equipo (?personas=1): su semana en vez de tu día
   const peopleOpen = params.get('personas') === '1'
+  // el mes en grande (?vista=mes): lo de todo el día de un vistazo
+  const monthOpen = !peopleOpen && params.get('vista') === 'mes'
   const myAvail = useMemo(() => rangesOn(cleanAvail(prefs?.availability), day), [prefs?.availability, day])
   useAgendaRealtime()
   useCalendarsRealtime()
@@ -113,12 +117,11 @@ export function AgendaShell() {
   const [calsOpen, setCalsOpen] = useState(false)
   const { byId: calById, fallback: calDefault } = useCalendarMap()
   const gstatus = useGoogleStatus().data
-  const gcals = useGoogleCalendars(Boolean(gstatus?.connected)).data
   useGoogleSync(Boolean(gstatus?.connected && gstatus.canWrite))
-  const gIds = useMemo(() => {
-    const hidden = new Set(prefs?.google_hidden ?? [])
-    return (gcals ?? []).filter((g) => !hidden.has(g.id)).map((g) => g.id)
-  }, [gcals, prefs?.google_hidden])
+  const gIds = useGoogleIds(prefs?.google_hidden)
+  // tus hábitos (de la app Hábitos) en sus días y a su hora
+  const habitsShown = useHabitsShown()
+  const habitsData = useAgendaHabits(day, habitsShown).data
   useGoogleReturn(() => setCalsOpen(!wide))
   const [ghosts, setGhosts] = useState<Ghost[]>([])
   const [inboxOpen, setInboxOpen] = useState(false)
@@ -138,6 +141,18 @@ export function AgendaShell() {
   const closePeople = () => {
     const next = new URLSearchParams(params)
     next.delete('personas')
+    setParams(next, { replace: true })
+  }
+  const setMonthOpen = (on: boolean, d?: string) => {
+    const next = new URLSearchParams(params)
+    if (on) {
+      next.set('vista', 'mes')
+      next.delete('personas')
+    } else next.delete('vista')
+    if (d) {
+      if (d === today) next.delete('dia')
+      else next.set('dia', d)
+    }
     setParams(next, { replace: true })
   }
   const setDay = useCallback(
@@ -184,13 +199,18 @@ export function AgendaShell() {
       if (e.key === 'ArrowRight') setDay(addDays(day, 1))
       if (e.key === 'ArrowLeft') setDay(addDays(day, -1))
       if (e.key.toLowerCase() === 't') setDay(today)
+      if (e.key.toLowerCase() === 'm') setMonthOpen(!monthOpen)
     }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
-  }, [day, today, setDay])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day, today, setDay, monthOpen, params])
 
   const gEvents = useGoogleEvents(day, tz, gIds).data
-  const view = useMemo(() => ({ cals: calById, google: gIds.length ? gEvents ?? [] : [], days: dayMap }), [calById, gEvents, gIds.length, dayMap])
+  const view = useMemo(
+    () => ({ cals: calById, google: gIds.length ? gEvents ?? [] : [], days: dayMap, habits: habitsShown ? habitsData : undefined }),
+    [calById, gEvents, gIds.length, dayMap, habitsShown, habitsData],
+  )
   const { blocks, allDay, wake, sleep } = useMemo(() => dayContent({ day, items, hq, prefs, tz, view }), [day, items, hq, prefs, tz, view])
   const inboxItems = useMemo(() => items.filter((i) => !i.day && !i.done_at).sort((a, b) => a.position - b.position), [items])
   const teamTasks = useMemo(() => {
@@ -332,6 +352,8 @@ export function AgendaShell() {
   }
   function open(b: Block) {
     if (b.kind === 'anchor') return setAnchorEdit({ which: b.anchor ?? 'wake', day })
+    // los hábitos se cumplen en Hábitos (con foto)
+    if (b.kind === 'habit') return openHabitos()
     if (b.kind === 'gcal') {
       if (b.gcal?.link) window.open(b.gcal.link, '_blank', 'noopener')
       return
@@ -443,10 +465,11 @@ export function AgendaShell() {
             />
           </div>
           <div className="ag-arrows">
-            <button className="ag-iconbtn" onClick={() => setDay(addDays(day, -1))} aria-label="Día anterior">
+            {/* en el mes en grande, las flechas cambian de mes */}
+            <button className="ag-iconbtn" onClick={() => setDay(monthOpen ? shiftMonthDay(day, -1) : addDays(day, -1))} aria-label={monthOpen ? 'Mes anterior' : 'Día anterior'}>
               <AIcon name="left" size={18} />
             </button>
-            <button className="ag-iconbtn" onClick={() => setDay(addDays(day, 1))} aria-label="Día siguiente">
+            <button className="ag-iconbtn" onClick={() => setDay(monthOpen ? shiftMonthDay(day, 1) : addDays(day, 1))} aria-label={monthOpen ? 'Mes siguiente' : 'Día siguiente'}>
               <AIcon name="right" size={18} />
             </button>
           </div>
@@ -481,6 +504,8 @@ export function AgendaShell() {
               setDay(d)
             }}
           />
+        ) : monthOpen ? (
+          <MonthView day={day} today={today} mobile={mobile} onPick={setDay} onOpenDay={(d) => setMonthOpen(false, d)} onClose={() => setMonthOpen(false)} />
         ) : (
           <>
         <DayStrip day={day} today={today} dots={dots} onPick={setDay} onDropDay={dropDay} />
@@ -546,7 +571,7 @@ export function AgendaShell() {
 
         <RockieBar ref={barRef} day={day} today={today} nowMin={nowMin} mobile={mobile} onGhosts={setGhosts} onFocusDay={setDay} onNew={newHere} google={view.google} />
 
-        {!mobile && !peopleOpen && (
+        {!mobile && !peopleOpen && !monthOpen && (
           <motion.button className="ag-fab" onClick={newHere} aria-label="Nuevo" whileHover={{ scale: 1.06, rotate: 90 }} whileTap={{ scale: 0.92 }} transition={{ type: 'spring', stiffness: 400, damping: 16 }}>
             <AIcon name="plus" size={26} strokeWidth={2.4} />
           </motion.button>
@@ -555,7 +580,7 @@ export function AgendaShell() {
 
       {wide && (
         <aside className="ag-cals" aria-label="Calendarios">
-          <CalendarsPanel day={day} today={today} onPick={(d) => { setDay(d); if (!wide) setCalsOpen(false) }} hasTeam={(hq?.spaces.length ?? 0) > 0} onPeople={openPeople} />
+          <CalendarsPanel day={day} today={today} onPick={(d) => { setDay(d); if (!wide) setCalsOpen(false) }} hasTeam={(hq?.spaces.length ?? 0) > 0} onPeople={openPeople} onMonth={() => setMonthOpen(true)} />
         </aside>
       )}
 
@@ -569,7 +594,7 @@ export function AgendaShell() {
       )}
       {!wide && (
         <Sheet open={calsOpen} onClose={() => setCalsOpen(false)} title="Calendarios">
-          <CalendarsPanel day={day} today={today} onPick={(d) => { setDay(d); if (!wide) setCalsOpen(false) }} hasTeam={(hq?.spaces.length ?? 0) > 0} onPeople={() => { openPeople(); setCalsOpen(false) }} />
+          <CalendarsPanel day={day} today={today} onPick={(d) => { setDay(d); if (!wide) setCalsOpen(false) }} hasTeam={(hq?.spaces.length ?? 0) > 0} onPeople={() => { openPeople(); setCalsOpen(false) }} onMonth={() => { setMonthOpen(true); setCalsOpen(false) }} />
         </Sheet>
       )}
       <AgendaSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} anchors={anchorsOf(prefs)} />
@@ -608,7 +633,9 @@ function AllDayChip({ a }: { a: ReturnType<typeof dayContent>['allDay'][number] 
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <AIcon name={a.icon} size={14} /> {a.title}
+      <AIcon name={a.icon} size={14} strokeWidth={a.kind === 'task' ? 2.6 : 2} /> {a.title}
+      {/* una tarea de un proyecto que te toca: se distingue por su marca, no solo por el color */}
+      {a.kind === 'task' && <span className="ag-adchip-tag">Te toca{a.projectName ? ` · ${a.projectName}` : ''}</span>}
     </motion.button>
   )
 }

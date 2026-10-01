@@ -241,6 +241,38 @@ export function useGoogleEvents(day: string, tz: string, ids: string[]) {
   })
 }
 
+/** Eventos de Google de un rango más largo (el mes): misma llamada, otra ventana. */
+export function useGoogleRange(from: string, to: string, tz: string, ids: string[]) {
+  const { userId } = useAuth()
+  const key = ids.slice().sort().join('|')
+  return useQuery({
+    queryKey: [...ckeys.gevents(userId, from, key), to],
+    enabled: Boolean(userId) && ids.length > 0,
+    staleTime: 2 * 60_000,
+    retry: 1,
+    placeholderData: (prev) => prev,
+    queryFn: async () =>
+      (
+        await callGoogle<{ events?: GEvent[] }>({
+          action: 'events',
+          from: localToIso(addDays(from, -1), 0, tz),
+          to: localToIso(addDays(to, 2), 0, tz),
+          ids,
+        })
+      ).events ?? [],
+  })
+}
+
+/** Los calendarios de Google que se ven (los que no escondiste). */
+export function useGoogleIds(hidden: string[] | null | undefined) {
+  const gstatus = useGoogleStatus().data
+  const gcals = useGoogleCalendars(Boolean(gstatus?.connected)).data
+  return useMemo(() => {
+    const off = new Set(hidden ?? [])
+    return (gcals ?? []).filter((g) => !off.has(g.id)).map((g) => g.id)
+  }, [gcals, hidden])
+}
+
 /**
  * Ida y vuelta con el calendario «Rockie» de Google: al abrir, cada 2 min y al volver a la
  * pestaña se trae lo que cambiaste allá (la primera vez crea «Rockie» y sube tu agenda).

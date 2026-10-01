@@ -117,6 +117,16 @@ const P: Record<string, ReactNode> = {
       <path d="M12 7v5l3 2" />
     </>
   ),
+  /** el mes en grande */
+  month: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4M7.5 14h2M11 14h2M14.5 14h2M7.5 17.5h2M11 17.5h2" />
+    </>
+  ),
+  expand: <path d="M15 4h5v5M20 4l-6 6M9 20H4v-5M4 20l6-6" />,
+  /** hábito (el fueguito de la racha de Hábitos) */
+  flame: <path d="M12 21c-3.9 0-7-2.8-7-6.4 0-2 .9-4 2.3-5.4C8.7 7.8 11 6 11 3c1.2 1 3.4 4.6 1 7.9 1.4 1.1 2.6 1.1 4.7-2.2 1.1 1.2 2.3 3.8 2.3 5.6 0 3.9-3.1 6.7-7 6.7z" />,
   check: <path d="M5 13l4 4L19 7" />,
   plus: <path d="M12 5v14M5 12h14" />,
   minus: <path d="M5 12h14" />,

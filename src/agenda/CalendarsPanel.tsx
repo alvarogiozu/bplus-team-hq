@@ -2,6 +2,10 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { addDays, MONTH_NAMES, startOfWeek } from '../lib/dates'
 import { TEAM_COLOR } from './blocks'
+import { spanOn } from './allday'
+import { SLIDE } from './DayStrip'
+import { HABIT_COLOR, openHabitos, setHabitsShown, useAgendaHabits, useHabitsShown } from './habitos'
+import { useAllDaySpans } from './MonthView'
 import { useCalendarActions, useCalendarMap, useGoogleActions, useGoogleCalendars, useGoogleStatus, type Calendar } from './calendars'
 import { useAgendaActions, usePrefs } from './data'
 import { AIcon, CAL_COLORS } from './icons'
@@ -10,11 +14,21 @@ import { PeopleSection } from './People'
 // Panel derecho de Rockie Agenda: el mes para saltar de día, tus calendarios (cada
 // actividad vive en uno; la casilla lo muestra u oculta), lo del equipo y Google
 // Calendar de ida y vuelta (tu agenda vive en un calendario «Rockie» de tu Google). Minimalista a propósito: nombre, color y nada más.
-export function CalendarsPanel(p: { day: string; today: string; onPick: (d: string) => void; hasTeam: boolean; /** abrir la disponibilidad de las personas elegidas */ onPeople?: () => void }) {
+export function CalendarsPanel(p: {
+  day: string
+  today: string
+  onPick: (d: string) => void
+  hasTeam: boolean
+  /** abrir la disponibilidad de las personas elegidas */
+  onPeople?: () => void
+  /** ver el mes en grande */
+  onMonth?: () => void
+}) {
   return (
     <div className="ag-cals-body">
-      <MiniMonth day={p.day} today={p.today} onPick={p.onPick} />
+      <MiniMonth day={p.day} today={p.today} onPick={p.onPick} onMonth={p.onMonth} />
       <MyCalendars />
+      <HabitsRow day={p.day} />
       {p.hasTeam && <PeopleSection onOpen={p.onPeople ?? (() => {})} />}
       {p.hasTeam && <TeamRow />}
       <GoogleSection />
@@ -22,13 +36,15 @@ export function CalendarsPanel(p: { day: string; today: string; onPick: (d: stri
   )
 }
 
-function MiniMonth({ day, today, onPick }: { day: string; today: string; onPick: (d: string) => void }) {
+function MiniMonth({ day, today, onPick, onMonth }: { day: string; today: string; onPick: (d: string) => void; onMonth?: () => void }) {
   const [month, setMonth] = useState(day.slice(0, 7))
   useEffect(() => setMonth(day.slice(0, 7)), [day])
   const [y, m] = month.split('-').map(Number)
   const cells = Array.from({ length: 42 }, (_, i) => addDays(startOfWeek(`${month}-01`), i))
   const shift = (n: number) => setMonth(new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7))
   const name = MONTH_NAMES[m - 1]
+  // lo de todo el día (un examen, una entrega) deja su marca bajo el número
+  const spans = useAllDaySpans(cells[0], cells[41], false)
   return (
     <section className="ag-mini" aria-label="Mes">
       <div className="ag-mini-head">
@@ -41,6 +57,11 @@ function MiniMonth({ day, today, onPick }: { day: string; today: string; onPick:
         <button className="ag-x" onClick={() => shift(1)} aria-label="Mes siguiente">
           <AIcon name="right" size={15} />
         </button>
+        {onMonth && (
+          <button className="ag-x" onClick={onMonth} aria-label="Ver el mes en grande" title="Ver el mes en grande">
+            <AIcon name="expand" size={15} />
+          </button>
+        )}
       </div>
       <div className="ag-mini-grid">
         {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
@@ -48,17 +69,31 @@ function MiniMonth({ day, today, onPick }: { day: string; today: string; onPick:
             {d}
           </span>
         ))}
-        {cells.map((d) => (
-          <button
-            key={d}
-            className={`ag-mini-day${d.slice(0, 7) !== month ? ' out' : ''}${d === today ? ' today' : ''}${d === day ? ' sel' : ''}`}
-            onClick={() => onPick(d)}
-            aria-label={d}
-            aria-pressed={d === day}
-          >
-            <span>{Number(d.slice(8))}</span>
-          </button>
-        ))}
+        {cells.map((d) => {
+          const marks = spans.filter((s) => spanOn(s, d))
+          return (
+            <button
+              key={d}
+              className={`ag-mini-day${d.slice(0, 7) !== month ? ' out' : ''}${d === today ? ' today' : ''}${d === day ? ' sel' : ''}`}
+              onClick={() => onPick(d)}
+              aria-label={marks.length ? `${d}: ${marks.map((s) => s.title).join(', ')}` : d}
+              aria-pressed={d === day}
+              title={marks.length ? marks.map((s) => s.title).join(' · ') : undefined}
+            >
+              {/* el recuadro se desliza de un día al otro */}
+              {d === day && <motion.span layoutId="ag-mini-sel" className="ag-mini-sel" transition={SLIDE} />}
+              <span>{Number(d.slice(8))}</span>
+              {marks.slice(0, 2).map((s, i) => (
+                <i
+                  key={s.key}
+                  className={`ag-mini-mk${s.from < d ? ' l' : ''}${s.to > d ? ' r' : ''}`}
+                  style={{ ['--c' as string]: s.color, bottom: 3 + i * 4 } as CSSProperties}
+                  aria-hidden="true"
+                />
+              ))}
+            </button>
+          )
+        })}
       </div>
     </section>
   )
@@ -185,6 +220,40 @@ function CalendarEditor({ cal, onDone }: { cal: Calendar; onDone: () => void }) 
         </button>
       </div>
     </motion.div>
+  )
+}
+
+/** Tus hábitos (de la app Hábitos) en tu día, a su hora. */
+function HabitsRow({ day }: { day: string }) {
+  const on = useHabitsShown()
+  const data = useAgendaHabits(day, true).data
+  if (data && !data.signedIn) {
+    return (
+      <section className="ag-calsec" aria-label="Hábitos">
+        <div className="ag-calsec-head">
+          <span>Hábitos</span>
+        </div>
+        <div className="ag-calrow off">
+          <button className="ag-calrow-main" onClick={openHabitos} title="Abrir Hábitos">
+            <Check on={false} color={HABIT_COLOR} />
+            <span className="ag-calname">Entra a Hábitos para verlos</span>
+          </button>
+        </div>
+      </section>
+    )
+  }
+  return (
+    <section className="ag-calsec" aria-label="Hábitos">
+      <div className="ag-calsec-head">
+        <span>Hábitos</span>
+      </div>
+      <div className={`ag-calrow${on ? '' : ' off'}`}>
+        <button className="ag-calrow-main" onClick={() => setHabitsShown(!on)} aria-pressed={on} title={on ? 'Ocultar' : 'Mostrar'}>
+          <Check on={on} color={HABIT_COLOR} />
+          <span className="ag-calname">Tus hábitos · a su hora</span>
+        </button>
+      </div>
+    </section>
   )
 }
 

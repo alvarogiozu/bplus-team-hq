@@ -2,11 +2,13 @@ import { addDays, dayOfTs, weekday } from '../lib/dates'
 import { prioLevel, type Project, type Task } from '../lib/types'
 import type { AgendaItem, HqData, HqEvent, Prefs } from './data'
 import type { Calendar, GEvent } from './calendars'
+import type { HabitosRango } from '../os/habitos'
+import { HABIT_COLOR, HABIT_MIN, habitsOn, type HabitOnDay } from './habitos'
 import { tsToMin } from './time'
 
 export type Block = {
   key: string
-  kind: 'item' | 'event' | 'anchor' | 'gcal' | 'reserve'
+  kind: 'item' | 'event' | 'anchor' | 'gcal' | 'reserve' | 'habit'
   id: string
   title: string
   start: number
@@ -15,6 +17,8 @@ export type Block = {
   icon: string
   done: boolean
   sub?: string
+  /** marca que lo distingue de lo demás (no solo el color): un hábito o una tarea de un proyecto que te toca */
+  mark?: 'habit' | 'task'
   /** 0–3 (cristales): solo ítems personales y tareas del HQ */
   priority?: number
   /** espacio reservado: cuánto queda libre y en qué tramos (para llenarlo) */
@@ -23,6 +27,7 @@ export type Block = {
   event?: HqEvent
   task?: Task
   gcal?: GEvent
+  habit?: HabitOnDay
   anchor?: 'wake' | 'sleep'
 }
 
@@ -36,10 +41,14 @@ export type AllDay = {
   item?: AgendaItem
   task?: Task
   project?: Project
+  /** nombre del proyecto de la tarea que te toca */
+  projectName?: string
   gcal?: GEvent
 }
 
 export const TEAM_COLOR = '#4a6fa5'
+/** color de una tarea de proyecto (las urgentes resaltan) */
+export const taskColor = (t: Pick<Task, 'priority'>) => (t.priority === 'urgent' ? '#bd6c56' : TEAM_COLOR)
 
 /** Horario de un día de la semana (0 = domingo). Vacío = lo de siempre (wake_min/sleep_min). */
 export type Routine = Record<string, { wake?: number; sleep?: number }>
@@ -74,7 +83,7 @@ export function spanOf(it: Pick<AgendaItem, 'day' | 'end_day'>, day: string) {
 }
 
 /** Lo que se ve: calendarios ocultos, lo del equipo, los eventos de Google (ya filtrados) y los horarios por día. */
-export type View = { cals?: Map<string, Calendar>; google?: GEvent[]; days?: Map<string, DayAnchors> }
+export type View = { cals?: Map<string, Calendar>; google?: GEvent[]; days?: Map<string, DayAnchors>; /** tus hábitos (de la app Hábitos) */ habits?: HabitosRango }
 
 const isHidden = (it: AgendaItem, cals?: Map<string, Calendar>) => Boolean(it.calendar_id && cals?.get(it.calendar_id)?.hidden)
 const colorIn = (it: AgendaItem, cals?: Map<string, Calendar>) => (it.calendar_id && cals?.get(it.calendar_id)?.color) || it.color
@@ -86,6 +95,8 @@ export function dayContent(p: { day: string; items: AgendaItem[]; hq: HqData | u
   const hq = p.prefs?.hide_team ? undefined : p.hq
   const { wake, sleep, custom } = anchorsOf(p.prefs, day, view?.days?.get(day))
   const taskById = new Map((hq?.tasks ?? []).map((t) => [t.id, t]))
+  const spaceName = new Map((hq?.spaces ?? []).map((s) => [s.id, s.name]))
+  const projectOf = (t: Task) => spaceName.get(t.space_id) ?? 'Proyecto'
 
   const blocks: Block[] = [
     { key: 'anchor:wake', kind: 'anchor', id: 'wake', title: 'Despertar', start: wake, duration: 0, color: '#cf7358', icon: 'sun', done: false, anchor: 'wake', sub: custom.wake ? 'solo este día' : undefined },
@@ -138,13 +149,14 @@ export function dayContent(p: { day: string; items: AgendaItem[]; hq: HqData | u
       icon: it.icon,
       done: Boolean(it.done_at) || Boolean(task?.validation),
       sub: task
-        ? 'Del HQ'
+        ? projectOf(task)
         : it.in_reserve && p.items.find((r) => r.id === it.in_reserve)
           ? `en «${p.items.find((r) => r.id === it.in_reserve)!.title}»`
           : it.hobby_id
             ? 'Hobby'
             : it.subtasks.length ? `${it.subtasks.filter((s) => s.done).length}/${it.subtasks.length}` : undefined,
       priority: task ? prioLevel(task.priority) : it.priority,
+      mark: task ? 'task' : undefined,
       item: it,
       task,
     })
@@ -173,11 +185,28 @@ export function dayContent(p: { day: string; items: AgendaItem[]; hq: HqData | u
   const blocked = new Set(items.filter((i) => i.hq_task_id && i.day === day && i.start_min != null).map((i) => i.hq_task_id))
   for (const t of hq?.tasks ?? []) {
     if (t.due_date === day && !blocked.has(t.id)) {
-      allDay.push({ key: `task:${t.id}`, kind: 'task', title: t.title, color: t.priority === 'urgent' ? '#bd6c56' : TEAM_COLOR, icon: 'flag', task: t })
+      allDay.push({ key: `task:${t.id}`, kind: 'task', title: t.title, color: taskColor(t), icon: 'flag', task: t, projectName: projectOf(t) })
     }
   }
   for (const pr of hq?.projects ?? []) {
     if (pr.due_date === day) allDay.push({ key: `project:${pr.id}`, kind: 'project', title: `Vence: ${pr.name}`, color: pr.color, icon: 'star', project: pr })
+  }
+
+  // tus hábitos: en sus días y a su hora (se cumplen en Hábitos)
+  for (const h of habitsOn(day, view?.habits)) {
+    blocks.push({
+      key: `habit:${h.id}`,
+      kind: 'habit',
+      id: h.id,
+      title: h.name,
+      start: h.start,
+      duration: HABIT_MIN,
+      color: HABIT_COLOR,
+      icon: 'flame',
+      done: h.done,
+      mark: 'habit',
+      habit: h,
+    })
   }
 
   // Google Calendar (solo lectura)

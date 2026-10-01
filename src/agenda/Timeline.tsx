@@ -396,7 +396,7 @@ function BlockRow(props: {
 }) {
   const { b, top, height, lane, lanesOf, index, past, landed } = props
   const payload: DragPayload | null =
-    b.kind === 'gcal'
+    b.kind === 'gcal' || b.kind === 'habit'
       ? null
       : { kind: b.kind === 'event' ? 'event' : b.kind === 'anchor' ? 'anchor' : 'item', id: b.kind === 'anchor' ? b.anchor! : b.id, title: b.title, color: b.color, icon: b.icon, duration: b.duration, from: 'timeline' }
   const { onPointerDown, isDragging } = useDraggable(payload)
@@ -406,7 +406,7 @@ function BlockRow(props: {
 
   return (
     <motion.div
-      className={`tl-block${anchor ? ' anchor' : ''}${!anchor && height < 60 ? ' short' : ''}${b.done ? ' done' : ''}${past && !b.done ? ' past' : ''}${isDragging ? ' lifted' : ''}${b.kind === 'event' || b.kind === 'gcal' ? ' event' : ''}${b.kind === 'gcal' ? ' gcal' : ''}`}
+      className={`tl-block${anchor ? ' anchor' : ''}${!anchor && height < 60 ? ' short' : ''}${b.done ? ' done' : ''}${past && !b.done ? ' past' : ''}${isDragging ? ' lifted' : ''}${b.kind === 'event' || b.kind === 'gcal' ? ' event' : ''}${b.kind === 'gcal' ? ' gcal' : ''}${b.mark ? ` mark-${b.mark}` : ''}`}
       style={style}
       initial={{ opacity: 0, y: top - 16, height }}
       animate={
@@ -425,13 +425,25 @@ function BlockRow(props: {
         style={{ height: anchor ? 48 : Math.max(42, height - 10) }}
         onPointerDown={onPointerDown}
         onClick={props.onOpen}
-        aria-label={`${b.title}, ${hhmm(b.start)}`}
+        aria-label={`${b.mark === 'habit' ? 'Hábito: ' : b.mark === 'task' ? 'Tarea que te toca: ' : ''}${b.title}, ${hhmm(b.start)}`}
       >
         <AIcon name={b.icon} size={20} />
       </button>
       <button className="tl-body" onPointerDown={onPointerDown} onClick={props.onOpen}>
         <small>
-          {anchor ? (b.anchor === 'wake' ? 'Buen día' : 'Hasta mañana') : `${hhmm(b.start)} – ${hhmm(b.start + b.duration)} (${fmtDur(b.duration)})`}
+          {b.mark && (
+            <span className="tl-tag">
+              <AIcon name={b.mark === 'habit' ? 'flame' : 'flag'} size={11} strokeWidth={2.4} />
+              {b.mark === 'habit' ? 'Hábito' : 'Te toca'}
+            </span>
+          )}
+          {anchor
+            ? b.anchor === 'wake'
+              ? 'Buen día'
+              : 'Hasta mañana'
+            : b.kind === 'habit'
+              ? hhmm(b.start) // Hábitos no guarda duración: solo la hora
+              : `${hhmm(b.start)} – ${hhmm(b.start + b.duration)} (${fmtDur(b.duration)})`}
           {b.sub ? ` · ${b.sub}` : ''}
           {b.priority ? <Prio level={b.priority} size={11} style={{ marginLeft: 6 }} /> : null}
         </small>
