@@ -16,22 +16,6 @@
 .cu .cu-dv.on .cu-toolbar { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; }
 .cu .cu-dv.on .cu-toolwrap { margin-left: calc(var(--s5) * -1); margin-right: calc(var(--s5) * -1); padding-left: var(--s5); padding-right: var(--s5); }
 
-/* la barra fina de cada panel: se arrastra para moverlo */
-.cu-panel-barra {
-  flex: none; display: flex; align-items: center; gap: 6px; min-height: 38px; padding: 3px 6px 3px 6px;
-  border-bottom: 1.5px solid var(--card-line); background: var(--paper-alt); font-size: var(--t-xs); color: var(--ink-soft);
-  cursor: grab; user-select: none; -webkit-user-select: none; transition: background 0.15s;
-}
-.cu-panel-barra:active { cursor: grabbing; }
-.cu-pane.foco .cu-panel-barra { background: color-mix(in srgb, var(--berry) 9%, var(--paper-alt)); }
-.cu-panel-barra b { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 800; color: var(--ink); }
-.cu-panel-barra small { flex: none; padding: 1px 8px; border-radius: 999px; background: var(--card); font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); }
-.cu-panel-barra .iconbtn { width: 30px; height: 30px; min-height: 0; cursor: pointer; }
-.cu-panel-asa { flex: none; display: grid; grid-template-columns: repeat(2, 3px); gap: 2px; padding: 0 4px; opacity: 0.45; }
-.cu-panel-asa i { width: 3px; height: 3px; border-radius: 999px; background: var(--ink-muted); }
-.cu-panel-asa i:nth-child(3) { grid-column: 1 / span 2; justify-self: center; }
-.cu-panel-barra:hover .cu-panel-asa { opacity: 0.9; }
-
 /* los separadores: entre columnas (ancho) y dentro de una columna (alto) */
 .cu-divisor, .cu-divisor-h { position: absolute; z-index: 8; touch-action: none; }
 .cu-divisor { top: 0; bottom: 0; width: 12px; cursor: col-resize; }
@@ -44,15 +28,11 @@
 .cu-dv.moviendo.x { cursor: col-resize; }
 .cu-dv.moviendo.y { cursor: row-resize; }
 .cu-dv.moviendo .cu-pane, .cu-dv.arrastrando .cu-pane { pointer-events: none; }
-.cu-dv.arrastrando .cu-panel-barra { pointer-events: auto; }
 
 /* ---------- pestañas: como las del navegador ---------- */
 .cu-pestana.vis { background: color-mix(in srgb, var(--paper) 55%, transparent); color: var(--ink); }
 .cu-pestana.arrastrada { opacity: 0.45; }
 .cu-pestana .cu-pestana-div { color: var(--ink-muted); }
-.cu-pestana-lugar { flex: none; }
-.cu-pestana-lugar .bg { fill: color-mix(in srgb, var(--ink) 12%, transparent); }
-.cu-pestana-lugar .fg { fill: var(--berry); }
 .cu-pestana-mas {
   position: sticky; right: 0; flex: none; align-self: center; width: 34px; height: 34px; margin: 0 2px 2px; display: grid; place-items: center;
   border-radius: 11px; background: var(--paper-alt); color: var(--ink-muted); box-shadow: -10px 0 10px -4px var(--paper-alt); transition: background 0.15s, color 0.15s, transform 0.2s var(--spring);

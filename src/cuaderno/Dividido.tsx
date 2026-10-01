@@ -1,20 +1,19 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { Icon } from '../components/Icon'
-import { MosaicoPrevia } from '../components/MosaicoPrevia'
+import { ZonasSoltar } from '../components/ZonasSoltar'
 import { useMe } from '../features/auth/AuthProvider'
 import { lsGet, lsSet } from '../lib/storage'
-import { cuenta, destinoEn, idsDe, MAX_COLS, moverHorizontal, moverVertical, poner, quitar, rects, reemplazar, sano, separadores, uno, type Destino, type Mosaico, type Rect } from '../lib/mosaico'
+import { cuenta, destinoEn, frenoArriba, idsDe, MAX_COLS, moverHorizontal, moverVertical, poner, quitar, rects, reemplazar, sano, separadores, uno, zonasDe, type Destino, type Mosaico, type Rect } from '../lib/mosaico'
 import { useNotes } from './data'
-import { ItemIcon } from './icons'
 import { DivisionCtx, PanelIdCtx, RUTA, TIPO_NOTA, useDivision, type Division } from './ui'
 import './dividido.css'
 
-// Pantalla dividida del Cuaderno como el escritorio de Rockie OS: hasta 6 paneles (3 columnas, cada
-// una entera o partida arriba/abajo). Arrastras una pestaña (o la barra de un panel) y la vista previa
-// muestra dónde cae: a la izquierda, al medio, a la derecha, arriba o abajo. Si arrastras la nota que
-// ya ves, se MUEVE (la principal pasa a otra pestaña) con animación. Los separadores reparten el
-// ancho y el alto (doble clic = iguales). Todo se recuerda.
+// Pantalla dividida del Cuaderno igual que las apps del escritorio de Rockie OS: hasta 6 paneles (3
+// columnas, cada una entera o partida arriba/abajo). Arrastras una pestaña y se ilumina dónde cae: a la
+// izquierda, al medio, a la derecha, arriba o abajo. Si arrastras la nota que ya ves, se MUEVE (la
+// principal pasa a otra pestaña) con animación. Sin barras extra: las pestañas de arriba son las
+// asas; una nota se quita de la pantalla dividida con la × de su pestaña o desde su ⋯. Los separadores
+// reparten el ancho y el alto (doble clic = iguales). Todo se recuerda.
 const NotaLateral = lazy(() => import('./Nota').then((m) => ({ default: m.NotaDe })))
 const GAP = 8
 const MAX_PESTANAS = 24
@@ -115,11 +114,12 @@ export function useDivisionEstado(mobile: boolean): Division {
       const sinId = quitar(base, id)
       const dest = d ?? porDefecto(sinId)
       if (dest.t === 'cambiar' && sinId.cols[dest.col]?.ids[dest.fila] === RUTA) {
-        // soltarla sobre la principal = abrirla ahí
+        // soltarla sobre la principal = abrirla ahí (la que ya se ve ahí, se queda)
         if (id === RUTA) return
-        setMosS(sinId)
         setFoco(RUTA)
-        if (id !== a) nav(`/cuaderno/nota/${id}`)
+        if (id === a) return
+        setMosS(sinId)
+        nav(`/cuaderno/nota/${id}`)
         return
       }
       const next = poner(base, id, dest)
@@ -151,12 +151,6 @@ export function useDivisionEstado(mobile: boolean): Division {
       if (idsDe(base).includes(id)) return setFoco(id)
       setMosS(reemplazar(base, panel, id))
       setFoco(id)
-    }
-    const alFrente = (id: string) => {
-      const { mos: base, actual: a } = est.current
-      setMosS(a ? reemplazar(base, id, a) : quitar(base, id))
-      setFoco(RUTA)
-      nav(`/cuaderno/nota/${id}`)
     }
     const cerrarPanel = (panel: string) => {
       const { mos: base, foco: f } = est.current
@@ -208,7 +202,6 @@ export function useDivisionEstado(mobile: boolean): Division {
       abrir,
       abrirAlLado,
       cambiarEn,
-      alFrente,
       cerrarPanel,
       cerrarPestana,
       ordenar,
@@ -221,7 +214,7 @@ export function DivisionProvider({ value, children }: { value: Division; childre
   return <DivisionCtx.Provider value={value}>{children}</DivisionCtx.Provider>
 }
 
-/** El nombre de lo que muestra la principal (para su barra y para "en lugar de…"). */
+/** El nombre de lo que muestra la principal (para decir "En lugar de …" y nombrar su panel). */
 function nombreRuta(path: string, titulo: (id: string) => string) {
   const n = notaDe(path)
   if (n) return titulo(n)
@@ -239,10 +232,11 @@ export function AreaDividida({ children, fallback }: { children: ReactNode; fall
   const notes = useNotes().data
   const box = useRef<HTMLDivElement>(null)
   const [tam, setTam] = useState({ w: 0, h: 0 })
-  const [zona, setZona] = useState<{ d: Destino; texto: string; mos: Mosaico } | null>(null)
   const [moviendo, setMoviendo] = useState<false | 'x' | 'y'>(false)
+  /** la franja de arriba con freno (entra desde las pestañas: que no se ilumine "Arriba" solo por pasar) */
+  const freno = useRef(frenoArriba())
   const titulo = useCallback((id: string) => notes?.find((n) => n.id === id)?.title?.trim() || 'Sin título', [notes])
-  const nombre = (id: string) => (id === RUTA ? nombreRuta(loc.pathname, titulo) : titulo(id))
+  const nombre = useCallback((id: string) => (id === RUTA ? nombreRuta(loc.pathname, titulo) : titulo(id)), [loc.pathname, titulo])
 
   useLayoutEffect(() => {
     const el = box.current
@@ -260,48 +254,48 @@ export function AreaDividida({ children, fallback }: { children: ReactNode; fall
   // ---------- animación: cada panel se desliza a su nuevo lugar; la nota que se mueve viaja desde donde estaba ----------
   const els = useRef(new Map<string, HTMLDivElement>())
   const antes = useRef<{ r: Map<string, Rect>; actual: string | null }>({ r: new Map(), actual: null })
+  const tamAntes = useRef(tam)
   useLayoutEffect(() => {
     const prev = antes.current
+    // si cambió el tamaño del área (ventana, separadores del escritorio) se acomoda al instante
+    const otroTam = tamAntes.current.w !== tam.w || tamAntes.current.h !== tam.h
+    tamAntes.current = tam
     const reducir = matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (partida && !moviendo && !reducir && prev.r.size) {
+    if (partida && !moviendo && !reducir && !otroTam && prev.r.size) {
       for (const [pid, rc] of r) {
         const el = els.current.get(pid)
         if (!el) continue
         const p = prev.r.get(pid) ?? (pid === prev.actual ? prev.r.get(RUTA) : undefined)
         if (p) {
           if (p.x !== rc.x || p.y !== rc.y || p.w !== rc.w || p.h !== rc.h)
-            el.animate([{ transform: `translate(${p.x - rc.x}px, ${p.y - rc.y}px) scale(${p.w / rc.w}, ${p.h / rc.h})` }, { transform: 'none' }], { duration: 340, easing: GLIDE })
-        } else el.animate([{ transform: 'scale(0.94)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 360, easing: SPRING })
+            el.animate([{ transform: `translate(${p.x - rc.x}px, ${p.y - rc.y}px) scale(${p.w / rc.w}, ${p.h / rc.h})` }, { transform: 'none' }], { duration: 320, easing: GLIDE })
+        } else el.animate([{ transform: 'scale(0.9)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 360, easing: SPRING })
       }
     }
-    antes.current = { r: partida ? r : new Map(), actual: div.actual }
-  }, [r, partida, moviendo, div.actual])
+    // sin dividir, la principal ocupa todo: al partir la pantalla se encoge a su lugar (y la nota que se va, sale de ahí)
+    antes.current = { r: partida ? r : new Map([[RUTA, { x: 0, y: 0, w: tam.w, h: tam.h }]]), actual: div.actual }
+  }, [r, partida, moviendo, div.actual, tam])
 
-  // ---------- arrastrar una pestaña o la barra de un panel ----------
-  const zonaDe = (e: DragEvent, id: string) => {
-    const caja = box.current!.getBoundingClientRect()
-    const base = div.mos
-    const sinId = quitar(base, id)
-    const z = destinoEn(sinId, e.clientX - caja.left, e.clientY - caja.top, caja.width, caja.height, GAP, nombre)
-    const enRuta = z.d.t === 'cambiar' && sinId.cols[z.d.col]?.ids[z.d.fila] === RUTA
-    return { d: z.d, texto: enRuta ? 'Abrir aquí' : z.texto, mos: enRuta ? reemplazar(sinId, RUTA, id) : poner(base, id, z.d) }
-  }
-  const sobre = (e: DragEvent) => {
+  // ---------- arrastrar una pestaña: las mismas zonas que las apps del escritorio ----------
+  // se calculan una sola vez al empezar; al mover solo se ilumina la que toca
+  const zonas = useMemo(() => {
     const id = div.arrastre
-    if (!id || !e.dataTransfer.types.includes(TIPO_NOTA)) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    const z = zonaDe(e, id)
-    setZona((p) => (p && p.texto === z.texto && JSON.stringify(p.d) === JSON.stringify(z.d) ? p : z))
+    if (!id || !tam.w) return []
+    // la nota que ya ves en la principal: soltarla ahí mismo es "Aquí" (se queda). Una que ya se ve al
+    // lado: el centro de otra es "En lugar de …". Una que no se ve, con la principal sola: "Aquí".
+    const aqui = id === div.actual ? RUTA : idsDe(div.mos).includes(id) ? null : undefined
+    return zonasDe(quitar(div.mos, id), tam.w, tam.h, GAP, nombre, { aqui })
+  }, [div.arrastre, div.actual, div.mos, tam, nombre])
+  // cada arrastre empieza de cero
+  useEffect(() => {
+    freno.current = frenoArriba()
+  }, [div.arrastre])
+  const destino = (e: DragEvent, id: string) => {
+    const caja = box.current!.getBoundingClientRect()
+    const arriba = freno.current((e.clientY - caja.top) / caja.height, performance.now())
+    return destinoEn(quitar(div.mos, id), e.clientX - caja.left, e.clientY - caja.top, caja.width, caja.height, GAP, nombre, { arriba }).d
   }
-  const suelta = (e: DragEvent) => {
-    const id = e.dataTransfer.getData(TIPO_NOTA) || div.arrastre
-    setZona(null)
-    div.setArrastre(null)
-    if (!id) return
-    e.preventDefault()
-    div.abrirAlLado(id, zonaDe(e, id).d)
-  }
+  const arrastrada = div.arrastre
 
   // ---------- separadores ----------
   const seps = partida ? separadores(div.mos, tam.w, tam.h, GAP) : null
@@ -333,11 +327,6 @@ export function AreaDividida({ children, fallback }: { children: ReactNode; fall
     <div
       ref={box}
       className={`cu-dv${div.partida ? ' on' : ''}${moviendo ? ` moviendo ${moviendo}` : ''}${div.arrastre ? ' arrastrando' : ''}`}
-      onDragOver={sobre}
-      onDragLeave={(e) => {
-        if (!box.current?.contains(e.relatedTarget as Node | null)) setZona(null)
-      }}
-      onDrop={suelta}
     >
       {paneles.map(([pid, rc]) => (
         <div
@@ -346,12 +335,13 @@ export function AreaDividida({ children, fallback }: { children: ReactNode; fall
             if (el) els.current.set(pid, el)
             else els.current.delete(pid)
           }}
+          role={partida ? 'group' : undefined}
+          aria-label={partida ? nombre(pid) : undefined}
           className={`cu-pane${pid === RUTA ? ' ruta' : ' lado'}${partida && div.foco === pid ? ' foco' : ''}`}
           style={rc ? { left: rc.x, top: rc.y, width: rc.w, height: rc.h } : undefined}
           onPointerDownCapture={() => partida && div.foco !== pid && div.setFoco(pid)}
         >
           <PanelIdCtx.Provider value={pid}>
-            {partida && <BarraPanel id={pid} nombre={nombre(pid)} />}
             {pid === RUTA ? (
               children
             ) : (
@@ -388,44 +378,19 @@ export function AreaDividida({ children, fallback }: { children: ReactNode; fall
           onDoubleClick={() => div.setMos(moverHorizontal(div.mos, h.i, 0.5))}
         />
       ))}
-      {zona && div.arrastre && tam.w > 0 && <MosaicoPrevia mos={zona.mos} id={div.arrastre} texto={zona.texto} nombre={div.arrastre === RUTA ? nombre(RUTA) : titulo(div.arrastre)} W={tam.w} H={tam.h} gap={GAP} color="var(--berry)" />}
-    </div>
-  )
-}
-
-/** La barra fina de cada panel (con la pantalla dividida): se arrastra para moverlo; llevar a la principal y cerrar. */
-function BarraPanel({ id, nombre }: { id: string; nombre: string }) {
-  const div = useDivision()
-  const note = useNotes().data?.find((n) => n.id === (id === RUTA ? div.actual : id))
-  const principal = id === RUTA
-  return (
-    <div
-      className={`cu-panel-barra${principal ? ' principal' : ''}`}
-      draggable
-      title="Arrastra para llevarlo a otro lugar"
-      onDragStart={(e) => {
-        e.dataTransfer.setData(TIPO_NOTA, id)
-        e.dataTransfer.effectAllowed = 'move'
-        div.setArrastre(id)
-      }}
-      onDragEnd={() => div.setArrastre(null)}
-    >
-      <span className="cu-panel-asa" aria-hidden="true">
-        <i />
-        <i />
-        <i />
-      </span>
-      {note ? <ItemIcon value={note.icon} fallback={note.kind === 'pizarra' ? 'board' : 'note'} size={15} /> : <Icon name="notebook" className="sm" />}
-      <b title={nombre}>{nombre}</b>
-      {principal && <small>principal</small>}
-      {!principal && (
-        <button type="button" className="iconbtn flat" onClick={() => div.alFrente(id)} aria-label={`Llevar ${nombre} a la principal`} title="Llevar a la principal">
-          <IconoDividir cambio />
-        </button>
+      {arrastrada && (
+        <ZonasSoltar
+          zonas={zonas}
+          color="var(--berry)"
+          destino={(e) => destino(e, arrastrada)}
+          alSoltar={(d, e) => {
+            const id = e.dataTransfer.getData(TIPO_NOTA) || arrastrada
+            div.setArrastre(null)
+            div.abrirAlLado(id, d)
+          }}
+          alCancelar={() => div.setArrastre(null)}
+        />
       )}
-      <button type="button" className="iconbtn flat" onClick={() => div.cerrarPanel(id)} aria-label={`Cerrar el panel de ${nombre}`} title={principal ? 'Cerrar este panel (la de al lado pasa a ser la principal)' : 'Cerrar este panel'}>
-        <Icon name="close" className="sm" />
-      </button>
     </div>
   )
 }

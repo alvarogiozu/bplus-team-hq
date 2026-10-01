@@ -5,8 +5,8 @@ import { useMe } from '../../features/auth/AuthProvider'
 import { signOut } from '../../features/auth/credentials'
 import { setAccent, useTheme } from '../../app/theme'
 import { lsGet, lsSet } from '../../lib/storage'
-import { MosaicoPrevia } from '../../components/MosaicoPrevia'
-import { alBorde, cuenta as cuantas, desdeLista, destinoEn, idsDe, lugarDe, moverHorizontal, moverVertical, poner, quitar, rects as rectsDe, reemplazar, sano, separadores, uno, VACIO as MOS_VACIO, type Destino, type Mosaico } from '../../lib/mosaico'
+import { ZonasSoltar } from '../../components/ZonasSoltar'
+import { alBorde, cuenta as cuantas, desdeLista, destinoEn, frenoArriba, idsDe, lugarDe, moverHorizontal, moverVertical, poner, quitar, rects as rectsDe, reemplazar, sano, separadores, uno, VACIO as MOS_VACIO, zonasDe, type Destino, type Mosaico } from '../../lib/mosaico'
 import { cuandoLibre } from '../../lib/precarga'
 import HomePage from '../HomePage'
 import { APPS, appOf, type AppId, type OsApp } from '../apps'
@@ -24,7 +24,7 @@ import './escritorio.css'
 // animación de Hyprland: la nueva aparece con un pop, las demás se deslizan a su lugar y cambiar de
 // pestaña desliza de lado. Atajos: Ctrl/⌘ K Rockie · Alt 1–5 apps · Alt ← → dividir · Alt ↑ solo
 // esta · Alt ↓ quitar del mosaico. Con el mouse: arrastra una pestaña (o la barra de una ventana) adonde
-// quieras: la vista previa muestra cómo queda (a la izquierda, al medio, a la derecha, arriba o abajo).
+// quieras: se ilumina dónde cae (a la izquierda, al medio, a la derecha, arriba o abajo de cada una).
 
 const APP = Object.fromEntries(APPS.map((a) => [a.id, a])) as Record<AppId, OsApp>
 const ORDEN: AppId[] = APPS.map((a) => a.id)
@@ -62,6 +62,8 @@ type Accion =
   | { t: 'mos'; mos: Mosaico }
 
 const VACIO: Estado = { vista: 'inicio', abiertas: [], mos: MOS_VACIO, foco: null }
+
+const nombreApp = (x: string) => APP[x as AppId]?.name ?? 'esa'
 
 /** Sobre qué se coloca una app: el mosaico que se ve; desde el Inicio, junto a la última app que usaste. */
 function baseDe(s: Estado, id: AppId): Mosaico {
@@ -282,7 +284,12 @@ export default function Escritorio() {
   const [menu, setMenu] = useState<{ id: AppId; x: number; y: number } | null>(null)
   const [cuenta, setCuenta] = useState(false)
   const [arrastre, setArrastre] = useState<AppId | null>(null)
-  const [zona, setZona] = useState<{ d: Destino; texto: string; mos: Mosaico } | null>(null)
+  /** la franja de arriba con freno (entra desde las pestañas: que no se ilumine "Arriba" solo por pasar) */
+  const freno = useRef(frenoArriba())
+  /** lo que se está arrastrando desde el dragstart (la capa de zonas llega un instante después) */
+  const enCurso = useRef<AppId | null>(null)
+  /** el arrastre de la barra de una ventana empezó en uno de sus botones: no se arrastra */
+  const desdeBoton = useRef(false)
   const [redim, setRedim] = useState<false | 'x' | 'y'>(false)
   const [asomo, setAsomo] = useState(false)
   const [ladoDock, setLadoDockState] = useState<LadoDock>(() => {
@@ -629,12 +636,33 @@ export default function Escritorio() {
   }
 
   // ---------- arrastrar una pestaña (o la barra de una ventana) adonde quieras ----------
-  /** Dónde caería y cómo quedaría la pantalla (la vista previa). */
+  // las zonas se calculan una sola vez al empezar a arrastrar; al mover solo se ilumina la que toca
+  const zonas = useMemo(() => {
+    if (!arrastre || !tam.w) return []
+    const base = baseDe(s, arrastre)
+    // si ya se veía (la mueves), el centro de la otra es "En lugar de …"; si no, la que se ve sola es "Aquí"
+    return zonasDe(quitar(base, arrastre), tam.w, tam.h, GAP, nombreApp, { aqui: idsDe(base).includes(arrastre) ? null : undefined })
+  }, [arrastre, s, tam])
+  /** Dónde caería (sobre el mosaico sin lo que arrastras). */
   const zonaDe = (e: DragEvent, id: AppId) => {
     const caja = mesa.current!.getBoundingClientRect()
-    const base = baseDe(est.current, id)
-    const z = destinoEn(quitar(base, id), e.clientX - caja.left, e.clientY - caja.top, caja.width, caja.height, GAP, (x) => APP[x as AppId]?.name ?? 'esa')
-    return { ...z, mos: poner(base, id, z.d) }
+    const arriba = freno.current((e.clientY - caja.top) / caja.height, performance.now())
+    return destinoEn(quitar(baseDe(est.current, id), id), e.clientX - caja.left, e.clientY - caja.top, caja.width, caja.height, GAP, nombreApp, { arriba })
+  }
+  const empezarArrastre = (e: DragEvent, id: AppId) => {
+    e.dataTransfer.setData('text/x-rockie-app', id)
+    e.dataTransfer.effectAllowed = 'move'
+    freno.current = frenoArriba()
+    enCurso.current = id
+    // la capa de zonas tapa la barra de la ventana: si aparece durante el dragstart, Chrome no empieza el
+    // arrastre (lo arrastrado tiene que seguir bajo el puntero). Aparece justo después.
+    setTimeout(() => {
+      if (enCurso.current === id) setArrastre(id)
+    })
+  }
+  const terminarArrastre = () => {
+    enCurso.current = null
+    setArrastre(null)
   }
   const colocar = (id: AppId, d: Destino) => {
     if (!marcos.current.has(id)) setSrc((p) => ({ ...p, [id]: p[id] ?? rutas.current[id] ?? APP[id].path }))
@@ -688,15 +716,8 @@ export default function Escritorio() {
                   style={{ ['--app' as string]: a.color, ['--app-edge' as string]: a.edge } as CSSProperties}
                   title={`${a.name} (Alt ${ORDEN.indexOf(id) + 2})`}
                   draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/x-rockie-app', id)
-                    e.dataTransfer.effectAllowed = 'move'
-                    setArrastre(id)
-                  }}
-                  onDragEnd={() => {
-                    setArrastre(null)
-                    setZona(null)
-                  }}
+                  onDragStart={(e) => empezarArrastre(e, id)}
+                  onDragEnd={terminarArrastre}
                   onClick={() => abrir(id)}
                   onKeyDown={(e) => e.key === 'Enter' && abrir(id)}
                   onAuxClick={(e) => e.button === 1 && cerrar(id)}
@@ -799,18 +820,18 @@ export default function Escritorio() {
                 {partido && ve && (
                   <div
                     className="esc-win-bar"
-                    onPointerDown={() => dispatch({ t: 'foco', id })}
+                    onPointerDown={(e) => {
+                      desdeBoton.current = Boolean((e.target as HTMLElement).closest('button'))
+                      dispatch({ t: 'foco', id })
+                    }}
                     draggable
                     title="Arrastra para moverla a otro lugar"
                     onDragStart={(e) => {
-                      e.dataTransfer.setData('text/x-rockie-app', id)
-                      e.dataTransfer.effectAllowed = 'move'
-                      setArrastre(id)
+                      // desde un botón de la barra no se arrastra (se iba la ventana al querer tocarlo)
+                      if (desdeBoton.current) return e.preventDefault()
+                      empezarArrastre(e, id)
                     }}
-                    onDragEnd={() => {
-                      setArrastre(null)
-                      setZona(null)
-                    }}
+                    onDragEnd={terminarArrastre}
                   >
                     <span className="esc-win-ic">
                       <Icon name={a.icon} className="sm" />
@@ -876,27 +897,16 @@ export default function Escritorio() {
           ))}
 
           {arrastre && (
-            <div
-              className="esc-drop"
-              onDragOver={(e) => {
-                e.preventDefault()
-                const z = zonaDe(e, arrastre)
-                // solo se vuelve a dibujar al cambiar de lugar (no en cada pixel)
-                setZona((p) => (p && p.texto === z.texto && JSON.stringify(p.d) === JSON.stringify(z.d) ? p : z))
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setZona(null)
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
+            <ZonasSoltar
+              zonas={zonas}
+              destino={(e) => zonaDe(e, arrastre).d}
+              alSoltar={(d, e) => {
                 const id = e.dataTransfer.getData('text/x-rockie-app') as AppId
-                if (ORDEN.includes(id)) colocar(id, zonaDe(e, id).d)
-                setArrastre(null)
-                setZona(null)
+                if (ORDEN.includes(id)) colocar(id, d)
+                terminarArrastre()
               }}
-            >
-              {zona && <MosaicoPrevia mos={zona.mos} id={arrastre} texto={zona.texto} nombre={APP[arrastre].name} W={tam.w} H={tam.h} gap={GAP} color={APP[arrastre].color} />}
-            </div>
+              alCancelar={terminarArrastre}
+            />
           )}
         </main>
 

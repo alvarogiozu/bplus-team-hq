@@ -26,7 +26,7 @@ export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'savi
   const actions = useCuadernoActions()
   const nav = useNavigate()
   const lateral = useEnLateral()
-  const { cerrarPanel } = useDivision()
+  const { cerrarPanel, partida } = useDivision()
   const panelId = usePanelId()
   const books = useBooks().data ?? NONE
   const [moveAt, setMoveAt] = useState<HTMLElement | null>(null)
@@ -109,6 +109,19 @@ export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'savi
             <CIcon name="more" size={18} />
           </button>
           <Popover anchor={moreAt} open={Boolean(moreAt)} onClose={() => setMoreAt(null)} label={`Opciones de la ${what}`}>
+            {partida && (
+              // con la pantalla dividida: quitarla de la pantalla (sigue abierta en su pestaña)
+              <button
+                role="menuitem"
+                className="cu-pop-item"
+                onClick={() => {
+                  setMoreAt(null)
+                  cerrarPanel(panelId)
+                }}
+              >
+                <CIcon name="close" size={16} /> Quitar de la pantalla dividida
+              </button>
+            )}
             <Link role="menuitem" className="cu-pop-item" to={`/cuaderno/mapa?nota=${note.id}`}>
               <CIcon name="map" size={16} /> Ver en el mapa
             </Link>
@@ -136,6 +149,12 @@ export function PageHeader(p: { note: Note; mobile: boolean; saved: 'ok' | 'savi
             <CIcon name="trash" size={18} />
           </button>
         </>
+      )}
+      {partida && !mobile && (
+        // con la pantalla dividida y espacio: quitarla de la pantalla (sigue abierta en su pestaña)
+        <button className="iconbtn cu-quitar-panel" onClick={() => cerrarPanel(panelId)} aria-label={`Quitar esta ${what} de la pantalla dividida`} title="Quitar de la pantalla dividida (sigue en su pestaña)">
+          <CIcon name="close" size={18} />
+        </button>
       )}
     </header>
   )

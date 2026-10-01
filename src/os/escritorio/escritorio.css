@@ -127,15 +127,7 @@
 .esc-win-bar[draggable='true']:active { cursor: grabbing; }
 .esc.redim iframe, .esc.arrastrando iframe { pointer-events: none; }
 
-/* soltar una pestaña a un lado */
-.esc-drop { position: absolute; inset: 0; z-index: 30; }
-.esc-drop-z { display: grid; place-items: center; border-radius: 16px; border: 2px dashed transparent; transition: background 0.15s, border-color 0.15s; }
-.esc-drop-z span {
-  padding: 8px 14px; border-radius: 999px; background: var(--card); box-shadow: 0 3px 0 var(--card-edge); font-size: var(--t-xs); font-weight: 700;
-  color: var(--ink-soft); opacity: 0; transform: translateY(6px); transition: opacity 0.15s, transform 0.15s;
-}
-.esc-drop-z.on { background: color-mix(in srgb, var(--brand) 14%, transparent); border-color: var(--brand); }
-.esc-drop-z.on span { opacity: 1; transform: none; }
+/* soltar una pestaña (o una ventana) adonde quieras: components/zonas.css */
 
 /* ---------- el dock (como la Mac) ---------- */
 .esc-dock-zona { position: absolute; left: 0; right: 0; bottom: 0; z-index: 40; height: 12px; }

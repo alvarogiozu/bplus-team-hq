@@ -1,41 +1,17 @@
 import { useMemo, useRef, useState, type DragEvent } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Icon } from '../components/Icon'
-import { lugarDe } from '../lib/mosaico'
+import { idsDe } from '../lib/mosaico'
 import { useCuadernoActions, useNotes, type Note } from './data'
 import { IconoDividir } from './Dividido'
 import { CIcon, ItemIcon } from './icons'
 import { Popover, RUTA, TIPO_NOTA, useDivision } from './ui'
 
 // Las notas abiertas como pestañas (como en el navegador y en Obsidian). La del panel con foco va
-// resaltada y las que se ven en otro panel llevan su mini-mapa (dónde están). Tocar una la abre en el
-// panel con foco; Ctrl + clic o ◫ la abre al lado; arrastrarla la lleva adonde quieras (la vista previa
-// dice dónde cae) y arrastrarla entre pestañas las reordena. El + abre una página o pizarra nueva o
-// una que ya tienes.
-
-const LUGAR = { entera: '', arriba: 'arriba', abajo: 'abajo' } as const
-function textoLugar(l: NonNullable<ReturnType<typeof lugarDe>>) {
-  const col = l.cols === 1 ? '' : l.col === 0 ? 'a la izquierda' : l.col === l.cols - 1 ? 'a la derecha' : 'al medio'
-  return ['Se ve', LUGAR[l.fila], col].filter(Boolean).join(' ')
-}
-
-/** Un mini-mapa del mosaico con la casilla de esta pestaña pintada. */
-function MiniLugar({ l }: { l: NonNullable<ReturnType<typeof lugarDe>> }) {
-  const W = 16
-  const H = 12
-  const cw = (W - (l.cols - 1)) / l.cols
-  const x = l.col * (cw + 1)
-  const y = l.fila === 'abajo' ? H / 2 + 0.5 : 0
-  const h = l.fila === 'entera' ? H : H / 2 - 0.5
-  return (
-    <svg className="cu-pestana-lugar" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
-      {Array.from({ length: l.cols }, (_, i) => (
-        <rect key={i} x={i * (cw + 1)} y={0} width={cw} height={H} rx={1.6} className="bg" />
-      ))}
-      <rect x={x} y={y} width={cw} height={h} rx={1.6} className="fg" />
-    </svg>
-  )
-}
+// resaltada y las que se ven en otro panel, marcadas (como las pestañas de las apps). Tocar una la abre
+// en el panel con foco; Ctrl + clic o ◫ la abre al lado; arrastrarla la lleva adonde quieras (se ilumina
+// dónde cae, igual que con las apps) y arrastrarla entre pestañas las reordena. El + abre una página o
+// pizarra nueva o una que ya tienes.
 
 export function Pestanas() {
   const div = useDivision()
@@ -45,6 +21,7 @@ export function Pestanas() {
   const fila = useRef<HTMLDivElement>(null)
   const enFoco = div.foco === RUTA ? div.actual : div.foco
   const arrastrandoPestana = div.arrastre && div.arrastre !== RUTA && div.pestanas.includes(div.arrastre)
+  const visibles = useMemo(() => new Set([div.actual, ...idsDe(div.mos)]), [div.actual, div.mos])
 
   return (
     <nav className="cu-pestanas" aria-label="Notas abiertas">
@@ -53,7 +30,7 @@ export function Pestanas() {
           {div.pestanas.map((id, i) => {
             const n = porId.get(id)
             const titulo = n?.title?.trim() || 'Sin título'
-            const l = lugarDe(div.mos, id) ?? (id === div.actual ? lugarDe(div.mos, RUTA) : null)
+            const visible = visibles.has(id)
             const on = id === enFoco
             return (
               <motion.div
@@ -66,8 +43,8 @@ export function Pestanas() {
                 role="tab"
                 tabIndex={0}
                 aria-selected={on}
-                className={`cu-pestana${on ? ' on' : ''}${l && !on ? ' vis' : ''}${div.arrastre === id ? ' arrastrada' : ''}`}
-                title={l ? `${titulo} · ${textoLugar(l)}` : `${titulo} · Ctrl + clic o arrástrala para abrirla al lado`}
+                className={`cu-pestana${on ? ' on' : ''}${div.partida && visible && !on ? ' vis' : ''}${div.arrastre === id ? ' arrastrada' : ''}`}
+                title={visible ? titulo : `${titulo} · Ctrl + clic o arrástrala para abrirla al lado`}
                 draggable
                 // arrastre nativo (motion usa onDragStart para sus gestos): se engancha en captura
                 onDragStartCapture={(e: DragEvent<HTMLDivElement>) => {
@@ -94,8 +71,7 @@ export function Pestanas() {
               >
                 <ItemIcon value={n?.icon} fallback={n?.kind === 'pizarra' ? 'board' : 'note'} size={15} />
                 <span className="cu-pestana-t">{titulo}</span>
-                {div.partida && l && <MiniLugar l={l} />}
-                {!l && (
+                {!visible && (
                   <button
                     type="button"
                     className="cu-pestana-div"

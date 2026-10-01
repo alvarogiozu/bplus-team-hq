@@ -1,0 +1,18 @@
+/* Zonas para soltar al arrastrar una pestaña (escritorio de Rockie OS y Cuaderno): como las de siempre,
+   solo opacidad y transform (sin desenfoques ni medidas que se animen: fluido aunque haya apps detrás).
+   La capa recibe el arrastre (tapa las apps y las notas mientras dura); las zonas solo se dibujan. */
+.zs { position: absolute; inset: 0; z-index: 30; }
+.zs-z {
+  position: absolute; display: grid; place-items: center; border-radius: 16px; pointer-events: none;
+  border: 2px dashed var(--zc, var(--brand, var(--accent)));
+  background: color-mix(in srgb, var(--zc, var(--brand, var(--accent))) 14%, transparent);
+  opacity: 0; transition: opacity 0.14s ease-out;
+}
+.zs-z.on { opacity: 1; }
+.zs-z span {
+  padding: 8px 14px; border-radius: 999px; background: var(--card); box-shadow: 0 3px 0 var(--card-edge);
+  font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); white-space: nowrap;
+  transform: translateY(6px); transition: transform 0.15s ease-out;
+}
+.zs-z.on span { transform: none; }
+@media (prefers-reduced-motion: reduce) { .zs-z, .zs-z span { transition: none; } }

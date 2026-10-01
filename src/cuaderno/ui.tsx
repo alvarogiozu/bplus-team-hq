@@ -24,7 +24,7 @@ export type Division = {
   actual: string | null
   /** las pestañas, en su orden */
   pestanas: string[]
-  /** la nota que se está arrastrando (para la vista previa) */
+  /** la nota que se está arrastrando (para iluminar dónde cae) */
   arrastre: string | null
   setFoco: (panel: string) => void
   setMos: (m: Mosaico) => void
@@ -35,8 +35,6 @@ export type Division = {
   abrirAlLado: (id: string, d?: Destino) => void
   /** cambia la nota de un panel (los enlaces dentro de una nota de al lado) */
   cambiarEn: (panel: string, id: string) => void
-  /** lleva una nota de al lado al panel principal (la principal pasa a su lugar) */
-  alFrente: (id: string) => void
   cerrarPanel: (panel: string) => void
   cerrarPestana: (id: string) => void
   /** mueve una pestaña antes de otra (null = al final) */
@@ -57,7 +55,6 @@ export const DivisionCtx = createContext<Division>({
   abrir: nada,
   abrirAlLado: nada,
   cambiarEn: nada,
-  alFrente: nada,
   cerrarPanel: nada,
   cerrarPestana: nada,
   ordenar: nada,

@@ -1,9 +1,10 @@
 // Mosaico de paneles (las apps del escritorio y las notas del Cuaderno): hasta 3 columnas y cada
 // columna entera o partida arriba/abajo = hasta 6 casillas. Arrastrar algo sobre el mosaico elige
-// un destino según dónde está el puntero dentro de cada columna:
-//   borde izquierdo/derecho de una columna → una columna nueva ahí (a la izquierda, al medio o a la derecha)
+// un destino según dónde está el puntero dentro de cada columna (zonas grandes, como siempre):
+//   30% izquierdo/derecho de una columna → una columna nueva ahí (a la izquierda, AL MEDIO o a la derecha)
 //   franja de arriba/abajo → parte esa columna (arriba / abajo de la que ya está)
-//   el centro → en lugar de la que está ahí
+//   el centro → ahí mismo (en lugar de la que está)
+// Las zonas se calculan UNA vez al empezar a arrastrar (zonasDe); al mover solo se ilumina la que toca.
 // Todo es puro (sin React): se prueba en mosaico.test.ts.
 
 export const MAX_COLS = 3
@@ -144,12 +145,86 @@ export function moverHorizontal(m: Mosaico, i: number, fy: number): Mosaico {
 }
 
 const DONDE_COL = (col: number, n: number) => (n <= 1 ? '' : col === 0 ? ' a la izquierda' : col === n - 1 ? ' a la derecha' : ' al medio')
+/** proporción de cada columna que lleva a una columna nueva (como el 30% de los costados de antes) */
+const BANDA = 0.3
+const ARRIBA = 0.25
+const ABAJO = 0.72
+
+/**
+ * La franja de arriba "con freno". Al arrastrar desde las pestañas el puntero entra por arriba: que no
+ * se ilumine "Arriba" solo por pasar. Vale si bajas y vuelves, o si te quedas ahí un momento.
+ * Devuelve (fy = 0–1 del alto, t = ms) → ¿ya cuenta la franja de arriba? (para `destinoEn`)
+ */
+export function frenoArriba(espera = 280) {
+  let bajo = false
+  let desde = -1
+  return (fy: number, t: number) => {
+    if (fy > 0.3) bajo = true
+    if (fy >= ARRIBA) desde = -1
+    else if (desde < 0) desde = t
+    return bajo || (desde >= 0 && t - desde >= espera)
+  }
+}
+
+/** Una clave estable por destino (para saber qué zona iluminar sin volver a dibujar todo). */
+export const claveDe = (d: Destino) => (d.t === 'columna' ? `c${d.en}` : d.t === 'partir' ? `p${d.col}${d.lado}` : `x${d.col}-${d.fila}`)
+
+/**
+ * Cómo se dice un destino ("Al medio", "Abajo a la derecha", "Aquí", "En lugar de Agenda").
+ * `aqui`: la casilla cuyo centro se dice "Aquí". Sin decirlo, la única que se ve (como cambiar de
+ * pestaña); `null` = ninguna (lo que arrastras ya estaba a la vista: tomaría el lugar de la otra).
+ */
+export function textoDe(m: Mosaico, d: Destino, nombre: (id: string) => string = () => 'esa', aqui?: string | null): string {
+  const n = m.cols.length
+  if (!n) return 'Aquí'
+  if (d.t === 'columna') return d.en <= 0 ? 'A la izquierda' : d.en >= n ? 'A la derecha' : 'Al medio'
+  if (d.t === 'partir') return `${d.lado === 'arriba' ? 'Arriba' : 'Abajo'}${DONDE_COL(d.col, n)}`
+  const id = m.cols[d.col]?.ids[d.fila]
+  const propia = aqui === undefined ? (cuenta(m) === 1 ? id : undefined) : aqui
+  return id && id === propia ? 'Aquí' : `En lugar de ${id ? nombre(id) : 'esa'}`
+}
+
+export type Zona = { clave: string; d: Destino; texto: string; luz: Rect }
+const ZONA = '\u0000zona'
+
+/** Todas las zonas donde se puede soltar (sobre el mosaico SIN lo arrastrado) y dónde quedaría en cada una. */
+export function zonasDe(m: Mosaico, W: number, H: number, gap: number, nombre: (id: string) => string = () => 'esa', opts: { aqui?: string | null } = {}): Zona[] {
+  const out: Zona[] = []
+  const add = (d: Destino) => {
+    const luz = rects(poner(m, ZONA, d), W, H, gap).get(ZONA)
+    if (luz) out.push({ clave: claveDe(d), d, texto: textoDe(m, d, nombre, opts.aqui), luz })
+  }
+  const n = m.cols.length
+  if (!n) {
+    add({ t: 'columna', en: 0 })
+    return out
+  }
+  if (n < MAX_COLS) for (let en = 0; en <= n; en++) add({ t: 'columna', en })
+  m.cols.forEach((c, col) => {
+    if (c.ids.length === 1) {
+      add({ t: 'partir', col, lado: 'arriba' })
+      add({ t: 'partir', col, lado: 'abajo' })
+      add({ t: 'cambiar', col, fila: 0 })
+    } else c.ids.forEach((_, fila) => add({ t: 'cambiar', col, fila }))
+  })
+  return out
+}
 
 /**
  * El destino bajo el puntero (px, py en pixeles dentro del área), sobre el mosaico SIN lo que arrastras.
- * `nombre` da el nombre de una casilla (para decir "En lugar de Agenda").
+ * `nombre` da el nombre de una casilla (para decir "En lugar de Agenda"). `arriba: false` = la franja de
+ * arriba todavía no cuenta (el puntero entra por arriba desde las pestañas: ver frenoArriba). `aqui`: como en textoDe.
  */
-export function destinoEn(m: Mosaico, px: number, py: number, W: number, H: number, gap: number, nombre: (id: string) => string = () => 'esa'): { d: Destino; texto: string } {
+export function destinoEn(
+  m: Mosaico,
+  px: number,
+  py: number,
+  W: number,
+  H: number,
+  gap: number,
+  nombre: (id: string) => string = () => 'esa',
+  opts: { arriba?: boolean; aqui?: string | null } = {},
+): { d: Destino; texto: string } {
   const n = m.cols.length
   if (!n) return { d: { t: 'columna', en: 0 }, texto: 'Aquí' }
   const r = rects(m, W, H, gap)
@@ -164,26 +239,20 @@ export function destinoEn(m: Mosaico, px: number, py: number, W: number, H: numb
   }
   const c = m.cols[col]
   const a = r.get(c.ids[0])!
-  const banda = Math.max(36, Math.min(a.w * 0.22, 180))
+  const con = (d: Destino) => ({ d, texto: textoDe(m, d, nombre, opts.aqui) })
+  const banda = Math.max(40, a.w * BANDA)
   if (n < MAX_COLS) {
-    if (px < a.x + banda) {
-      const en = col
-      return { d: { t: 'columna', en }, texto: en === 0 ? 'A la izquierda' : 'Al medio' }
-    }
-    if (px > a.x + a.w - banda) {
-      const en = col + 1
-      return { d: { t: 'columna', en }, texto: en === n ? 'A la derecha' : 'Al medio' }
-    }
+    if (px < a.x + banda) return con({ t: 'columna', en: col })
+    if (px > a.x + a.w - banda) return con({ t: 'columna', en: col + 1 })
   }
   const fy = py / H
   if (c.ids.length === 1) {
-    if (fy < 0.3) return { d: { t: 'partir', col, lado: 'arriba' }, texto: `Arriba${DONDE_COL(col, n)}` }
-    if (fy > 0.7) return { d: { t: 'partir', col, lado: 'abajo' }, texto: `Abajo${DONDE_COL(col, n)}` }
-    return { d: { t: 'cambiar', col, fila: 0 }, texto: `En lugar de ${nombre(c.ids[0])}` }
+    if (fy < ARRIBA && opts.arriba !== false) return con({ t: 'partir', col, lado: 'arriba' })
+    if (fy > ABAJO) return con({ t: 'partir', col, lado: 'abajo' })
+    return con({ t: 'cambiar', col, fila: 0 })
   }
   const arriba = py < r.get(c.ids[0])!.h + gap / 2
-  const fila = arriba ? 0 : 1
-  return { d: { t: 'cambiar', col, fila }, texto: `En lugar de ${nombre(c.ids[fila])}` }
+  return con({ t: 'cambiar', col, fila: arriba ? 0 : 1 })
 }
 
 /** Mover con el teclado (o "a la izquierda/derecha" de un menú): una columna nueva en ese borde. */

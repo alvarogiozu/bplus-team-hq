@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alBorde, cuenta, desdeLista, destinoEn, idsDe, lugarDe, moverHorizontal, moverVertical, poner, quitar, reemplazar, rects, sano, separadores, uno } from './mosaico'
+import { alBorde, claveDe, cuenta, desdeLista, destinoEn, frenoArriba, idsDe, lugarDe, moverHorizontal, moverVertical, poner, quitar, reemplazar, rects, sano, separadores, uno, zonasDe } from './mosaico'
 
 const W = 1200
 const H = 800
@@ -35,11 +35,60 @@ describe('mosaico: hasta 3 columnas × 2 filas', () => {
     expect(destinoEn(m, 5, 100, W, H, GAP).d.t).toBe('cambiar')
   })
 
-  it('el centro de una casilla es "en lugar de" (con nombre)', () => {
+  it('el centro: "Aquí" si hay una sola; "En lugar de …" si hay varias', () => {
     const m = uno('agenda')
-    const d = destinoEn(m, W / 2, H / 2, W, H, GAP, (id) => (id === 'agenda' ? 'Agenda' : id))
-    expect(d).toEqual({ d: { t: 'cambiar', col: 0, fila: 0 }, texto: 'En lugar de Agenda' })
+    const nombre = (id: string) => ({ agenda: 'Agenda', cu: 'Cuaderno' })[id] ?? id
+    const d = destinoEn(m, W / 2, H / 2, W, H, GAP, nombre)
+    expect(d).toEqual({ d: { t: 'cambiar', col: 0, fila: 0 }, texto: 'Aquí' })
     expect(idsDe(poner(m, 'x', d.d))).toEqual(['x'])
+    const dos = { cols: [{ ids: ['agenda'], h: 0.5 }, { ids: ['cu'], h: 0.5 }], ws: [0.5, 0.5] }
+    expect(destinoEn(dos, 300, H / 2, W, H, GAP, nombre).texto).toBe('En lugar de Agenda')
+    // lo que arrastras ya estaba a la vista (Cuaderno al lado de Agenda): quedaría en lugar de Agenda
+    expect(destinoEn(m, W / 2, H / 2, W, H, GAP, nombre, { aqui: null }).texto).toBe('En lugar de Agenda')
+    // la propia (la nota que ya ves en la principal): soltarla ahí mismo es "Aquí"
+    expect(zonasDe(dos, W, H, GAP, nombre, { aqui: 'cu' }).find((z) => z.clave === 'x1-0')!.texto).toBe('Aquí')
+    expect(zonasDe(dos, W, H, GAP, nombre, { aqui: 'cu' }).find((z) => z.clave === 'x0-0')!.texto).toBe('En lugar de Agenda')
+  })
+
+  it('zonas grandes: el 30% de los costados es "a la izquierda/derecha" (como antes)', () => {
+    const m = uno('a')
+    expect(destinoEn(m, W * 0.28, H / 2, W, H, GAP).texto).toBe('A la izquierda')
+    expect(destinoEn(m, W * 0.72, H / 2, W, H, GAP).texto).toBe('A la derecha')
+    expect(destinoEn(m, W * 0.5, H / 2, W, H, GAP).texto).toBe('Aquí')
+    // al entrar desde las pestañas (arriba) no parpadea "Arriba"
+    expect(destinoEn(m, W / 2, 20, W, H, GAP, undefined, { arriba: false }).texto).toBe('Aquí')
+    expect(destinoEn(m, W / 2, 20, W, H, GAP).texto).toBe('Arriba')
+  })
+
+  it('la franja de arriba con freno: no por pasar; sí si bajas y vuelves o si te quedas', () => {
+    const pasar = frenoArriba(280)
+    expect(pasar(0.05, 0)).toBe(false)
+    expect(pasar(0.15, 120)).toBe(false)
+    expect(pasar(0.2, 240)).toBe(false)
+    // se queda en la franja: ya cuenta
+    expect(pasar(0.2, 300)).toBe(true)
+    const volver = frenoArriba(280)
+    expect(volver(0.1, 0)).toBe(false)
+    expect(volver(0.5, 60)).toBe(true)
+    expect(volver(0.1, 90)).toBe(true)
+    // salir de la franja reinicia la espera
+    const salir = frenoArriba(280)
+    expect(salir(0.1, 0)).toBe(false)
+    expect(salir(0.27, 200)).toBe(false)
+    expect(salir(0.1, 300)).toBe(false)
+    expect(salir(0.1, 600)).toBe(true)
+  })
+
+  it('las zonas se calculan una vez, con dónde quedaría cada una', () => {
+    const m = { cols: [{ ids: ['a'], h: 0.5 }, { ids: ['b'], h: 0.5 }], ws: [0.5, 0.5] }
+    const z = zonasDe(m, W, H, GAP, (id) => id.toUpperCase())
+    expect(z.map((x) => x.texto)).toEqual(['A la izquierda', 'Al medio', 'A la derecha', 'Arriba a la izquierda', 'Abajo a la izquierda', 'En lugar de A', 'Arriba a la derecha', 'Abajo a la derecha', 'En lugar de B'])
+    // al medio: la columna del centro de tres iguales
+    expect(z.find((x) => x.texto === 'Al medio')!.luz).toEqual({ x: 403, y: 0, w: 393, h: 800 })
+    // abajo a la derecha: la mitad de abajo de la columna derecha
+    expect(z.find((x) => x.texto === 'Abajo a la derecha')!.luz).toEqual({ x: 605, y: 405, w: 595, h: 395 })
+    // la zona bajo el puntero tiene la misma clave que su destino
+    expect(claveDe(destinoEn(m, W - 200, H - 20, W, H, GAP).d)).toBe(z.find((x) => x.texto === 'Abajo a la derecha')!.clave)
   })
 
   it('mover una que ya está no la duplica (se calcula sin ella)', () => {
