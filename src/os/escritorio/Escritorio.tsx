@@ -16,7 +16,7 @@ import './escritorio.css'
 
 // El escritorio de Rockie OS (PC y tablet horizontal). Arriba, pestañas: el Inicio y las apps abiertas.
 // Cada pestaña es la app COMPLETA en su propia ventana (iframe del mismo sitio), con su barra lateral.
-// Abajo, un dock flotante como el de la Mac. Las ventanas se dividen en mosaico (2 a 4) con la
+// Abajo (o en el lado que elijas), un dock flotante como el de la Mac. Las ventanas se dividen en mosaico (2 a 4) con la
 // animación de Hyprland: la nueva aparece con un pop, las demás se deslizan a su lugar y cambiar de
 // pestaña desliza de lado. Atajos: Ctrl/⌘ K Rockie · Alt 1–5 apps · Alt ← → dividir · Alt ↑ solo
 // esta · Alt ↓ quitar del mosaico. Con el mouse: arrastra una pestaña a un lado de la pantalla.
@@ -24,6 +24,19 @@ import './escritorio.css'
 const APP = Object.fromEntries(APPS.map((a) => [a.id, a])) as Record<AppId, OsApp>
 const ORDEN: AppId[] = APPS.map((a) => a.id)
 const GAP = 10
+/** Dónde vive el dock (lo elige cada quien; se guarda en este dispositivo). */
+type LadoDock = 'abajo' | 'arriba' | 'izq' | 'der'
+const LADOS_DOCK: { id: LadoDock; nombre: string }[] = [
+  { id: 'abajo', nombre: 'Abajo' },
+  { id: 'izq', nombre: 'Izquierda' },
+  { id: 'der', nombre: 'Derecha' },
+  { id: 'arriba', nombre: 'Arriba' },
+]
+const CLAVE_DOCK = 'rockie.dock.lado'
+const ES_MAC = /mac/i.test((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform || '')
+/** Cuánto hay que quedarse en el borde para que el dock se asome. En la Mac, abajo espera un poco: si el Dock
+    de la Mac (escondido) sube primero, el cursor sale de la página y el nuestro ni aparece (no se enciman). */
+const ESPERA_DOCK: Record<LadoDock, number> = { abajo: ES_MAC ? 280 : 0, arriba: 200, izq: 180, der: 180 }
 const GLIDE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
 
@@ -226,6 +239,37 @@ export default function Escritorio() {
   const [zona, setZona] = useState<Donde | null>(null)
   const [redim, setRedim] = useState(false)
   const [asomo, setAsomo] = useState(false)
+  const [ladoDock, setLadoDockState] = useState<LadoDock>(() => {
+    const g = lsGet(CLAVE_DOCK) as LadoDock | null
+    return g && LADOS_DOCK.some((l) => l.id === g) ? g : 'abajo'
+  })
+  const setLadoDock = (l: LadoDock) => {
+    setLadoDockState(l)
+    lsSet(CLAVE_DOCK, l)
+  }
+  const [menuDock, setMenuDock] = useState<{ x: number; y: number } | null>(null)
+  // asomarse con intención: hay que quedarse un momento en el borde (así pasar el mouse por ahí no lo abre)
+  const esperaAsomo = useRef<ReturnType<typeof setTimeout>>()
+  const pedirAsomo = () => {
+    clearTimeout(esperaAsomo.current)
+    const ms = ESPERA_DOCK[ladoDock]
+    if (!ms) return setAsomo(true)
+    esperaAsomo.current = setTimeout(() => setAsomo(true), ms)
+  }
+  const soltarAsomo = () => clearTimeout(esperaAsomo.current)
+  // si el cursor se va de la página (al Dock de la Mac, a la barra de Windows u otra ventana), el nuestro se esconde
+  useEffect(() => {
+    const fuera = (e: MouseEvent) => {
+      if (e.relatedTarget) return
+      clearTimeout(esperaAsomo.current)
+      setAsomo(false)
+    }
+    document.addEventListener('mouseout', fuera)
+    return () => {
+      document.removeEventListener('mouseout', fuera)
+      clearTimeout(esperaAsomo.current)
+    }
+  }, [])
   const look = useMemo(() => rockieLook(), [])
   // con el dedo no hay «alejar el mouse»: el dock que subiste con la manija baja solo
   useEffect(() => {
@@ -544,7 +588,7 @@ export default function Escritorio() {
 
   return (
     <EscritorioCtx.Provider value={api}>
-      <div className={`esc${redim ? ' redim' : ''}${arrastre ? ' arrastrando' : ''}`}>
+      <div className={`esc${redim ? ' redim' : ''}${arrastre ? ' arrastrando' : ''}`} data-dock={ladoDock}>
         <header className="esc-bar">
           <button className="esc-marca" onClick={() => dispatch({ t: 'inicio' })} title="Inicio (Alt 1)">
             <RockieArt size={30} stone={look.stone} equipped={look.equipped} />
@@ -635,6 +679,7 @@ export default function Escritorio() {
                 >
                   <Icon name={theme === 'dark' ? 'sun' : 'moon'} className="sm" /> Tema {theme === 'dark' ? 'claro' : 'oscuro'}
                 </button>
+                <LadosDock lado={ladoDock} elegir={setLadoDock} />
                 <button role="menuitem" onClick={() => signOut()}>
                   <Icon name="logout" className="sm" /> Cerrar sesión
                 </button>
@@ -741,8 +786,17 @@ export default function Escritorio() {
         </main>
 
         {/* el dock: siempre en el Inicio; en las apps se esconde y se asoma al acercarte al borde de abajo */}
-        <div className="esc-dock-zona" onMouseEnter={() => setAsomo(true)} />
-        <nav className={`esc-dock${dockVisible ? ' ver' : ''}`} aria-label="Dock" onMouseEnter={() => setAsomo(true)} onMouseLeave={() => setAsomo(false)}>
+        <div className="esc-dock-zona" onMouseEnter={pedirAsomo} onMouseLeave={soltarAsomo} />
+        <nav
+          className={`esc-dock${dockVisible ? ' ver' : ''}`}
+          aria-label="Dock"
+          onMouseEnter={() => setAsomo(true)}
+          onMouseLeave={() => setAsomo(false)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setMenuDock({ x: e.clientX, y: e.clientY })
+          }}
+        >
           <button className={`esc-dock-app home${s.vista === 'inicio' ? ' on' : ''}`} onClick={() => dispatch({ t: 'inicio' })} aria-label="Inicio">
             <span className="esc-dock-tile">
               <Icon name="home" />
@@ -778,6 +832,28 @@ export default function Escritorio() {
           abrirApp={(id, donde) => abrir(id, undefined, donde)}
           irInicio={() => dispatch({ t: 'inicio' })}
         />
+
+        {menuDock && (
+          <>
+            <div
+              className="esc-menu-capa"
+              onMouseDown={() => setMenuDock(null)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setMenuDock(null)
+              }}
+            />
+            <div className="esc-menu esc-menu--dock" role="menu" style={{ left: Math.min(menuDock.x, innerWidth - 250), top: Math.min(menuDock.y, innerHeight - 120) }}>
+              <LadosDock
+                lado={ladoDock}
+                elegir={(l) => {
+                  setLadoDock(l)
+                  setMenuDock(null)
+                }}
+              />
+            </div>
+          </>
+        )}
 
         {menu && (
           <>
@@ -821,6 +897,34 @@ function LadoBtn({ lado, visible, onClick }: { lado: 'izq' | 'der'; visible: boo
         <rect className="esc-lado-fill" x={lado === 'izq' ? 4.6 : 16.4} y="6.1" width="3" height="11.8" rx="1.2" />
       </svg>
     </button>
+  )
+}
+
+/** Elegir el lado del dock: cuatro miniaturas de pantalla con la barrita pintada donde quedaría. */
+function LadosDock({ lado, elegir }: { lado: LadoDock; elegir: (l: LadoDock) => void }) {
+  const barra: Record<LadoDock, { x: number; y: number; w: number; h: number }> = {
+    abajo: { x: 8, y: 15.6, w: 8, h: 2.2 },
+    arriba: { x: 8, y: 6.2, w: 8, h: 2.2 },
+    izq: { x: 4.6, y: 8, w: 2.2, h: 8 },
+    der: { x: 17.2, y: 8, w: 2.2, h: 8 },
+  }
+  return (
+    <div className="esc-dock-lados">
+      <small>Dock</small>
+      <span role="radiogroup" aria-label="Lado del dock">
+        {LADOS_DOCK.map(({ id, nombre }) => {
+          const b = barra[id]
+          return (
+            <button key={id} role="radio" aria-checked={lado === id} className={lado === id ? 'on' : ''} onClick={() => elegir(id)} title={nombre} aria-label={`Dock ${nombre.toLowerCase()}`}>
+              <svg className="ico" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4.5" width="18" height="15" rx="3" />
+                <rect className="esc-dock-lados-fill" x={b.x} y={b.y} width={b.w} height={b.h} rx="1.1" />
+              </svg>
+            </button>
+          )
+        })}
+      </span>
+    </div>
   )
 }
 
