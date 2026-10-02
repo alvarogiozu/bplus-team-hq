@@ -62,6 +62,12 @@ if (enVentana && typeof window.requestAnimationFrame === 'function') {
   }
   new MutationObserver(aplicar).observe(html, { attributes: true, attributeFilter: ['data-dormida'] })
   aplicar()
+  // una ventana escondida no recibe clics ni rueda: si llegan, se está viendo. Si quedó marcada dormida
+  // por error, despierta sola (si no, sus animaciones y menús quedaban congelados y nada respondía).
+  const despertar = () => {
+    if (html.hasAttribute('data-dormida')) html.removeAttribute('data-dormida')
+  }
+  for (const t of ['pointerdown', 'wheel', 'keydown']) addEventListener(t, despertar, { capture: true, passive: true })
   // las animaciones de CSS (también las de lo que se dibuje mientras duerme) quedan quietas
   const css = document.createElement('style')
   css.textContent = ':root[data-dormida] *, :root[data-dormida] *::before, :root[data-dormida] *::after { animation-play-state: paused !important; }'

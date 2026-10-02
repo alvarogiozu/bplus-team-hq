@@ -4,6 +4,7 @@ import { ZonasSoltar } from '../components/ZonasSoltar'
 import { useMe } from '../features/auth/AuthProvider'
 import { lsGet, lsSet } from '../lib/storage'
 import { cuenta, destinoEn, frenoArriba, idsDe, MAX_COLS, moverHorizontal, moverVertical, poner, quitar, rects, reemplazar, sano, separadores, uno, zonasDe, type Destino, type Mosaico, type Rect } from '../lib/mosaico'
+import { useFinSeguro } from '../lib/finSeguro'
 import { useNotes } from './data'
 import { DivisionCtx, PanelIdCtx, RUTA, TIPO_NOTA, useDivision, type Division } from './ui'
 import { mudarGrupo, panelDeEn, vecina } from './grupos'
@@ -411,15 +412,23 @@ export function AreaDividida({ children, fallback, barra }: { children: ReactNod
       div.setMos(m)
     }
     const fin = () => {
+      finRedim.current = null
       setMoviendo(false)
       el.removeEventListener('pointermove', mover)
       el.removeEventListener('pointerup', fin)
       el.removeEventListener('pointercancel', fin)
+      el.removeEventListener('lostpointercapture', fin)
     }
+    finRedim.current = fin
     el.addEventListener('pointermove', mover)
     el.addEventListener('pointerup', fin)
     el.addEventListener('pointercancel', fin)
+    el.addEventListener('lostpointercapture', fin)
   }
+  // si el aviso de soltar se pierde, las notas no se quedan sin clics (lib/finSeguro)
+  const finRedim = useRef<(() => void) | null>(null)
+  useFinSeguro(Boolean(moviendo), () => finRedim.current?.(), 'puntero')
+  useFinSeguro(Boolean(arrastrada), () => div.setArrastre(null), 'arrastre')
 
   const paneles: [string, Rect | null][] = partida ? [...r] : [[RUTA, null]]
   return (

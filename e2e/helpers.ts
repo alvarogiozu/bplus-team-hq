@@ -26,7 +26,7 @@ export async function login(page: Page, username = 'qa.alvaro', theme: 'light' |
   await page.goto('/login?next=%2Fhoy')
   await page.getByLabel('Usuario').fill(username)
   await page.getByLabel('Contraseña').fill(PASS)
-  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
   await pasarCofre(page)
   await expect(page).toHaveURL(/\/hoy/)
   await expect(page.getByText(/Buen(os|as) (días|tardes|noches)/)).toBeVisible()
@@ -39,7 +39,7 @@ export async function loginAgenda(page: Page, username = 'qa.alvaro', theme: 'li
   await expect(page.getByRole('heading', { name: 'Entra a Rockie' })).toBeVisible()
   await page.getByLabel('Usuario').fill(username)
   await page.getByLabel('Contraseña').fill(PASS)
-  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
   await pasarCofre(page)
   await expect(page).toHaveURL(/\/agenda/)
 }

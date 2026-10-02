@@ -11,7 +11,7 @@ test('contraseña incorrecta da un mensaje humano', async ({ page }) => {
   await page.goto('/login')
   await page.getByLabel('Usuario').fill('qa.alvaro')
   await page.getByLabel('Contraseña').fill('mala-clave-123')
-  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
   await expect(page.getByRole('alert')).toHaveText('Usuario o contraseña incorrectos.')
 })
 

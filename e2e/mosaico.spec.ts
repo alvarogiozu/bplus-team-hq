@@ -119,7 +119,7 @@ test('Escritorio: al medio de verdad, abajo a la derecha, arriba si te quedas y 
   await page.goto('/login')
   await page.getByLabel('Usuario').fill('qa.alvaro')
   await page.getByLabel('Contraseña').fill(PASS)
-  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
   await pasarCofre(page)
   await expect(page).toHaveURL(/\/inicio/)
   const dock = page.getByRole('navigation', { name: 'Dock' })

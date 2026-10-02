@@ -17,6 +17,7 @@ import type { MsgEscritorio } from '../ventana'
 import { Comando } from './Comando'
 import { EscritorioCtx, type EscritorioApi } from './contexto'
 import './escritorio.css'
+import { useFinSeguro } from '../../lib/finSeguro'
 
 // El escritorio de Rockie OS (PC y tablet horizontal). Arriba, pestañas: el Inicio y las apps abiertas.
 // Cada pestaña es la app COMPLETA en su propia ventana (iframe del mismo sitio), con su barra lateral.
@@ -603,6 +604,8 @@ export default function Escritorio() {
     const suave = !redimRef.current && !otroTam && !matchMedia('(prefers-reduced-motion: reduce)').matches
     for (const [id, r] of visibles) {
       const el = ventanas.current.get(id)
+      // volvió a verse mientras se iba: que reciba clics ya
+      if (el && 'saliendo' in el.dataset) delete el.dataset.saliendo
       if (!el || !suave) continue
       const p = prev.get(id)
       if (p) {
@@ -631,7 +634,8 @@ export default function Escritorio() {
         [{ transform: 'none', opacity: 1 }, dir ? { transform: `translateX(${64 * dir}px)`, opacity: 0 } : { transform: 'scale(0.94)', opacity: 0 }],
         { duration: dir ? 260 : 200, easing: GLIDE },
       )
-      anim.onfinish = () => delete el.dataset.saliendo
+      // cancelada o interrumpida también suelta (si no, la ventana quedaba a la vista pero sin clics)
+      anim.onfinish = anim.oncancel = () => delete el.dataset.saliendo
     }
     if (vistaAntes.current !== s.vista && s.vista === 'inicio' && inicio.current && suave) {
       inicio.current.animate([{ transform: 'scale(0.97)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: GLIDE })
@@ -653,14 +657,19 @@ export default function Escritorio() {
       dispatch({ t: 'mos', mos: eje === 'x' ? moverVertical(m, i, (ev.clientX - caja.left) / caja.width) : moverHorizontal(m, i, (ev.clientY - caja.top) / caja.height) })
     }
     const soltar = () => {
+      finRedim.current = null
       redimRef.current = false
       setRedim(false)
       removeEventListener('pointermove', mover)
       removeEventListener('pointerup', soltar)
     }
+    finRedim.current = soltar
     addEventListener('pointermove', mover)
     addEventListener('pointerup', soltar)
   }
+  // si el navegador no avisa que soltaste (fuera de la ventana, Alt+Tab), que las apps no queden sin clics
+  const finRedim = useRef<(() => void) | null>(null)
+  useFinSeguro(Boolean(redim), () => finRedim.current?.(), 'puntero')
 
   // ---------- arrastrar una pestaña (o la barra de una ventana) adonde quieras ----------
   // las zonas se calculan una sola vez al empezar a arrastrar; al mover solo se ilumina la que toca
@@ -691,6 +700,7 @@ export default function Escritorio() {
     enCurso.current = null
     setArrastre(null)
   }
+  useFinSeguro(Boolean(arrastre), terminarArrastre, 'arrastre')
   const colocar = (id: AppId, d: Destino) => {
     if (!marcos.current.has(id)) setSrc((p) => ({ ...p, [id]: p[id] ?? rutas.current[id] ?? APP[id].path }))
     setVivas((v) => (v.has(id) ? v : new Set(v).add(id)))
