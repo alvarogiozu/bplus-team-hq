@@ -1,0 +1,76 @@
+/* ============================================================
+   Planes: la página "Tu plan" y la hoja de "llegaste al límite".
+   Solo tokens (var(--*)): así se ve bien en claro y en oscuro.
+   ============================================================ */
+
+/* ---------- colores de cada plan ---------- */
+.pl-gratis { --pl: var(--ink-muted); --pl-soft: var(--paper-alt); --pl-edge: var(--card-edge); }
+.pl-plus { --pl: var(--amber); --pl-soft: var(--amber-soft); --pl-edge: var(--amber-edge); }
+.pl-pro { --pl: var(--berry); --pl-soft: var(--berry-soft); --pl-edge: var(--berry-edge); }
+.pl-club { --pl: var(--green); --pl-soft: var(--green-soft); --pl-edge: var(--green-edge); }
+
+/* ---------- tu plan ---------- */
+.pl-actual { display: grid; gap: var(--s3); }
+.pl-actual-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
+.pl-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--r-pill);
+  background: var(--pl-soft); color: var(--ink); border: 1.5px solid var(--pl); box-shadow: 0 3px 0 var(--pl-edge);
+  font: 700 var(--t-sm) var(--sans);
+}
+.pl-chip .ico { color: var(--pl); }
+.pl-actual-t { color: var(--ink-soft); font-size: var(--t-sm); }
+.pl-est-ok { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--ink-soft); font-size: var(--t-xs); font-weight: 700; }
+.pl-est-ok .ico { color: var(--green); }
+
+.pl-cupos { display: grid; gap: var(--s3); margin: 0; padding: var(--s3) 0 0; list-style: none; border-top: 1px dashed var(--line); }
+.pl-cupo-t { display: flex; justify-content: space-between; gap: var(--s2); margin-bottom: 6px; font-size: var(--t-xs); color: var(--ink-soft); }
+.pl-cupo-t b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.pl-barra { display: block; height: 8px; border-radius: var(--r-pill); background: var(--paper-alt); overflow: hidden; }
+.pl-barra > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.4s var(--glide); }
+.pl-barra > span.lleno { background: var(--amber); }
+
+/* ---------- las cuatro tarjetas ---------- */
+.pl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s4); }
+.pl-card {
+  position: relative; display: flex; flex-direction: column; gap: var(--s2); padding: var(--s5) var(--s4) var(--s4);
+  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge);
+}
+.pl-card::before { content: ''; position: absolute; inset: 0 0 auto; height: 6px; border-radius: var(--r-xl) var(--r-xl) 0 0; background: var(--pl); }
+.pl-card.es { border-color: var(--pl); box-shadow: 0 4px 0 var(--pl-edge); }
+.pl-card h2 { margin: 0; font: 700 var(--t-xl) var(--serif); color: var(--title); }
+.pl-tuyo {
+  position: absolute; top: 14px; right: 14px; padding: 2px 10px; border-radius: var(--r-pill);
+  background: var(--pl-soft); color: var(--ink); font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
+}
+.pl-lema { margin: 0; color: var(--ink-soft); font-size: var(--t-xs); }
+.pl-precio { display: flex; flex-direction: column; margin: var(--s1) 0; }
+.pl-precio b { font: 700 var(--t-lg) var(--sans); color: var(--ink); }
+.pl-precio small { color: var(--ink-muted); font-size: var(--t-xs); font-weight: 700; }
+.pl-card ul { display: grid; align-content: start; gap: 8px; margin: 0 0 var(--s2); padding: 0; list-style: none; flex: 1; }
+.pl-card li { display: flex; gap: 8px; align-items: flex-start; font-size: var(--t-xs); color: var(--ink); line-height: 1.35; }
+.pl-card li .ico { flex: none; margin-top: 1px; color: var(--pl); }
+.pl-card li.pronto { color: var(--ink-muted); }
+.pl-card li.pronto .ico { color: var(--ink-faint); }
+.pl-card li em { font-style: normal; font-weight: 700; color: var(--ink-faint); }
+
+/* ---------- activar ---------- */
+.pl-equipo { margin-top: var(--s3); }
+.pl-est-msg { margin: var(--s3) 0 0; padding: var(--s2) var(--s3); border-radius: var(--r-md); background: var(--amber-soft); color: var(--ink); font-size: var(--t-xs); }
+
+.pl-dudas details { padding: var(--s2) 0; border-top: 1px dashed var(--line); }
+.pl-dudas details:first-of-type { border-top: 0; }
+.pl-dudas summary { cursor: pointer; font-weight: 700; color: var(--ink); font-size: var(--t-sm); min-height: 32px; display: flex; align-items: center; }
+.pl-dudas details p { margin: 4px 0 var(--s2); color: var(--ink-soft); font-size: var(--t-xs); }
+
+/* ---------- la hoja de "llegaste al límite" ---------- */
+.pl-lim { display: grid; gap: var(--s3); }
+.pl-lim p { margin: 0; color: var(--ink-soft); }
+.pl-lim-mejora {
+  display: flex; align-items: center; gap: 8px; padding: var(--s3); border-radius: var(--r-md);
+  background: var(--amber-soft); color: var(--ink) !important; font-weight: 700; box-shadow: 0 3px 0 var(--amber-edge);
+}
+.pl-lim-mejora .ico { flex: none; color: var(--amber-ink); }
+.pl-lim-pie { display: flex; justify-content: flex-end; gap: var(--s2); width: 100%; }
+
+/* el aviso de Plus dentro de otra pantalla (p. ej. Cuaderno → Ajustes → Claude) */
+.cu-plan-lock { display: grid; gap: var(--s3); justify-items: start; margin: var(--s3) 0; }

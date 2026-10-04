@@ -276,7 +276,7 @@ export default function RockieVoz({ open, onClose, pedido = '', modo = 'ver' }) 
             estados[i] = 'creado'
             ids[i] = h.id
             hecho[i] = true
-          }
+          } else estados[i] = 'lleno'
         } else if (c.tipo === 'meta') {
           const m = storeRef.current.createMeta({ nombre: c.nombre, plazo: null })
           if (m?.id) {
@@ -459,7 +459,7 @@ export default function RockieVoz({ open, onClose, pedido = '', modo = 'ver' }) 
         if (storeRef.current.validateHabit(c.habito.id, 'check')) ponerEstado(tr.id, i, 'hecho')
       } else if (c.tipo === 'habito') {
         const h = storeRef.current.createHabit({ name: c.nombre, time: c.hora || undefined })
-        if (h?.id) ponerEstado(tr.id, i, 'creado', h.id)
+        ponerEstado(tr.id, i, h?.id ? 'creado' : 'lleno', h?.id)
       } else if (c.tipo === 'meta') {
         const m = storeRef.current.createMeta({ nombre: c.nombre, plazo: null })
         ponerEstado(tr.id, i, m?.id ? 'creado' : 'lleno', m?.id)
@@ -747,7 +747,7 @@ function Tarjeta({ c, estado, auto = false, animado, on, llevar }) {
       color: 'var(--coral)',
       icono: 'ti-plus',
       titulo: c.nombre,
-      sub: estado === 'borrado' ? 'Lo quité' : `Hábito nuevo · todos los días${c.hora ? ` a las ${c.hora}` : ''}`,
+      sub: estado === 'lleno' ? 'Llegaste al máximo de hábitos de tu plan' : estado === 'borrado' ? 'Lo quité' : `Hábito nuevo · todos los días${c.hora ? ` a las ${c.hora}` : ''}`,
       ok: estado === 'creado',
       app: 'Hábitos',
       acts: estado === 'creado' ? deshacer : btn('rehacer', 'Crear hábito', { solid: true, icono: 'ti-plus' }),

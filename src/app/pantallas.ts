@@ -20,6 +20,8 @@ export const pantallas = {
   ajustes: () => import('../features/settings/SettingsPage'),
   /** tu Perfil y tus Ajustes: globales, no de una app */
   cuenta: () => import('../features/cuenta/CuentaPages'),
+  /** tu plan (Gratis, Plus, Pro, Club) */
+  planes: () => import('../features/planes/PlanesPage'),
   // el Equipo en el celular: mismas rutas y mismos datos, composición propia
   hoyMovil: () => import('../features/movil/HoyMovil'),
   tareasMovil: () => import('../features/movil/TareasMovil'),

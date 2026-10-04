@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useStore } from '../data/mockStore.jsx'
+import { cabeEnPlan } from '../lib/planHq.js'
+import { abrirLimite } from '../../../src/lib/limites'
 import CenterModal from './CenterModal.jsx'
 import TimePickerField from './TimePickerField.jsx'
 import { fmtTime, parseTime } from './ClockDial.jsx'
@@ -25,8 +27,20 @@ const DEFAULT_MINS = 8 * 60
 const DEFAULT_DAYS = [0, 0, 0, 0, 0, 0, 0]  // todos apagados: el usuario elige dia a dia
 
 export default function CreateHabitSheet({ open, onClose, onCreate, editHabit, prefill = null, withMeta = true }) {
-  const { metas, areas, createMeta } = useStore()
+  const { metas, areas, createMeta, allHabits } = useStore()
   const isEdit = !!editHabit
+  // tu plan: si ya no cabe otro hábito activo, se avisa al abrir (no después de llenar todo el formulario).
+  // Antes de pintar, para que la hoja ni se asome.
+  useLayoutEffect(() => {
+    if (!open || isEdit) return
+    const activos = (allHabits || []).filter(h => !h.paused).length
+    if (!cabeEnPlan('habitos_activos', activos)) {
+      onClose()
+      abrirLimite('habitos_activos')
+    }
+    // solo al abrirse
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isEdit])
   // prefill: sembrar un habito NUEVO con datos de una sugerencia (nombre/tipo/
   // hora/dias) para que el usuario los CONFIRME/ajuste antes de crear. Solo
   // aplica al crear (no en edicion, donde manda editHabit).

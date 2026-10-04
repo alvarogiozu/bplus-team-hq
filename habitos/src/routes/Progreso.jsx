@@ -18,6 +18,7 @@ import MovilHeader from '../components/MovilHeader.jsx'
 import { HudPills } from '../components/HudPill.jsx'
 import './Progreso.css'
 import './Amigos.css'
+import { limitePlan, usePlanHq } from '../lib/planHq.js'
 
 // ============================================================================
 // Pantalla Progreso: aqui se calculan las series (semana/mes/todo + por habito,
@@ -43,6 +44,10 @@ export default function Progreso() {
   const wide = useDesktop()
   const soloMetas = prefs.vidaMode === 'metas'
   const [periodo, setPeriodo] = useState('mes')
+  // tu plan: sin saberlo (o con Plus/Pro) se ve todo; con Gratis, los últimos ~30 días
+  usePlanHq()
+  const limHist = limitePlan('estadisticas_dias')
+  const historialCompleto = limHist === undefined || limHist === null
   const [dayPick, setDayPick] = useState(null)
   const [habitPick, setHabitPick] = useState(null)
   const [metaPick, setMetaPick] = useState(null)
@@ -187,6 +192,7 @@ export default function Progreso() {
         mes={mes}
         semana={semana}
         todo={todo}
+        historialCompleto={historialCompleto}
         porHabito={porHabito}
         equilibrio={equilibrio}
         metas={metas}

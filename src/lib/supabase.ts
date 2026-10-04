@@ -3,6 +3,7 @@ import type { Database } from './database.types'
 import { env } from './env'
 import { Llavero } from './cofre/llavero'
 import { crearFetchCifrado, envolverRealtime } from './cofre/fetchCifrado'
+import { abrirLimite, claveDeLimite } from './limites'
 
 const KEEP_KEY = 'hq.keep-session'
 
@@ -54,7 +55,13 @@ llavero = cofre
 
 /** Mensaje humano a partir de un error de Supabase/Postgres. */
 export function humanError(e: unknown): string {
-  const msg = e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message) : ''
+  // un límite del plan no es un error: se abre la hoja de planes (que lo explica) y no hace falta otro aviso
+  const limite = claveDeLimite(e)
+  if (limite) {
+    abrirLimite(limite)
+    return ''
+  }
+  const msg =e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message) : ''
   if (!msg) return 'Algo salió mal. Inténtalo de nuevo.'
   if (/Failed to fetch|NetworkError|network/i.test(msg)) return 'Sin conexión. Revisa tu internet.'
   if (/Invalid login credentials/i.test(msg)) return 'Usuario o contraseña incorrectos.'

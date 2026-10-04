@@ -34,6 +34,8 @@ export function toast(
 }
 
 export function toastError(msg: string) {
+  // vacío = ya se avisó de otra forma (p. ej. la hoja de un límite del plan, ver humanError)
+  if (!msg) return 0
   return toast(msg, { kind: 'err', ms: 5000 })
 }
 

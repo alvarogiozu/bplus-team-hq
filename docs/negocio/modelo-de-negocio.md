@@ -1,6 +1,6 @@
 # Rockie — Modelo de negocio, planes y precios
 
-*Versión 1 · 4 de octubre de 2026 · Documento interno del equipo*
+*Versión 1.1 · 4 de octubre de 2026 · Documento interno del equipo · los planes ya están construidos (ver sección 12)*
 
 Este documento junta todo lo que decidimos sobre competencia, mercado, precios, planes por app, costos de IA y márgenes. Es la fuente de verdad para construir el sistema de planes en rockie.plus.
 
@@ -151,7 +151,7 @@ Así el gratis tiene a Rockie con voz de verdad, y el de pago tiene a un Rockie 
 | Racha y Rockie que evoluciona | ✅ | ✅ | ✅ |
 | Amigos, unirse a grupos y retos, chat, feed | ✅ | ✅ | ✅ |
 | Crear retos | 1 activo | Ilimitados | Ilimitados |
-| Metas con mapa | **3** | Ilimitadas | Ilimitadas |
+| Metas con mapa | **3** | 7 (el mapa completo) | 7 (el mapa completo) |
 | Estadísticas | Últimos 30 días | Todo el historial | Todo el historial |
 | "Rockie analiza tu mes" (IA) | — | Mensual | Semanal |
 | Protector de racha | 1 al mes | 2 al mes | 4 al mes |
@@ -179,9 +179,9 @@ Así el gratis tiene a Rockie con voz de verdad, y el de pago tiene a un Rockie 
 |---|---|---|---|
 | Día, semana, mes, eventos, hábitos a su hora | ✅ Completa | ✅ | ✅ |
 | Calendarios propios | ✅ Ilimitados | ✅ | ✅ |
-| Google Calendar | 1 cuenta | Varias | Varias |
+| Google Calendar | 1 cuenta | 1 cuenta (varias: más adelante) | 1 cuenta (varias: más adelante) |
 | Tu disponibilidad | ✅ | ✅ | ✅ |
-| Buscar hueco con otras personas | 5 al mes | Ilimitado | Ilimitado |
+| Agendar en un hueco en común (ver los huecos es libre) | 5 al mes | Ilimitado | Ilimitado |
 | Hablarle a Rockie en la Agenda | Usa el cupo de Rockie | ✅ | ✅ |
 | **Rockie te arma la semana solo** | — | — | ✅ |
 
@@ -271,6 +271,23 @@ No cobra de la ganancia mensual: compra un porcentaje de la empresa y gana cuand
 5. **Medir el costo real de IA por usuario** las primeras 2–3 semanas y ajustar cupos.
 
 ---
+
+## 12. Estado de la construcción (4 oct 2026)
+
+**Construido y en rockie.plus (fases 1 y 2):**
+- Página **Tu plan** (`/planes`): tu plan, lo que llevas usado, los cuatro planes, activar con código y precio de estudiante. Se abre desde el menú de tu cuenta, desde Ajustes (Rockie OS y Hábitos) y desde cada aviso de límite.
+- **Hoja de «llegaste al límite»**: explica qué pasó, qué sigue igual y qué trae Plus. Sale al tocar la acción, no después de llenar un formulario.
+- **Los límites los hace cumplir la base de datos** (no se saltan desde la consola): pizarras por día, páginas compartidas, equipos creados, personas por equipo y conectar tu IA. Los cupos del mes (huecos en común) se cuentan en el servidor.
+- **Hábitos** lee el plan de tu cuenta de Rockie: 5 hábitos activos, metas, 1 reto creado en marcha y el historial mes a mes (en PC) para Plus.
+- **Activar con código** (precio fundador, pago por Yape mientras no hay Culqi): `node scripts/codigos.mjs crear plus` (el archivo explica las demás opciones). Los códigos Club los canjea quien creó el equipo.
+- **Estudiantes:** se verifican con el correo de su universidad (catálogo de dominios en la base). Solo se guarda que es estudiante y hasta cuándo.
+
+**Pendiente:**
+- **Fase 3, cupos de IA en el servidor:** mensajes con Rockie, preguntar a tus notas, Aprender, dictado y el nivel de IA por plan (ligera, media, Pro). Hoy la IA no tiene cupo por plan.
+- **Fase 4, cobro con Culqi** (Yape y tarjeta): falta registrar el RUC en Culqi y sus llaves.
+- **Activar la facturación de Gemini** (sección 10, punto 1): sin eso, la promesa de privacidad no se cumple del todo.
+- Lo que la página de planes marca como «muy pronto»: Rockie más listo, IA Pro, «Rockie te arma la semana», y roles, asistencia, panel de cumplimiento y traspaso de directiva del plan Club. «Rockie analiza tu mes» y el protector de racha tampoco existen todavía (no se muestran en la página).
+- Almacenamiento por plan (500 MB / 5 GB / 20 GB): todavía no se mide.
 
 ## Fuentes
 

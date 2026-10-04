@@ -87,6 +87,7 @@ test('dos personas escriben a la vez en una nota compartida', async ({ page, bro
   await page.getByRole('button', { name: 'Sí, que sea solo mía' }).click()
   await expect(page.getByText('Dejaste de compartirla')).toBeVisible()
   await pageB.reload()
-  await expect(pageB.getByText('Esta nota ya no está compartida')).toBeVisible()
+  // el título de la pantalla (a veces también llega el aviso «…ya no está compartida contigo» de un guardado tardío)
+  await expect(pageB.getByRole('heading', { name: 'Esta nota ya no está compartida' })).toBeVisible()
   await ctxB.close()
 })

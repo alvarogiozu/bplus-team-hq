@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { useStore } from '../data/mockStore.jsx'
+import { cabeEnPlan } from '../lib/planHq.js'
+import { abrirLimite } from '../../../src/lib/limites'
 import { typeOf } from '../data/habitTypes.js'
 import Segmented from './Segmented.jsx'
 import HabitPicker from './HabitPicker.jsx'
@@ -27,7 +29,16 @@ const VIS_OPTS = [
 ]
 
 export default function CrearRetoSheet({ onClose, flash, grupoInicial = null }) {
-  const { createReto, allHabits, groups, inviteFriends } = useStore()
+  const { createReto, allHabits, groups, inviteFriends, retos } = useStore()
+  // tu plan: si ya tienes en marcha los retos que creaste y tu plan permite, se avisa al abrir (no al final)
+  useLayoutEffect(() => {
+    const mios = (retos?.active ?? []).filter(r => r.mine).length
+    if (cabeEnPlan('retos_activos', mios)) return
+    onClose()
+    abrirLimite('retos_activos')
+    // solo al abrirse
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [tipo, setTipo] = useState('c')
   const [habit, setHabit] = useState(null)
   const [dur, setDur] = useState(7)
@@ -61,6 +72,7 @@ export default function CrearRetoSheet({ onClose, flash, grupoInicial = null }) 
         invitados: invited,
       })
       onClose()
+      if (res?.limite) return  // tu plan no deja otro reto: la hoja de planes ya lo explica
       const n = res?.invitedCount ?? invited.size
       const dondeVive = vis !== 'publico' && grupo ? `Ya corre en ${grupo}` : 'Miralo en Tus retos'
       if (n > 0) flash(`¡Reto "${nombre.trim()}" creado! ⚡ ${n} ${n === 1 ? 'amigo dentro' : 'amigos dentro'}. ${dondeVive}`)

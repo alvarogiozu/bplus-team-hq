@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useAnimationControls } from 'framer-motion'
 import { useStore } from '../data/mockStore.jsx'
+import { cabeEnPlan, limitePlan, usePlanHq } from '../lib/planHq.js'
+import { abrirLimite } from '../../../src/lib/limites'
 import { typeOf, edgeOf } from '../data/habitTypes.js'
 import { META_COLORS, META_DEFAULT_ICON, MAX_METAS, sugerirHabitos } from '../data/mock/metas.js'
 import { AREA_LIBRE, inferirArea, areaOf } from '../data/areas.js'
@@ -25,11 +27,22 @@ import PlazoPicker from './PlazoPicker.jsx'
 // initialAreaId = area preelegida (desde la rueda vacia). onClose, flash.
 export default function CrearMetaFlow({ meta = null, preselect = [], initialAreaId, onClose, flash }) {
   const { allHabits, metas, areas, createMeta, updateMeta, deleteMeta, createHabit, metasDeHabito, prefs } = useStore()
+  // cuántas metas deja tu plan (Gratis: 3; Plus y Pro: el mapa completo)
+  usePlanHq()
+  const maxMetas = Math.min(MAX_METAS, limitePlan('metas') ?? MAX_METAS)
   // Modo 'solo metas': la pregunta de area no existe (el area se sigue
   // infiriendo del nombre por debajo — si un dia vuelve al modo areas, sus
   // metas ya la traen puesta).
   const soloMetas = prefs.vidaMode === 'metas'
   const editando = meta !== null
+  // tu plan: si ya no cabe otra meta, se avisa al abrir (no después de armarla). Antes de pintar.
+  useLayoutEffect(() => {
+    if (editando || cabeEnPlan('metas', metas.length)) return
+    onClose()
+    abrirLimite('metas')
+    // solo al abrirse
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const colorDefault = META_COLORS[metas.length % META_COLORS.length]
   const [icon, setIcon] = useState(meta?.icon || META_DEFAULT_ICON)
   const [color, setColor] = useState(meta?.color || colorDefault)
@@ -102,7 +115,7 @@ export default function CrearMetaFlow({ meta = null, preselect = [], initialArea
     }
     const creada = createMeta({ nombre: nombre.trim(), icon, color, plazo, habitIds: [...sel], areaId })
     if (!creada) {
-      flash(`Ya tienes ${MAX_METAS} metas: pocas y profundas 🙂 Cierra una para abrir otra`)
+      if (metas.length >= MAX_METAS) flash(`Ya tienes ${MAX_METAS} metas: pocas y profundas 🙂 Cierra una para abrir otra`)
       return
     }
     onClose()
@@ -314,7 +327,7 @@ export default function CrearMetaFlow({ meta = null, preselect = [], initialArea
 
         {!editando && metas.length > 0 && (
           <div className="q" style={{ textAlign: 'center', fontSize: 'var(--text-2xs)', color: 'var(--ink-muted)' }}>
-            {metas.length}/{MAX_METAS} metas · pocas y profundas
+            {metas.length}/{maxMetas} metas · pocas y profundas
           </div>
         )}
       </div>
@@ -329,6 +342,7 @@ export default function CrearMetaFlow({ meta = null, preselect = [], initialArea
         onCreate={(payload) => {
           const { metaIds, nuevaMeta, ...data } = payload  // aqui la meta es ESTA: fuera flags
           const h = createHabit(data)
+          if (!h) return  // tu plan no deja otro hábito activo: la hoja de planes lo explica
           setSel(prev => new Set(prev).add(h.id))
           flash(`"${h.name}" creado y enlazado ✨`)
         }}

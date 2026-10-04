@@ -14,6 +14,8 @@ import { claveMes } from './fechas.js'
 import { haceISO } from './habitHistory.js'
 import { supabase } from './supabase.js'
 import { sincronizarSesionHq, cerrarSesionHq, sincronizarDesdeHq, iniciarSesionCredenciales } from '../lib/hqChat.js'
+import { cabeEnPlan } from '../lib/planHq.js'
+import { abrirLimite } from '../../../src/lib/limites'
 import { prepararFoto } from './photos.js'
 import { typeOf } from './habitTypes.js'
 import { colorForUser, esUuid } from './chat.js'
@@ -376,6 +378,8 @@ export function StoreProvider({ children }) {
   useEffect(() => { gcalOnRef.current = gcalOn }, [gcalOn])
   useEffect(() => { metasRef.current = metas }, [metas])
   useEffect(() => { allHabitsRef.current = allHabits }, [allHabits])
+  const retosRef = useRef(null)            // retos actuales (tu plan: cuántos creaste y siguen en marcha)
+  useEffect(() => { retosRef.current = retos }, [retos])
 
   // Puente con la edge function. Fire-and-forget: el calendario es un ESPEJO;
   // si Google falla, la app no se entera mas alla del warn (nunca bloquea el loop).
@@ -724,6 +728,7 @@ export function StoreProvider({ children }) {
           // Chat solo por grupo (no hay canal por reto)
           channel: c.group_id ? { groupId: c.group_id } : null,
           memberIds, canInvite,
+          mine: c.created_by === uid,
         }
         if (c.kind === 'commitment') {
           return {
@@ -1569,6 +1574,11 @@ export function StoreProvider({ children }) {
   // TODAS. Maximo MAX_METAS activas.
   // (Definidas ANTES de validateHabit/submitPhotoProof, que usan avanzarMetas.)
   const createMeta = useCallback(({ nombre, icon, color, plazo, habitIds, areaId }) => {
+    // tu plan: Gratis, 3 metas; Plus y Pro, el mapa completo (MAX_METAS)
+    if (!cabeEnPlan('metas', metas.length)) {
+      abrirLimite('metas')
+      return null
+    }
     if (metas.length >= MAX_METAS) return null
     const id = live ? newId() : `m${Date.now()}`
     const links = [...(habitIds || [])]
@@ -2077,11 +2087,17 @@ export function StoreProvider({ children }) {
   const createReto = useCallback(async ({
     tipo, nombre, dur, vis, habito = null, grupo = null, invitados = null,
   }) => {
+    // tu plan: Gratis, 1 reto creado por ti en marcha (unirte a otros no cuenta)
+    const mios = (retosRef.current?.active ?? []).filter(r => r.mine).length
+    if (!cabeEnPlan('retos_activos', mios)) {
+      abrirLimite('retos_activos')
+      return { limite: true, invitedCount: 0 }
+    }
     const compartido = tipo === 'c'
     const donde = vis === 'publico' ? 'Publico' : grupo ? `grupo ${grupo}` : 'Tus amigos'
     const invitedIds = [...(invitados || [])].filter(id => esUuid(id))
     const pool = liveFriends ?? []
-    const base = { id: `r${Date.now()}`, name: nombre, ends: `Termina en ${dur} dias`, group: grupo, habitId: habito?.id || null }
+    const base = { id: `r${Date.now()}`, name: nombre, ends: `Termina en ${dur} dias`, group: grupo, habitId: habito?.id || null, mine: true }
     const reto = compartido ? {
       ...base, kind: 'shared',
       tipo: 'COMPARTIDO', tipoColor: 'var(--olive)', tipoBg: 'var(--olive-soft)',
@@ -2361,6 +2377,12 @@ export function StoreProvider({ children }) {
   }, [live, gcal])
 
   const createHabit = useCallback((payload) => {
+    // tu plan: Gratis lleva 5 hábitos activos a la vez (los pausados no cuentan). null = no se creó
+    const activos = allHabitsRef.current.filter(h => !h.paused).length
+    if (!cabeEnPlan('habitos_activos', activos)) {
+      abrirLimite('habitos_activos')
+      return null
+    }
     const id = newId()
     const days = payload.days ?? [1, 1, 1, 1, 1, 1, 1]
     const habit = {
@@ -2378,6 +2400,8 @@ export function StoreProvider({ children }) {
       streak: 0,
     }
     setAllHabits(prev => [...prev, habit])
+    // al tiro (no al siguiente render): si se crean varios seguidos (la voz de Rockie), el límite cuenta bien
+    allHabitsRef.current = [...allHabitsRef.current, habit]
     const wd = weekdayIdx()
     if (habit.days[wd] === 1) {
       setToday(prev => [...prev, { ...habit, status: 'scheduled', done: false, note: '' }]
@@ -2430,6 +2454,11 @@ export function StoreProvider({ children }) {
 
   // Reanudar un habito pausado: vuelve al catalogo activo y, si toca hoy, a `today`.
   const resumeHabit = useCallback((id) => {
+    const activos = allHabitsRef.current.filter(h => !h.paused).length
+    if (!cabeEnPlan('habitos_activos', activos)) {
+      abrirLimite('habitos_activos')
+      return false
+    }
     setAllHabits(prev => {
       const next = prev.map(h => (h.id === id ? { ...h, paused: false } : h))
       const h = next.find(x => x.id === id)

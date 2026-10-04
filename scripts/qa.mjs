@@ -64,6 +64,13 @@ async function ensureUser(u) {
 async function seed() {
   for (const u of [...USERS, INTRUDER]) await ensureUser(u)
   for (const u of [...USERS, INTRUDER]) await cofreQa(u.username)
+  // planes: los qa.* principales son Pro (las pruebas crean varios equipos); el intruso queda en Gratis
+  // y con él se prueban los límites (e2e/planes.spec.ts)
+  const { data: perfiles } = await admin.from('profiles').select('id').in('username', USERS.map((u) => u.username))
+  const { error: pe } = await admin
+    .from('planes_suscripciones')
+    .upsert((perfiles ?? []).map((p) => ({ user_id: p.id, plan: 'pro', tarifa: 'normal', origen: 'manual' })))
+  if (pe) throw pe
   const owner = await as(USERS[0].username)
   const { data: sid, error } = await owner.rpc('create_space', { p_name: 'B+' })
   if (error) throw error

@@ -5,6 +5,7 @@ import { useAuth } from '../features/auth/AuthProvider'
 import { ChangePasswordPage, InviteRoute, LoginPage, RegisterPage } from '../features/auth/AuthPages'
 import { SpaceProvider, WelcomePage } from '../features/spaces/SpaceProvider'
 import CofrePage, { CofreGate } from '../features/cofre/Cofre'
+import { LimiteHost } from '../features/planes/Limite'
 import { useIsMobile, useMedia } from '../lib/useMedia'
 import { enVentana, ESCRITORIO_Q, sinEscritorio } from '../os/ventana'
 import { adelantarPantallaInicial, pantallas } from './pantallas'
@@ -29,6 +30,7 @@ const EquipoMovil = lazy(pantallas.equipoMovil)
 const EquiposPage = lazy(pantallas.equipos)
 const PerfilPage = lazy(() => pantallas.cuenta().then((m) => ({ default: m.PerfilPage })))
 const AjustesPage = lazy(() => pantallas.cuenta().then((m) => ({ default: m.AjustesPage })))
+const PlanesPage = lazy(pantallas.planes)
 
 const Escritorio = lazy(pantallas.escritorio)
 
@@ -111,6 +113,8 @@ function SpaceShell() {
 export function App() {
   return (
     <BrowserRouter>
+      {/* la hoja de «llegaste al límite de tu plan» (la abre abrirLimite desde cualquier pantalla) */}
+      <LimiteHost />
       <Routes>
         <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
         <Route path="/registro" element={<PublicOnly><RegisterPage /></PublicOnly>} />
@@ -134,6 +138,7 @@ export function App() {
           {/* tu cuenta: la misma desde cualquier app */}
           <Route path="/perfil" element={<Suspense fallback={<Splash />}><PerfilPage /></Suspense>} />
           <Route path="/ajustes" element={<Suspense fallback={<Splash />}><AjustesPage /></Suspense>} />
+          <Route path="/planes" element={<Suspense fallback={<Splash />}><PlanesPage /></Suspense>} />
           <Route index element={<Navigate to="/inicio" replace />} />
           <Route element={<EscritorioGate />}>
             <Route

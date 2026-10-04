@@ -817,6 +817,7 @@ export default function Hoy() {
   const onCreated = (payload) => {
     const { metaIds = [], nuevaMeta = false, ...data } = payload
     const nuevo = createHabit(data)
+    if (!nuevo) return  // tu plan no deja otro hábito activo: la hoja de planes lo explica
     playSfx('surprise')
     metaIds.forEach(mid => linkHabitAMeta(mid, nuevo.id))
     if (nuevaMeta) {

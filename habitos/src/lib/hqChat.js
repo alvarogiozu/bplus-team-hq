@@ -186,3 +186,17 @@ export async function contarleAlChat(turnos) {
     /* el chat compartido es un extra */
   }
 }
+
+/** Tu plan de Rockie (Gratis, Plus, Pro) con sus límites: vive en la cuenta de Rockie OS. null si no hay sesión o falla. */
+export async function leerPlanHq() {
+  try {
+    const c = hq()
+    if (!c) return null
+    const { data: s } = await c.auth.getSession()
+    if (!s?.session) return null
+    const { data, error } = await c.rpc('mi_plan')
+    return error ? null : data
+  } catch {
+    return null
+  }
+}

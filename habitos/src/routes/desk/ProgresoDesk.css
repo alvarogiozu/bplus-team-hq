@@ -428,3 +428,11 @@
 }
 .pg2-m .pg2-htxt b { font-size: var(--text-base); }
 .pg2-m .pg2-htxt small { font-size: var(--text-2xs); }
+/* tu plan: el mes a mes de todo tu historial es de Plus (abre la hoja de planes) */
+.pg2-plus {
+  margin-left: var(--space-2); padding: 2px 10px; border-radius: var(--r-pill); border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--amber-soft); color: var(--ink); font-weight: 700; font-size: var(--text-2xs);
+  box-shadow: 0 2px 0 var(--amber-edge);
+}
+.pg2-plus:active { transform: translateY(2px); box-shadow: none; }

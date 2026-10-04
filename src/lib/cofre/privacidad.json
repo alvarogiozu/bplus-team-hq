@@ -510,6 +510,69 @@
         "huella"
       ],
       "publico": {}
+    },
+    "planes_limites": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "plan": "catálogo fijo de planes (no es de nadie)",
+        "clave": "qué límite es (catálogo fijo)"
+      }
+    },
+    "planes_suscripciones": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "plan": "qué plan tienes: la base lo necesita para hacer cumplir los límites",
+        "tarifa": "precio que pagas (normal, estudiante, fundador)",
+        "origen": "cómo se activó (código, pago)"
+      }
+    },
+    "planes_clubes": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "origen": "cómo se activó el plan Club del equipo"
+      }
+    },
+    "planes_universidades": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "dominio": "catálogo de dominios de universidades (no es de nadie)",
+        "nombre": "nombre de la universidad del catálogo"
+      }
+    },
+    "planes_codigos": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "codigo": "código de activación: el servidor lo busca al canjear",
+        "plan": "plan que activa",
+        "tarifa": "precio del código",
+        "nota": "nota interna del equipo de Rockie sobre el lote (no es de usuarios)"
+      }
+    },
+    "planes_canjes": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "codigo": "qué código usaste (para no usarlo dos veces)"
+      }
+    },
+    "planes_uso": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "clave": "qué cupo se contó (p. ej. buscar_hueco_mes): solo la cantidad, nunca el contenido"
+      }
     }
   },
   "archivos": {

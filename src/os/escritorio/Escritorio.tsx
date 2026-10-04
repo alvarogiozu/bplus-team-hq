@@ -450,10 +450,12 @@ export default function Escritorio() {
       if (e.origin !== location.origin || !e.data || typeof e.data !== 'object' || !('rockieOS' in e.data)) return
       if (e.data.rockieOS === 'abrir') abrirPath(e.data.path)
       if (e.data.rockieOS === 'comando') setCmd({ escuchar: false })
+      // solo páginas de la cuenta (nada de direcciones de afuera)
+      if (e.data.rockieOS === 'ir' && /^\/(planes|ajustes|perfil|cofre)(\?|$)/.test(e.data.path)) nav(e.data.path)
     }
     addEventListener('message', on)
     return () => removeEventListener('message', on)
-  }, [abrirPath])
+  }, [abrirPath, nav])
 
   // cuándo llegó cada ventana a su ruta y cuántas veces rebotó hace poco (para cortar ciclos)
   const llegada = useRef(new Map<AppId, number>())
@@ -808,6 +810,9 @@ export default function Escritorio() {
                 </button>
                 <button role="menuitem" onClick={() => nav('/ajustes')}>
                   <Icon name="settings" className="sm" /> Ajustes
+                </button>
+                <button role="menuitem" onClick={() => nav('/planes')}>
+                  <Icon name="sparkle" className="sm" /> Tu plan
                 </button>
                 <LadosDock lado={ladoDock} elegir={setLadoDock} />
                 <button role="menuitem" onClick={() => signOut()}>

@@ -8,6 +8,7 @@ import Flame from '../../components/Flame.jsx'
 import CountUp from '../../components/CountUp.jsx'
 import MetaMap from '../../components/MetaMap.jsx'
 import MetaIcon from '../../components/MetaIcon.jsx'
+import { abrirLimite } from '../../../../src/lib/limites'
 import './ProgresoDesk.css'
 
 // ============================================================================
@@ -395,8 +396,11 @@ function smooth(pts) {
 }
 
 // ─── Tendencia: meses (o, si recien empiezas, este mes dia a dia) ───────────
-function Trend({ todo, mes, onPickTodo, onPickMes }) {
-  const conMeses = todo.filter((d) => d.pct > 0).length >= 2
+function Trend({ todo, mes, onPickTodo, onPickMes, historialCompleto = true }) {
+  // tu plan: Gratis ve este mes día a día (≈30 días); el mes a mes de todo tu historial es de Plus
+  const hayMeses = todo.filter((d) => d.pct > 0).length >= 2
+  const conMeses = historialCompleto && hayMeses
+  const verHistorial = !historialCompleto && hayMeses
   const serie = conMeses ? todo : mes.filter((d) => !d.future && !d.empty)
   const onPick = conMeses ? onPickTodo : onPickMes
   const W = 560
@@ -435,6 +439,11 @@ function Trend({ todo, mes, onPickTodo, onPickMes }) {
               {' '}
               {delta > 0 ? '▲' : '▼'} {Math.abs(delta)} pts
             </b>
+          )}
+          {verHistorial && (
+            <button type="button" className="q pg2-plus" onClick={() => abrirLimite('estadisticas_dias')}>
+              <i className="ti ti-sparkles" aria-hidden="true" /> Mes a mes · Plus
+            </button>
           )}
         </span>
       </div>
@@ -661,7 +670,7 @@ export default function ProgresoDesk(p) {
 
         <div className="pg2-row">
           <WeekRings serie={p.semana} />
-          <Trend todo={p.todo} mes={p.mes} onPickTodo={p.onPickTodo} onPickMes={p.onPickMes} />
+          <Trend todo={p.todo} mes={p.mes} onPickTodo={p.onPickTodo} onPickMes={p.onPickMes} historialCompleto={p.historialCompleto} />
         </div>
 
         <HabitTable porHabito={p.porHabito} onHabit={p.onHabit} />

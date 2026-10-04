@@ -157,7 +157,7 @@ export function crearEjecutor(store) {
           icon: iconoDeTipo(tipo),
           color: HABIT_TYPES[tipo].color,
         })
-        if (!h) return { ok: false, error: 'No se pudo crear el habito' }
+        if (!h) return { ok: false, error: 'No se pudo crear: llego al maximo de habitos activos de su plan (Gratis: 5). Puede pausar uno o pasarse a Plus.' }
         // Enganche opcional a una meta existente
         if (args.meta_id && metas.some((m) => m.id === args.meta_id)) {
           linkHabitAMeta(args.meta_id, h.id ?? h)

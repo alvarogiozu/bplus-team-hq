@@ -8,6 +8,7 @@ import { ColorPick, Select } from '../../components/Select'
 import { toast, toastError } from '../../components/Toasts'
 import { PALETTE, TIMEZONES } from '../../lib/colors'
 import { useIsMobile } from '../../lib/useMedia'
+import { NOMBRE_PLAN, usePlan } from '../../lib/planes'
 import { humanError, supabase } from '../../lib/supabase'
 import { APPS } from '../../os/apps'
 import { MovilTop } from '../../os/movil/MovilShell'
@@ -18,7 +19,7 @@ import { Avatar, CuentaBoton } from './Cuenta'
 // Perfil y Ajustes: los de tu cuenta, iguales desde cualquier app (no hay unos por app).
 // Lo propio de cada app (rutina de la Agenda, bóveda del Cuaderno, áreas del proyecto…) se abre desde aquí.
 
-function Marco({ titulo, children }: { titulo: string; children: ReactNode }) {
+export function Marco({ titulo, children }: { titulo: string; children: ReactNode }) {
   const mobile = useIsMobile()
   return (
     <>
@@ -82,6 +83,7 @@ export function PerfilPage() {
 
 export function AjustesPage() {
   const { userId, profile } = useMe()
+  const plan = usePlan()
   const qc = useQueryClient()
 
   async function setTimezone(tz: string) {
@@ -125,6 +127,17 @@ export function AjustesPage() {
             <Icon name="key" className="sm" /> Cambiar contraseña
           </Link>
         </div>
+      </section>
+
+      <section className="cuenta-card">
+        <h2>Tu plan</h2>
+        <p className="hint">
+          Tienes el plan <b>{NOMBRE_PLAN[plan.plan]}</b>.{' '}
+          {plan.plan === 'gratis' ? 'Mira qué trae Plus y cómo activarlo.' : 'Aquí ves hasta cuándo y lo que incluye.'}
+        </p>
+        <Link className="btn ghost sm" to="/planes">
+          <Icon name="sparkle" className="sm" /> Ver planes
+        </Link>
       </section>
 
       <section className="cuenta-card">

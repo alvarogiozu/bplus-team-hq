@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Rockie } from '../components/Rockie'
 import { toast } from '../components/Toasts'
@@ -7,7 +7,9 @@ import { useMe } from '../features/auth/AuthProvider'
 import { env } from '../lib/env'
 import { timeAgo } from '../lib/dates'
 import { haptic } from '../lib/fx'
-import { supabase } from '../lib/supabase'
+import { usePlan } from '../lib/planes'
+import { humanError, supabase } from '../lib/supabase'
+import { useIrAPlanes } from '../features/planes/Limite'
 import { CIcon } from './icons'
 import { ckeys, useBooks, type Book } from './data'
 import './cuaderno.css'
@@ -49,6 +51,10 @@ export default function AutorizarPage() {
   const [write, setWrite] = useState(wantsWrite)
   const [busy, setBusy] = useState<'' | 'si' | 'no'>('')
   const [done, setDone] = useState(false)
+  // conectar tu IA es de Plus y Pro: en Gratis se explica aquí, antes de Permitir (la base tampoco lo deja)
+  const plan = usePlan()
+  const navigate = useNavigate()
+  const sinPlan = plan.cargado && plan.limite('conector_ia') === 0
 
   useEffect(() => {
     if (!valid) return
@@ -113,6 +119,19 @@ export default function AutorizarPage() {
           <p className="lead" aria-busy="true">
             Revisando quién pide entrar…
           </p>
+        ) : sinPlan && !done ? (
+          <>
+            <h1>Conectar {asker.name} es parte de Plus</h1>
+            <p className="lead">Con Plus conectas tu Claude o ChatGPT a tu cuaderno y trabaja con tus notas usando tu propia suscripción: para ti es prácticamente ilimitado.</p>
+            <div className="cu-oauth-btns">
+              <button className="btn ghost" onClick={() => void decide(false)} disabled={Boolean(busy)}>
+                {busy === 'no' ? 'Cancelando…' : 'Ahora no'}
+              </button>
+              <button className="btn" onClick={() => navigate('/planes')}>
+                Ver planes
+              </button>
+            </div>
+          </>
         ) : done ? (
           <>
             <h1>¡Conectado!</h1>
@@ -255,6 +274,10 @@ export function ClaudeSection() {
   const [keyName, setKeyName] = useState('')
   const [keyWrite, setKeyWrite] = useState(true)
   const url = connectorUrl()
+  const plan = usePlan()
+  const irAPlanes = useIrAPlanes()
+  // en Gratis: se explica y se ofrece Plus; las conexiones que ya tenías siguen ahí (y las puedes quitar)
+  const sinPlan = plan.cargado && plan.limite('conector_ia') === 0
 
   async function revoke(c: Conn) {
     const { error } = await supabase.from('cuaderno_tokens').delete().eq('id', c.id)
@@ -270,7 +293,8 @@ export function ClaudeSection() {
     const { error } = await supabase
       .from('cuaderno_tokens')
       .insert({ name: name.slice(0, 60), token_hash: await sha256hex(secret), hint: secret.slice(-4), scope: keyWrite ? 'escribir' : 'leer' })
-    if (error) return toast('No se pudo crear la llave')
+    // un límite del plan abre la hoja de planes (humanError); otro error, el aviso de siempre
+    if (error) return humanError(error) ? toast('No se pudo crear la llave') : undefined
     haptic([6, 18, 6])
     setFresh({ key: secret, name })
     setKeyName('')
@@ -283,6 +307,15 @@ export function ClaudeSection() {
       <p className="cu-muted">
         Usa tu cuaderno desde Claude: que busque en tus apuntes, arme páginas para estudiar (por ejemplo, vocabulario de alemán), cree tarjetas de repaso o te tome examen con ellas.
       </p>
+      {sinPlan ? (
+        <div className="cu-plan-lock">
+          <p className="pl-lim-mejora">Conectar tu Claude o ChatGPT es parte de Plus. Usa tu propia suscripción, así que para ti es prácticamente ilimitado.</p>
+          <button type="button" className="btn sm" onClick={irAPlanes}>
+            Ver planes
+          </button>
+        </div>
+      ) : (
+        <>
       <ol className="cu-steps">
         <li>
           En Claude abre <b>Configuración → Conectores</b> y toca <b>Agregar conector personalizado</b>.
@@ -307,6 +340,8 @@ export function ClaudeSection() {
       </div>
 
       <CuadernosParaClaude />
+        </>
+      )}
 
       {conns && conns.length > 0 && (
         <ul className="cu-conns" aria-label="Conexiones activas">
@@ -330,6 +365,7 @@ export function ClaudeSection() {
         </ul>
       )}
 
+      {!sinPlan && (
       <details className="cu-adv">
         <summary>Avanzado: Claude Code y llaves personales</summary>
         <p className="cu-muted">
@@ -363,6 +399,7 @@ export function ClaudeSection() {
           </div>
         )}
       </details>
+      )}
     </section>
   )
 }

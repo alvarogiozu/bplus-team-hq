@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { Sheet } from '../components/Sheet'
 import { toast } from '../components/Toasts'
 import { useMe } from '../features/auth/AuthProvider'
+import { abrirLimite, usarCupo } from '../lib/planes'
 import { addDays, fmtDay, todayIn } from '../lib/dates'
 import { burst, haptic, pointOf } from '../lib/fx'
 import { findSlots, type Slot, type TeamAvail } from './availability'
@@ -171,6 +172,12 @@ function UseSlotBody({
     const t = shownTitle.trim()
     if (!t) return
     setBusy(true)
+    // agendar en un hueco en común cuenta para el cupo del mes (Gratis: 5); mirar los huecos es libre
+    const cupo = await usarCupo('buscar_hueco_mes')
+    if (!cupo.ok) {
+      setBusy(false)
+      return abrirLimite('buscar_hueco_mes')
+    }
     const btn =
       (e.currentTarget.querySelector('button[type=submit]') as HTMLElement | null) ?? e.currentTarget
     let undo: (() => Promise<void>) | null = null

@@ -5,6 +5,8 @@ import { useStore, PENDING_INVITE_KEY } from './data/mockStore.jsx'
 import useDesktop from './lib/useDesktop.js'
 import AppShell from './components/AppShell.jsx'
 import Splash from './components/Splash.jsx'
+import LimitePlanSheet from './components/LimitePlanSheet.jsx'
+import { irAPlanes, refrescarPlan } from './lib/planHq.js'
 import Login from './routes/Login.jsx'
 import InviteLanding from './routes/InviteLanding.jsx'
 
@@ -62,7 +64,6 @@ const Landing = lazy(() => import('./landing/Landing.jsx'))
 const TeamHqLanding = lazy(() => import('./landing/TeamHq.jsx'))
 const DesktopNav = lazy(() => import('./components/DesktopNav.jsx'))
 
-const Planes = lazy(() => import('./routes/Planes.jsx'))
 const Legal = lazy(() => import('./routes/Legal.jsx'))
 const DeviceApp = lazy(() => import('./device/DeviceApp.jsx'))
 const Familia = lazy(() => import('./routes/Familia.jsx'))
@@ -93,6 +94,17 @@ function ToEquipo() {
   return null
 }
 
+/** «Tu plan» es de toda tu cuenta de Rockie: se abre su página (dentro del escritorio, arriba; Hábitos vuelve a Hoy). */
+function ToPlanes() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (!EN_VENTANA) return window.location.replace('/planes')
+    if (!document.documentElement.hasAttribute('data-dormida')) irAPlanes()
+    navigate('/hoy', { replace: true })
+  }, [navigate])
+  return null
+}
+
 function RouteFallback() {
   return <div style={{ position: 'absolute', inset: 0, background: 'var(--paper)' }} />
 }
@@ -109,6 +121,18 @@ export default function App() {
     const m = window.location.pathname.match(/^(?:\/habitos)?\/invita\/([a-z0-9]{4,12})$/i)
     if (m) {
       try { localStorage.setItem(PENDING_INVITE_KEY, m[1].toUpperCase()) } catch { /* sin almacenamiento */ }
+    }
+  }, [])
+
+  // Tu plan de Rockie (límites de Gratis/Plus/Pro): al abrir y cada vez que vuelves a esta pestaña o ventana
+  useEffect(() => {
+    void refrescarPlan()
+    const alVolver = () => { if (document.visibilityState === 'visible') void refrescarPlan() }
+    window.addEventListener('focus', alVolver)
+    document.addEventListener('visibilitychange', alVolver)
+    return () => {
+      window.removeEventListener('focus', alVolver)
+      document.removeEventListener('visibilitychange', alVolver)
     }
   }, [])
 
@@ -271,9 +295,8 @@ export default function App() {
             <Route path="/cuartel/*" element={<ToEquipo />} />
             {/* Ajustes: la tuerca (header de Progreso en movil; rail en PC) */}
             <Route path="/ajustes" element={<Ajustes />} />
-            {/* Planes: ruta viva (codigo intacto). Entradas de UI ocultas en DesktopNav/Ajustes.
-                Reactivar UI cuando digan; mientras, /planes no se enlaza desde la app. */}
-            <Route path="/planes" element={<Planes />} />
+            {/* Planes: los de Rockie (uno para las 4 apps) viven en /planes de Rockie OS */}
+            <Route path="/planes" element={<ToPlanes />} />
             <Route path="/suscripcion" element={<Navigate to="/planes" replace />} />
             {/* Rutas viejas: redirigen a su nuevo hogar (marcadores/recargas) */}
             <Route path="/amigos" element={<Navigate to="/juntos" replace />} />
@@ -283,6 +306,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
         </Suspense>
+        <LimitePlanSheet />
       </div>
     </div>
   )

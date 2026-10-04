@@ -13,6 +13,8 @@ import TonoPicker from '../components/TonoPicker.jsx'
 import { ROCKIE_COLORS } from '../data/rockieColors.js'
 import { playSfx, setSfxEnabled } from '../lib/sfx.js'
 import useDesktop from '../lib/useDesktop.js'
+import { irAPlanes, usePlanHq } from '../lib/planHq.js'
+import { NOMBRE_PLAN } from '../../../src/lib/limitesTextos'
 import './desk/AjustesDesk.css'
 
 // ============================================================================
@@ -243,6 +245,7 @@ export default function Ajustes() {
     me, user, live, prefs, setPref, updateProfile, uploadAvatar, signOut, deleteAccount, level, streak,
     gcalConnected, connectCalendar, disconnectCalendar,
   } = useStore()
+  const plan = usePlanHq()  // tu plan de Rockie (null mientras no se sabe)
 
   const [avatarSheet, setAvatarSheet] = useState(false)
   const [qrSheet, setQrSheet] = useState(false)
@@ -564,17 +567,16 @@ export default function Ajustes() {
           </div>
         </div>
 
-        {/* Planes / Suscripcion oculto temporalmente. Reactivar: descomentar.
-        <Seccion label="Suscripción">
+        {/* Tu plan: el de toda tu cuenta de Rockie (uno para las 4 apps), en /planes de Rockie OS */}
+        <Seccion label="Tu plan">
           <Fila
             icon="ti-sparkles" tint="var(--amber)" soft="var(--amber-soft)"
-            label={prefs?.userPlan === 'pro' ? 'B+ Pro Activo' : prefs?.userPlan === 'family' ? 'B+ Círculo Activo' : 'Plan Inicial (Gratis)'}
-            caption={prefs?.userPlan === 'pro' || prefs?.userPlan === 'family' ? 'Gestionar plan y facturación Culqi' : 'Mejora a Pro: hábitos ilimitados y gemas x2'}
-            onTap={() => navigate('/planes')}
+            label={plan ? `Plan ${NOMBRE_PLAN[plan.plan] || 'Gratis'}` : 'Tu plan'}
+            caption={!plan || plan.plan === 'gratis' ? 'Mira qué trae Plus y cómo activarlo' : 'Hasta cuándo y qué incluye'}
+            onTap={irAPlanes}
             right={<i className="ti ti-chevron-right" style={{ color: 'var(--amber)' }} />}
           />
         </Seccion>
-        */}
 
         <Seccion label="Preferencias">
           <Fila

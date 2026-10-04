@@ -63,12 +63,13 @@ export default function RockieCompanionVoice() {
     if (intent === 'habito') {
       const m = /(?:habito|habit)(?:\s+(?:de|:|nuevo))?\s*(.+)$/i.exec(text)
       const hName = (m && m[1]?.trim()) || 'Nuevo hábito'
-      createHabit({
+      const creado = createHabit({
         name: hName.replace(/^(de|nuevo|:)\s+/i, '').slice(0, 36),
         time: '09:00',
         freq: 'Todos los dias',
         days: [1, 1, 1, 1, 1, 1, 1],
       })
+      if (!creado) return  // tu plan no deja otro hábito activo: la hoja de planes lo explica
       const reply = `Hábito "${hName}" creado con éxito. Ya puedes verlo en tus tarjetas de Hoy.`
       setBubble(reply)
       pushMessage('rockie', reply, {

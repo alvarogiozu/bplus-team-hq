@@ -98,6 +98,9 @@ export function CuentaMenu({ anchor, onClose }: { anchor: HTMLElement | null; on
       <button role="menuitem" onClick={() => go('/ajustes')}>
         <Icon name="settings" /> Ajustes
       </button>
+      <button role="menuitem" onClick={() => go('/planes')}>
+        <Icon name="sparkle" /> Tu plan
+      </button>
       <hr />
       <button role="menuitem" onClick={() => signOut()}>
         <Icon name="logout" /> Cerrar sesión

@@ -181,6 +181,7 @@ export default function Habitos({ embedded = false, apiRef = null }) {
       // metaIds / nuevaMeta vienen del bloque "¿alimenta una meta?" del sheet
       const { metaIds = [], nuevaMeta = false, ...data } = payloadOrId
       const nuevo = createHabit(data)
+      if (!nuevo) return  // tu plan no deja otro hábito activo: la hoja de planes lo explica
       playSfx('surprise')
       metaIds.forEach(mid => linkHabitAMeta(mid, nuevo.id))
       if (nuevaMeta) {

@@ -31,6 +31,8 @@ export type MsgEscritorio =
   | { rockieOS: 'abrir'; path: string }
   /** el atajo de Rockie (Ctrl/⌘ K) apretado dentro de una app */
   | { rockieOS: 'comando' }
+  /** ir a una página de la cuenta (Planes, Ajustes…) fuera de las ventanas, como el menú de tu cuenta */
+  | { rockieOS: 'ir'; path: string }
 
 /** Le pide algo al escritorio (solo tiene efecto dentro de una ventana). */
 export function alEscritorio(m: MsgEscritorio) {

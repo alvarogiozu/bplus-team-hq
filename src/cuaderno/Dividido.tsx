@@ -5,6 +5,7 @@ import { useMe } from '../features/auth/AuthProvider'
 import { lsGet, lsSet } from '../lib/storage'
 import { cuenta, destinoEn, frenoArriba, idsDe, MAX_COLS, moverHorizontal, moverVertical, poner, quitar, rects, reemplazar, sano, separadores, uno, zonasDe, type Destino, type Mosaico, type Rect } from '../lib/mosaico'
 import { useFinSeguro } from '../lib/finSeguro'
+import { abrirLimite, usePlan } from '../lib/planes'
 import { useNotes } from './data'
 import { DivisionCtx, PanelIdCtx, RUTA, TIPO_NOTA, useDivision, type Division } from './ui'
 import { mudarGrupo, panelDeEn, vecina } from './grupos'
@@ -88,6 +89,10 @@ export function useDivisionEstado(mobile: boolean): Division {
   const cerrada = useRef<string | null>(null)
   const est = useRef<Est>({ mos, foco, pestanas, actual, grupo })
   est.current = { mos, foco, pestanas, actual, grupo }
+  // cuántos paneles deja tu plan (Gratis: 2). Lo que ya tenías abierto se queda; solo no se suman más
+  const plan = usePlan()
+  const maxPaneles = useRef(6)
+  maxPaneles.current = plan.limite('paneles') ?? 6
 
   const setMos = useCallback((m: Mosaico) => setMosS(idsDe(m).includes(RUTA) ? m : uno(RUTA)), [])
   useEffect(() => lsSet(`cu.mosaico.${userId}`, JSON.stringify(mos)), [mos, userId])
@@ -195,6 +200,7 @@ export function useDivisionEstado(mobile: boolean): Division {
       }
       let next = poner(base, id, dest)
       if (!idsDe(next).includes(RUTA)) return
+      if (cuenta(next) > cuenta(s.mos) && cuenta(next) > maxPaneles.current) return abrirLimite('paneles')
       // soltarla en el centro de otro panel la suma a ese grupo: la que se veía ahí queda como pestaña
       let g = enDestino ? mudarGrupo(out.grupo, enDestino, id) : { ...out.grupo, [id]: id }
       if (out.rutaVacia) {
