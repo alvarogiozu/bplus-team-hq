@@ -9,7 +9,8 @@ export const COMERCIO = {
   titular: 'ZUÑIGA CANAZAS ALVARO GIOVANNI',
   ruc: '10765450981',
   direccion: null as string | null,
-  correo: null as string | null,
+  /** reenvía (Namecheap) al correo del dueño, que no se muestra */
+  correo: 'contacto@rockie.plus' as string | null,
   telefono: null as string | null,
   /** días desde el primer pago de un plan en los que se devuelve todo, sin preguntas */
   diasReembolso: 7,
