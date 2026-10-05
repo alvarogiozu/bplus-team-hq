@@ -5,7 +5,7 @@
 export const COMERCIO = {
   marca: 'Rockie',
   web: 'https://rockie.plus',
-  /** como figura en SUNAT (persona natural) */
+  /** como figura en SUNAT: persona natural con negocio, RMT + IGV desde el 5 oct 2026 (actividad 5820) */
   titular: 'ZUÑIGA CANAZAS ALVARO GIOVANNI',
   ruc: '10765450981',
   /** solo distrito por decisión del dueño (el domicilio completo es su casa); está en la ficha RUC */

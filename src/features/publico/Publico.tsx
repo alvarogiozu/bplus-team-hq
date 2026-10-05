@@ -200,7 +200,7 @@ function Inicio() {
             )
           })}
         </div>
-        <p className="pub-nota">Precios en soles (S/), con impuestos incluidos. Pagas con tarjeta o Yape a través de Culqi.</p>
+        <p className="pub-nota">Precios en soles (S/), IGV incluido. Pagas con tarjeta o Yape a través de Culqi.</p>
       </section>
 
       <section id="dudas" className="pub-sec pub-dudas">

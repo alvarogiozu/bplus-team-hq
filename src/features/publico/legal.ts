@@ -33,7 +33,7 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
         {
           h: 'Planes y precios',
           p: [
-            'Los precios están en soles (S/) en la página de planes e incluyen los impuestos que correspondan. El precio de estudiante aplica a Plus si verificas un correo de tu universidad; la verificación vale un año.',
+            'Los precios están en soles (S/) en la página de planes e incluyen el IGV. El precio de estudiante aplica a Plus si verificas un correo de tu universidad; la verificación vale un año.',
             'Si cambiamos un precio, te avisamos antes. El cambio nunca afecta un periodo que ya pagaste.',
           ],
         },
