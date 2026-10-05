@@ -9,78 +9,20 @@ import { useAuth, useMe } from '../auth/AuthProvider'
 import { Marco } from '../cuenta/CuentaPages'
 import { pagoEnLinea } from '../../lib/culqi'
 import { ComprarPlan } from './Comprar'
+import { TARJETAS } from './tarjetas'
 import './planes.css'
 
 // Tus planes: cuál tienes, cuánto llevas usado, qué trae cada uno y cómo activarlo. Mientras Culqi no esté
 // conectado, el plan se activa con un código de fundador (docs/negocio/modelo-de-negocio.md, sección 10).
-
-type Tarjeta = {
-  id: PlanId | 'club'
-  precio: string
-  nota?: string
-  lema: string
-  incluye: { t: string; pronto?: boolean }[]
-}
-
-const TARJETAS: Tarjeta[] = [
-  {
-    id: 'gratis',
-    precio: 'S/ 0',
-    lema: 'Lo esencial, para siempre',
-    incluye: [
-      { t: 'Agenda y Cuaderno completos' },
-      { t: '5 hábitos y 3 metas, con validación por foto' },
-      { t: '3 pizarras nuevas por día' },
-      { t: '1 equipo de hasta 8 personas' },
-      { t: 'Tu Cofre: nadie puede leer tus datos' },
-    ],
-  },
-  {
-    id: 'plus',
-    precio: `${soles(PRECIOS.plus.normal)} al mes`,
-    nota: `Estudiantes: ${soles(PRECIOS.plus.estudiante)}`,
-    lema: 'Sin límites para tu día a día',
-    incluye: [
-      { t: 'Hábitos y pizarras sin límite' },
-      { t: 'Hasta 7 metas: el mapa completo' },
-      { t: 'Tu historial completo' },
-      { t: 'Pantalla dividida de hasta 6 paneles' },
-      { t: 'Comparte todas tus páginas' },
-      { t: 'Conecta tu Claude o ChatGPT al Cuaderno' },
-      { t: '3 equipos de hasta 10 personas' },
-      { t: 'Rockie más listo', pronto: true },
-    ],
-  },
-  {
-    id: 'pro',
-    precio: `${soles(PRECIOS.pro.normal)} al mes`,
-    lema: 'Para quien lo usa todo',
-    incluye: [
-      { t: 'Todo lo de Plus' },
-      { t: '10 equipos de hasta 25 personas' },
-      { t: 'Rockie con la IA más potente', pronto: true },
-      { t: 'Rockie te arma la semana', pronto: true },
-    ],
-  },
-  {
-    id: 'club',
-    precio: `${soles(PRECIOS.club.normal)} al mes`,
-    nota: 'por equipo',
-    lema: 'Para clubes y organizaciones',
-    incluye: [
-      { t: 'Personas sin límite en el equipo' },
-      { t: 'Los miembros no pagan nada' },
-      { t: 'Roles, asistencia y panel de cumplimiento', pronto: true },
-      { t: 'Traspaso de directiva', pronto: true },
-    ],
-  },
-]
 
 const CUPOS: { c: Clave; nombre: string; usado: (p: ReturnType<typeof usePlan>) => number }[] = [
   { c: 'pizarras_dia', nombre: 'Pizarras nuevas hoy', usado: (p) => p.pizarras_hoy },
   { c: 'notas_compartidas', nombre: 'Páginas compartidas', usado: (p) => p.notas_compartidas },
   { c: 'equipos', nombre: 'Equipos creados', usado: (p) => p.equipos },
   { c: 'buscar_hueco_mes', nombre: 'Huecos en común usados este mes', usado: (p) => p.uso_mes.buscar_hueco_mes ?? 0 },
+  { c: 'ia_rockie_mes', nombre: 'Mensajes con Rockie este mes', usado: (p) => p.uso_mes.ia_rockie_mes ?? 0 },
+  { c: 'ia_notas_mes', nombre: 'Pedidos a Rockie sobre tus notas', usado: (p) => p.uso_mes.ia_notas_mes ?? 0 },
+  { c: 'ia_aprender_mes', nombre: '«Aprender» este mes', usado: (p) => p.uso_mes.ia_aprender_mes ?? 0 },
 ]
 
 const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' })

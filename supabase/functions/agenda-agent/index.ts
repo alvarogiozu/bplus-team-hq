@@ -362,6 +362,14 @@ Deno.serve(async (req) => {
   }
   const text = typeof body.text === 'string' ? body.text.trim().slice(0, 600) : ''
   if (!text) return json({ error: 'No escuché ninguna orden' }, 400)
+
+  // tu plan: los mensajes con Rockie tienen cupo al mes (Gratis 30, 100 la primera semana; Plus 200; Pro 400).
+  // Si la IA falla o está saturada, el mensaje se devuelve (abajo).
+  const { data: cupo } = await supa.rpc('usar_cupo', { p_clave: 'ia_rockie_mes' })
+  if (cupo && cupo.ok === false) {
+    return json({ error: `Usaste tus ${cupo.limite} mensajes con Rockie de este mes.`, limite: 'ia_rockie_mes' }, 429)
+  }
+  const ligero = cupo?.plan === 'gratis'
   const ctx: Ctx = body.context ?? {}
   const base: Kit = body.scope === 'hq' ? { tools: TOOLS_HQ as typeof TOOLS, system: SYSTEM_HQ } : { tools: TOOLS, system: SYSTEM }
   // derivar a otra app solo si el cliente sabe mostrarlo (las versiones viejas no mandan caps)
@@ -382,11 +390,12 @@ Deno.serve(async (req) => {
     content: `<contexto>\n${JSON.stringify(ctx)}\n</contexto>\n\nOrden: ${text}`,
   })
 
+  const respuesta = await (async (): Promise<Response> => {
   if (PROVIDER === 'gemini') return askGemini(apiKey, history, `<contexto>
 ${JSON.stringify(ctx)}
 </contexto>
 
-Orden: ${text}`, ctx, kit)
+Orden: ${text}`, ctx, kit, ligero)
 
   const client = new Anthropic({ apiKey })
   try {
@@ -432,6 +441,12 @@ Orden: ${text}`, ctx, kit)
     console.error(e)
     return json({ error: 'Algo salió mal en Rockie.' }, 500)
   }
+  })()
+  if (respuesta.status === 429 || respuesta.status >= 500) {
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    await admin.rpc('devolver_cupo', { p_user: user.id, p_clave: 'ia_rockie_mes' })
+  }
+  return respuesta
 })
 
 // ---------- Gemini (plan gratuito de Google AI Studio) ----------
@@ -450,7 +465,9 @@ function pack(say: string, calls: { name: string; args: Record<string, unknown> 
 
 type Kit = { tools: typeof TOOLS; system: string }
 
-async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx, kit: Kit) {
+async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx, kit: Kit, ligero = false) {
+  // Gratis: primero los modelos ligeros (más baratos); Plus y Pro: el orden de siempre
+  const MODELOS = ligero ? [...GEMINI_MODELS].sort((a, b) => Number(b.includes('lite')) - Number(a.includes('lite'))) : GEMINI_MODELS
   const contents = history.map((t) => ({ role: t.role === 'assistant' ? 'model' : 'user', parts: [{ text: t.text.slice(0, 800) }] }))
   while (contents.length && contents[0].role !== 'user') contents.shift()
   contents.push({ role: 'user', parts: [{ text: prompt }] })
@@ -463,10 +480,10 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx,
   vueltas: for (let vuelta = 0; vuelta < 2; vuelta++) {
     if (vuelta > 0) {
       // Segunda vuelta solo si queda algun modelo con cuota y aun vamos rapido
-      if (sinCuota.size === GEMINI_MODELS.length || Date.now() - t0 > 6000) break
+      if (sinCuota.size === MODELOS.length || Date.now() - t0 > 6000) break
       await new Promise((r) => setTimeout(r, 700))
     }
-    for (const model of GEMINI_MODELS) {
+    for (const model of MODELOS) {
       if (sinCuota.has(model)) continue
       if (Date.now() - t0 > 14000) break vueltas
       try {

@@ -13,6 +13,9 @@ export type Clave =
   | 'buscar_hueco_mes'
   | 'equipos'
   | 'miembros_equipo'
+  | 'ia_rockie_mes'
+  | 'ia_notas_mes'
+  | 'ia_aprender_mes'
 
 export const CLAVES: readonly Clave[] = [
   'habitos_activos',
@@ -26,6 +29,9 @@ export const CLAVES: readonly Clave[] = [
   'buscar_hueco_mes',
   'equipos',
   'miembros_equipo',
+  'ia_rockie_mes',
+  'ia_notas_mes',
+  'ia_aprender_mes',
 ]
 
 const EVENTO = 'rockie:limite'

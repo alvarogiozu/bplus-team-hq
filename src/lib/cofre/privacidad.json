@@ -596,6 +596,26 @@
         "culqi_cargo": "id del cobro en Culqi (para soporte y reembolsos; no es tu tarjeta)",
         "estado": "pagado, fallido o reembolsado"
       }
+    },
+    "libro_reclamaciones": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "tipo": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "nombre": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "documento_tipo": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "documento_numero": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "domicilio": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "telefono": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "correo": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "apoderado": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "bien_tipo": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "descripcion_bien": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "detalle": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "pedido": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
+        "respuesta": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder"
+      }
     }
   },
   "archivos": {

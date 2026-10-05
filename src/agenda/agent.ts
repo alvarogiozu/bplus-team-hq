@@ -13,6 +13,7 @@ import type { Reserve, useReserveActions } from './reserves'
 import type { Json } from '../lib/database.types'
 import type { Ghost } from './Timeline'
 import { fmtDur, hhmm, parseHhmm, tsToMin } from './time'
+import { abrirLimite, type Clave } from '../lib/limites'
 
 export type { Proposal }
 export type Turn = { role: 'user' | 'assistant'; text: string }
@@ -170,6 +171,14 @@ export async function askRockie(text: string, history: Turn[], context: unknown,
       body = await (error as { context?: Response }).context?.json()
     } catch {
       body = null
+    }
+    // se acabó el cupo del mes: la hoja de planes lo explica, y lo simple sigue en modo básico
+    const limite = (body as { limite?: Clave } | null)?.limite
+    if (limite) {
+      abrirLimite(limite)
+      const p = local()
+      if (p) return { basic: true, say: 'Sin mensajes con Rockie este mes: esto lo entendí en modo básico.', proposals: [p] }
+      return { say: '', proposals: [], error: body?.error ?? '' }
     }
     if (body?.error === 'voz-sin-configurar' || !body) {
       const p = local()

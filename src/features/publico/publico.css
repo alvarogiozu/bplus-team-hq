@@ -1,0 +1,131 @@
+/* ============================================================
+   La cara pública de rockie.plus: inicio, planes, textos legales y Libro de Reclamaciones.
+   Primero el celular; solo tokens (var(--*)) para que se vea bien en claro y en oscuro.
+   ============================================================ */
+
+.pub { min-height: 100dvh; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); }
+.pub-main { flex: 1; width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 var(--s4) var(--s8); }
+
+/* ---------- arriba ---------- */
+.pub-top {
+  position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: var(--s2);
+  padding: var(--s2) var(--s4); padding-top: max(var(--s2), env(safe-area-inset-top));
+  background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.pub-marca { display: inline-flex; align-items: center; gap: 8px; color: var(--title); text-decoration: none; font: 700 var(--t-lg) var(--serif); min-height: var(--tap); }
+.pub-nav { display: none; gap: var(--s4); margin-left: var(--s5); }
+.pub-nav a { color: var(--ink-soft); text-decoration: none; font-weight: 700; font-size: var(--t-sm); }
+.pub-nav a:hover { color: var(--ink); }
+.pub-sp { flex: 1; }
+@media (min-width: 720px) {
+  .pub-nav { display: flex; }
+}
+/* en un celular muy angosto, el logo sin nombre para que quepan «Entrar» y «Empieza gratis» */
+@media (max-width: 359px) {
+  .pub-marca span { display: none; }
+}
+/* los botones que son enlaces, sin subrayado */
+.pub a.btn { text-decoration: none; }
+
+/* ---------- portada ---------- */
+.pub-hero { display: grid; gap: var(--s5); align-items: center; padding: var(--s8) 0 var(--s6); }
+.pub-hero h1 { margin: 0; font: 700 clamp(30px, 7vw, 52px)/1.08 var(--serif); color: var(--title); letter-spacing: -0.5px; }
+.pub-hero p { margin: var(--s3) 0 0; font-size: var(--t-md); color: var(--ink-soft); max-width: 560px; }
+.pub-hero-btns { display: flex; flex-wrap: wrap; gap: var(--s3); margin-top: var(--s5); }
+.pub-hero-rockie { justify-self: center; }
+@media (min-width: 820px) {
+  .pub-hero { grid-template-columns: 1.4fr 1fr; padding: var(--s12) 0 var(--s8); }
+}
+
+/* ---------- secciones ---------- */
+.pub-sec { padding: var(--s6) 0; scroll-margin-top: 72px; }
+.pub-sec > h2 { margin: 0 0 var(--s4); font: 700 var(--t-2xl) var(--serif); color: var(--title); }
+.pub-sub { margin: calc(-1 * var(--s2)) 0 var(--s4); color: var(--ink-soft); }
+.pub-nota { margin: var(--s4) 0 0; color: var(--ink-muted); font-size: var(--t-xs); }
+
+.pub-apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s4); }
+.pub-app {
+  display: grid; gap: var(--s2); align-content: start; padding: var(--s4);
+  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge);
+}
+.pub-app h3 { margin: var(--s1) 0 0; font: 700 var(--t-lg) var(--serif); color: var(--title); }
+.pub-app p { margin: 0; color: var(--ink-soft); font-size: var(--t-sm); }
+
+.pub-cofre {
+  display: flex; gap: var(--s4); align-items: flex-start; margin: var(--s4) 0; padding: var(--s5);
+  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge);
+}
+.pub-cofre > .ico { flex: none; width: 34px; height: 34px; padding: 8px; border-radius: 50%; background: var(--green-soft); color: var(--green); box-sizing: content-box; }
+.pub-cofre h2 { margin: 0 0 var(--s2); font: 700 var(--t-xl) var(--serif); color: var(--title); }
+.pub-cofre p { margin: 0; color: var(--ink-soft); }
+
+.pub-plan-ico {
+  display: grid; place-items: center; width: 52px; height: 52px; border-radius: var(--r-lg);
+  background: var(--pl-soft); color: var(--pl); box-shadow: 0 3px 0 var(--pl-edge);
+}
+.pub-plan-ico .ico { width: 26px; height: 26px; }
+.pl-card h3 { margin: 0; font: 700 var(--t-xl) var(--serif); color: var(--title); }
+
+.pub-dudas details { padding: var(--s3) 0; border-top: 1px dashed var(--line); }
+.pub-dudas summary { cursor: pointer; font-weight: 700; min-height: 32px; display: flex; align-items: center; }
+.pub-dudas p { margin: var(--s2) 0 0; color: var(--ink-soft); }
+
+/* ---------- pie ---------- */
+.pub-pie {
+  display: grid; gap: var(--s5); padding: var(--s6) var(--s4); padding-bottom: max(var(--s6), env(safe-area-inset-bottom));
+  background: var(--paper-alt); border-top: 1px solid var(--line); font-size: var(--t-sm);
+}
+@media (min-width: 820px) {
+  .pub-pie { grid-template-columns: 1.3fr 1fr 1.3fr; padding-left: max(var(--s4), calc((100% - 1080px) / 2)); padding-right: max(var(--s4), calc((100% - 1080px) / 2)); }
+}
+.pub-pie-col { display: grid; gap: var(--s2); align-content: start; }
+.pub-pie-col p { margin: 0; color: var(--ink-soft); }
+.pub-pie-col a { color: var(--ink); }
+.pub-pie-marca { display: inline-flex; align-items: center; gap: 8px; font: 700 var(--t-lg) var(--serif); color: var(--title); }
+.pub-libro {
+  display: flex; gap: var(--s3); align-items: center; padding: var(--s3); text-decoration: none;
+  border-radius: var(--r-lg); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
+}
+.pub-libro .ico { flex: none; color: var(--coral); }
+.pub-libro span { display: grid; }
+.pub-libro small { color: var(--ink-muted); font-size: var(--t-2xs); }
+.pub-pago { display: flex; align-items: center; gap: 6px; font-size: var(--t-xs); }
+.pub-copy { margin: 0; color: var(--ink-muted); font-size: var(--t-xs); grid-column: 1 / -1; }
+
+/* ---------- textos legales ---------- */
+.pub-legal { max-width: 760px; margin: 0 auto; padding-top: var(--s6); }
+.pub-legal h1 { margin: 0; font: 700 clamp(28px, 6vw, 40px)/1.1 var(--serif); color: var(--title); }
+.pub-legal-fecha { margin: var(--s2) 0 0; color: var(--ink-muted); font-size: var(--t-xs); }
+.pub-legal-intro { margin: var(--s4) 0 var(--s2); font-size: var(--t-md); color: var(--ink-soft); }
+.pub-legal section { padding-top: var(--s4); }
+.pub-legal h2 { margin: 0 0 var(--s2); font: 700 var(--t-lg) var(--serif); color: var(--title); }
+.pub-legal p { margin: 0 0 var(--s2); line-height: 1.6; }
+
+/* ---------- Libro de Reclamaciones ---------- */
+.pub-rec-prov { margin: var(--s4) 0; padding: var(--s3) var(--s4); border-radius: var(--r-lg); background: var(--paper-alt); }
+.pub-rec-prov p { margin: 2px 0; color: var(--ink-soft); }
+.pub-form { display: grid; gap: var(--s4); }
+.pub-form fieldset {
+  display: grid; gap: var(--s2); margin: 0; padding: var(--s4); min-width: 0;
+  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge);
+}
+.pub-form legend { padding: 0 var(--s2); font: 700 var(--t-md) var(--serif); color: var(--title); }
+.pub-form input, .pub-form select, .pub-form textarea { width: 100%; box-sizing: border-box; }
+.pub-form textarea { resize: vertical; }
+.pub-form-fila { display: grid; gap: var(--s2); }
+@media (min-width: 620px) { .pub-form-fila { grid-template-columns: 1fr 1fr; gap: var(--s3); } }
+.pub-form-tipo { justify-self: start; }
+.pub-rec-leyenda { margin: 0; padding: var(--s3) var(--s4); border-radius: var(--r-lg); background: var(--amber-soft); color: var(--ink); font-size: var(--t-xs); }
+.pub-rec-ok { display: flex; align-items: center; gap: 6px; margin: var(--s3) 0 0; color: var(--ink-soft); font-weight: 700; }
+.pub-rec-ok .ico { color: var(--green); }
+.pub-rec-dl { display: grid; gap: 4px var(--s4); margin: 0 0 var(--s4); }
+.pub-rec-dl dt { font-weight: 700; color: var(--ink-muted); font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.6px; margin-top: var(--s2); }
+.pub-rec-dl dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* constancia impresa: solo la hoja */
+@media print {
+  .pub-top, .pub-pie, .pub-hero-btns { display: none !important; }
+  .pub, .pub-main { background: #fff; color: #000; }
+}
+.pub-nowrap { white-space: nowrap; }

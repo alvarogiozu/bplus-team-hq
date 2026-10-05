@@ -31,6 +31,9 @@ const EquiposPage = lazy(pantallas.equipos)
 const PerfilPage = lazy(() => pantallas.cuenta().then((m) => ({ default: m.PerfilPage })))
 const AjustesPage = lazy(() => pantallas.cuenta().then((m) => ({ default: m.AjustesPage })))
 const PlanesPage = lazy(pantallas.planes)
+const RaizPublica = lazy(() => pantallas.publico().then((m) => ({ default: m.Raiz })))
+const LegalPage = lazy(() => pantallas.publico().then((m) => ({ default: m.LegalPage })))
+const ReclamacionesPage = lazy(pantallas.reclamaciones)
 
 const Escritorio = lazy(pantallas.escritorio)
 
@@ -116,6 +119,12 @@ export function App() {
       {/* la hoja de «llegaste al límite de tu plan» (la abre abrirLimite desde cualquier pantalla) */}
       <LimiteHost />
       <Routes>
+        {/* la cara pública: «/» sin sesión muestra Rockie y sus planes; con sesión, tus apps */}
+        <Route index element={<Suspense fallback={<Splash />}><RaizPublica /></Suspense>} />
+        <Route path="/terminos" element={<Suspense fallback={<Splash />}><LegalPage slug="terminos" /></Suspense>} />
+        <Route path="/reembolsos" element={<Suspense fallback={<Splash />}><LegalPage slug="reembolsos" /></Suspense>} />
+        <Route path="/privacidad" element={<Suspense fallback={<Splash />}><LegalPage slug="privacidad" /></Suspense>} />
+        <Route path="/libro-de-reclamaciones" element={<Suspense fallback={<Splash />}><ReclamacionesPage /></Suspense>} />
         <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
         <Route path="/registro" element={<PublicOnly><RegisterPage /></PublicOnly>} />
         <Route path="/invitacion/:code" element={<InviteRoute />} />
@@ -139,7 +148,6 @@ export function App() {
           <Route path="/perfil" element={<Suspense fallback={<Splash />}><PerfilPage /></Suspense>} />
           <Route path="/ajustes" element={<Suspense fallback={<Splash />}><AjustesPage /></Suspense>} />
           <Route path="/planes" element={<Suspense fallback={<Splash />}><PlanesPage /></Suspense>} />
-          <Route index element={<Navigate to="/inicio" replace />} />
           <Route element={<EscritorioGate />}>
             <Route
               path="/inicio"

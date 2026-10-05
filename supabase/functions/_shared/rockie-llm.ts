@@ -4,6 +4,7 @@
 //   callText  -> conversación libre (Conversar)
 //   embed     -> huellas de significado para "parecidas"
 import Anthropic from 'npm:@anthropic-ai/sdk'
+import { AsyncLocalStorage } from 'node:async_hooks'
 
 export type Tool = { name: string; description: string; strict?: boolean; input_schema: Record<string, unknown> }
 export type Call = { name: string; args: Record<string, unknown> }
@@ -25,6 +26,22 @@ const FAST = (Deno.env.get('GEMINI_MODEL') || 'gemini-3.5-flash-lite,gemini-3.1-
 const RICH = (Deno.env.get('GEMINI_MODEL_RICH') || 'gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.1-flash-lite,gemini-flash-latest,gemini-2.5-flash')
   .split(',')
   .map((m) => m.trim())
+// Pro: el modelo más potente para lo difícil (aprender, preguntar, conversar), con su cupo (ia_pro_mes)
+const PRO = (Deno.env.get('GEMINI_MODEL_PRO') || 'gemini-3.1-pro-preview,' + RICH.join(','))
+  .split(',')
+  .map((m) => m.trim())
+
+/** El nivel de IA de quien pide (su plan): ligero = Gratis, medio = Plus, pro = Pro con cupo. Lo fija cada
+ *  función por pedido con nivelIA.run(nivel, …); sin fijarlo, medio (como siempre). */
+export type Nivel = 'ligero' | 'medio' | 'pro'
+export const nivelIA = new AsyncLocalStorage<Nivel>()
+function modelos(rich: boolean): string[] {
+  const n = nivelIA.getStore() ?? 'medio'
+  if (n === 'ligero') return FAST
+  if (n === 'pro' && rich) return PRO
+  return rich ? RICH : FAST
+}
+
 export const PROVIDER = Deno.env.get('AGENT_PROVIDER') || (Deno.env.get('GEMINI_API_KEY') ? 'gemini' : 'claude')
 
 export const providerKey = () => Deno.env.get(PROVIDER === 'gemini' ? 'GEMINI_API_KEY' : 'ANTHROPIC_API_KEY')
@@ -66,7 +83,7 @@ export async function callTools(p: { system: string; prompt: string; tools: Tool
     contents: [{ role: 'user', parts: [...(p.parts ?? []), { text: p.prompt }] }],
     tools: p.tools,
     timeoutMs: p.timeoutMs,
-    models: p.rich ? RICH : FAST,
+    models: modelos(Boolean(p.rich)),
     media: Boolean(p.parts?.length),
     deadline: p.deadline,
   })
@@ -88,7 +105,7 @@ export async function callText(p: { system: string; history: Turn[]; timeoutMs?:
     system: p.system,
     contents: turns.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
     timeoutMs: p.timeoutMs,
-    models: RICH,
+    models: modelos(true),
     maxTokens: p.maxTokens,
     deadline: p.deadline,
   })

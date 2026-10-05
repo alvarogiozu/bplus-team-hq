@@ -7,6 +7,7 @@ import { openDialog } from './bus'
 import { pathOf, type BookColor } from './books'
 import { areaOf, fuenteCuaderno, type Book, type CuadernoActions, type Entry, type HqProject, type Note, type Proposal, type Undo } from './data'
 import { actualizarHuellas, parecidas } from './huellas'
+import { abrirLimite, type Clave } from '../lib/limites'
 
 // Cliente de la Edge Function cuaderno-agent. Rockie solo PROPONE: aquí se aplican
 // las propuestas que la persona confirma, con su sesión, y se guarda cómo deshacerlas.
@@ -30,6 +31,9 @@ async function invoke<T>(body: Record<string, unknown>): Promise<{ data?: T; err
     b = null
   }
   if (!b || b.error === 'voz-sin-configurar') return { unconfigured: true }
+  // se acabó el cupo del mes: la hoja de planes lo explica
+  const limite = (b as { limite?: Clave }).limite
+  if (limite) abrirLimite(limite)
   return { error: b.error ?? humanError(error) }
 }
 

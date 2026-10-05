@@ -22,6 +22,9 @@ export const pantallas = {
   cuenta: () => import('../features/cuenta/CuentaPages'),
   /** tu plan (Gratis, Plus, Pro, Club) */
   planes: () => import('../features/planes/PlanesPage'),
+  /** la cara pública de rockie.plus (sin sesión): inicio, planes, textos legales */
+  publico: () => import('../features/publico/Publico'),
+  reclamaciones: () => import('../features/publico/Reclamaciones'),
   // el Equipo en el celular: mismas rutas y mismos datos, composición propia
   hoyMovil: () => import('../features/movil/HoyMovil'),
   tareasMovil: () => import('../features/movil/TareasMovil'),

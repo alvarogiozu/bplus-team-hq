@@ -6,41 +6,12 @@ import { Sheet } from '../../components/Sheet'
 import { toast } from '../../components/Toasts'
 import { pagarConCulqi } from '../../lib/culqi'
 import { NOMBRE_PLAN, PLAN_KEY, soles } from '../../lib/planes'
+import { usePrecios, type Periodo, type PlanPago } from '../../lib/precios'
 import { supabase } from '../../lib/supabase'
 import { useMe } from '../auth/AuthProvider'
 
 // Suscribirse a Plus, Pro o Club: mensual o anual, con el precio de estudiante si estás verificado. El monto lo
 // decide el servidor (planes_precios); aquí solo se muestra. Pagas en el formulario de Culqi (tarjeta o Yape).
-
-type PlanPago = 'plus' | 'pro' | 'club'
-type Periodo = 'mes' | 'anio'
-type Precio = { plan: PlanPago; tarifa: 'normal' | 'estudiante'; periodo: Periodo; centimos: number; meses: number }
-
-/** Los mismos de la migración 20261011120000 (por si la base no respondió todavía). */
-const RESPALDO: Precio[] = [
-  { plan: 'plus', tarifa: 'normal', periodo: 'mes', centimos: 1990, meses: 1 },
-  { plan: 'plus', tarifa: 'normal', periodo: 'anio', centimos: 19100, meses: 12 },
-  { plan: 'plus', tarifa: 'estudiante', periodo: 'mes', centimos: 1290, meses: 1 },
-  { plan: 'plus', tarifa: 'estudiante', periodo: 'anio', centimos: 12380, meses: 12 },
-  { plan: 'pro', tarifa: 'normal', periodo: 'mes', centimos: 3490, meses: 1 },
-  { plan: 'pro', tarifa: 'normal', periodo: 'anio', centimos: 33500, meses: 12 },
-  { plan: 'club', tarifa: 'normal', periodo: 'mes', centimos: 9900, meses: 1 },
-  { plan: 'club', tarifa: 'normal', periodo: 'anio', centimos: 95000, meses: 12 },
-]
-
-export function usePrecios() {
-  return (
-    useQuery({
-      queryKey: ['planes', 'precios'],
-      staleTime: 3600_000,
-      queryFn: async () => {
-        const { data, error } = await supabase.from('planes_precios' as never).select('plan, tarifa, periodo, centimos, meses')
-        if (error) throw error
-        return (data as unknown as Precio[]) ?? RESPALDO
-      },
-    }).data ?? RESPALDO
-  )
-}
 
 const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' })
 

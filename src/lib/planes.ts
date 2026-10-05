@@ -38,6 +38,9 @@ export const LIMITES: Record<PlanId, Record<Clave, number | null>> = {
     buscar_hueco_mes: 5,
     equipos: 1,
     miembros_equipo: 8,
+    ia_rockie_mes: 30,
+    ia_notas_mes: 10,
+    ia_aprender_mes: 1,
   },
   plus: {
     habitos_activos: null,
@@ -51,6 +54,9 @@ export const LIMITES: Record<PlanId, Record<Clave, number | null>> = {
     buscar_hueco_mes: null,
     equipos: 3,
     miembros_equipo: 10,
+    ia_rockie_mes: 200,
+    ia_notas_mes: 100,
+    ia_aprender_mes: 8,
   },
   pro: {
     habitos_activos: null,
@@ -64,6 +70,9 @@ export const LIMITES: Record<PlanId, Record<Clave, number | null>> = {
     buscar_hueco_mes: null,
     equipos: 10,
     miembros_equipo: 25,
+    ia_rockie_mes: 400,
+    ia_notas_mes: 150,
+    ia_aprender_mes: 20,
   },
 }
 

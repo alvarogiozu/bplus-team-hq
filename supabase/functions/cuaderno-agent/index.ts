@@ -12,7 +12,7 @@
 //   vectores  { textos }                 -> «huellas de significado» (la app las guarda cifradas y compara en el dispositivo)
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
-import { callText, callTools, embed, providerKey, S, type Call, type Part, type Tool, type Turn } from '../_shared/rockie-llm.ts'
+import { callText, callTools, embed, nivelIA, providerKey, S, type Call, type Nivel, type Part, type Tool, type Turn } from '../_shared/rockie-llm.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -343,15 +343,44 @@ Deno.serve(async (req) => {
   if (bumpErr) return json({ error: 'No se pudo verificar tu uso' }, 500)
   if ((used as number) > LIMIT_PER_HOUR) return json({ error: 'Rockie necesita un respiro: llegaste a 60 pedidos esta hora.' }, 429)
 
+  const accion = body.action ?? ''
+  if (!ACCIONES.has(accion)) return json({ error: 'Acción desconocida' }, 400)
+
+  // tu plan: cupo de IA del mes (Aprender tiene el suyo) y el nivel del modelo (Gratis ligero, Plus medio,
+  // Pro el más potente para lo difícil mientras le quede ese cupo). Si la IA falla, el uso se devuelve.
+  const clave = accion === 'aprender' ? 'ia_aprender_mes' : 'ia_notas_mes'
+  const { data: cupo } = await supa.rpc('usar_cupo', { p_clave: clave })
+  if (cupo && cupo.ok === false) {
+    const msg =
+      clave === 'ia_aprender_mes'
+        ? `Usaste tus ${cupo.limite} «Aprender» de este mes.`
+        : `Usaste tus ${cupo.limite} pedidos a Rockie sobre tus notas de este mes.`
+    return json({ error: msg, limite: clave }, 429)
+  }
+  let nivel: Nivel = cupo?.plan === 'gratis' ? 'ligero' : 'medio'
+  if (cupo?.plan === 'pro' && ['aprender', 'preguntar', 'conversar'].includes(accion)) {
+    const { data: pro } = await supa.rpc('usar_cupo', { p_clave: 'ia_pro_mes' })
+    if (pro?.ok) nivel = 'pro'
+  }
+  const resp = await nivelIA.run(nivel, () => despachar(supa, user.id, body))
+  if (resp.status === 429 || resp.status >= 500) {
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    await admin.rpc('devolver_cupo', { p_user: user.id, p_clave: clave })
+  }
+  return resp
+})
+
+const ACCIONES = new Set(['procesar', 'revisar', 'preguntar', 'aprender', 'conversar', 'redactar', 'dividir'])
+
+function despachar(supa: Supa, uid: string, body: Body): Promise<Response> | Response {
   if (body.action === 'procesar') return procesar(body)
   if (body.action === 'revisar') return revisar(body)
   if (body.action === 'preguntar') return preguntar(body)
-  if (body.action === 'aprender') return aprender(supa, user.id, body)
+  if (body.action === 'aprender') return aprender(supa, uid, body)
   if (body.action === 'conversar') return conversar(body)
   if (body.action === 'redactar') return redactar(body)
-  if (body.action === 'dividir') return dividir(body)
-  return json({ error: 'Acción desconocida' }, 400)
-})
+  return dividir(body)
+}
 
 const clean = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
 const cards = (v: unknown, max: number) =>

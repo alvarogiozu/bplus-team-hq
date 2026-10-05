@@ -59,6 +59,22 @@ export const TEXTOS: Record<Clave, Texto> = {
         : `Llegaste a los ${n} equipos que puedes crear con tu plan. Puedes unirte a todos los que quieras.`,
     mejora: 'Con Plus creas 3 equipos y con Pro, 10. Para un club, el plan Club no tiene límite de personas.',
   },
+  ia_rockie_mes: {
+    titulo: (n) => `Usaste tus ${n} mensajes con Rockie de este mes`,
+    cuerpo: () =>
+      'Rockie vuelve a tener mensajes el 1 del mes que viene. Mientras, lo simple (como «gimnasio mañana a las 7») lo sigue entendiendo en modo básico.',
+    mejora: 'Con Plus, 200 mensajes al mes y un Rockie más listo.',
+  },
+  ia_notas_mes: {
+    titulo: (n) => `Usaste tus ${n} pedidos a Rockie sobre tus notas`,
+    cuerpo: () => 'Preguntar, conversar, ordenar o revisar con Rockie vuelve el 1 del mes que viene. Tus notas siguen completas.',
+    mejora: 'Con Plus, 100 al mes. O conecta tu Claude o ChatGPT: con tu propia suscripción, prácticamente sin límite.',
+  },
+  ia_aprender_mes: {
+    titulo: (n) => (n === 1 ? 'Ya usaste tu «Aprender» de este mes' : `Ya usaste tus ${n} «Aprender» de este mes`),
+    cuerpo: () => 'Aprender arma un cuaderno de estudio desde un tema, un PDF o un video. Vuelve el 1 del mes que viene.',
+    mejora: 'Con Plus, 8 al mes; con Pro, 20.',
+  },
   miembros_equipo: {
     titulo: () => 'Este equipo está lleno',
     cuerpo: () => 'Llegó al máximo de personas de su plan. Quien lo creó puede ampliarlo.',

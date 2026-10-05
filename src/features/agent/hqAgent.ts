@@ -3,6 +3,7 @@ import { fold, parseQuickTask, type PersonLite } from '../../lib/quickParse'
 import { humanError, supabase } from '../../lib/supabase'
 import { PRIORITY_BY_LEVEL, type Area, type Member, type Priority, type Project, type Task } from '../../lib/types'
 import type { useTaskActions } from '../tasks/actions'
+import { abrirLimite, type Clave } from '../../lib/limites'
 
 // Rockie en el HQ: entiende órdenes de tareas (escritas o dictadas) con IA (Edge Function
 // agenda-agent, scope 'hq') y devuelve PROPUESTAS; la app muestra una tarjeta por cada una y
@@ -63,6 +64,8 @@ export async function askHq(text: string, history: HqTurn[], context: unknown): 
     } catch {
       body = null
     }
+    const limite = (body as { limite?: Clave } | null)?.limite
+    if (limite) abrirLimite(limite)
     return { say: '', proposals: [], error: body?.error ?? humanError(error) }
   }
   return data as HqReply
