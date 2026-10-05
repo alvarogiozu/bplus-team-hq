@@ -284,7 +284,7 @@ No cobra de la ganancia mensual: compra un porcentaje de la empresa y gana cuand
 
 **Pendiente:**
 - **Fase 3, cupos de IA en el servidor:** mensajes con Rockie, preguntar a tus notas, Aprender, dictado y el nivel de IA por plan (ligera, media, Pro). Hoy la IA no tiene cupo por plan.
-- **Fase 4, cobro con Culqi** (Yape y tarjeta): falta registrar el RUC en Culqi y sus llaves.
+- **Fase 4, cobro con Culqi** (Yape y tarjeta): CONSTRUIDO en modo prueba (5 oct). Precios en la tabla `planes_precios` (mensual y anual con ~20% menos), función `culqi-cobro` que cobra con la llave secreta (secret `CULQI_SECRET_KEY`, solo en el servidor) y activa el plan; pagos en `planes_pagos`. Sin cobros automáticos: cada pago vale un mes o un año. Con la llave de prueba, en rockie.plus se sigue mostrando la activación con código, y los pagos de prueba no activan planes (salvo a usuarios qa.*). Falta: que Culqi apruebe el comercio y poner las llaves de producción (`pk_live_` en la app, `sk_live_` en el servidor).
 - **Activar la facturación de Gemini** (sección 10, punto 1): sin eso, la promesa de privacidad no se cumple del todo.
 - Lo que la página de planes marca como «muy pronto»: Rockie más listo, IA Pro, «Rockie te arma la semana», y roles, asistencia, panel de cumplimiento y traspaso de directiva del plan Club. «Rockie analiza tu mes» y el protector de racha tampoco existen todavía (no se muestran en la página).
 - Almacenamiento por plan (500 MB / 5 GB / 20 GB): todavía no se mide.

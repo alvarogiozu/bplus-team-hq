@@ -573,6 +573,29 @@
       "publico": {
         "clave": "qué cupo se contó (p. ej. buscar_hueco_mes): solo la cantidad, nunca el contenido"
       }
+    },
+    "planes_precios": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "plan": "catálogo fijo de precios (no es de nadie)",
+        "tarifa": "catálogo fijo de precios",
+        "periodo": "catálogo fijo de precios"
+      }
+    },
+    "planes_pagos": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "plan": "qué plan pagaste: el servidor lo necesita para activarlo",
+        "tarifa": "a qué precio (normal o estudiante)",
+        "periodo": "mes o año",
+        "moneda": "moneda del cobro",
+        "culqi_cargo": "id del cobro en Culqi (para soporte y reembolsos; no es tu tarjeta)",
+        "estado": "pagado, fallido o reembolsado"
+      }
     }
   },
   "archivos": {

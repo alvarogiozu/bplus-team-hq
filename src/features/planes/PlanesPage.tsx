@@ -7,6 +7,8 @@ import { NOMBRE_PLAN, PLAN_KEY, PRECIOS, soles, usePlan, type Clave, type PlanId
 import { humanError, supabase } from '../../lib/supabase'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { Marco } from '../cuenta/CuentaPages'
+import { pagoEnLinea } from '../../lib/culqi'
+import { ComprarPlan } from './Comprar'
 import './planes.css'
 
 // Tus planes: cuál tienes, cuánto llevas usado, qué trae cada uno y cómo activarlo. Mientras Culqi no esté
@@ -94,6 +96,7 @@ export default function PlanesPage() {
   const [pideEquipo, setPideEquipo] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [verificando, setVerificando] = useState(false)
+  const [comprar, setComprar] = useState<'plus' | 'pro' | 'club' | null>(null)
   const [estudianteMsg, setEstudianteMsg] = useState('')
 
   // tus equipos (los que creaste): a uno de ellos va un código Club
@@ -151,6 +154,11 @@ export default function PlanesPage() {
   }
 
   const actual = plan.plan
+  const enLinea = pagoEnLinea()
+  // Club siempre (va con un equipo); Plus/Pro: no un plan menor que el tuyo, ni renovar uno sin vencimiento
+  const RANGO = { gratis: 0, plus: 1, pro: 2 }
+  const puedeComprar = (id: PlanId | 'club') =>
+    id === 'club' || (id !== 'gratis' && (RANGO[id] > RANGO[actual] || (id === actual && Boolean(plan.hasta))))
   const conLimite = CUPOS.filter(({ c }) => plan.limite(c) !== null)
 
   return (
@@ -217,9 +225,14 @@ export default function PlanesPage() {
                   </li>
                 ))}
               </ul>
-              {t.id !== 'gratis' && !es && (
-                <button className="btn sm block" onClick={() => activar.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
-                  Activar {NOMBRE_PLAN[t.id]}
+              {t.id !== 'gratis' && puedeComprar(t.id) && (
+                <button
+                  className="btn sm block"
+                  onClick={() =>
+                    enLinea ? setComprar(t.id as 'plus' | 'pro' | 'club') : activar.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }
+                >
+                  {!enLinea ? `Activar ${NOMBRE_PLAN[t.id]}` : es ? 'Renovar' : t.id === 'club' ? 'Suscribir mi club' : 'Suscribirme'}
                 </button>
               )}
             </article>
@@ -228,10 +241,18 @@ export default function PlanesPage() {
       </div>
 
       <section className="cuenta-card" ref={activar}>
-        <h2>Activar un plan</h2>
+        <h2>{enLinea ? '¿Tienes un código?' : 'Activar un plan'}</h2>
         <p className="hint">
-          El pago en línea (Yape y tarjeta) llega muy pronto. Mientras tanto, los primeros usuarios activan su plan con un <b>código de fundador</b> y
-          mantienen ese precio para siempre. Pídele tu código al equipo de Rockie.
+          {enLinea ? (
+            <>
+              Si te dieron un <b>código de fundador</b> o de regalo, actívalo aquí: los fundadores mantienen su precio para siempre.
+            </>
+          ) : (
+            <>
+              El pago en línea (Yape y tarjeta) llega muy pronto. Mientras tanto, los primeros usuarios activan su plan con un <b>código de fundador</b>{' '}
+              y mantienen ese precio para siempre. Pídele tu código al equipo de Rockie.
+            </>
+          )}
         </p>
         <label className="lbl" htmlFor="pl-codigo">
           Tu código
@@ -303,7 +324,12 @@ export default function PlanesPage() {
           <summary>¿Qué es el plan Club?</summary>
           <p>Es para el equipo de un club u organización: lo paga el club y sus miembros usan todo lo del club gratis, sin límite de personas.</p>
         </details>
+        <details>
+          <summary>¿Se cobra solo cada mes?</summary>
+          <p>No. Pagas un mes o un año y el plan dura eso; para seguir, lo renuevas tú desde aquí. Nada de cobros sorpresa.</p>
+        </details>
       </section>
+      {comprar && <ComprarPlan plan={comprar} estudiante={estudiante} onClose={() => setComprar(null)} />}
     </Marco>
   )
 }

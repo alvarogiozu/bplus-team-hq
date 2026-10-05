@@ -74,3 +74,17 @@
 
 /* el aviso de Plus dentro de otra pantalla (p. ej. Cuaderno → Ajustes → Claude) */
 .cu-plan-lock { display: grid; gap: var(--s3); justify-items: start; margin: var(--s3) 0; }
+
+/* ---------- suscribirte (mensual o anual) ---------- */
+.pl-comprar { display: grid; gap: var(--s3); }
+.pl-periodos { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--s3); }
+.pl-periodos button {
+  display: grid; gap: 4px; padding: var(--s3) var(--s4); text-align: left; cursor: pointer; min-height: var(--tap);
+  border-radius: var(--r-lg); background: var(--card); color: var(--ink); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
+  font: inherit;
+}
+.pl-periodos button b { font-size: var(--t-sm); display: flex; align-items: center; gap: 8px; }
+.pl-periodos button b em { font-style: normal; font-size: var(--t-3xs); padding: 1px 8px; border-radius: var(--r-pill); background: var(--green-soft); color: var(--ink); }
+.pl-periodos button span { font-size: var(--t-xs); color: var(--ink-soft); }
+.pl-periodos button.on { border-color: var(--accent); box-shadow: 0 3px 0 var(--accent-edge); background: var(--accent-soft); }
+.pl-periodos button:active { transform: translateY(2px); box-shadow: none; }
