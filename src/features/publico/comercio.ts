@@ -5,10 +5,11 @@
 export const COMERCIO = {
   marca: 'Rockie',
   web: 'https://rockie.plus',
-  /** como figura en SUNAT (persona natural con negocio) */
+  /** como figura en SUNAT (persona natural) */
   titular: 'ZUÑIGA CANAZAS ALVARO GIOVANNI',
   ruc: '10765450981',
-  direccion: null as string | null,
+  /** solo distrito por decisión del dueño (el domicilio completo es su casa); está en la ficha RUC */
+  direccion: 'Miraflores, Lima, Perú' as string | null,
   /** reenvía (Namecheap) al correo del dueño, que no se muestra */
   correo: 'contacto@rockie.plus' as string | null,
   telefono: null as string | null,
