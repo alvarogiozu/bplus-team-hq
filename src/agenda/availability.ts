@@ -199,6 +199,9 @@ export function useTeamAvailability(spaceIds: string[], from: string, to: string
       queryKey: ['team-avail', sid, from, to],
       enabled: enabled && Boolean(sid),
       staleTime: 30_000,
+      // al abrir la vista se pide de nuevo siempre: lo guardado se muestra al instante, pero lo que cambió otra
+      // persona (p. ej. ahora muestra el título de su evento) tiene que llegar sin esperar medio minuto
+      refetchOnMount: 'always' as const,
       refetchInterval: 60_000,
       queryFn: async (): Promise<TeamAvail> => {
         const { data, error } = await supabase.rpc('team_availability', { p_space: sid, p_from: from, p_to: to })

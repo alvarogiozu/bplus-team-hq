@@ -33,7 +33,8 @@ test('bienvenida', async ({ page }, info) => {
   await loginAgenda(page, 'qa.nuevo')
   await page.locator('.tl, .ob-cta').first().waitFor()
   if (await page.locator('.tl').isVisible()) {
-    await page.getByRole('button', { name: 'Ajustes de la agenda' }).click()
+    // los ajustes de la agenda por su enlace (en el celular no hay tuerca: se abren desde tus Ajustes)
+    await page.goto('/agenda?ajustes=1')
     await page.getByRole('button', { name: 'Ver la bienvenida otra vez' }).click()
   }
   const cta = page.locator('.ob-cta')

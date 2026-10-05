@@ -46,9 +46,9 @@ test('Gantt: mover una barra cambia sus fechas y se puede deshacer', async ({ pa
 test('Panel: números del equipo y resumen con IA', async ({ page }) => {
   await login(page, 'qa.alvaro')
   await page.goto('/tareas?vista=panel')
-  await expect(page.getByText('Así va el equipo')).toBeVisible()
+  await expect(page.getByText('Así va el proyecto')).toBeVisible()
   await expect(page.locator('.kpi')).toHaveCount(4)
-  for (const h of ['Ritmo del equipo', 'Carga por persona', 'Proyectos', 'Metas', 'Atención']) {
+  for (const h of ['Ritmo del equipo', 'Carga por persona', 'Metas', 'Atención']) {
     await expect(page.getByRole('heading', { name: h, exact: true })).toBeVisible()
   }
   await page.route('**/functions/v1/agenda-agent', (r) =>
@@ -131,7 +131,9 @@ test('selectores propios, color principal y roles', async ({ page }) => {
   await expect(page.locator('html')).not.toHaveAttribute('data-accent', /.+/)
 
   // roles en el equipo
+  // el rol se cambia en la hoja de cada persona (tocar su Rockie)
   await page.goto('/equipo')
+  await page.getByRole('button', { name: 'Ver a Álvaro' }).first().click()
   await page.getByRole('button', { name: /^Rol de Álvaro/ }).click()
   await page.getByPlaceholder('Ej: Hardware · PCB').fill('Producto')
   await page.getByRole('button', { name: 'Guardar' }).click()

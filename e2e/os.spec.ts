@@ -12,7 +12,7 @@ test('al entrar se llega al Inicio con las cuatro apps', async ({ page }) => {
   await pasarCofre(page)
   await expect(page).toHaveURL(/\/inicio$/)
   await expect(page.getByRole('heading', { name: /Buen(os|as) (días|tardes|noches), / })).toBeVisible()
-  for (const app of ['Hábitos', 'Agenda', 'Equipo', 'Cuaderno']) {
+  for (const app of ['Hábitos', 'Agenda', 'Proyectos', 'Cuaderno']) {
     await expect(page.getByRole('link', { name: new RegExp(`^${app}`) })).toBeVisible()
   }
   // cada tarjeta trae lo de hoy (no se queda cargando)
@@ -28,10 +28,10 @@ test('al entrar se llega al Inicio con las cuatro apps', async ({ page }) => {
 
   // del Cuaderno (PC) a Equipo, y de vuelta al Inicio
   await page.getByRole('button', { name: /Cambiar de app \(estás en Cuaderno\)/ }).click()
-  await page.getByRole('menu').getByRole('link', { name: /^Equipo/ }).click()
-  await expect(page).toHaveURL(/\/hoy/)
-  await page.getByRole('button', { name: /Cambiar de app \(estás en Equipo\)/ }).first().click()
-  await page.getByRole('menu').getByRole('link', { name: /^Inicio/ }).click()
+  await page.getByRole('menu').getByRole('link', { name: /^Proyectos/ }).click()
+  await expect(page).toHaveURL(/\/equipos/)
+  // la lista de proyectos vuelve al Inicio con su enlace de arriba
+  await page.getByRole('link', { name: 'Inicio', exact: true }).first().click()
   await expect(page).toHaveURL(/\/inicio$/)
 
   // en el celular: dos columnas y el selector compacto en la Agenda

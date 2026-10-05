@@ -5,7 +5,7 @@ import { login } from './helpers'
 test('Logros: crear y entregar a mano; uno ligado a una meta se desbloquea solo', async ({ page }) => {
   await login(page, 'qa.alvaro')
   await page.getByRole('link', { name: 'Equipo' }).first().click()
-  await expect(page.getByRole('heading', { name: 'Logros del equipo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Logros del proyecto' })).toBeVisible()
   const seeded = page.locator('.ach.custom', { hasText: 'Medio camino: 250 patrocinadores' })
   await expect(seeded).toContainText('36% de 50%')
 

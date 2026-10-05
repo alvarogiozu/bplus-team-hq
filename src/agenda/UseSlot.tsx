@@ -172,14 +172,15 @@ function UseSlotBody({
     const t = shownTitle.trim()
     if (!t) return
     setBusy(true)
+    // antes de cualquier espera: después de un await, React ya soltó el evento (e.currentTarget queda en null)
+    const btn =
+      (e.currentTarget.querySelector('button[type=submit]') as HTMLElement | null) ?? e.currentTarget
     // agendar en un hueco en común cuenta para el cupo del mes (Gratis: 5); mirar los huecos es libre
     const cupo = await usarCupo('buscar_hueco_mes')
     if (!cupo.ok) {
       setBusy(false)
       return abrirLimite('buscar_hueco_mes')
     }
-    const btn =
-      (e.currentTarget.querySelector('button[type=submit]') as HTMLElement | null) ?? e.currentTarget
     let undo: (() => Promise<void>) | null = null
     if (invite && space && people.length) {
       undo = await createEvent({

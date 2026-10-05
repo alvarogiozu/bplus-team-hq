@@ -88,9 +88,9 @@ test('Cuaderno: mover la nota que ves, al medio, abajo a la derecha y en lugar d
   const c4 = await caja(panel('Cuatro'))
   expect(Math.abs(dos.x - c4.x)).toBeLessThan(2)
   expect(dos.y).toBeGreaterThan(c4.y + c4.height - 2)
-  // la pestaña del panel con foco resaltada; las que se ven en otro panel, marcadas. Nada más
+  // pestañas por panel (como Obsidian): cada nota tiene su pestaña en la barra de SU panel, resaltada ahí. Nada más
   await expect(tab('Dos')).toHaveClass(/\bon\b/)
-  await expect(tab('Uno')).toHaveClass(/\bvis\b/)
+  await expect(panel('Uno').locator('.cu-pestana', { hasText: 'Uno' })).toHaveClass(/\bon\b/)
   await expect(page.locator('.cu-panel-barra, .cu-pestana-lugar, .mz-label')).toHaveCount(0)
   await shot(page, 'cu-cuatro-paneles')
 
@@ -105,8 +105,8 @@ test('Cuaderno: mover la nota que ves, al medio, abajo a la derecha y en lugar d
   await expect(paneles).toHaveCount(2)
   await expect(tab('Dos')).toBeVisible()
 
-  // el + de las pestañas: nueva o una que ya tienes
-  await page.getByRole('button', { name: 'Nueva pestaña' }).click()
+  // el + de las pestañas (cada panel tiene el suyo): nueva o una que ya tienes
+  await principal.getByRole('button', { name: 'Nueva pestaña' }).click()
   await expect(page.getByRole('button', { name: /Pizarra nueva/ })).toBeVisible()
   await page.waitForTimeout(300)
   await shot(page, 'cu-mas')

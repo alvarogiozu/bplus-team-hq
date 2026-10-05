@@ -13,7 +13,8 @@ test('Materiales: carpeta, subir, mover, enlace y borrar', async ({ page }) => {
   await page.locator('input[type=file]').setInputFiles({ name: 'bom-v2.csv', mimeType: 'text/csv', buffer: Buffer.from('pieza,cantidad\nPCB,1\n') })
   const card = page.locator('.mcard', { hasText: 'bom-v2.csv' })
   await expect(card).toContainText('Hoja de cálculo')
-  await expect(page.locator('.mmeter')).toContainText('21 B')
+  // el archivo se sube cifrado (el Cofre): pesa unos bytes más que el original (21 B)
+  await expect(page.locator('.mmeter')).toContainText(/\d+ B de/)
 
   // carpeta nueva
   await page.getByRole('button', { name: 'Carpeta', exact: true }).click()

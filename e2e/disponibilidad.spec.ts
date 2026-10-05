@@ -98,8 +98,15 @@ test('Disponibilidad: la semana de las personas, Huecos y usar un horario', asyn
   const edB = pageB.getByRole('dialog', { name: 'Editar' })
   await edB.getByRole('radio', { name: /Con título/ }).click()
   await edB.getByRole('button', { name: 'Guardar' }).click()
-  await page.reload()
-  await expect(page.locator(`.pw-col[data-day="${tomorrow}"] .pw-ev[title^="Mariana: Dentista"]`)).toHaveCount(1, { timeout: 15_000 })
+  // guardar con título lo vuelve a cifrar con la llave de su agenda y se la entrega al equipo: se espera a que
+  // termine; luego Álvaro recarga (hasta 3 veces) — en la app, sin recargar, llega en la actualización de cada minuto
+  await expect(edB).toHaveCount(0)
+  await pageB.waitForLoadState('networkidle')
+  const dentista = page.locator(`.pw-col[data-day="${tomorrow}"] .pw-ev[title^="Mariana: Dentista"]`)
+  await expect(async () => {
+    await page.reload()
+    await expect(dentista).toHaveCount(1, { timeout: 6_000 })
+  }).toPass({ timeout: 30_000 })
 
   // alguien sin horario: se avisa
   await view.getByLabel('Buscar personas del equipo').fill('Seba')
@@ -149,7 +156,9 @@ test('Disponibilidad: la semana de las personas, Huecos y usar un horario', asyn
   await expect(page.getByRole('region', { name: 'Disponibilidad del equipo' })).toContainText('Mi horario: todos los días 09:00–18:00')
   await page.waitForTimeout(400)
   await shot(page, 'pc-equipo')
-  await page.locator('.card.member', { hasText: 'Mariana' }).locator('.mstat').click()
+  // el estado de cada quien está en su hoja (tocar su Rockie)
+  await page.getByRole('button', { name: 'Ver a Mariana' }).first().click()
+  await page.getByRole('dialog').locator('.mstat').first().click()
   await expect(page).toHaveURL(/\/agenda\?personas=1/)
   await expect(page.locator('.pv-chip', { hasText: 'Mariana' })).toBeVisible()
   await expect(page.locator('.pv-chip', { hasText: 'Sebastián' })).toHaveCount(0)

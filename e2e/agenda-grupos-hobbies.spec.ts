@@ -156,7 +156,8 @@ test('la línea de ahora: "¿Qué sigue?" no se encima y Rockie se hace a un lad
   await page.waitForTimeout(900)
   await shot(page, 'movil-ahora-bloque')
   // el Inbox del celular: grupos + hobbies abajo
-  await page.getByRole('button', { name: /^Inbox/ }).click()
+  // en la barra de abajo el botón lleva primero cuántas cosas hay («7 Inbox»)
+  await page.getByRole('navigation', { name: 'Vistas de la agenda' }).getByRole('button', { name: /Inbox$/ }).click()
   await page.waitForTimeout(700)
   await shot(page, 'movil-inbox')
   await page.locator('.ag-hob').scrollIntoViewIfNeeded()

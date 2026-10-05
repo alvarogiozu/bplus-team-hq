@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, test, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
-import { loginAgenda, PASS } from './helpers'
+import { crearCofreQa, loginAgenda, PASS } from './helpers'
 
 // El mes en grande (lo de todo el día de un vistazo), las marcas del mes chico, el recuadro que se
 // desliza de día en día, tus hábitos a su hora y las tareas de proyecto que te tocan.
@@ -43,6 +43,7 @@ test.beforeAll(async () => {
   const { data: auth, error } = await sb.auth.signInWithPassword({ email: EMAIL, password: PASS })
   if (error) throw error
   const uid = auth.user!.id
+  await crearCofreQa(sb, uid) // su Cofre con el código de prueba (cada prueba entra en un navegador nuevo)
   await admin.from('agenda_prefs').upsert({ user_id: uid, wake_min: 7 * 60 + 30, sleep_min: 23 * 60, onboarded_at: new Date().toISOString() })
   const { data: space, error: se } = await sb.rpc('create_space', { p_name: 'Química' })
   if (se) throw se
@@ -126,13 +127,20 @@ test('el recuadro rojo se desliza de un día al otro', async ({ page }) => {
   const before = (await sel.boundingBox())!
   const target = strip.locator('.ag-day').filter({ hasNot: page.locator('.ag-day-sel') }).first()
   const goal = (await target.locator('.ag-day-num').boundingBox())!
-  await target.click()
-  // a mitad de camino: ni en el día de antes ni todavía en el nuevo
-  await page.waitForTimeout(70)
-  const mid = (await strip.locator('.ag-day-sel').boundingBox())!
+  // se mide cuadro a cuadro DENTRO de la página (con una espera fija desde afuera, bajo carga, se llega tarde)
+  const xs = await target.evaluate(async (dia) => {
+    ;(dia as HTMLElement).click()
+    const out: number[] = []
+    for (let i = 0; i < 14; i++) {
+      await new Promise((r) => requestAnimationFrame(r))
+      out.push(document.querySelector('.ag-strip .ag-day-sel')?.getBoundingClientRect().x ?? -1)
+    }
+    return out
+  })
+  // a mitad de camino: algún cuadro ni en el día de antes ni todavía en el nuevo
+  const entre = xs.filter((x) => Math.abs(x - before.x) > 4 && Math.abs(x - goal.x) > 4)
+  expect(entre.length).toBeGreaterThan(0)
   await shot(page, 'pc-desliza-mitad')
-  expect(Math.abs(mid.x - goal.x)).toBeGreaterThan(4)
-  expect(Math.abs(mid.x - before.x)).toBeGreaterThan(4)
   await page.waitForTimeout(600)
   const after = (await strip.locator('.ag-day-sel').boundingBox())!
   expect(Math.abs(after.x - goal.x)).toBeLessThan(2)

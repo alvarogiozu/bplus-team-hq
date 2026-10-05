@@ -151,6 +151,8 @@ async function materialsDemo(sid) {
 // Rockie Agenda: un día vivo para qa.alvaro (qa.nuevo queda sin onboarding para probar la bienvenida)
 async function agendaDemo() {
   await ensureUser({ username: 'qa.nuevo', display_name: 'Nuevo', color: '#b4637a' })
+  // su Cofre con el código de prueba: lo usan pruebas en PC y en celular (si no, la primera crea uno al azar)
+  await cofreQa('qa.nuevo')
   const { data: users } = await admin.from('profiles').select('id, username').in('username', ['qa.alvaro'])
   const uid = users[0].id
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date())
