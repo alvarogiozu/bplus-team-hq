@@ -7,7 +7,7 @@ import { useSlideSelect } from './useSlideSelect.js'
 // Ademas se puede arrastrar el dedo entre opciones (ver useSlideSelect).
 export default function Segmented({ id, options, value, onChange, color = 'var(--azure)', edge = 'var(--azure-edge)' }) {
   const index = Math.max(0, options.findIndex(o => o.id === value))
-  const { trackRef, setItem, handlers, live, x, w } = useSlideSelect({
+  const { trackRef, setItem, handlers, live, x, w, sx, sy, originX } = useSlideSelect({
     index,
     onSelect: (i) => onChange(options[i].id),
   })
@@ -16,7 +16,7 @@ export default function Segmented({ id, options, value, onChange, color = 'var(-
     <div className="seg" ref={trackRef}>
       <motion.span
         className="seg-ind"
-        style={{ x, width: w, background: color, '--seg-edge': edge }}
+        style={{ x, width: w, scaleX: sx, scaleY: sy, originX, background: color, '--seg-edge': edge }}
       />
       {options.map((o, i) => {
         const on = live === i

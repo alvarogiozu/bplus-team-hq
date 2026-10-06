@@ -14,6 +14,14 @@ import { animate, useMotionValue, type AnimationPlaybackControls } from 'motion/
 // index = -1 (ninguna pestaña es la tuya): la píldora se aparca dentro del riel, en el borde de `park`.
 
 const SNAP = { type: 'spring', stiffness: 500, damping: 38, mass: 0.7 } as const
+// al soltar después de estirar de más, la píldora recupera su forma con un rebote de gelatina
+const JALEA = { type: 'spring', stiffness: 520, damping: 14, mass: 0.6 } as const
+/** Aplaste al arrastrar MÁS ALLÁ de la primera o la última pestaña: la píldora se comprime contra el borde
+ *  (scaleX baja, scaleY sube un poco) y apenas se asoma; al soltar rebota. */
+const aplaste = (over: number) => {
+  const k = Math.min(Math.abs(over) / 260, 0.1)
+  return { sx: 1 - k, sy: 1 + k * 0.5, dx: Math.sign(over) * Math.min(Math.abs(over) * 0.06, 3) }
+}
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 // sensibilidad del desliz al soltar (las mismas perillas que en Hábitos)
 const FLICK_MS = 130
@@ -38,6 +46,9 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'st
   const [dragging, setDragging] = useState(false)
   const x = useMotionValue(0)
   const w = useMotionValue(0)
+  const sx = useMotionValue(1)
+  const sy = useMotionValue(1)
+  const originX = useMotionValue(0.5)
   const running = useRef<AnimationPlaybackControls[]>([])
 
   // espejos en ref: los listeners de window leen siempre lo último
@@ -132,7 +143,13 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'st
       const r = rectFor(i)
       if (r) {
         const half = r.width / 2
-        x.set(clamp(e.clientX - t.left - track.clientLeft, half, track.clientWidth - half) - half)
+        const dedo = e.clientX - t.left - track.clientLeft
+        const dentro = clamp(dedo, half, track.clientWidth - half)
+        const a = aplaste(dedo - dentro)
+        originX.set(dedo < dentro ? 0 : 1)
+        sx.set(a.sx)
+        sy.set(a.sy)
+        x.set(dentro - half + a.dx)
         w.set(r.width)
       }
     }
@@ -143,6 +160,10 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'st
       removeEventListener('pointerup', win.current!.onUp)
       removeEventListener('pointercancel', win.current!.onCancel)
       setDragging(false)
+      if (sx.get() !== 1 || sy.get() !== 1) {
+        animate(sx, 1, JALEA)
+        animate(sy, 1, JALEA)
+      }
       const idx = indexRef.current
       if (cancel) {
         setLiveBoth(idx)
@@ -215,5 +236,5 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'st
   }, [])
   const handlers = useCallback((i: number) => ({ onPointerDown: onPointerDown(i) }), [onPointerDown])
 
-  return { trackRef, setItem, handlers, live, dragging, x, w }
+  return { trackRef, setItem, handlers, live, dragging, x, w, sx, sy, originX }
 }

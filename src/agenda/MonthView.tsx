@@ -31,6 +31,11 @@ export function useAllDaySpans(from: string, to: string, withTasks: boolean): Sp
 }
 
 const monthOf = (d: string) => d.slice(0, 7)
+/** «Octubre 2026» */
+const nombreMes = (month: string) => {
+  const t = new Date(`${month}-15T12:00:00`).toLocaleDateString('es-PE', { month: 'long', year: 'numeric' }).replace(' de ', ' ')
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
 const shiftMonth = (month: string, n: number) => {
   const [y, m] = month.split('-').map(Number)
   return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 7)
@@ -63,11 +68,14 @@ export function MonthView(p: { day: string; today: string; mobile: boolean; onPi
     <div className="mv">
       <div className="pv-bar">
         <div className="pv-title">
-          <b>Fechas importantes</b>
+          {/* en el celular la cabecera de la Agenda no se repite aquí: el título es el mes que estás viendo */}
+          <b>{p.mobile ? nombreMes(month) : 'Fechas importantes'}</b>
           <small>
             {inMonth
-              ? `${inMonth} este mes · lo que marcaste «Todo el día»`
-              : 'Marca algo «Todo el día» (un examen, una entrega) y aparece aquí'}
+              ? `${inMonth} ${p.mobile ? 'fechas importantes' : 'este mes · lo que marcaste «Todo el día»'}`
+              : p.mobile
+                ? 'Fechas importantes: marca algo «Todo el día»'
+                : 'Marca algo «Todo el día» (un examen, una entrega) y aparece aquí'}
           </small>
         </div>
         <span className="spacer" />

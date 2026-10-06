@@ -99,22 +99,34 @@
 .nav-rockie-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--brand-edge); }
 .nav-rockie-btn:focus-visible { outline: 3px solid var(--azure); outline-offset: 3px; }
 .nav-rockie-face { display: flex; line-height: 0; will-change: transform; backface-visibility: hidden; }
+/* el micrófono: su propio botón, pegado a Rockie (abajo a la derecha). Se ve de 34 px y se toca en 44. */
+.nav-rockie { position: relative; flex: none; }
 .nav-rockie-mic {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 26px;
-  height: 26px;
+  right: -6px;
+  bottom: -6px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   box-sizing: border-box;
   border-radius: 50%;
   background: var(--card);
   border: 2px solid var(--card-line);
+  box-shadow: 0 2px 0 var(--card-edge);
   color: var(--brand);
-  font-size: 14px;
+  font-size: 17px;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
+.nav-rockie-mic::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
+.nav-rockie-mic:active { transform: translateY(2px); box-shadow: 0 0 0 var(--card-edge); }
+.nav-rockie-mic:focus-visible { outline: 3px solid var(--azure); outline-offset: 2px; }
 .nav-rockie-confetti {
   position: absolute;
   left: 50%;
@@ -125,6 +137,18 @@
 
 @media (prefers-reduced-motion: reduce) {
   .nav-item, .nav-item i, .nav-rockie-btn { transition: none; }
+}
+
+/* En el celular la barra FLOTA sobre la pantalla (como en las demás apps): alrededor de la cápsula y de Rockie se ve
+   lo de abajo, no una franja propia del color del marco. La pantalla reserva su alto para que nada quede tapado. */
+@media (max-width: 899px) {
+  .navbar-wrap {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 40;
+    margin: 0; padding: 0 12px calc(10px + env(safe-area-inset-bottom));
+    pointer-events: none;
+  }
+  .navbar-wrap > * { pointer-events: auto; }
+  .app-phone .scroll-area { padding-bottom: calc(68px + 22px + env(safe-area-inset-bottom)); }
 }
 
 /* Shell de escritorio (>=900px): la navegación vive en el rail izquierdo

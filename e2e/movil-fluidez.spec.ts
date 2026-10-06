@@ -6,7 +6,8 @@ import { login } from './helpers'
 //   ahí, no aparece el splash ni esqueletos y la pantalla nunca queda vacía (antes: ~1,8 s de splash al ir a la Agenda);
 // - la píldora del pie se arrastra con el dedo y al soltar entra a esa sección;
 // - tocar a Rockie abre su hoja y se queda abierta (el clic «fantasma» del navegador la cerraba al instante);
-// - cerrar el editor de la Agenda devuelve el pie (el campo enfocado lo dejaba escondido).
+// - cerrar el editor de la Agenda devuelve el pie (el campo enfocado lo dejaba escondido);
+// - el Inbox se queda abierto, Personas deja la semana a pantalla casi completa y Mes muestra el mes.
 test.use({ ...devices['iPhone 13'], browserName: 'chromium', deviceScaleFactor: 1, viewport: { width: 390, height: 844 } })
 
 type Cuadro = { nav: boolean; rockie: boolean; skel: number; texto: number; splash: boolean }
@@ -108,4 +109,22 @@ test('el celular: sin parpadeos entre pestañas y apps, pie que se arrastra y Ro
   await expect(page.locator('.ag-panel')).toHaveCount(0)
   await expect(page.locator('.mnav')).toBeVisible()
   await expect(page.locator('.m-rockie')).toBeVisible()
+
+  // el Inbox se abre desde el pie y SE QUEDA (el clic «fantasma» lo cerraba al instante)
+  await tocar(page, '.mnav .mnav-tab', 3)
+  await page.waitForTimeout(900)
+  await expect(page.getByRole('dialog', { name: 'Inbox' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Inbox' })).toHaveCount(0)
+
+  // Personas: la semana es lo importante (antes quedaba en un tercio de la pantalla)
+  await tocar(page, '.mnav .mnav-tab', 2)
+  await expect(page.locator('.pw').first()).toBeVisible()
+  await page.waitForTimeout(500)
+  const semana = (await page.locator('.pw').first().boundingBox())!
+  expect(semana.height, 'alto de la semana en Personas').toBeGreaterThan(844 * 0.5)
+
+  // Mes: sin la cabecera repetida de la Agenda, su título es el mes
+  await tocar(page, '.mnav .mnav-tab', 1)
+  await expect(page.locator('.mv .pv-title b')).toHaveText(/^[A-ZÁÉÍÓÚ][a-záéíóú]+ \d{4}$/)
 })

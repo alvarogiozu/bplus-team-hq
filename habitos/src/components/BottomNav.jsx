@@ -22,9 +22,12 @@ const tabsFor = (vidaMode) => [
   { to: '/progreso', label: 'Progreso', icon: 'ti-chart-line', color: 'var(--azure)', edge: 'var(--azure-edge)', coach: 'nav-progreso' },
 ]
 
-// Rockie del centro: se suscribe al store SOLO para celebrar (salta al validar) y para su look.
-// El mismo gesto que en Agenda, Proyectos y Cuaderno: toca = abre su conversación · mantén = le hablas.
+// Rockie abajo a la derecha, con DOS botones (antes todo era el micrófono y su espacio quedaba escondido dentro):
+// - su cara: TU ROCKIE (su espacio, su tienda, su look; lo mismo que en la PC). Mantener presionado = hablarle.
+// - el micrófono, pegado a él: hablarle directo.
+// Se suscribe al store SOLO para celebrar (salta al validar) y para su look.
 function RockieBoton() {
+  const navigate = useNavigate()
   const { celebration, emotion, equipped, rockieColor, level } = useStore()
   const controls = useAnimationControls()
   const [burst, setBurst] = useState(0)
@@ -37,7 +40,7 @@ function RockieBoton() {
       hold.current = null
       held.current = true
       abrirVoz('escuchar')
-    }, 260)
+    }, 320)
   }
   const cancel = () => { clearTimeout(hold.current); hold.current = null }
 
@@ -52,30 +55,34 @@ function RockieBoton() {
   }, [celebration, controls])
 
   return (
-    <button
-      type="button"
-      className="nav-rockie-btn"
-      onPointerDown={down}
-      onPointerUp={cancel}
-      onPointerCancel={cancel}
-      // tras mantener (la voz ya se abrió bajo el dedo), el clic que manda el navegador al soltar caería en la
-      // hoja de voz: con el dedo se anula ese clic
-      onTouchEnd={(e) => { if (held.current && e.cancelable) { e.preventDefault(); held.current = false } }}
-      onContextMenu={(e) => e.preventDefault()}
-      onClick={() => { if (held.current) held.current = false; else abrirVoz('ver') }}
-      aria-label="Rockie: toca para abrir su conversación, mantén para hablarle"
-      data-coach="nav-rockie"
-    >
-      <motion.span className="nav-rockie-face" animate={controls}>
-        <Rockie emotion={emotion ?? { eyes: 1, mouth: 6 }} size={58} float={false} still moods={false} equipped={equipped} color={rockieColor} stage={stageOfLevel(level ?? 1)} />
-      </motion.span>
-      <span className="nav-rockie-mic" aria-hidden="true"><i className="ti ti-microphone" /></span>
-      {burst > 0 && (
-        <span className="nav-rockie-confetti" aria-hidden="true">
-          <Confetti burstKey={burst} radius={56} onDone={() => setBurst(0)} />
-        </span>
-      )}
-    </button>
+    <div className="nav-rockie">
+      <button
+        type="button"
+        className="nav-rockie-btn"
+        onPointerDown={down}
+        onPointerUp={cancel}
+        onPointerCancel={cancel}
+        // tras mantener (la voz ya se abrió bajo el dedo), el clic que manda el navegador al soltar caería en la
+        // hoja de voz: con el dedo se anula ese clic
+        onTouchEnd={(e) => { if (held.current && e.cancelable) { e.preventDefault(); held.current = false } }}
+        onContextMenu={(e) => e.preventDefault()}
+        onClick={() => { if (held.current) held.current = false; else navigate('/rockie') }}
+        aria-label="Tu Rockie: su espacio, su tienda y su look (mantén presionado para hablarle)"
+        data-coach="nav-rockie"
+      >
+        <motion.span className="nav-rockie-face" animate={controls}>
+          <Rockie emotion={emotion ?? { eyes: 1, mouth: 6 }} size={58} float={false} still moods={false} equipped={equipped} color={rockieColor} stage={stageOfLevel(level ?? 1)} />
+        </motion.span>
+        {burst > 0 && (
+          <span className="nav-rockie-confetti" aria-hidden="true">
+            <Confetti burstKey={burst} radius={56} onDone={() => setBurst(0)} />
+          </span>
+        )}
+      </button>
+      <button type="button" className="nav-rockie-mic" onClick={() => abrirVoz('escuchar')} aria-label="Hablarle a Rockie">
+        <i className="ti ti-microphone" />
+      </button>
+    </div>
   )
 }
 
@@ -88,7 +95,7 @@ export default function BottomNav() {
   // pestaña activa según ruta (-1 en /rockie u otras: sin pestaña, indicador oculto)
   const navIndex = TABS.findIndex(t => pathname.startsWith(t.match || t.to))
 
-  const { trackRef, setItem, handlers, live, dragging, x, w } = useSlideSelect({
+  const { trackRef, setItem, handlers, live, dragging, x, w, sx, sy, originX } = useSlideSelect({
     index: navIndex,
     park: 'start',
     onSelect: (i) => {
@@ -130,7 +137,7 @@ export default function BottomNav() {
       <nav className={`navbar${dragging ? ' arrastrando' : ''}`} ref={trackRef} aria-label="Navegación">
         <motion.span
           className="nav-ind"
-          style={{ x, width: w, background: indColor, '--nav-edge': indEdge, opacity: showInd ? 1 : 0 }}
+          style={{ x, width: w, scaleX: sx, scaleY: sy, originX, background: indColor, '--nav-edge': indEdge, opacity: showInd ? 1 : 0 }}
           transition={{ opacity: { duration: 0.15 } }}
         />
         {TABS.map(tab)}

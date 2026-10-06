@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode, type TouchEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, matchPath, useLocation, useNavigate } from 'react-router'
 import { motion, useTransform, type MotionValue } from 'motion/react'
@@ -33,6 +33,12 @@ export function MovilTop(p: { children?: ReactNode; actions?: ReactNode; compact
       </div>
     </header>
   )
+}
+
+/** El toque ya lo resolvió el gesto (useSlideSelect): el clic que el navegador manda después caería en lo que se
+ *  acaba de abrir (p. ej. el fondo del Inbox, que lo cerraba al instante). Con el dedo no hay clic. */
+const sinClicFantasma = (e: TouchEvent<HTMLElement>) => {
+  if (e.cancelable) e.preventDefault()
 }
 
 export type MovilTab = {
@@ -70,7 +76,7 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
     if (t.to) navigate(t.to)
     else t.onClick?.()
   }
-  const { trackRef, setItem, handlers, live, dragging, x, w } = useSlideSelect({
+  const { trackRef, setItem, handlers, live, dragging, x, w, sx, sy, originX } = useSlideSelect({
     index: activo,
     onSelect: elegir,
     onReselect: () => scrollTo({ top: 0, behavior: 'smooth' }),
@@ -101,6 +107,7 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
         aria-current={activo === i ? 'page' : undefined}
         draggable={false}
         {...handlers(i)}
+        onTouchEnd={sinClicFantasma}
         onClick={(e) => {
           if (e.detail !== 0) e.preventDefault()
         }}
@@ -115,6 +122,7 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
         className={cls}
         aria-pressed={activo === i}
         {...handlers(i)}
+        onTouchEnd={sinClicFantasma}
         onClick={(e) => {
           if (e.detail === 0) elegir(i)
         }}
@@ -133,6 +141,9 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
           style={{
             x,
             width: w,
+            scaleX: sx,
+            scaleY: sy,
+            originX,
             opacity: shown >= 0 ? 1 : 0,
             background: enc?.color ?? 'var(--app, var(--accent))',
             ['--ind-edge' as string]: enc?.edge ?? 'var(--app-edge, var(--accent-edge))',
@@ -146,7 +157,8 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
 
 /** La pantalla de una sección en el celular: al cambiar de sección entra subiendo un poco (como en Hábitos), solo
  *  con movimiento: un fundido desde transparente se ve como parpadeo. `clave` = la sección (su ruta). */
-export function EntraSeccion({ clave, children }: { clave: string; children: ReactNode }) {
+export function EntraSeccion({ clave, children, activo = true }: { clave: string; children: ReactNode; activo?: boolean }) {
+  if (!activo) return <>{children}</>
   return (
     <motion.div key={clave} className="m-entra" initial={{ y: 12 }} animate={{ y: 0 }} transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}>
       {children}
@@ -200,45 +212,64 @@ export function RockieCentro(p: {
       p.onRelease?.()
     }
   }
-  // va directo en <body>: así ninguna regla del contenedor de cada app lo estira ni lo esconde
+  // va directo en <body>: así ninguna regla del contenedor de cada app lo estira ni lo esconde.
+  // Dos botones: su cara (toca = escribirle · mantén = hablarle) y el micrófono, pegado a él, para hablarle directo
+  // (antes el micrófono era un adorno de la cara y no se sabía qué hacía cada cosa).
+  const hablar = () => {
+    haptic(8)
+    if (p.listening) p.onRelease?.()
+    else if (p.onHold) p.onHold()
+    else p.onTap()
+  }
   return createPortal(
-    <button
-      type="button"
-      className={`m-rockie${p.listening ? ' on' : ''}${p.pressed ? ' pressed' : ''}`}
-      data-rockie
-      aria-label={p.listening ? 'Terminar y enviar' : 'Rockie: toca para escribirle, mantén para hablarle'}
-      aria-pressed={p.listening || p.pressed}
-      title="Toca para escribirle · mantén para hablarle"
-      onPointerDown={(e) => {
-        e.preventDefault()
-        down()
-      }}
-      onPointerUp={up}
-      // el toque se resuelve al soltar; el clic «fantasma» que el navegador manda después caería en la hoja recién
-      // abierta (su fondo la cierra): con el dedo no hay clic
-      onTouchEnd={(e) => {
-        if (e.cancelable) e.preventDefault()
-      }}
-      onPointerCancel={() => {
-        clearTimeout(hold.current)
-        hold.current = undefined
-        if (held.current) up()
-      }}
-      onContextMenu={(e) => e.preventDefault()}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+    <div className={`m-rockie-wrap${p.listening ? ' on' : ''}`} data-rockie>
+      <button
+        type="button"
+        className={`m-rockie${p.listening ? ' on' : ''}${p.pressed ? ' pressed' : ''}`}
+        aria-label={p.listening ? 'Terminar y enviar' : 'Rockie: toca para escribirle, mantén para hablarle'}
+        aria-pressed={p.listening || p.pressed}
+        title="Toca para escribirle · mantén para hablarle"
+        onPointerDown={(e) => {
           e.preventDefault()
-          if (p.listening) p.onRelease?.()
-          else p.onTap()
-        }
-      }}
-    >
-      {p.listening && p.level && <Ring level={p.level} />}
-      {p.avatar ?? <RockieArt size={58} stone={look.stone} equipped={look.equipped} eyes={p.listening ? 4 : 1} mouth={p.listening ? 7 : 6} />}
-      <span className="m-rockie-mic" aria-hidden="true">
+          down()
+        }}
+        onPointerUp={up}
+        // el toque se resuelve al soltar; el clic «fantasma» que el navegador manda después caería en la hoja recién
+        // abierta (su fondo la cierra): con el dedo no hay clic
+        onTouchEnd={(e) => {
+          if (e.cancelable) e.preventDefault()
+        }}
+        onPointerCancel={() => {
+          clearTimeout(hold.current)
+          hold.current = undefined
+          if (held.current) up()
+        }}
+        onContextMenu={(e) => e.preventDefault()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            if (p.listening) p.onRelease?.()
+            else p.onTap()
+          }
+        }}
+      >
+        {p.listening && p.level && <Ring level={p.level} />}
+        {p.avatar ?? <RockieArt size={58} stone={look.stone} equipped={look.equipped} eyes={p.listening ? 4 : 1} mouth={p.listening ? 7 : 6} />}
+      </button>
+      <button
+        type="button"
+        className="m-rockie-mic"
+        aria-label={p.listening ? 'Terminar y enviar' : 'Hablarle a Rockie'}
+        onTouchEnd={(e) => {
+          if (!e.cancelable) return
+          e.preventDefault()
+          hablar()
+        }}
+        onClick={hablar}
+      >
         <Icon name="mic" />
-      </span>
-    </button>,
+      </button>
+    </div>,
     document.body,
   )
 }

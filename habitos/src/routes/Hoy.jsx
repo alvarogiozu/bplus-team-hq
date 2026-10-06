@@ -12,7 +12,7 @@ import { ROCKIE_TONES } from '../data/rockie.js'
 import { areaOf } from '../data/areas.js'
 import { fechaHoy, fechaDeOffset, hoyISO } from '../data/fechas.js'
 import { habitosDelDia, modesDelDia } from '../data/habitHistory.js'
-import { HoyMovilAcciones, HoyMovilAvance, HoyMovilTop } from './HoyMovil.jsx'
+import { HoyMovilAvance, HoyMovilPista, HoyMovilTop } from './HoyMovil.jsx'
 import useDesktop from '../lib/useDesktop.js'
 import HoyDesk from './desk/HoyDesk.jsx'
 import MetaIcon from '../components/MetaIcon.jsx'
@@ -1155,20 +1155,7 @@ export default function Hoy() {
             })}
           </motion.div>
 
-          {hoyItems.length > 0 && (
-            <HoyMovilAcciones
-              item={activeHabit}
-              onSeal={doSeal}
-              onNext={() => {
-                const next = hoyItems.findIndex((h, i) => i > safeActive && h.status === 'scheduled')
-                const first = hoyItems.findIndex((h) => h.status === 'scheduled')
-                if (next !== -1) setActive(next)
-                else if (first !== -1) setActive(first)
-              }}
-              aplazosLibres={aplazosUsados < maxAplazos}
-              todoHecho={!hoyItems.some((h) => h.status === 'scheduled')}
-            />
-          )}
+          {hoyItems.length > 0 && <HoyMovilPista item={activeHabit} todoHecho={!hoyItems.some((h) => h.status === 'scheduled')} />}
           {/* seguir sumando: aquí abajo, no en la barra de arriba */}
           {hoyItems.length > 0 && <AgregarHabito onClick={() => setCreating(true)} />}
 
@@ -1186,7 +1173,7 @@ export default function Hoy() {
 
       {/* VISTA 2: LISTA */}
       {hoyView === 'lista' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-2) var(--screen-x) var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div className="hm-vista" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-2) var(--screen-x) var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           <div className="q" style={{ fontSize: 'var(--text-3xs)', color: 'var(--ink-muted)', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>
             PENDIENTES ({hoyItems.filter(h => h.status === 'scheduled').length})
           </div>
@@ -1261,7 +1248,7 @@ export default function Hoy() {
 
       {/* VISTA 3: CALENDARIO */}
       {hoyView === 'cal' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-2) var(--screen-x) var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div className="hm-vista" style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-2) var(--screen-x) var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {/* Tira semanal centrada en hoy */}
           <div style={{ display: 'flex', gap: 6 }}>
             {weekStrip.map((dia) => {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'react-router'
 import { AppSwitcher } from '../os/AppSwitcher'
-import { MovilNav, MovilTop } from '../os/movil/MovilShell'
+import { EntraSeccion, MovilNav, MovilTop } from '../os/movil/MovilShell'
 import { useIsMobile, useMedia } from '../lib/useMedia'
 import { AnimatePresence, motion } from 'motion/react'
 import { Sheet } from '../components/Sheet'
@@ -494,12 +494,15 @@ export function AgendaShell() {
           // ajustes) y debajo la cabecera de la página (el mes, Hoy y las flechas)
           <>
             <MovilTop actions={headActions} />
-            <header className="ag-head">
-              {monthPicker}
-              <span className="spacer" />
-              {todayBtn}
-              {arrows}
-            </header>
+            {/* Mes y Personas traen su propia cabecera con sus flechas: aquí no se repite (les deja la pantalla) */}
+            {!monthOpen && !peopleOpen && (
+              <header className="ag-head">
+                {monthPicker}
+                <span className="spacer" />
+                {todayBtn}
+                {arrows}
+              </header>
+            )}
           </>
         ) : (
           <header className="ag-head">
@@ -512,6 +515,8 @@ export function AgendaShell() {
           </header>
         )}
 
+        {/* cada vista (Día, Mes, Personas) entra subiendo un poco, como las secciones de las demás apps */}
+        <EntraSeccion clave={peopleOpen ? 'personas' : monthOpen ? 'mes' : 'dia'} activo={mobile}>
         {peopleOpen ? (
           <PeopleView
             day={day}
@@ -531,13 +536,27 @@ export function AgendaShell() {
         <DayStrip day={day} today={today} dots={dots} onPick={setDay} onDropDay={dropDay} />
         <WeekBars day={day} items={items} google={view.google} cals={calById} onOpen={(it) => openEditor({ mode: 'edit', id: it.id })} />
 
-        {allDay.length > 0 && (
-          <div className="ag-allday" aria-label="Todo el día">
-            {allDay.map((a) => (
-              <AllDayChip key={a.key} a={a} />
-            ))}
-          </div>
-        )}
+        {/* lo de todo el día se pliega y despliega (antes aparecía o desaparecía de golpe al cambiar de día y todo
+            lo de abajo saltaba) */}
+        <AnimatePresence initial={false}>
+          {allDay.length > 0 && (
+            <motion.div
+              key="allday"
+              className="ag-allday-wrap"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="ag-allday" aria-label="Todo el día">
+                {allDay.map((a) => (
+                  <AllDayChip key={a.key} a={a} />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <motion.div
           className="ag-scroll"
@@ -552,15 +571,17 @@ export function AgendaShell() {
               <motion.div
                 key={day}
                 custom={dir}
+                // el día pasa como una página (el nuevo entra entero por un lado mientras el otro sale por el otro), sin
+                // transparencias: antes ambos se fundían a medias y se veían encimados (el «parpadeo» al tocar ‹ ›)
                 variants={{
-                  enter: (d: number) => ({ x: d * 70, opacity: 0 }),
-                  center: { x: 0, opacity: 1 },
-                  exit: (d: number) => ({ x: d * -70, opacity: 0 }),
+                  enter: (d: number) => ({ x: `${d * 100}%` }),
+                  center: { x: '0%' },
+                  exit: (d: number) => ({ x: `${d * -100}%` }),
                 }}
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ type: 'spring', stiffness: 360, damping: 36 }}
+                transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
               >
                 <Timeline
                   day={day}
@@ -588,6 +609,7 @@ export function AgendaShell() {
         </motion.div>
           </>
         )}
+        </EntraSeccion>
 
         <RockieBar ref={barRef} day={day} today={today} nowMin={nowMin} mobile={mobile} onGhosts={setGhosts} onFocusDay={setDay} google={view.google} />
 

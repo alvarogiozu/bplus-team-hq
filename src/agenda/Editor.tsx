@@ -73,13 +73,18 @@ function Panel({ children, color, label }: { children: (startDrag: (e: React.Poi
         animate={mobile ? { y: 0 } : { x: 0, opacity: 1, scale: 1 }}
         exit={mobile ? { y: '100%' } : { x: 50, opacity: 0, scale: 0.98 }}
         transition={{ type: 'spring', stiffness: 380, damping: 36 }}
+        // hacia abajo sigue al dedo 1:1 (antes iba al 70% y se sentía pegajosa); hacia arriba no se mueve; si no la
+        // sueltas lo bastante abajo (o con impulso), vuelve a su lugar con resorte
         drag={mobile ? 'y' : false}
         dragControls={controls}
         dragListener={false}
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={{ top: 0, bottom: 0.7 }}
+        dragConstraints={{ top: 0 }}
+        dragElastic={{ top: 0.04, bottom: 0 }}
+        dragMomentum={false}
+        dragSnapToOrigin
+        dragTransition={{ bounceStiffness: 420, bounceDamping: 36 }}
         onDragEnd={(_, info) => {
-          if (info.offset.y > 120 || info.velocity.y > 700) close()
+          if (info.offset.y > 110 || (info.velocity.y > 500 && info.offset.y > 24)) close()
         }}
       >
         {children((e) => mobile && controls.start(e))}

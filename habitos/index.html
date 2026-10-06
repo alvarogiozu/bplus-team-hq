@@ -13,15 +13,26 @@
       // esta en oscuro, los tokens dark se activan desde el frame 1. Sin esto,
       // habia una ventana donde el fondo era claro y la tinta ya era dark (o al
       // reves) y el texto quedaba invisible.
+      // El tema de tu cuenta (Ajustes de Rockie OS, hq.theme) manda: así Hábitos y las demás apps abren del mismo
+      // color (si no, al pasar de una a otra podía destellar de claro a oscuro). Sin él, el de Hábitos.
       try {
         var p = JSON.parse(localStorage.getItem('bplus.prefs') || '{}') || {}
-        var t = p.theme || 'system'
+        var t = localStorage.getItem('hq.theme') || p.theme || 'system'
         var d = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.dataset.theme = d ? 'dark' : 'light'
       } catch (e) {
         document.documentElement.dataset.theme = 'light'
       }
     </script>
+    <style>
+      /* El primer cuadro ya es del color de la app (nunca blanco) y pasar entre Rockie OS y Hábitos (son dos páginas
+         del sitio) es una transición del navegador: deja la pantalla de antes y funde a la nueva, sin parpadeo. */
+      html { background: #f0ebe5; color-scheme: light; }
+      html[data-theme='dark'] { background: #232136; color-scheme: dark; }
+      @view-transition { navigation: auto; }
+      ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.28s; animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1); }
+      @media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+    </style>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Rockie" />

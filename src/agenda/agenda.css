@@ -847,6 +847,22 @@ h2.ag-ph-title { border: 0; font-size: 24px; line-height: 1.2; color: var(--on-c
   .pv-range { min-width: 0; }
   .ag-people-box.compact { width: 100%; }
   .pv-chip-txt { max-width: 150px; }
+  /* en el celular la semana es lo importante: arriba todo en pocas líneas (antes el título, el selector, las
+     personas y el aviso apilados dejaban el calendario en un tercio de la pantalla) */
+  .pv { gap: 8px; }
+  .pv > .pv-bar .pv-title { display: none; }
+  .pv > .pv-bar { flex-wrap: nowrap; gap: 6px; }
+  .pv-seg button { min-height: 34px; padding: 0 10px; }
+  .pv-nav { flex: 1; justify-content: center; min-width: 0; }
+  .pv-range { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--t-2xs); }
+  .pv-people { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 0 12px 2px; }
+  .pv-people::-webkit-scrollbar { display: none; }
+  .pv-people > * { flex: none; }
+  .pv-chip { min-height: 38px; }
+  .pv-chip .ag-pav { width: 26px; height: 26px; }
+  .ag-nudge.pv-nudge { flex-wrap: nowrap; gap: 8px; padding: 6px 6px 6px 10px; }
+  .ag-nudge.pv-nudge > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--t-2xs); }
+  .ag-nudge.pv-nudge .btn { flex: none; min-height: 32px; padding: 4px 12px; }
 }
 
 /* ---------- el mes en grande: lo de todo el día de un vistazo ---------- */

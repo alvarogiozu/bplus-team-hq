@@ -40,6 +40,8 @@ function HojaAbierta({ onClose, title, variant = 'dialog', children, footer, hea
   closeRef.current = onClose
   /** ya salió arrastrada (fuera de la pantalla): al desmontarse no hace falta otra salida */
   const yaSalio = useRef(false)
+  /** cuándo se abrió: si la abrió un toque, el clic que el navegador manda después cae en su fondo y la cerraba */
+  const nacio = useRef(performance.now())
 
   // foco dentro de la hoja, Tab que no se escapa y Escape para cerrar
   useEffect(() => {
@@ -99,7 +101,7 @@ function HojaAbierta({ onClose, title, variant = 'dialog', children, footer, hea
 
   return createPortal(
     <>
-      <div ref={capa} className="overlay" onClick={onClose} />
+      <div ref={capa} className="overlay" onClick={() => performance.now() - nacio.current > 350 && onClose()} />
       <div ref={ref} tabIndex={-1} className={variant} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="grab" aria-hidden="true" {...gesto.hoja} />
         <div className="dhead" {...gesto.hoja}>

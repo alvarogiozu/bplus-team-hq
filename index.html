@@ -33,6 +33,15 @@
         if (a) { document.documentElement.dataset.accent = '1'; document.documentElement.style.setProperty('--user-accent', a); }
       } catch (e) {}
     </script>
+    <style>
+      /* El primer cuadro ya es del color de la app (nunca blanco) y pasar entre Rockie OS y Hábitos (son dos páginas
+         del sitio) es una transición del navegador: deja la pantalla de antes y funde a la nueva, sin parpadeo. */
+      html { background: #f0ebe5; color-scheme: light; }
+      html[data-theme='dark'] { background: #232136; color-scheme: dark; }
+      @view-transition { navigation: auto; }
+      ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.28s; animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1); }
+      @media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+    </style>
   </head>
   <body>
     <div id="root"></div>

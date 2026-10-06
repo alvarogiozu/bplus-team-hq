@@ -36,6 +36,14 @@ import { useMotionValue, animate } from 'framer-motion'
 // ============================================================================
 
 const SNAP = { type: 'spring', stiffness: 500, damping: 38, mass: 0.7 }
+// al soltar después de estirar de más, la píldora recupera su forma con un rebote de gelatina
+const JALEA = { type: 'spring', stiffness: 520, damping: 14, mass: 0.6 }
+// Aplaste al arrastrar MÁS ALLÁ de la primera o la última opción: la píldora se comprime contra el borde (scaleX
+// baja, scaleY sube un poco) y apenas se asoma; al soltar rebota (como el iPhone).
+const aplaste = (over) => {
+  const k = Math.min(Math.abs(over) / 260, 0.1)
+  return { sx: 1 - k, sy: 1 + k * 0.5, dx: Math.sign(over) * Math.min(Math.abs(over) * 0.06, 3) }
+}
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
 
 // ── Control de sensibilidad del flick (desplazamiento disparado al soltar) ──
@@ -62,6 +70,9 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'en
   // motion values del indicador (no re-renderizan React)
   const x = useMotionValue(0)
   const w = useMotionValue(0)
+  const sx = useMotionValue(1)
+  const sy = useMotionValue(1)
+  const originX = useMotionValue(0.5)
   const running = useRef(null)
 
   // espejos en ref para leer valores frescos dentro de los listeners de window
@@ -158,8 +169,13 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'en
       const r = rectFor(i)
       if (r) {
         const half = r.width / 2
-        const rel = clamp(e.clientX - t.left, half, t.width - half) - half
-        x.set(rel) // seguimiento en tiempo real (sin spring)
+        const dedo = e.clientX - t.left
+        const dentro = clamp(dedo, half, t.width - half)
+        const a = aplaste(dedo - dentro)
+        originX.set(dedo < dentro ? 0 : 1)
+        sx.set(a.sx)
+        sy.set(a.sy)
+        x.set(dentro - half + a.dx) // seguimiento en tiempo real (sin spring)
         w.set(r.width)
       }
     }
@@ -170,6 +186,10 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'en
       window.removeEventListener('pointerup', win.current.onUp)
       window.removeEventListener('pointercancel', win.current.onCancel)
       setDragging(false)
+      if (sx.get() !== 1 || sy.get() !== 1) {
+        animate(sx, 1, JALEA)
+        animate(sy, 1, JALEA)
+      }
       const idx = indexRef.current
       // Solo el cancel real del navegador (scroll se lleva el gesto) revierte.
       if (cancel) { setLiveBoth(idx); springTo(idx); return }
@@ -242,5 +262,5 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'en
 
   const handlers = useCallback((i) => ({ onPointerDown: onPointerDown(i) }), [onPointerDown])
 
-  return { trackRef, setItem, handlers, live, dragging, x, w }
+  return { trackRef, setItem, handlers, live, dragging, x, w, sx, sy, originX }
 }

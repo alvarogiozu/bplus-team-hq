@@ -3,9 +3,8 @@ import CuentaBoton from '../components/CuentaBoton.jsx'
 import ProgressBar from '../components/ProgressBar.jsx'
 
 // Hoy en el celular (lienzo «B+ móvil con Rockie al centro»): arriba el selector de apps y tus
-// pills, el saludo a la izquierda, la semana, el avance del día con las vistas en compacto; y
-// bajo las cartas, los botones a la vista: Validar con foto · Lo hice · Hoy no.
-// El abanico (gestos y física) sigue en Hoy.jsx, intacto.
+// pills, el saludo a la izquierda, la semana y el avance del día con las vistas en compacto (su píldora se desliza).
+// Bajo las cartas, solo la pista de los gestos: la carta valida, aplaza y edita (Hoy.jsx).
 
 const pill = {
   display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 var(--space-3)',
@@ -41,6 +40,8 @@ export function HoyMovilTop({ fecha, saludo, pills, week, dayOffset, onPickDay }
   )
 }
 
+const VISTAS = ['cartas', 'lista', 'cal']
+
 export function HoyMovilAvance({ label, done, total, pct, view, onView }) {
   const vista = (id, icono, titulo) => (
     <button type="button" onClick={() => onView(id)} title={titulo} aria-label={titulo} aria-pressed={view === id} className={`hm-view${view === id ? ' on' : ''}`}>
@@ -51,7 +52,9 @@ export function HoyMovilAvance({ label, done, total, pct, view, onView }) {
     <div style={{ padding: 'var(--space-2) var(--screen-x) 0', flexShrink: 0, position: 'relative', zIndex: 10, background: 'var(--paper)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
         <span className="q" style={{ fontSize: 'var(--text-2xs)', color: 'var(--ink-muted)', fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-        <span className="hm-views" role="group" aria-label="Vista">
+        <span className="hm-views" role="group" aria-label="Vista" style={{ '--i': Math.max(0, VISTAS.indexOf(view)) }}>
+          {/* una sola píldora que se desliza a la vista elegida (antes el color saltaba de golpe) */}
+          <span className="hm-views-ind" aria-hidden="true" />
           {vista('cartas', 'ti-cards', 'Cartas')}
           {vista('lista', 'ti-list', 'Lista')}
           {vista('cal', 'ti-calendar', 'Calendario')}
@@ -63,43 +66,30 @@ export function HoyMovilAvance({ label, done, total, pct, view, onView }) {
   )
 }
 
-/** Botones bajo el abanico: actúan sobre la carta del centro (lo mismo que deslizar). */
-export function HoyMovilAcciones({ item, onSeal, onNext, aplazosLibres, todoHecho }) {
+/** Bajo las cartas, solo la pista de los gestos: la CARTA lo hace todo (doc 16_pantalla_hoy_v2: «un botón es una
+ *  interrupción»). Arriba = validar (con foto o «lo hice»), abajo = hoy no, mantener = editar. Con todo hecho, el
+ *  cierre del día. */
+export function HoyMovilPista({ item, todoHecho }) {
   if (todoHecho) {
     return (
-      <div className="hm-acts">
-        <div className="hm-done q"><i className="ti ti-confetti" /> ¡Día cerrado! Rockie está orgulloso de ti</div>
+      <div className="hm-pista hm-pista--fin q">
+        <i className="ti ti-confetti" /> ¡Día cerrado! Rockie está orgulloso de ti
       </div>
     )
   }
-  if (!item) return null
+  if (!item || item.status !== 'scheduled') return null
   const esTarea = item.itemType === 'task'
-  const pendiente = item.status === 'scheduled'
-  if (!pendiente) {
-    return (
-      <div className="hm-acts">
-        <button type="button" className="hm-btn ghost q" onClick={onNext}>
-          {item.status === 'validating' ? 'Rockie revisa tu foto… ' : item.status === 'rejected' ? 'Revisa la carta para reintentar · ' : 'Hecho · '}
-          ir al siguiente <i className="ti ti-arrow-right" />
-        </button>
-      </div>
-    )
-  }
   return (
-    <div className="hm-acts">
-      <button type="button" className="hm-photo q" onClick={() => onSeal('photo')}>
-        <i className="ti ti-camera" />
-        <span className="hm-photo-t"><b><span className="hm-long">{esTarea ? 'Validar con evidencia' : 'Validar con foto'}</span><span className="hm-short">Foto</span></b><small>+100 XP · la IA la revisa</small></span>
-        <i className="ti ti-chevron-right" style={{ marginLeft: 'auto' }} />
-      </button>
-      <div className="hm-row">
-        <button type="button" className="hm-btn ghost q" onClick={() => onSeal('check')}>
-          <i className="ti ti-check" style={{ color: 'var(--olive-edge)' }} /> Lo hice <span style={{ color: 'var(--olive-edge)' }}>+40</span>
-        </button>
-        <button type="button" className="hm-btn ghost q" onClick={() => onSeal('tomorrow')} disabled={!esTarea && !aplazosLibres}>
-          <i className="ti ti-hand-stop" style={{ color: 'var(--ink-muted)' }} /> {esTarea ? 'A En curso' : aplazosLibres ? 'Hoy no' : 'Sin aplazos'}
-        </button>
-      </div>
+    <div className="hm-pista q">
+      <span><i className="ti ti-arrow-up" /> valida</span>
+      <span className="hm-pista-sep" aria-hidden="true">·</span>
+      <span><i className="ti ti-arrow-down" /> {esTarea ? 'en curso' : 'hoy no'}</span>
+      {!esTarea && (
+        <>
+          <span className="hm-pista-sep" aria-hidden="true">·</span>
+          <span><i className="ti ti-hand-finger" /> mantén para editar</span>
+        </>
+      )}
     </div>
   )
 }

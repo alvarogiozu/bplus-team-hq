@@ -83,11 +83,16 @@ const DEFAULT_PREFS = {
 }
 
 function readPrefsLS() {
+  let prefs = DEFAULT_PREFS
   try {
     const raw = JSON.parse(localStorage.getItem(LS.prefs) || 'null')
-    if (raw && typeof raw === 'object') return { ...DEFAULT_PREFS, ...raw }
+    if (raw && typeof raw === 'object') prefs = { ...DEFAULT_PREFS, ...raw }
+    // el tema de tu cuenta (Ajustes de Rockie OS, 'hq.theme': '' = automático) manda sobre el de Hábitos: las apps
+    // abren del mismo color y pasar de una a otra no destella de claro a oscuro
+    const hq = localStorage.getItem('hq.theme')
+    if (hq !== null) prefs = { ...prefs, theme: hq === 'dark' || hq === 'light' ? hq : 'system' }
   } catch { /* almacenamiento no disponible */ }
-  return DEFAULT_PREFS
+  return prefs
 }
 
 // ---- vidaMode SIN suscribirse al store entero ----

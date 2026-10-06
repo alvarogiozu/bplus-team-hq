@@ -112,11 +112,16 @@
 .mnav-room { flex: none; height: var(--mnav-room); }
 
 /* ---------- Rockie: su círculo abajo a la derecha, del mismo alto que la cápsula ---------- */
-.m-rockie {
+.m-rockie-wrap {
   position: fixed;
   z-index: 61;
   right: 12px;
   bottom: calc(var(--mnav-gap) + env(safe-area-inset-bottom));
+  width: var(--mnav-h);
+  height: var(--mnav-h);
+}
+.m-rockie {
+  position: relative;
   width: var(--mnav-h);
   height: var(--mnav-h);
   padding: 0;
@@ -136,29 +141,40 @@
 }
 .m-rockie:active, .m-rockie.pressed { transform: translateY(3px); box-shadow: 0 1px 0 var(--rockie-edge), var(--shadow-card); }
 .m-rockie.on { background: var(--title); box-shadow: 0 4px 0 var(--coral-edge), var(--shadow-card); }
+/* el micrófono: su propio botón, pegado a Rockie. Se ve de 34 px y se toca en 44. */
 .m-rockie-mic {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 26px;
-  height: 26px;
+  z-index: 2;
+  right: -6px;
+  bottom: -6px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  box-sizing: border-box;
   border-radius: 50%;
   background: var(--card);
   border: 2px solid var(--card-line);
+  box-shadow: 0 2px 0 var(--card-edge);
   color: var(--rockie);
   display: grid;
   place-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide), color 0.2s;
 }
-.m-rockie-mic svg { width: 13px; height: 13px; }
-.m-rockie.on .m-rockie-mic { color: var(--title); }
+.m-rockie-mic::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
+.m-rockie-mic svg { width: 17px; height: 17px; }
+.m-rockie-mic:active { transform: translateY(2px); box-shadow: 0 0 0 var(--card-edge); }
+.m-rockie-wrap.on .m-rockie-mic { color: var(--title); }
 .m-rockie-ring { position: absolute; inset: -7px; border-radius: 999px; border: 3px solid var(--title); opacity: 0.45; pointer-events: none; }
 
 /* escribiendo en una página o un formulario: el teclado ocupa el lugar del pie */
 html.m-escribiendo .mnav,
-html.m-escribiendo .m-rockie { display: none; }
+html.m-escribiendo .m-rockie-wrap { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .mnav-tab, .mnav-ico, .mnav-ind, .m-rockie { transition: none; }
+  .mnav-tab, .mnav-ico, .mnav-ind, .m-rockie, .m-rockie-mic { transition: none; }
 }
 
 /* la pantalla de una sección (EntraSeccion): ocupa lo mismo que ocupaba la pantalla sola */
