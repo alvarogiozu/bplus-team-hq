@@ -1,19 +1,23 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Select } from '../../components/Select'
 import { toast, toastError } from '../../components/Toasts'
 import { NOMBRE_PLAN, PLAN_KEY, PRECIOS, soles, usePlan, type Clave, type PlanId } from '../../lib/planes'
+import type { Periodo, PlanPago } from '../../lib/precios'
 import { humanError, supabase } from '../../lib/supabase'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { Marco } from '../cuenta/CuentaPages'
 import { pagoEnLinea } from '../../lib/culqi'
 import { ComprarPlan } from './Comprar'
+import { AvisosCard, ClubesCard, InvitarCard, PausaCard, RenovacionCard, type PedirCompra } from './MiSuscripcion'
 import { TARJETAS } from './tarjetas'
 import './planes.css'
 
-// Tus planes: cuál tienes, cuánto llevas usado, qué trae cada uno y cómo activarlo. Mientras Culqi no esté
-// conectado, el plan se activa con un código de fundador (docs/negocio/modelo-de-negocio.md, sección 10).
+// Tus planes: cuál tienes, cuánto llevas usado, qué trae cada uno y cómo activarlo o renovarlo (Yape o tarjeta,
+// con renovación automática si quieres), pausarlo, avisos por correo e invitar amigos. Los códigos de fundador
+// siguen funcionando (docs/negocio/modelo-de-negocio.md, sección 10).
 
 const CUPOS: { c: Clave; nombre: string; usado: (p: ReturnType<typeof usePlan>) => number }[] = [
   { c: 'pizarras_dia', nombre: 'Pizarras nuevas hoy', usado: (p) => p.pizarras_hoy },
@@ -38,8 +42,21 @@ export default function PlanesPage() {
   const [pideEquipo, setPideEquipo] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [verificando, setVerificando] = useState(false)
-  const [comprar, setComprar] = useState<'plus' | 'pro' | 'club' | null>(null)
+  const [comprar, setComprar] = useState<{ plan: PlanPago; periodo?: Periodo; equipo?: string; metodo?: 'yape' | 'tarjeta' } | null>(null)
   const [estudianteMsg, setEstudianteMsg] = useState('')
+  const [reanudando, setReanudando] = useState(false)
+  const [params, setParams] = useSearchParams()
+  const pedir: PedirCompra = (o) => setComprar(o)
+
+  // rockie.plus/planes?renovar=1 (el botón de los correos de aviso): abre «Renovar» con lo mismo de la última vez
+  const { cargado, ultimo_pago: ultimoPago, suscripcion } = plan
+  useEffect(() => {
+    if (!params.has('renovar') || !cargado) return
+    const p = (ultimoPago?.plan ?? suscripcion?.plan) as PlanPago | undefined
+    if (p && pagoEnLinea()) setComprar({ plan: p, periodo: ultimoPago?.plan === p ? ultimoPago.periodo : undefined })
+    params.delete('renovar')
+    setParams(params, { replace: true })
+  }, [params, setParams, cargado, ultimoPago, suscripcion])
 
   // tus equipos (los que creaste): a uno de ellos va un código Club
   const misEquipos = useQuery({
@@ -103,6 +120,32 @@ export default function PlanesPage() {
     id === 'club' || (id !== 'gratis' && (RANGO[id] > RANGO[actual] || (id === actual && Boolean(plan.hasta))))
   const conLimite = CUPOS.filter(({ c }) => plan.limite(c) !== null)
 
+  // cómo está tu plan, en una línea (y qué hacer si está por vencer, venció o está en pausa)
+  const s = plan.suscripcion
+  const precioTxt = s?.origen === 'regalo' ? 'Mes de regalo' : s?.tarifa === 'fundador' ? 'Precio fundador' : s?.tarifa === 'estudiante' ? 'Precio de estudiante' : 'Precio normal'
+  const linea =
+    !s || plan.estado === 'gratis'
+      ? 'Usas Rockie gratis. Todo lo esencial, sin fecha de vencimiento.'
+      : plan.estado === 'pausado'
+        ? `Tu ${NOMBRE_PLAN[s.plan]} está en pausa hasta el ${s.pausa_hasta ? fecha(s.pausa_hasta) : ''}: vuelve solo con sus ${s.pausa_restante_dias} días.`
+        : plan.estado === 'vencido'
+          ? `Tu ${NOMBRE_PLAN[s.plan]} venció el ${s.hasta ? fecha(s.hasta) : ''}. Todo lo que creaste sigue aquí.`
+          : plan.estado === 'gracia'
+            ? `Venció el ${s.hasta ? fecha(s.hasta) : ''}: lo mantienes hasta el ${s.gracia_hasta ? fecha(s.gracia_hasta) : ''}.`
+            : !s.hasta
+              ? `${precioTxt} · sin vencimiento`
+              : `${precioTxt} · ${plan.estado === 'por_vencer' ? 'vence' : 'hasta'} el ${fecha(s.hasta)}${plan.renovacion?.activa ? ' · se renueva solo' : ''}`
+  const renovarAhora = () => s && setComprar({ plan: s.plan, periodo: plan.ultimo_pago?.plan === s.plan ? plan.ultimo_pago.periodo : undefined })
+
+  async function reanudar() {
+    setReanudando(true)
+    const { error } = await supabase.rpc('reanudar_plan' as never)
+    setReanudando(false)
+    if (error) return toastError(humanError(error))
+    await qc.invalidateQueries({ queryKey: PLAN_KEY })
+    toast('¡Bienvenido de vuelta! Tu plan está activo otra vez.', { kind: 'ok', icon: 'check' })
+  }
+
   return (
     <Marco titulo="Tu plan">
       <section className="cuenta-card pl-actual">
@@ -110,12 +153,22 @@ export default function PlanesPage() {
           <span className={`pl-chip pl-${actual}`}>
             <Icon name={actual === 'gratis' ? 'star' : 'sparkle'} className="sm" /> {NOMBRE_PLAN[actual]}
           </span>
-          <span className="pl-actual-t">
-            {actual === 'gratis'
-              ? 'Usas Rockie gratis. Todo lo esencial, sin fecha de vencimiento.'
-              : `${plan.tarifa === 'fundador' ? 'Precio fundador' : plan.tarifa === 'estudiante' ? 'Precio de estudiante' : 'Precio normal'} · ${plan.hasta ? `hasta el ${fecha(plan.hasta)}` : 'sin vencimiento'}`}
-          </span>
+          <span className={`pl-actual-t${plan.estado === 'por_vencer' || plan.estado === 'gracia' ? ' pl-ojo' : ''}`}>{linea}</span>
         </div>
+        {s && (plan.estado === 'gracia' || plan.estado === 'vencido' || (plan.estado === 'por_vencer' && !plan.renovacion?.activa)) && enLinea && (
+          <div className="row">
+            <button className="btn sm" onClick={renovarAhora}>
+              <Icon name="loop" className="sm" /> {plan.estado === 'vencido' ? `Volver a ${NOMBRE_PLAN[s.plan]}` : 'Renovar en dos toques'}
+            </button>
+          </div>
+        )}
+        {plan.estado === 'pausado' && (
+          <div className="row">
+            <button className="btn sm" disabled={reanudando} onClick={() => void reanudar()}>
+              {reanudando ? 'Reanudando…' : 'Reanudar ahora'}
+            </button>
+          </div>
+        )}
         {estudiante && (
           <p className="pl-est-ok">
             <Icon name="check" className="sm" /> Estudiante verificado hasta el {fecha(plan.estudiante_hasta!)}
@@ -144,6 +197,10 @@ export default function PlanesPage() {
         )}
       </section>
 
+      {enLinea && <RenovacionCard plan={plan} pedir={pedir} />}
+      <PausaCard plan={plan} />
+      {enLinea && <ClubesCard plan={plan} pedir={pedir} />}
+
       <div className="pl-grid">
         {TARJETAS.map((t) => {
           const es = t.id === actual
@@ -171,7 +228,12 @@ export default function PlanesPage() {
                 <button
                   className="btn sm block"
                   onClick={() =>
-                    enLinea ? setComprar(t.id as 'plus' | 'pro' | 'club') : activar.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    enLinea
+                      ? setComprar({
+                          plan: t.id as PlanPago,
+                          periodo: es && plan.ultimo_pago?.plan === t.id ? plan.ultimo_pago.periodo : undefined,
+                        })
+                      : activar.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
                   }
                 >
                   {!enLinea ? `Activar ${NOMBRE_PLAN[t.id]}` : es ? 'Renovar' : t.id === 'club' ? 'Suscribir mi club' : 'Suscribirme'}
@@ -236,13 +298,14 @@ export default function PlanesPage() {
         <h2>Precio de estudiante</h2>
         {estudiante ? (
           <p className="hint">
-            Ya estás verificado: Plus te cuesta <b>{soles(PRECIOS.plus.estudiante)} al mes</b>. Se renueva cada año con tu correo de la universidad.
+            Ya estás verificado: Plus te cuesta <b>{soles(PRECIOS.plus.estudiante)} al mes</b> o <b>{soles(PRECIOS.plus.ciclo)} por ciclo</b> (4 meses, un solo
+            pago). Se renueva cada año con tu correo de la universidad.
           </p>
         ) : (
           <>
             <p className="hint">
-              Con el correo de tu universidad, Plus te cuesta <b>{soles(PRECIOS.plus.estudiante)} al mes</b> en lugar de {soles(PRECIOS.plus.normal)}. Solo
-              guardamos que eres estudiante y hasta cuándo.
+              Con el correo de tu universidad, Plus te cuesta <b>{soles(PRECIOS.plus.estudiante)} al mes</b> en lugar de {soles(PRECIOS.plus.normal)}, o{' '}
+              <b>{soles(PRECIOS.plus.ciclo)} por todo el ciclo</b>. Solo guardamos que eres estudiante y hasta cuándo.
             </p>
             <button className="btn ghost sm" disabled={verificando} onClick={() => void verificar()}>
               <Icon name="check" className="sm" /> {verificando ? 'Revisando…' : 'Verificar con mi correo'}
@@ -251,6 +314,9 @@ export default function PlanesPage() {
           </>
         )}
       </section>
+
+      <InvitarCard />
+      <AvisosCard plan={plan} />
 
       <section className="cuenta-card pl-dudas">
         <h2>Dudas rápidas</h2>
@@ -268,10 +334,34 @@ export default function PlanesPage() {
         </details>
         <details>
           <summary>¿Se cobra solo cada mes?</summary>
-          <p>No. Pagas un mes o un año y el plan dura eso; para seguir, lo renuevas tú desde aquí. Nada de cobros sorpresa.</p>
+          <p>
+            Solo si tú lo eliges: al pagar con tarjeta puedes marcar «Renovar automáticamente». Te avisamos antes de cada cobro y lo cancelas en un clic aquí.
+            Con Yape (o sin esa casilla) pagas un mes, un ciclo o un año y lo renuevas tú en dos toques. Nada de cobros sorpresa.
+          </p>
+        </details>
+        <details>
+          <summary>¿Y si se me pasa la fecha?</summary>
+          <p>Te guardamos tu plan 3 días más para que lo renueves sin perder nada. Después vuelves a Gratis, con todo lo que creaste.</p>
+        </details>
+        <details>
+          <summary>¿Puedo pausar mi plan?</summary>
+          <p>Sí, una vez al año, 1 o 2 meses (vacaciones, fin de ciclo). Mientras tanto usas Gratis y tus días te esperan: vuelve solo.</p>
+        </details>
+        <details>
+          <summary>¿Cómo funciona invitar a un amigo?</summary>
+          <p>Le mandas tu link. Cuando se suscribe a cualquier plan, los dos ganan 1 mes gratis (si estás en Gratis, un mes de Plus). Hasta 12 meses al año.</p>
         </details>
       </section>
-      {comprar && <ComprarPlan plan={comprar} estudiante={estudiante} onClose={() => setComprar(null)} />}
+      {comprar && (
+        <ComprarPlan
+          plan={comprar.plan}
+          periodo={comprar.periodo}
+          equipo={comprar.equipo}
+          metodo={comprar.metodo}
+          estudiante={estudiante}
+          onClose={() => setComprar(null)}
+        />
+      )}
     </Marco>
   )
 }

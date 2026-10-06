@@ -6,6 +6,7 @@ import useDesktop from './lib/useDesktop.js'
 import AppShell from './components/AppShell.jsx'
 import Splash from './components/Splash.jsx'
 import LimitePlanSheet from './components/LimitePlanSheet.jsx'
+import AvisoPlanHabitos from './components/AvisoPlanHabitos.jsx'
 import { irAPlanes, refrescarPlan } from './lib/planHq.js'
 import Login from './routes/Login.jsx'
 import InviteLanding from './routes/InviteLanding.jsx'
@@ -307,6 +308,7 @@ export default function App() {
         </Routes>
         </Suspense>
         <LimitePlanSheet />
+        <AvisoPlanHabitos />
       </div>
     </div>
   )

@@ -46,7 +46,7 @@ export function usePlanHq() {
 }
 
 /** Ir a «Tu plan» de Rockie: dentro del escritorio se abre arriba (como el menú de tu cuenta); suelto, navega. */
-export function irAPlanes() {
+export function irAPlanes(path = '/planes') {
   let enVentana = false
   try {
     enVentana = window.self !== window.top
@@ -55,11 +55,11 @@ export function irAPlanes() {
   }
   if (enVentana) {
     try {
-      window.parent.postMessage({ rockieOS: 'ir', path: '/planes' }, location.origin)
+      window.parent.postMessage({ rockieOS: 'ir', path }, location.origin)
       return
     } catch {
       /* sin escritorio: sigue abajo */
     }
   }
-  location.assign('/planes')
+  location.assign(path)
 }

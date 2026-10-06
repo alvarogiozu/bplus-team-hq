@@ -129,3 +129,10 @@
   .pub, .pub-main { background: #fff; color: #000; }
 }
 .pub-nowrap { white-space: nowrap; }
+
+/* llegó con el link de un amigo */
+.pub-invitado {
+  display: flex; align-items: center; gap: 8px; margin: var(--s4) 0 0; padding: var(--s3) var(--s4); border-radius: var(--r-lg);
+  background: var(--amber-soft); color: var(--ink); font-size: var(--t-sm); box-shadow: 0 3px 0 var(--amber-edge);
+}
+.pub-invitado .ico { flex: none; color: var(--amber-ink); }

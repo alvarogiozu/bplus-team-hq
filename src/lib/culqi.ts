@@ -1,11 +1,15 @@
-// El checkout de Culqi (tarjeta o Yape): la tarjeta se escribe en el formulario de Culqi, nunca pasa por Rockie.
-// Culqi devuelve un token y el servidor cobra con él (supabase/functions/culqi-cobro).
-// La llave pública se puede ver (es pública por diseño); la secreta vive solo en el servidor.
+// Pagar con Culqi: Yape (en la misma pantalla de Rockie) o tarjeta (en el formulario seguro de Culqi).
+// - Yape: con el celular y el código de aprobación de la app Yape se le pide a Culqi un token (con la llave
+//   PÚBLICA, desde aquí): ni el celular ni el código pasan por el servidor de Rockie.
+// - Tarjeta: se escribe en el formulario de Culqi (Checkout v4) y Culqi devuelve un token.
+// - Si el banco pide verificar a la persona (3DS), Culqi3DS abre la verificación del banco.
+// El servidor cobra con el token (supabase/functions/culqi-cobro). La llave secreta vive solo allá.
 
 declare global {
   interface Window {
     Culqi?: CulqiSdk
     culqi?: () => void
+    Culqi3DS?: Culqi3DSSdk
   }
 }
 type CulqiSdk = {
@@ -17,6 +21,15 @@ type CulqiSdk = {
   token?: { id: string; email: string }
   error?: { user_message?: string; merchant_message?: string }
 }
+type Culqi3DSSdk = {
+  publicKey: string
+  settings: Record<string, unknown>
+  options: Record<string, unknown>
+  generateDevice: () => Promise<string>
+  initAuthentication: (tokenId: string) => void
+  reset?: () => void
+}
+export type Resultado3DS = Record<string, string>
 
 /** Llave pública de Culqi (modo prueba hasta que Culqi apruebe el comercio; luego, la de producción). */
 export const CULQI_PUBLICA = (import.meta.env.VITE_CULQI_PUBLIC_KEY as string | undefined) || 'pk_test_s4it9czecPAqHXUh'
@@ -32,34 +45,44 @@ export function pagoEnLinea(): boolean {
   }
 }
 
-let cargando: Promise<CulqiSdk> | null = null
-function cargar(): Promise<CulqiSdk> {
-  if (window.Culqi) return Promise.resolve(window.Culqi)
-  if (cargando) return cargando
-  cargando = new Promise((ok, mal) => {
+function script<T>(src: string, listo: () => T | undefined): Promise<T> {
+  const ya = listo()
+  if (ya) return Promise.resolve(ya)
+  return new Promise((ok, mal) => {
     const s = document.createElement('script')
-    s.src = 'https://checkout.culqi.com/js/v4'
+    s.src = src
     s.async = true
-    s.onload = () => (window.Culqi ? ok(window.Culqi) : mal(new Error('Culqi no cargó')))
+    s.onload = () => {
+      const x = listo()
+      if (x) ok(x)
+      else mal(new Error('No se pudo abrir el pago. Revisa tu internet.'))
+    }
     s.onerror = () => {
-      cargando = null
+      s.remove()
       mal(new Error('No se pudo abrir el pago. Revisa tu internet.'))
     }
     document.head.append(s)
   })
-  return cargando
 }
 
-/** Abre el pago. Devuelve el token (y el correo que escribió la persona), o null si lo cerró. */
-export async function pagarConCulqi(o: { titulo: string; descripcion: string; centimos: number }): Promise<{ token: string; email: string } | null> {
-  const C = await cargar()
+// ——— tarjeta: el formulario de Culqi ———
+let checkout: Promise<CulqiSdk> | null = null
+const cargarCheckout = () =>
+  (checkout ??= script('https://checkout.culqi.com/js/v4', () => window.Culqi).catch((e) => {
+    checkout = null
+    throw e
+  }))
+
+/** Abre el formulario de tarjeta de Culqi. Devuelve el token (y el correo que escribió la persona), o null si lo cerró. */
+export async function tarjetaConCulqi(o: { titulo: string; descripcion: string; centimos: number }): Promise<{ token: string; email: string } | null> {
+  const C = await cargarCheckout()
   C.publicKey = CULQI_PUBLICA
   C.settings({ title: o.titulo, currency: 'PEN', amount: o.centimos, description: o.descripcion })
   C.options({
     lang: 'auto',
     installments: false,
-    paymentMethods: { tarjeta: true, yape: true, bancaMovil: false, agente: false, billetera: false, cuotealo: false },
-    style: { logo: 'https://rockie.plus/icon-192.png', bannerColor: '#b4637a', buttonBackground: '#2e88aa', priceColor: '#575279' },
+    paymentMethods: { tarjeta: true, yape: false, bancaMovil: false, agente: false, billetera: false, cuotealo: false },
+    style: { logo: 'https://rockie.plus/pagos/rockie-logo.png', bannerColor: '#b4637a', buttonBackground: '#2e88aa', priceColor: '#575279' },
   })
   return new Promise((resolver, rechazar) => {
     let listo = false
@@ -88,5 +111,83 @@ export async function pagarConCulqi(o: { titulo: string; descripcion: string; ce
     }
     addEventListener('focus', alVolver)
     C.open()
+  })
+}
+
+// ——— Yape: el token se pide con la llave pública ———
+/** Celular de Yape (9 dígitos, empieza con 9) y código de aprobación (6 dígitos) → token de Yape. */
+export async function tokenYape(o: { celular: string; codigo: string; centimos: number }): Promise<string> {
+  const r = await fetch('https://secure.culqi.com/v2/tokens/yape', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${CULQI_PUBLICA}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount: String(o.centimos), number_phone: o.celular, otp: o.codigo }),
+  }).catch(() => null)
+  if (!r) throw new Error('No hay conexión con Yape. Revisa tu internet e inténtalo de nuevo.')
+  const j = (await r.json().catch(() => ({}))) as { id?: string; user_message?: string; merchant_message?: string; param?: string }
+  if (r.ok && j.id) return j.id
+  if (j.param === 'phone_number' || j.param === 'number_phone') throw new Error('Ese número no tiene Yape o no está habilitado. Revísalo.')
+  if (j.param === 'otp') throw new Error('El código de aprobación no es válido o ya venció. Genera uno nuevo en Yape.')
+  throw new Error(
+    j.user_message && !/soporte/i.test(j.user_message)
+      ? j.user_message
+      : 'Yape no aprobó el pago. Revisa tu número y genera un código de aprobación nuevo.',
+  )
+}
+
+// ——— 3DS: cuando el banco pide verificar a la persona ———
+let tds: Promise<Culqi3DSSdk> | null = null
+const cargar3DS = () =>
+  (tds ??= script('https://3ds.culqi.com', () => window.Culqi3DS).catch((e) => {
+    tds = null
+    throw e
+  }))
+
+/** La huella del dispositivo para el antifraude de Culqi (si no carga a tiempo, se paga igual sin ella). */
+export async function huella3DS(): Promise<string | undefined> {
+  try {
+    const C = await Promise.race([cargar3DS(), new Promise<never>((_, mal) => setTimeout(() => mal(new Error('tarde')), 4000))])
+    C.publicKey = CULQI_PUBLICA
+    const d = await Promise.race([C.generateDevice(), new Promise<string>((ok) => setTimeout(() => ok(''), 4000))])
+    return d || undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Abre la verificación del banco (3DS) para ese token. Devuelve lo que hay que mandar con el cobro. */
+export async function verificar3DS(o: { token: string; centimos: number; email: string }): Promise<Resultado3DS> {
+  const C = await cargar3DS()
+  C.publicKey = CULQI_PUBLICA
+  return new Promise((ok, mal) => {
+    let fin = false
+    const terminar = (f: () => void) => {
+      if (fin) return
+      fin = true
+      removeEventListener('message', alMensaje)
+      clearTimeout(reloj)
+      f()
+    }
+    const alMensaje = (e: MessageEvent) => {
+      if (e.origin !== location.origin) return
+      const d = e.data as { parameters3DS?: Resultado3DS; error?: unknown } | null
+      if (!d || typeof d !== 'object') return
+      if (d.parameters3DS) terminar(() => ok(d.parameters3DS!))
+      else if (d.error) terminar(() => mal(new Error(typeof d.error === 'string' && d.error ? d.error : 'Tu banco no pudo verificar el pago.')))
+    }
+    const reloj = setTimeout(() => terminar(() => mal(new Error('La verificación de tu banco tardó demasiado. Inténtalo de nuevo.'))), 5 * 60_000)
+    C.settings = { charge: { totalAmount: o.centimos, returnUrl: location.href, currency: 'PEN' }, card: { email: o.email } }
+    C.options = {
+      showModal: true,
+      showLoading: true,
+      showIcon: true,
+      closeModalAction: () => terminar(() => mal(new Error('Cerraste la verificación del banco.'))),
+      style: { btnColor: '#2e88aa', btnTextColor: '#ffffff' },
+    }
+    addEventListener('message', alMensaje)
+    try {
+      C.initAuthentication(o.token)
+    } catch {
+      terminar(() => mal(new Error('No se pudo abrir la verificación de tu banco.')))
+    }
   })
 }

@@ -33,16 +33,30 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
         {
           h: 'Planes y precios',
           p: [
-            'Los precios están en soles (S/) en la página de planes e incluyen el IGV. El precio de estudiante aplica a Plus si verificas un correo de tu universidad; la verificación vale un año.',
+            'Los precios están en soles (S/) en la página de planes e incluyen el IGV. El precio de estudiante aplica a Plus si verificas un correo de tu universidad; la verificación vale un año. Los estudiantes también pueden pagar por ciclo (4 meses en un solo pago).',
             'Si cambiamos un precio, te avisamos antes. El cambio nunca afecta un periodo que ya pagaste.',
           ],
         },
         {
           h: 'Pagos',
           p: [
-            'Los pagos se hacen con Culqi (tarjeta o Yape). Rockie no ve ni guarda los datos de tu tarjeta: los escribes en el formulario seguro de Culqi.',
-            'Cada pago activa tu plan por el periodo que elegiste (un mes o un año) desde el momento del pago. No hay cobros automáticos: al terminar el periodo, si no renuevas, tu cuenta vuelve a Gratis.',
+            'Los pagos se procesan con Culqi, con Yape o con tarjeta. Rockie no ve ni guarda los datos de tu tarjeta (los escribes en el formulario seguro de Culqi) ni tu código de aprobación de Yape.',
+            'Cada pago activa tu plan por el periodo que elegiste (un mes, un ciclo de 4 meses o un año) desde el momento del pago. Si renuevas antes de que venza, o en los 3 días de gracia, el nuevo periodo se suma al que tenías.',
+            'Renovación automática: solo si la activas al pagar con tarjeta. En ese caso Culqi guarda tu tarjeta y cobramos el mismo plan y periodo al terminar cada periodo, al precio vigente (te avisamos antes de cualquier cambio de precio). Si dejas de ser estudiante verificado, la renovación pasa al precio normal mensual. Puedes cancelarla en un clic desde Tu plan, sin perder lo que ya pagaste. Si un cobro no pasa, lo intentamos hasta tres días seguidos y te avisamos.',
+            'Sin renovación automática (y siempre con Yape), al terminar el periodo tienes 3 días de gracia para renovar; después tu cuenta vuelve a Gratis.',
             'Los códigos de activación (de fundador o de regalo) son personales y no se cambian por dinero.',
+          ],
+        },
+        {
+          h: 'Pausar tu plan',
+          p: [
+            'Una vez cada 12 meses puedes pausar tu plan 1 o 2 meses. Mientras dura la pausa usas el plan Gratis; al terminar, tu plan vuelve solo con los días que te quedaban (y la renovación automática se corre esas mismas fechas). Puedes reanudarlo antes cuando quieras.',
+          ],
+        },
+        {
+          h: 'Invita a un amigo',
+          p: [
+            'Si alguien crea su cuenta con tu link de invitación y paga su primer plan, los dos reciben un mes gratis: se suma al plan que tengan, o es un mes de Plus si están en Gratis. Quien invita puede recibir hasta 12 meses por año. La invitación vale para cuentas nuevas (de menos de 7 días) que todavía no han pagado. Los meses de regalo no se cambian por dinero y podemos anularlos si hay abuso (por ejemplo, cuentas falsas).',
           ],
         },
         {
@@ -94,7 +108,8 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
   if (slug === 'reembolsos') {
     return {
       titulo: 'Política de cambios y devoluciones',
-      intro: 'Rockie vende servicios digitales (planes por un mes o un año), no productos físicos, así que no hay cambios de productos. Esto es lo que hacemos con las devoluciones.',
+      intro:
+        'Rockie vende servicios digitales (planes por un mes, un ciclo o un año), no productos físicos, así que no hay cambios de productos. Esto es lo que hacemos con las devoluciones.',
       secciones: [
         {
           h: `Garantía de ${dias} días`,
@@ -106,6 +121,12 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
           h: 'Después de ese plazo',
           p: [
             'No hacemos devoluciones parciales por el tiempo que no uses. Si el servicio falló por causa nuestra, te devolvemos la parte proporcional o te extendemos el plan, lo que prefieras.',
+          ],
+        },
+        {
+          h: 'Renovación automática',
+          p: [
+            `Si tu plan se renovó solo y no lo querías, avísanos dentro de los ${dias} días calendario siguientes a ese cobro y te lo devolvemos completo; tu plan vuelve a Gratis y la renovación queda cancelada.`,
           ],
         },
         { h: 'Cobros duplicados o por error', p: ['Se devuelven siempre y completos.'] },
@@ -135,6 +156,7 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
         h: 'Lo que guardamos',
         p: [
           'Los datos de tu cuenta (usuario, nombre visible, tu correo si entras con Google, tu color o foto), tu plan y tus pagos (nunca los datos de tu tarjeta) y lo mínimo para que el servicio funcione: fechas, a qué equipos perteneces y cuántas cosas tienes.',
+          'Si nos lo das, el correo para avisarte antes de que venza tu plan (solo para eso; lo quitas cuando quieras en Tu plan). Si invitas a alguien o llegas invitado, quién invitó a quién, para darles el mes de regalo.',
         ],
       },
       {
@@ -151,7 +173,13 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
           'Según las condiciones de Google, en la modalidad gratuita de su servicio Google puede usar ese contenido para mejorar sus productos; estamos pasando a la modalidad de pago, en la que no lo usa. Actualizaremos esta política cuando ocurra.',
         ],
       },
-      { h: 'Pagos', p: ['Los pagos los procesa Culqi. Rockie no ve ni guarda los datos de tu tarjeta.'] },
+      {
+        h: 'Pagos',
+        p: [
+          'Los pagos los procesa Culqi. Rockie no ve ni guarda los datos de tu tarjeta ni tu código de aprobación de Yape.',
+          'Si activas la renovación automática, Culqi guarda tu tarjeta junto con tu nombre, celular y ciudad (los pide para eso). Rockie solo guarda una referencia para cobrar la renovación y la marca y los últimos 4 dígitos, para mostrarte con qué tarjeta se renueva. Si quitas la tarjeta desde Tu plan, Culqi la borra.',
+        ],
+      },
       {
         h: 'Dónde se guardan',
         p: [
@@ -172,7 +200,9 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
       { h: 'Menores de edad', p: ['Si tienes menos de 14 años, necesitas la autorización de tu padre, madre o tutor para usar Rockie.'] },
       {
         h: 'En tu dispositivo',
-        p: ['Guardamos en tu navegador lo necesario para mantener tu sesión, tus llaves del Cofre y tus preferencias. No usamos cookies de publicidad.'],
+        p: [
+          'Guardamos en tu navegador lo necesario para mantener tu sesión, tus llaves del Cofre y tus preferencias; y, si pagas, tu correo y celular para que renovar sea más rápido (solo en ese dispositivo). No usamos cookies de publicidad.',
+        ],
       },
       { h: 'Cambios', p: ['Si cambiamos esta política, publicamos la nueva versión con su fecha y te avisamos en la app si el cambio es importante.'] },
     ],

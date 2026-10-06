@@ -6,6 +6,7 @@ import { ChangePasswordPage, InviteRoute, LoginPage, RegisterPage } from '../fea
 import { SpaceProvider, WelcomePage } from '../features/spaces/SpaceProvider'
 import CofrePage, { CofreGate } from '../features/cofre/Cofre'
 import { LimiteHost } from '../features/planes/Limite'
+import { AvisoPlanHost } from '../features/planes/AvisoHost'
 import { useIsMobile, useMedia } from '../lib/useMedia'
 import { enVentana, ESCRITORIO_Q, sinEscritorio } from '../os/ventana'
 import { adelantarPantallaInicial, pantallas } from './pantallas'
@@ -118,6 +119,8 @@ export function App() {
     <BrowserRouter>
       {/* la hoja de «llegaste al límite de tu plan» (la abre abrirLimite desde cualquier pantalla) */}
       <LimiteHost />
+      {/* el aviso de tu plan (vence pronto, venció…) y los links de «invita a un amigo» */}
+      <AvisoPlanHost />
       <Routes>
         {/* la cara pública: «/» sin sesión muestra Rockie y sus planes; con sesión, tus apps */}
         <Route index element={<Suspense fallback={<Splash />}><RaizPublica /></Suspense>} />

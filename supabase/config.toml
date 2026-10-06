@@ -417,3 +417,7 @@ enabled = true
 [functions.cuaderno-mcp]
 # el conector de Claude valida sus propias llaves (no son JWT de Supabase)
 verify_jwt = false
+
+[functions.planes-renovar]
+# la llama pg_cron cada día: solo cobra lo que ya toca (y lo marca antes), así que llamarla de más no hace daño
+verify_jwt = false

@@ -11,10 +11,40 @@ export type { Clave }
 // hint = 'LIMITE:<clave>' y humanError (lib/supabase) abre la misma hoja.
 
 export type PlanId = 'gratis' | 'plus' | 'pro'
+/** activo · por_vencer (3 días o menos) · gracia (venció hace menos de 3 días: lo sigue teniendo) · pausado ·
+ *  vencido (volvió a Gratis hace poco) · gratis */
+export type EstadoPlan = 'gratis' | 'activo' | 'por_vencer' | 'gracia' | 'pausado' | 'vencido'
+export type Renovacion = {
+  activa: boolean
+  plan?: 'plus' | 'pro' | 'club'
+  periodo: 'mes' | 'ciclo' | 'anio'
+  marca: string | null
+  ultimos4: string | null
+  intentos: number
+  error: string | null
+}
 export type MiPlan = {
   plan: PlanId
   tarifa: 'normal' | 'estudiante' | 'fundador' | null
   hasta: string | null
+  estado: EstadoPlan
+  /** tu suscripción tal cual (también si está en pausa o venció hace poco) */
+  suscripcion: {
+    plan: 'plus' | 'pro'
+    tarifa: 'normal' | 'estudiante' | 'fundador'
+    origen: 'codigo' | 'culqi' | 'manual' | 'regalo'
+    hasta: string | null
+    gracia_hasta: string | null
+    pausa_hasta: string | null
+    pausa_restante_dias: number | null
+    puede_pausar: boolean
+  } | null
+  /** lo último que pagaste para ti: «Renovar» repite eso */
+  ultimo_pago: { plan: 'plus' | 'pro'; tarifa: string; periodo: 'mes' | 'ciclo' | 'anio'; metodo: 'yape' | 'tarjeta' | 'renovacion' | null; fecha: string } | null
+  renovacion: Renovacion | null
+  /** los equipos tuyos con plan Club que vencen (o vencieron hace poco) */
+  clubes: { space_id: string; hasta: string; estado: 'activo' | 'por_vencer' | 'gracia' | 'vencido'; renovacion: Renovacion | null }[]
+  avisos_correo: string | null
   estudiante_hasta: string | null
   /** null = sin límite */
   limites: Partial<Record<Clave, number | null>>
@@ -80,7 +110,7 @@ export { NOMBRE_PLAN } from './limitesTextos'
 
 /** Precios en soles (con IGV). */
 export const PRECIOS = {
-  plus: { normal: 19.9, estudiante: 12.9 },
+  plus: { normal: 19.9, estudiante: 12.9, ciclo: 44.9 },
   pro: { normal: 34.9 },
   club: { normal: 99 },
 } as const
@@ -92,6 +122,12 @@ const BASE: MiPlan = {
   plan: 'gratis',
   tarifa: null,
   hasta: null,
+  estado: 'gratis',
+  suscripcion: null,
+  ultimo_pago: null,
+  renovacion: null,
+  clubes: [],
+  avisos_correo: null,
   estudiante_hasta: null,
   limites: LIMITES.gratis,
   uso_mes: {},

@@ -88,3 +88,80 @@
 .pl-periodos button span { font-size: var(--t-xs); color: var(--ink-soft); }
 .pl-periodos button.on { border-color: var(--accent); box-shadow: 0 3px 0 var(--accent-edge); background: var(--accent-soft); }
 .pl-periodos button:active { transform: translateY(2px); box-shadow: none; }
+.pl-periodos .pl-reco { background: var(--accent-soft); color: var(--accent-ink); }
+.pl-periodos .pl-ahorro { color: var(--green); font-weight: 800; font-size: var(--t-3xs); }
+
+/* ---------- cómo pagas (Yape o tarjeta) y sus campos ---------- */
+.pl-metodos { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+.pl-metodos button {
+  display: grid; gap: 2px; padding: var(--s3); text-align: left; cursor: pointer; min-height: var(--tap);
+  border-radius: var(--r-lg); background: var(--card); color: var(--ink); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
+  font: inherit;
+}
+.pl-metodos button b { font-size: var(--t-sm); }
+.pl-metodos button span { font-size: var(--t-xs); color: var(--ink-soft); }
+.pl-metodos button.on { border-color: var(--accent); box-shadow: 0 3px 0 var(--accent-edge); background: var(--accent-soft); }
+.pl-metodos button:active { transform: translateY(2px); box-shadow: none; }
+.pl-campos { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+.pl-campos input:not([type='checkbox']) { width: 100%; }
+.pl-campos-ancho { grid-column: 1 / -1; }
+.pl-campos .hint { margin: 0; display: flex; gap: 6px; align-items: flex-start; }
+.pl-campos .hint .ico { flex: none; margin-top: 2px; }
+.pl-check { display: flex; gap: var(--s2); align-items: flex-start; cursor: pointer; min-height: var(--tap); padding-top: 4px; }
+.pl-check input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); }
+.pl-check span { display: grid; gap: 2px; }
+.pl-check b { font-size: var(--t-sm); color: var(--ink); }
+.pl-check small { font-size: var(--t-xs); color: var(--ink-soft); }
+
+/* ---------- tu suscripción: renovación, pausa, clubes, avisos, invitar ---------- */
+.pl-actual .row, .pl-seccion .row { flex-wrap: wrap; }
+.pl-ojo { color: var(--amber-ink); font-weight: 700; }
+.pl-seccion { display: grid; gap: var(--s3); }
+.pl-seccion h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.pl-seccion h2 .ico { color: var(--accent); }
+.pl-seccion .hint { margin: 0; }
+.pl-seccion .row input { flex: 1; min-width: 0; }
+.pl-alerta {
+  display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: var(--s3); border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--coral) 12%, var(--card)); color: var(--ink); font-size: var(--t-xs); font-weight: 700;
+}
+.pl-alerta .ico { flex: none; color: var(--coral); margin-top: 1px; }
+.pl-clubes { display: grid; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
+.pl-clubes li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3); padding-top: var(--s3); border-top: 1px dashed var(--line); }
+.pl-clubes li:first-child { padding-top: 0; border-top: 0; }
+.pl-club-t { display: grid; gap: 2px; min-width: 0; }
+.pl-club-t b { color: var(--ink); font-size: var(--t-sm); overflow-wrap: anywhere; }
+.pl-club-t small { color: var(--ink-soft); font-size: var(--t-xs); }
+.pl-club-t small.pl-club-ojo { color: var(--amber-ink); font-weight: 700; }
+.pl-link { display: flex; align-items: center; gap: var(--s2); padding: 6px 6px 6px var(--s3); border-radius: var(--r-pill); background: var(--paper-alt); border: 1.5px dashed var(--card-line); }
+.pl-link code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 var(--t-sm) var(--sans); color: var(--ink); }
+.pl-invitar h2 .ico { color: var(--amber); }
+
+/* ---------- el aviso de tu plan (con Rockie), abajo a la derecha / abajo en el celular ---------- */
+.pl-aviso {
+  position: fixed; z-index: 93; right: var(--s5); bottom: var(--s5); width: min(400px, calc(100vw - 32px));
+  display: grid; grid-template-columns: auto 1fr; gap: var(--s3); padding: var(--s4) var(--s4) var(--s3);
+  border-radius: var(--r-xl); background: var(--card); color: var(--ink); border: 1.5px solid var(--card-line);
+  box-shadow: 0 4px 0 var(--card-edge), var(--shadow-lift);
+  animation: pl-aviso-in 0.45s var(--spring) both;
+}
+.pl-aviso.urgente { border-color: var(--amber); box-shadow: 0 4px 0 var(--amber-edge), var(--shadow-lift); }
+.pl-aviso.info { border-color: var(--accent); box-shadow: 0 4px 0 var(--accent-edge), var(--shadow-lift); }
+.pl-aviso-rk { display: grid; place-items: start center; padding-top: 2px; }
+.pl-aviso-cuerpo { display: grid; gap: 6px; min-width: 0; padding-right: var(--s5); }
+.pl-aviso-t { font: 700 var(--t-md) var(--serif); color: var(--title); line-height: 1.25; }
+.pl-aviso-cuerpo p { margin: 0; color: var(--ink-soft); font-size: var(--t-xs); line-height: 1.4; }
+.pl-aviso-cuerpo .pl-aviso-mes { display: flex; gap: 6px; align-items: flex-start; color: var(--ink); font-weight: 700; }
+.pl-aviso-mes .ico { flex: none; color: var(--amber); margin-top: 1px; }
+.pl-aviso-acc { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s1); }
+.pl-aviso-x {
+  position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 36px; height: 36px;
+  border-radius: var(--r-pill); background: transparent; color: var(--ink-muted); border: 0; cursor: pointer;
+}
+.pl-aviso-x:hover { background: var(--paper-alt); color: var(--ink); }
+@keyframes pl-aviso-in { from { opacity: 0; transform: translateY(16px) scale(0.97); } }
+@media (prefers-reduced-motion: reduce) { .pl-aviso { animation: none; } }
+@media (max-width: 720px) {
+  .pl-aviso { left: 12px; right: 12px; width: auto; bottom: var(--mnav-room, calc(96px + env(safe-area-inset-bottom))); }
+  .pl-campos { grid-template-columns: 1fr; }
+}

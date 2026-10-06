@@ -594,7 +594,8 @@
         "periodo": "mes o año",
         "moneda": "moneda del cobro",
         "culqi_cargo": "id del cobro en Culqi (para soporte y reembolsos; no es tu tarjeta)",
-        "estado": "pagado, fallido o reembolsado"
+        "estado": "pagado, fallido o reembolsado",
+        "metodo": "cómo pagaste (Yape, tarjeta o renovación automática): para soporte y para renovar igual"
       }
     },
     "libro_reclamaciones": {
@@ -616,6 +617,42 @@
         "pedido": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder",
         "respuesta": "hoja del Libro de Reclamaciones dirigida al comercio: por ley (INDECOPI) el comercio tiene que leerla y responder"
       }
+    },
+    "planes_renovacion": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "plan": "qué plan se renueva solo: el servidor lo cobra cuando vence",
+        "periodo": "cada cuánto se renueva (mes, ciclo o año)",
+        "culqi_cliente": "id de tu cliente en Culqi (no son tus datos: Culqi los guarda)",
+        "culqi_tarjeta": "id de la tarjeta que guardó Culqi para cobrar la renovación que activaste (no es tu tarjeta)",
+        "marca": "marca de la tarjeta (Visa, Mastercard…) para mostrarte con cuál se renueva",
+        "ultimos4": "últimos 4 dígitos, para que reconozcas la tarjeta (nunca el número completo)",
+        "ultimo_error": "por qué no pasó la última renovación (lo dice el banco, sin datos de la tarjeta)"
+      }
+    },
+    "planes_avisos": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "correo": "el correo que elegiste para que te avisemos antes de que venza tu plan: el servidor lo necesita para escribirte (lo quitas cuando quieras en Tu plan)"
+      }
+    },
+    "planes_invitaciones": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "codigo": "tu código para invitar amigos: el servidor lo busca cuando alguien llega con tu link"
+      }
+    },
+    "planes_referidos": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {}
     }
   },
   "archivos": {

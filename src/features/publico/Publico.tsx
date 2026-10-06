@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, Navigate } from 'react-router'
 import { Icon, type IconName } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
@@ -6,6 +6,7 @@ import { NOMBRE_PLAN, soles } from '../../lib/planes'
 import { precioDe, usePrecios } from '../../lib/precios'
 import { APPS } from '../../os/apps'
 import { useAuth } from '../auth/AuthProvider'
+import { capturarReferido, referidoPendiente } from '../planes/referidos'
 import { TARJETAS } from '../planes/tarjetas'
 import { COMERCIO } from './comercio'
 import { documento } from './legal'
@@ -113,8 +114,18 @@ const ICONO_PLAN: Record<string, IconName> = { gratis: 'star', plus: 'sparkle', 
 
 function Inicio() {
   const precios = usePrecios()
+  // llegó con el link de un amigo (rockie.plus/?ref=CODIGO): se guarda hasta que cree su cuenta
+  const [invitado] = useState(() => {
+    capturarReferido(location.search)
+    return Boolean(referidoPendiente())
+  })
   return (
     <MarcoPublico>
+      {invitado && (
+        <p className="pub-invitado" role="status">
+          <Icon name="star" className="sm" /> Te invitó un amigo: crea tu cuenta y, cuando te suscribas, <b>los dos ganan 1 mes gratis</b>.
+        </p>
+      )}
       <section className="pub-hero">
         <div className="pub-hero-t">
           <h1>Tu día, tus hábitos y tu gente, en un solo lugar.</h1>
@@ -163,12 +174,17 @@ function Inicio() {
 
       <section id="planes" className="pub-sec">
         <h2>Planes</h2>
-        <p className="pub-sub">Empieza gratis. Si quieres más, eliges un plan por un mes o un año: sin cobros automáticos.</p>
+        <p className="pub-sub">
+          Empieza gratis. Si quieres más, pagas con Yape o tarjeta por un mes, un ciclo o un año. Con tarjeta, si quieres, se renueva solo (y lo cancelas en
+          un clic).
+        </p>
         <div className="pl-grid">
           {TARJETAS.map((t) => {
             const mes = t.id === 'gratis' ? null : precioDe(precios, t.id, 'normal', 'mes')
             const anio = t.id === 'gratis' ? null : precioDe(precios, t.id, 'normal', 'anio')
             const est = t.id === 'plus' ? precioDe(precios, 'plus', 'estudiante', 'mes') : null
+            const ciclo = t.id === 'plus' ? precioDe(precios, 'plus', 'estudiante', 'ciclo') : null
+            const ahorro = mes && anio ? Math.round((1 - anio.centimos / (mes.centimos * 12)) * 100) : 0
             return (
               <article key={t.id} className={`pl-card pl-${t.id}`} aria-label={`Plan ${NOMBRE_PLAN[t.id]}`}>
                 <span className="pub-plan-ico" aria-hidden="true">
@@ -178,8 +194,16 @@ function Inicio() {
                 <p className="pl-lema">{t.lema}</p>
                 <p className="pl-precio">
                   <b>{mes ? `${soles(mes.centimos / 100)} al mes` : 'S/ 0'}</b>
-                  {anio && <small>o {soles(anio.centimos / 100)} al año</small>}
-                  {est && <small>Estudiantes: {soles(est.centimos / 100)} al mes</small>}
+                  {anio && (
+                    <small>
+                      o {soles(anio.centimos / 100)} al año{ahorro > 0 ? ` (ahorras ${ahorro}%)` : ''}
+                    </small>
+                  )}
+                  {est && (
+                    <small>
+                      Estudiantes: {soles(est.centimos / 100)} al mes{ciclo ? ` o ${soles(ciclo.centimos / 100)} por ciclo` : ''}
+                    </small>
+                  )}
                   {t.id === 'club' && <small>por equipo</small>}
                 </p>
                 <ul>
@@ -211,7 +235,18 @@ function Inicio() {
         </details>
         <details>
           <summary>¿Se cobra solo cada mes?</summary>
-          <p>No. Pagas un mes o un año y el plan dura eso. Para seguir, lo renuevas tú. Nada de cobros sorpresa.</p>
+          <p>
+            Solo si lo eliges: al pagar con tarjeta puedes activar la renovación automática. Te avisamos antes de cada cobro y la cancelas en un clic. Con Yape
+            pagas cuando quieras renovar. Nada de cobros sorpresa.
+          </p>
+        </details>
+        <details>
+          <summary>¿Puedo pagar con Yape?</summary>
+          <p>Sí: con tu celular y el código de aprobación de tu app Yape, sin tarjeta. También con tarjeta de débito o crédito.</p>
+        </details>
+        <details>
+          <summary>¿Y si me voy de vacaciones?</summary>
+          <p>Pausas tu plan 1 o 2 meses (una vez al año) y tus días te esperan. Y si se te pasa la fecha, te lo guardamos 3 días más.</p>
         </details>
         <details>
           <summary>¿Y si no me convence?</summary>
@@ -221,7 +256,7 @@ function Inicio() {
         </details>
         <details>
           <summary>¿Hay precio de estudiante?</summary>
-          <p>Sí: Plus te cuesta menos si verificas el correo de tu universidad.</p>
+          <p>Sí: Plus te cuesta menos si verificas el correo de tu universidad, y puedes pagar todo el ciclo (4 meses) de una vez.</p>
         </details>
         <details>
           <summary>¿Qué es el plan Club?</summary>

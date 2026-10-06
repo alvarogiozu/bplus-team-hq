@@ -1,10 +1,10 @@
 # Rockie — Modelo de negocio, planes y precios
 
-*Versión 1.1 · 4 de octubre de 2026 · Documento interno del equipo · los planes ya están construidos (ver sección 12)*
+*Versión 1.2 · 5 de octubre de 2026 · Documento interno del equipo · planes, cobro y retención construidos (ver secciones 12 y 13)*
 
 Este documento junta todo lo que decidimos sobre competencia, mercado, precios, planes por app, costos de IA y márgenes. Es la fuente de verdad para construir el sistema de planes en rockie.plus.
 
-> **Ojo con los números:** los costos y márgenes son estimaciones hechas con los precios oficiales de Gemini para 2027, un cambio de S/ 3.70 por dólar, IGV de 18% y una comisión de pago de ~4%. Se reemplazan por datos reales cuando tengamos los primeros clubes piloto.
+> **Ojo con los números:** los costos y márgenes son estimaciones hechas con los precios oficiales de Gemini para 2027, un cambio de S/ 3.70 por dólar, IGV de 18% y una comisión de pago de ~4%. **La comisión real de Culqi en pagos chicos es mayor** (mínimo de ~S/ 3.50): ver la sección 8. Se reemplazan por datos reales cuando tengamos los primeros clubes piloto.
 
 ---
 
@@ -100,8 +100,8 @@ Este documento junta todo lo que decidimos sobre competencia, mercado, precios, 
 |---|---|---|
 | Plus Dúo (pareja o amigo) | S/ 29.90 al mes | S/ 14.95 |
 | Plus Grupo (hasta 5) | S/ 59.90 al mes | ~S/ 12 |
-| Plus Ciclo (estudiante, un semestre) | S/ 49 por ciclo | ~S/ 12 al mes |
-| Anual | 20% de descuento | — |
+| **Plus Ciclo** (estudiante, un semestre: 4 meses en un pago) — *construido* | **S/ 44.90 por ciclo** | ~S/ 11.23 al mes |
+| Anual — *construido, es la opción que se muestra primero* | 20% de descuento (Plus S/ 191, Pro S/ 335, Club S/ 950) | — |
 | **Precio fundador** | Los primeros usuarios mantienen su precio para siempre | — |
 
 **Por qué Pro no tiene precio de estudiante:** si alguien agota todos sus cupos de IA, un Pro a precio de estudiante da pérdida, y al estudiante le basta Plus.
@@ -228,6 +228,20 @@ Cuenta, **Cofre (cifrado)**, modo oscuro, perfil, invitaciones, iniciar sesión 
 
 Casi nadie agota todos los cupos. Los cupos están calculados para que, en el peor caso, ningún plan dé una pérdida importante.
 
+### La comisión real de Culqi (5 oct 2026)
+Culqi cobra 3.44% + US$ 0.20 + IGV por pago, pero con un **mínimo de ~S/ 2.99 + IGV (S/ 3.53) en pagos menores de S/ 87.72**. En los pagos mensuales chicos eso pesa mucho más que el 4% que asumimos arriba. Lo que queda por pago (después del IGV que va a SUNAT y la comisión; el IGV de la comisión se recupera como crédito fiscal en el Régimen MYPE):
+
+| Pago | Comisión de Culqi | Nos queda | Por mes |
+|---|---|---|---|
+| Plus mensual S/ 19.90 | S/ 2.99 (~15%) | S/ 13.87 | ~$3.75 |
+| Plus estudiante S/ 12.90 | S/ 2.99 (~23%) | S/ 7.94 | ~$2.15 |
+| Plus ciclo S/ 44.90 (4 meses) | S/ 2.99 | S/ 35.06 | ~$2.37 |
+| Plus anual S/ 191 | ~S/ 7.31 (~4%) | ~S/ 154.55 | ~$3.48 |
+| Pro mensual S/ 34.90 | S/ 2.99 (~9%) | S/ 26.59 | ~$7.19 |
+| Club mensual S/ 99 | ~S/ 4.15 (~4%) | ~S/ 79.75 | ~$21.55 |
+
+**Qué hacemos con eso:** el anual va primero en la pantalla de pago (la comisión baja de ~15% a ~4%), los estudiantes tienen el ciclo, y pedimos a Culqi una tarifa sin mínimo para suscripciones. **Izipay** cobra 3.44% + S/ 0.69 + IGV sin mínimo (con posible mensualidad de S/ 30): conviene a partir de ~16 pagos mensuales al mes. La función de cobro está separada para poder sumarla después.
+
 ---
 
 ## 9. Proyecciones (ejemplos, no promesas)
@@ -255,7 +269,7 @@ No cobra de la ganancia mensual: compra un porcentaje de la empresa y gana cuand
 1. **Activar la facturación de Gemini.** Hoy los agentes usan la cuota *gratuita* de Gemini (`supabase/functions/_shared/rockie-llm.ts`). En el nivel gratis, Google puede usar el contenido para mejorar sus productos. **Eso contradice la promesa del Cofre.** Antes de lanzar hay que activar el nivel de pago.
 2. **Decirlo claro en la política de privacidad:** cuando el usuario le pide algo a la IA, ese contenido viaja a Gemini (nivel de pago, sin entrenamiento) para procesarse; no se guarda ni se loguea en Rockie.
 3. **Dos backends.** Hábitos (`habitos/`) usa el Supabase de B+ y el resto de Rockie OS usa el suyo. El plan de cada persona tiene que vivir en un solo lugar y leerse desde los dos.
-4. **Culqi necesita RUC y llaves reales.** Ya existe un esqueleto (`habitos/src/lib/culqi.js`, `habitos/src/data/plans.js` con precios viejos en dólares). Hasta tener RUC, el lanzamiento puede ser con **precio fundador y activación manual** (Yape + código).
+4. **Culqi: falta la aprobación del comercio y las llaves de producción.** El RUC ya es «persona natural con negocio», Régimen MYPE Tributario, IGV, actividad 5820 (5 oct 2026). Mientras Culqi aprueba, se activa con **código de fundador**. Con cobros reales hay que **emitir una boleta electrónica por cada pago** (p. ej. Nubefact conectado a `culqi-cobro`) y **declarar cada mes** (PDT 621) aunque se venda S/ 0.
 5. **El precio de Flash se duplica el 1 de enero de 2027.** Todos los márgenes de este documento ya usan el precio de 2027.
 6. **Los cupos de IA se controlan en el servidor**, nunca solo en la app (si no, se pueden saltar).
 7. **Zapia es gratis y ya está en Perú.** La diferencia hay que mostrarla en la primera pantalla: grupos, prueba con foto y segundo cerebro privado.
@@ -272,22 +286,40 @@ No cobra de la ganancia mensual: compra un porcentaje de la empresa y gana cuand
 
 ---
 
-## 12. Estado de la construcción (4 oct 2026)
+## 12. Estado de la construcción (5 oct 2026)
 
-**Construido y en rockie.plus (fases 1 y 2):**
-- Página **Tu plan** (`/planes`): tu plan, lo que llevas usado, los cuatro planes, activar con código y precio de estudiante. Se abre desde el menú de tu cuenta, desde Ajustes (Rockie OS y Hábitos) y desde cada aviso de límite.
-- **Hoja de «llegaste al límite»**: explica qué pasó, qué sigue igual y qué trae Plus. Sale al tocar la acción, no después de llenar un formulario.
-- **Los límites los hace cumplir la base de datos** (no se saltan desde la consola): pizarras por día, páginas compartidas, equipos creados, personas por equipo y conectar tu IA. Los cupos del mes (huecos en común) se cuentan en el servidor.
-- **Hábitos** lee el plan de tu cuenta de Rockie: 5 hábitos activos, metas, 1 reto creado en marcha y el historial mes a mes (en PC) para Plus.
-- **Activar con código** (precio fundador, pago por Yape mientras no hay Culqi): `node scripts/codigos.mjs crear plus` (el archivo explica las demás opciones). Los códigos Club los canjea quien creó el equipo.
-- **Estudiantes:** se verifican con el correo de su universidad (catálogo de dominios en la base). Solo se guarda que es estudiante y hasta cuándo.
+**Construido y en rockie.plus:**
+- **Fase 1–2, planes y límites:** página **Tu plan** (`/planes`), hoja de «llegaste al límite», límites que hace cumplir la base de datos (pizarras por día, páginas compartidas, equipos, personas por equipo, conectar tu IA, huecos en común), Hábitos lee el plan de tu cuenta de Rockie, códigos de fundador (`node scripts/codigos.mjs crear plus`) y precio de estudiante con el correo de la universidad.
+- **Fase 3, cupos de IA en el servidor:** mensajes con Rockie, pedidos sobre tus notas, «Aprender» y respuestas con la IA más potente (solo Pro), contados en el servidor; si la IA falla, el uso se devuelve. En Gratis, la primera semana trae 100 mensajes con Rockie.
+- **Fase 4, cobro con Culqi** (modo prueba): ver la sección 13.
+- **Páginas que pide Culqi:** portada con planes y precios (IGV incluido), términos, devoluciones (7 días), privacidad, Libro de Reclamaciones y contacto@rockie.plus.
 
 **Pendiente:**
-- **Fase 3, cupos de IA en el servidor:** mensajes con Rockie, preguntar a tus notas, Aprender, dictado y el nivel de IA por plan (ligera, media, Pro). Hoy la IA no tiene cupo por plan.
-- **Fase 4, cobro con Culqi** (Yape y tarjeta): CONSTRUIDO en modo prueba (5 oct). Precios en la tabla `planes_precios` (mensual y anual con ~20% menos), función `culqi-cobro` que cobra con la llave secreta (secret `CULQI_SECRET_KEY`, solo en el servidor) y activa el plan; pagos en `planes_pagos`. Sin cobros automáticos: cada pago vale un mes o un año. Con la llave de prueba, en rockie.plus se sigue mostrando la activación con código, y los pagos de prueba no activan planes (salvo a usuarios qa.*). Falta: que Culqi apruebe el comercio y poner las llaves de producción (`pk_live_` en la app, `sk_live_` en el servidor).
-- **Activar la facturación de Gemini** (sección 10, punto 1): sin eso, la promesa de privacidad no se cumple del todo.
-- Lo que la página de planes marca como «muy pronto»: Rockie más listo, IA Pro, «Rockie te arma la semana», y roles, asistencia, panel de cumplimiento y traspaso de directiva del plan Club. «Rockie analiza tu mes» y el protector de racha tampoco existen todavía (no se muestran en la página).
-- Almacenamiento por plan (500 MB / 5 GB / 20 GB): todavía no se mide.
+- Que Culqi apruebe el comercio y poner las llaves de producción (`pk_live_` en la app, `sk_live_` en el servidor). Pedir a Culqi que active los **cargos con tarjeta guardada** y 3DS en la cuenta real.
+- **Boletas electrónicas** por cada pago (Nubefact u otro emisor) y el contador para las declaraciones mensuales.
+- **Avisos por correo:** el código ya está; falta una cuenta de Resend con el dominio rockie.plus verificado y su llave (`RESEND_API_KEY`).
+- **Activar la facturación de Gemini** (sección 10, punto 1).
+- Lo que la página de planes marca como «muy pronto» (Rockie te arma la semana; roles, asistencia y traspaso de directiva del plan Club) y el almacenamiento por plan.
+
+---
+
+## 13. Pagar fácil y no perder a nadie (construido el 5 oct 2026)
+
+**Cómo se paga**
+- **Yape en la misma pantalla de Rockie:** celular + código de aprobación de la app Yape. El token se pide a Culqi con la llave pública desde el navegador; ni el celular ni el código pasan por el servidor de Rockie.
+- **Tarjeta** en el formulario seguro de Culqi. Si el banco pide verificar a la persona (**3DS**), se abre la verificación del banco y se cobra con el mismo token.
+- **Mensual, ciclo (estudiantes, 4 meses) o anual**; el anual va elegido primero y dice cuánto ahorras.
+- Lo que escribiste para pagar (correo, celular) se recuerda **solo en tu dispositivo**: renovar son dos toques.
+
+**Para que nadie se vaya por un descuido**
+- **Renovación automática** (solo con tarjeta, marcada por defecto): Culqi guarda la tarjeta; Rockie solo su id y «Visa •••• 1234». Todos los días a las 9:00 (Lima) la función `planes-renovar` cobra los planes que vencen en menos de un día; si no pasa, lo intenta hasta 3 días y avisa. Llamarla de más no cobra dos veces. Se cancela en un clic, ofreciendo antes pausar.
+- **3 días de gracia:** al vencer, el plan se mantiene 3 días. Renovar en ese tiempo suma desde el vencimiento (la gracia no se regala).
+- **Aviso con Rockie** en todas las apps (y en Hábitos): «tu Plus vence el viernes», «venció: te lo guardamos 3 días», «no pudimos renovar con tu tarjeta», «volviste a Gratis» y, en marzo y agosto, «empieza el ciclo: ¿volvemos?». Con el botón para renovar ahí mismo y, si hay, lo que hiciste en 30 días (solo cantidades).
+- **Avisos por correo** (si la persona deja su correo): unos días antes de vencer y si la renovación no pasa.
+- **Pausa:** 1 o 2 meses, una vez al año. Mientras dura, Gratis; al terminar, vuelve solo con sus días.
+- **Invita a un amigo:** link `rockie.plus/?ref=CODIGO`. Cuando el amigo paga su primer plan, los dos ganan 1 mes (si estás en Gratis, un mes de Plus). Hasta 12 meses al año por persona; solo cuentas nuevas sin pagos.
+
+**Dónde está:** `supabase/migrations/20261013120000_planes_retencion.sql` (y su ajuste 20261013130000), `supabase/functions/culqi-cobro`, `supabase/functions/planes-renovar`, `src/features/planes/` (Comprar, MiSuscripcion, AvisoPlan, referidos), `habitos/src/components/AvisoPlanHabitos.jsx`. Pruebas: `e2e/pagos.spec.ts` y `e2e/pagos-tarjeta.spec.ts` (formulario real de Culqi en modo prueba, con 3DS).
 
 ## Fuentes
 

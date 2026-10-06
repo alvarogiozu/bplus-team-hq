@@ -28,7 +28,7 @@ export const TARJETAS: Tarjeta[] = [
   {
     id: 'plus',
     precio: `${soles(PRECIOS.plus.normal)} al mes`,
-    nota: `Estudiantes: ${soles(PRECIOS.plus.estudiante)}`,
+    nota: `Estudiantes: ${soles(PRECIOS.plus.estudiante)} al mes o ${soles(PRECIOS.plus.ciclo)} el ciclo`,
     lema: 'Sin límites para tu día a día',
     incluye: [
       { t: 'Hábitos y pizarras sin límite' },
