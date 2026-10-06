@@ -25,7 +25,7 @@ for (const [nombre, viewport] of [
   test(`portada y textos legales (${nombre})`, async ({ page }) => {
     await page.setViewportSize(viewport)
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'Tu día, tus hábitos y tu gente, en un solo lugar.' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Todas tus herramientas, en una sola mochila.' })).toBeVisible()
     const plus = page.getByRole('article', { name: 'Plan Plus' })
     await expect(plus).toContainText('S/ 19.90 al mes')
     await expect(plus).toContainText('Estudiantes: S/ 12.90 al mes')

@@ -28,37 +28,14 @@
 /* los botones que son enlaces, sin subrayado */
 .pub a.btn { text-decoration: none; }
 
-/* ---------- portada ---------- */
-.pub-hero { display: grid; gap: var(--s5); align-items: center; padding: var(--s8) 0 var(--s6); }
-.pub-hero h1 { margin: 0; font: 700 clamp(30px, 7vw, 52px)/1.08 var(--serif); color: var(--title); letter-spacing: -0.5px; }
-.pub-hero p { margin: var(--s3) 0 0; font-size: var(--t-md); color: var(--ink-soft); max-width: 560px; }
-.pub-hero-btns { display: flex; flex-wrap: wrap; gap: var(--s3); margin-top: var(--s5); }
-.pub-hero-rockie { justify-self: center; }
-@media (min-width: 820px) {
-  .pub-hero { grid-template-columns: 1.4fr 1fr; padding: var(--s12) 0 var(--s8); }
-}
+/* (la portada, de la mochila al Cofre, vive en portada.css) */
+.pub { overflow-x: clip; }
 
 /* ---------- secciones ---------- */
 .pub-sec { padding: var(--s6) 0; scroll-margin-top: 72px; }
 .pub-sec > h2 { margin: 0 0 var(--s4); font: 700 var(--t-2xl) var(--serif); color: var(--title); }
 .pub-sub { margin: calc(-1 * var(--s2)) 0 var(--s4); color: var(--ink-soft); }
 .pub-nota { margin: var(--s4) 0 0; color: var(--ink-muted); font-size: var(--t-xs); }
-
-.pub-apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s4); }
-.pub-app {
-  display: grid; gap: var(--s2); align-content: start; padding: var(--s4);
-  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge);
-}
-.pub-app h3 { margin: var(--s1) 0 0; font: 700 var(--t-lg) var(--serif); color: var(--title); }
-.pub-app p { margin: 0; color: var(--ink-soft); font-size: var(--t-sm); }
-
-.pub-cofre {
-  display: flex; gap: var(--s4); align-items: flex-start; margin: var(--s4) 0; padding: var(--s5);
-  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge);
-}
-.pub-cofre > .ico { flex: none; width: 34px; height: 34px; padding: 8px; border-radius: 50%; background: var(--green-soft); color: var(--green); box-sizing: content-box; }
-.pub-cofre h2 { margin: 0 0 var(--s2); font: 700 var(--t-xl) var(--serif); color: var(--title); }
-.pub-cofre p { margin: 0; color: var(--ink-soft); }
 
 .pub-plan-ico {
   display: grid; place-items: center; width: 52px; height: 52px; border-radius: var(--r-lg);
@@ -125,7 +102,7 @@
 
 /* constancia impresa: solo la hoja */
 @media print {
-  .pub-top, .pub-pie, .pub-hero-btns { display: none !important; }
+  .pub-top, .pub-pie, .pt-hero-btns { display: none !important; }
   .pub, .pub-main { background: #fff; color: #000; }
 }
 .pub-nowrap { white-space: nowrap; }

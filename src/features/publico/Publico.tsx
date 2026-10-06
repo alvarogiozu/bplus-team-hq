@@ -1,15 +1,15 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate } from 'react-router'
 import { Icon, type IconName } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
 import { NOMBRE_PLAN, soles } from '../../lib/planes'
 import { precioDe, usePrecios } from '../../lib/precios'
-import { APPS } from '../../os/apps'
 import { useAuth } from '../auth/AuthProvider'
 import { capturarReferido, referidoPendiente } from '../planes/referidos'
 import { TARJETAS } from '../planes/tarjetas'
 import { COMERCIO } from './comercio'
 import { documento } from './legal'
+import { PortadaCierre, PortadaHero, PortadaHistoria } from './Portada'
 import '../planes/planes.css'
 import './publico.css'
 
@@ -103,13 +103,6 @@ function Pie() {
   )
 }
 
-const APP_TEXTO: Record<string, string> = {
-  habitos: 'Cumple con prueba: una foto que revisa la IA, rachas y retos con tus amigos.',
-  agenda: 'Tu tiempo, tus hábitos a su hora y los huecos en común con tu equipo.',
-  equipo: 'Tus proyectos y tu club: tareas, Gantt, logros y quién hizo qué.',
-  cuaderno: 'Notas enlazadas, pizarra, repaso y Aprender: Rockie arma tus apuntes desde un PDF o un video.',
-}
-
 const ICONO_PLAN: Record<string, IconName> = { gratis: 'star', plus: 'sparkle', pro: 'trophy', club: 'team' }
 
 function Inicio() {
@@ -126,51 +119,8 @@ function Inicio() {
           <Icon name="star" className="sm" /> Te invitó un amigo: crea tu cuenta y, cuando te suscribas, <b>los dos ganan 1 mes gratis</b>.
         </p>
       )}
-      <section className="pub-hero">
-        <div className="pub-hero-t">
-          <h1>Tu día, tus hábitos y tu gente, en un solo lugar.</h1>
-          <p>
-            Rockie junta tus hábitos con prueba, tu agenda, tus notas y los proyectos de tu equipo o club. Y lo que guardas, solo lo ves tú.
-          </p>
-          <div className="pub-hero-btns">
-            <Link className="btn" to="/registro">
-              Empieza gratis
-            </Link>
-            <a className="btn ghost" href="#planes">
-              Ver planes
-            </a>
-          </div>
-        </div>
-        <div className="pub-hero-rockie" aria-hidden="true">
-          <Rockie size={168} reactive />
-        </div>
-      </section>
-
-      <section id="apps" className="pub-sec">
-        <h2>Cuatro apps, una cuenta</h2>
-        <div className="pub-apps">
-          {APPS.map((a) => (
-            <article key={a.id} className="pub-app">
-              <span className="os-tile" style={{ ['--app' as string]: a.color, ['--app-edge' as string]: a.edge } as CSSProperties}>
-                <Icon name={a.icon as IconName} />
-              </span>
-              <h3>{a.name}</h3>
-              <p>{APP_TEXTO[a.id] ?? a.blurb}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="pub-sec pub-cofre">
-        <Icon name="lock" />
-        <div>
-          <h2>Ni nosotros podemos leerlo</h2>
-          <p>
-            Tus notas, tu agenda y tus proyectos se cifran en tu dispositivo antes de salir. En nuestros servidores solo hay datos cifrados que nadie del
-            equipo de Rockie puede abrir.
-          </p>
-        </div>
-      </section>
+      <PortadaHero />
+      <PortadaHistoria />
 
       <section id="planes" className="pub-sec">
         <h2>Planes</h2>
@@ -263,6 +213,8 @@ function Inicio() {
           <p>Es para el equipo de un club u organización: lo paga el club y sus miembros usan todo lo del club gratis, sin límite de personas.</p>
         </details>
       </section>
+
+      <PortadaCierre />
     </MarcoPublico>
   )
 }
