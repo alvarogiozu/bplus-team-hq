@@ -21,6 +21,7 @@ const PAGES = [
 
 for (const theme of ['light', 'dark'] as const) {
   test(`pantallas en ${theme}`, async ({ page }, info) => {
+    test.setTimeout(90_000) // recorre 16 pantallas y abre paneles: los 45 s por defecto quedan justos
     await login(page, 'qa.alvaro', theme)
     for (const [name, url] of PAGES) {
       await page.goto(url)

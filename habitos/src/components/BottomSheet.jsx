@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useDragControls } from 'framer-motion'
 import useDesktop from '../lib/useDesktop.js'
 
 // Bottom sheet / modal (11_pantalla_habitos.md): overlay + hoja que sube.
@@ -9,11 +9,14 @@ import useDesktop from '../lib/useDesktop.js'
 // en el mismo nodo rompe el fondo en WebKit y deja ver el --paper gris.
 // En PC (>=900px) es un dialogo centrado (sin asa): una hoja que sube desde
 // abajo en una pantalla ancha se siente de telefono.
+// En el celular se cierra tambien arrastrando hacia abajo desde el asa (como en iPhone): suelta lejos o con
+// impulso y baja; si no, vuelve a su lugar.
 export default function BottomSheet({ open, onClose, title, children }) {
   const overlayRef = useRef(null)
   const panelRef = useRef(null)
   const scrollRef = useRef(null)
   const desk = useDesktop()
+  const drag = useDragControls()
 
   const target = typeof document !== 'undefined' ? document.querySelector('.app-phone') : null
 
@@ -43,6 +46,14 @@ export default function BottomSheet({ open, onClose, title, children }) {
             animate={desk ? { y: 0, opacity: 1 } : { y: 0 }}
             exit={desk ? { y: 16, opacity: 0 } : { y: '100%' }}
             transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+            drag={desk || !onClose ? false : 'y'}
+            dragControls={drag}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.85 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 110 || info.velocity.y > 650) onClose?.()
+            }}
             onClick={(e) => e.stopPropagation()}
             style={{
               width: '100%',
@@ -68,7 +79,10 @@ export default function BottomSheet({ open, onClose, title, children }) {
                 padding: desk ? 'var(--space-5) var(--space-6) var(--space-6)' : 'var(--space-4) var(--space-5) calc(var(--space-8) + env(safe-area-inset-bottom))',
               }}
             >
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--space-4)', minHeight: 32 }}>
+              <div
+                onPointerDown={(e) => { if (!desk && onClose) drag.start(e) }}
+                style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--space-4)', minHeight: 32, touchAction: desk ? undefined : 'none' }}
+              >
                 {!desk && <div style={{ width: 40, height: 4, background: 'var(--paper-dark)', borderRadius: 2 }} />}
                 {onClose && (
                   <button

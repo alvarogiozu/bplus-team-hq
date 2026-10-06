@@ -287,20 +287,33 @@ svg { display: block; }
 /* ============================================================
    PANEL DE TAREA (drawer derecho / bottom sheet)
    ============================================================ */
-.overlay { position: fixed; inset: 0; z-index: 70; background: var(--overlay); animation: fadein 0.2s ease-out; }
+.overlay { position: fixed; inset: 0; z-index: 70; background: var(--overlay); animation: fadein 0.3s ease-out; }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeout { to { opacity: 0; } }
 .drawer {
   position: fixed; z-index: 71; top: 0; right: 0; bottom: 0; width: min(var(--drawer-w), 100vw);
   background: var(--paper-clean); border-left: 1.5px solid var(--card-line); box-shadow: var(--shadow-lift);
   display: flex; flex-direction: column; animation: drawerin 0.35s var(--glide);
 }
 @keyframes drawerin { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes drawerout { from { transform: var(--desde, none); } to { transform: translateX(48px); opacity: 0; } }
 .dialog {
   position: fixed; z-index: 71; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px));
   max-height: min(88dvh, 780px); background: var(--paper-clean); border-radius: var(--r-xl); border: 1.5px solid var(--card-line);
   box-shadow: var(--shadow-lift), 0 6px 0 var(--card-edge); display: flex; flex-direction: column; animation: dialogin 0.4s var(--spring);
 }
 @keyframes dialogin { from { transform: translate(-50%, -46%) scale(0.96); opacity: 0; } to { transform: translate(-50%, -50%); opacity: 1; } }
+@keyframes dialogout { to { transform: translate(-50%, -48%) scale(0.97); opacity: 0; } }
+/* la copia que hace la salida (components/Sheet.tsx): inerte, por encima, y se borra al terminar */
+.overlay.saliendo { animation: fadeout 0.3s ease forwards; pointer-events: none; }
+.drawer.saliendo { animation: drawerout 0.25s var(--glide) forwards; pointer-events: none; }
+.dialog.saliendo { animation: dialogout 0.2s ease-in forwards; pointer-events: none; }
+/* «‹ Atrás» y el borde para deslizar son del celular (la página propia) */
+.datras, .dborde { display: none; }
+.datras .ico { transform: rotate(90deg); }
+/* con una hoja abierta, la página de atrás no se desplaza (solo en el celular: en la PC quitar la barra de
+   desplazamiento haría saltar la página) */
+@media (max-width: 767px) { html.hoja-abierta, html.hoja-abierta body { overflow: hidden; overscroll-behavior: none; } }
 @keyframes popin { from { transform: translateY(12px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
 .grab { display: none; width: 44px; height: 5px; border-radius: 999px; background: var(--ink-faint); margin: 8px auto 0; flex: none; }
 .dhead { display: flex; align-items: center; gap: var(--s2); padding: var(--s4) var(--s5) var(--s2); }
@@ -429,12 +442,31 @@ svg { display: block; }
   .board .col { flex: 0 0 min(84vw, 320px); scroll-snap-align: start; }
   .addrow { grid-template-columns: 1fr 1fr; }
   .addrow input:first-child { grid-column: 1 / -1; }
-  .drawer, .dialog {
-    top: auto; left: 0; right: 0; bottom: 0; width: 100%; transform: none; max-height: 92dvh; border-radius: var(--r-xl) var(--r-xl) 0 0; border-left: 0;
-    border: 1.5px solid var(--card-line); border-bottom: 0; animation: sheetup 0.4s var(--spring);
+  /* la hoja: sube desde abajo con la curva de iOS (sin rebote) y baja al cerrarse */
+  .dialog {
+    top: auto; left: 0; right: 0; bottom: 0; width: 100%; transform: none; max-height: 92dvh; border-radius: var(--r-xl) var(--r-xl) 0 0;
+    border: 1.5px solid var(--card-line); border-bottom: 0; animation: hojasube 0.46s var(--glide);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.16);
   }
-  @keyframes sheetup { from { transform: translateY(60%); opacity: 0.5; } to { transform: none; opacity: 1; } }
-  .grab { display: block; }
+  @keyframes hojasube { from { transform: translateY(100%); } to { transform: none; } }
+  @keyframes hojabaja { from { transform: var(--desde, none); } to { transform: translateY(100%); } }
+  .dialog.saliendo { animation: hojabaja 0.32s cubic-bezier(0.4, 0, 0.9, 0.6) forwards; }
+  .dialog .grab { display: block; touch-action: none; padding: 8px 0 6px; margin-top: 0; background-clip: content-box; height: 5px; box-sizing: content-box; }
+  .dialog .dhead { touch-action: none; padding-top: var(--s2); }
+  /* el panel: una página propia que entra desde la derecha, con «‹» y deslizando desde el borde para volver */
+  .drawer {
+    top: 0; left: 0; right: 0; bottom: 0; width: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: -12px 0 40px rgba(0, 0, 0, 0.18);
+    padding-top: env(safe-area-inset-top); animation: paginaentra 0.42s var(--glide);
+  }
+  @keyframes paginaentra { from { transform: translateX(100%); } to { transform: none; } }
+  @keyframes paginasale { from { transform: var(--desde, none); } to { transform: translateX(100%); } }
+  .drawer.saliendo { animation: paginasale 0.3s var(--glide) forwards; }
+  .drawer .dhead { gap: var(--s1); padding: var(--s2) var(--s4) var(--s3) var(--s2); border-bottom: 1px solid var(--line); }
+  .drawer .dhead h2 { font-size: var(--t-lg); }
+  .drawer .datras { display: inline-grid; }
+  .drawer .dcerrar { display: none; }
+  .drawer .dbody { padding-top: var(--s4); }
+  .dborde { display: block; position: absolute; top: 0; bottom: 0; left: 0; width: 22px; z-index: 5; touch-action: none; }
   .dfoot { padding-bottom: calc(var(--s5) + env(safe-area-inset-bottom)); }
   .toasts { left: 12px; right: 12px; top: calc(10px + env(safe-area-inset-top)); align-items: stretch; }
   .props { grid-template-columns: 96px 1fr; }

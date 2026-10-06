@@ -58,6 +58,9 @@ function RockieBoton() {
       onPointerDown={down}
       onPointerUp={cancel}
       onPointerCancel={cancel}
+      // tras mantener (la voz ya se abrió bajo el dedo), el clic que manda el navegador al soltar caería en la
+      // hoja de voz: con el dedo se anula ese clic
+      onTouchEnd={(e) => { if (held.current && e.cancelable) { e.preventDefault(); held.current = false } }}
       onContextMenu={(e) => e.preventDefault()}
       onClick={() => { if (held.current) held.current = false; else abrirVoz('ver') }}
       aria-label="Rockie: toca para abrir su conversación, mantén para hablarle"

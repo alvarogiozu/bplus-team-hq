@@ -43,7 +43,13 @@ export type EditorState = { mode: 'new'; draft: Draft } | { mode: 'edit'; id: st
 
 export const editorStore = createStore<EditorState>(null)
 export const openEditor = (s: EditorState) => editorStore.set(s)
-const close = () => editorStore.set(null)
+const close = () => {
+  // el teclado se va junto con la hoja: si un campo de la hoja seguía enfocado mientras baja, el teclado se quedaba
+  // abierto (y el pie del celular escondido) hasta que terminaba la animación
+  const el = document.activeElement
+  if (el instanceof HTMLElement && el.closest('.ag-panel')) el.blur()
+  editorStore.set(null)
+}
 
 /** Contenedor: panel a la derecha en PC, hoja que se arrastra hacia abajo en el celular. */
 function Panel({ children, color, label }: { children: (startDrag: (e: React.PointerEvent) => void) => ReactNode; color: string; label: string }) {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useDragControls } from 'framer-motion'
 import useBackClose from './useBackClose.js'
 import useDesktop from '../lib/useDesktop.js'
 
@@ -15,7 +15,10 @@ import useDesktop from '../lib/useDesktop.js'
 // decenas de springs compitan con el transform de la hoja y generen lag.
 // En PC (>=900px) es un PANEL LATERAL derecho sobre la pantalla: lo de atras
 // sigue a la vista (p.ej. Rockie mientras lo vistes en el inventario).
+// En el celular entra desde la derecha como una pagina de iPhone (lo de atras se oscurece un poco) y se cierra
+// tambien deslizando desde el borde izquierdo.
 export default function FullScreenSheet({ open, onClose, title, children, onEntered }) {
+  const drag = useDragControls()
   // Atras del sistema (gesto/boton) cierra la hoja en vez de cambiar de pagina.
   useBackClose(open, onClose)
   const desk = useDesktop()
@@ -102,18 +105,44 @@ export default function FullScreenSheet({ open, onClose, title, children, onEnte
     <AnimatePresence>
       {open && (
         <motion.div
+          key="fullscreen-dim"
+          aria-hidden="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          style={{ position: 'absolute', inset: 0, zIndex: 89, background: 'rgba(35, 30, 52, 0.22)' }}
+        />
+      )}
+      {open && (
+        <motion.div
           key="fullscreen-sheet"
           initial={{ x: '100%' }}
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', stiffness: 320, damping: 34 }}
           onAnimationComplete={(def) => { if (def && def.x === 0) onEntered?.() }}
+          drag="x"
+          dragControls={drag}
+          dragListener={false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={{ left: 0, right: 0.9 }}
+          onDragEnd={(_, info) => {
+            if (info.offset.x > 110 || info.velocity.x > 600) onClose?.()
+          }}
           style={{
             position: 'absolute', inset: 0, zIndex: 90,
             background: 'var(--paper)',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            boxShadow: '-12px 0 40px rgba(35, 30, 52, 0.18)',
           }}
         >
+          {/* borde izquierdo: deslizar desde aqui vuelve atras (como en iPhone) */}
+          <div
+            aria-hidden="true"
+            onPointerDown={(e) => drag.start(e)}
+            style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 22, zIndex: 5, touchAction: 'none' }}
+          />
           {/* Barra superior: cierre a la izquierda + titulo opcional */}
           <div style={{
             padding: 'calc(var(--space-5) + env(safe-area-inset-top)) var(--screen-x) var(--space-3)',

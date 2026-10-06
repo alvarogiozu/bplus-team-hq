@@ -201,6 +201,11 @@ export function RockieCentro(p: {
         down()
       }}
       onPointerUp={up}
+      // el toque se resuelve al soltar; el clic «fantasma» que el navegador manda después caería en la hoja recién
+      // abierta (su fondo la cierra): con el dedo no hay clic
+      onTouchEnd={(e) => {
+        if (e.cancelable) e.preventDefault()
+      }}
       onPointerCancel={() => {
         clearTimeout(hold.current)
         hold.current = undefined
@@ -231,24 +236,36 @@ function Ring({ level }: { level: MotionValue<number> }) {
 }
 
 /** Mientras escribes en una página o un formulario, el pie se esconde (el teclado ocupa ese lugar).
- *  Escribirle a Rockie no cuenta: su barra vive justo encima del pie. */
+ *  Escribirle a Rockie no cuenta: su barra vive justo encima del pie.
+ *  Si el campo desaparece estando enfocado (se cierra la hoja donde escribías), el navegador no avisa: por eso,
+ *  mientras el pie está escondido, se revisa también al cerrarse el teclado y cada poco. */
 function useEscribiendo() {
   useEffect(() => {
     const html = document.documentElement
+    let revisa: ReturnType<typeof setInterval> | undefined
     const sync = () => {
       const el = document.activeElement
       const on =
         el instanceof HTMLElement &&
+        el.isConnected &&
         !el.closest('[data-rockie]') &&
         (el.isContentEditable || el.matches('textarea, select, input:not([type=checkbox], [type=radio], [type=button], [type=submit], [type=range], [type=color], [type=file])'))
       html.classList.toggle('m-escribiendo', on)
+      if (on && !revisa) revisa = setInterval(sync, 400)
+      if (!on && revisa) {
+        clearInterval(revisa)
+        revisa = undefined
+      }
     }
     const later = () => setTimeout(sync)
     addEventListener('focusin', sync)
     addEventListener('focusout', later)
+    visualViewport?.addEventListener('resize', later)
     return () => {
       removeEventListener('focusin', sync)
       removeEventListener('focusout', later)
+      visualViewport?.removeEventListener('resize', later)
+      clearInterval(revisa)
       html.classList.remove('m-escribiendo')
     }
   }, [])

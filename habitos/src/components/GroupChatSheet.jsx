@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useDragControls } from 'framer-motion'
 import { useStore } from '../data/mockStore.jsx'
 import { useChat, esUuid } from '../data/chat.js'
 import UserAvatar from './UserAvatar.jsx'
@@ -139,6 +139,7 @@ function Bubble({ m, prevSameAuthor, reactions, pickerOpen, onLongPress, onReact
 }
 
 export default function GroupChatSheet({ chat, onClose, flash }) {
+  const drag = useDragControls()
   const { me, blockedIds, reportMessage } = useStore()
   const cache = useRef(chat)
   if (chat) cache.current = chat
@@ -205,15 +206,28 @@ export default function GroupChatSheet({ chat, onClose, flash }) {
         <motion.div
           key="group-chat"
           className="chat-sheet"
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', stiffness: 360, damping: 34 }}
+          // un chat es una PAGINA (como Mensajes en iPhone): entra desde la derecha y se cierra deslizando desde el borde
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '100%' }}
+          transition={{ type: 'spring', stiffness: 340, damping: 36 }}
+          drag="x"
+          dragControls={drag}
+          dragListener={false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={{ left: 0, right: 0.9 }}
+          onDragEnd={(_, info) => { if (info.offset.x > 110 || info.velocity.x > 600) onClose() }}
           style={{
             position: 'absolute', inset: 0, zIndex: 95,
             background: 'var(--paper)', display: 'flex', flexDirection: 'column',
+            boxShadow: '-12px 0 40px rgba(35, 30, 52, 0.18)',
           }}
         >
+          <div
+            aria-hidden="true"
+            onPointerDown={(e) => drag.start(e)}
+            style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 22, zIndex: 5, touchAction: 'none' }}
+          />
           <div style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             padding: `var(--space-6) var(--space-3) var(--space-3)`,
@@ -231,7 +245,7 @@ export default function GroupChatSheet({ chat, onClose, flash }) {
                 fontSize: 'var(--text-xl)', flexShrink: 0,
               }}
             >
-              <i className="ti ti-chevron-down" />
+              <i className="ti ti-chevron-left" />
             </motion.button>
             <div style={{
               width: 38, height: 38, borderRadius: 'var(--r-sm)',
