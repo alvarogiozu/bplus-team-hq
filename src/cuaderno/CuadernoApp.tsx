@@ -3,7 +3,7 @@ import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useSearchP
 import { AnimatePresence, MotionConfig } from 'motion/react'
 import { Rockie } from '../components/Rockie'
 import { AppSwitcher } from '../os/AppSwitcher'
-import { MovilNav, MovilTop } from '../os/movil/MovilShell'
+import { EntraSeccion, MovilNav, MovilTop } from '../os/movil/MovilShell'
 import { useMe } from '../features/auth/AuthProvider'
 import { CuadernoSettings, useVaultAutoSync } from './Ajustes'
 import { AprenderDialog } from './Aprender'
@@ -128,7 +128,13 @@ function Shell() {
                   </div>
                 }
               >
-                <Outlet />
+                {mobile ? (
+                  <EntraSeccion clave={loc.pathname}>
+                    <Outlet />
+                  </EntraSeccion>
+                ) : (
+                  <Outlet />
+                )}
               </Suspense>
             </AreaDividida>
             {(!quiet || mobile || summon) && <CaptureBar ref={barRef} mobile={mobile} typing={typing} onTyping={setTyping} />}

@@ -161,6 +161,9 @@ html.m-escribiendo .m-rockie { display: none; }
   .mnav-tab, .mnav-ico, .mnav-ind, .m-rockie { transition: none; }
 }
 
+/* la pantalla de una sección (EntraSeccion): ocupa lo mismo que ocupaba la pantalla sola */
+.m-entra { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+
 /* Inicio: cada app con su color en el ícono; encendida (la píldora ya es de su color), en blanco */
 .os-app-ico { display: grid; color: var(--ico); transition: color 0.18s ease; }
 .mnav-tab.on .os-app-ico { color: var(--on-color); }

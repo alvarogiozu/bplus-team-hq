@@ -23,7 +23,7 @@ import { useAchievementWatcher } from '../features/team/achievements'
 import { AchievementDialog } from '../features/team/TeamAchievements'
 import { AppSwitcher } from '../os/AppSwitcher'
 import { MOBILE_Q, useIsMobile } from '../lib/useMedia'
-import { MovilNav, MovilTop, RockieCentro } from '../os/movil/MovilShell'
+import { EntraSeccion, MovilNav, MovilTop, RockieCentro } from '../os/movil/MovilShell'
 import { Faces } from '../features/movil/bits'
 import { NuevaTareaMovil, TareaSheetMovil } from '../features/movil/TareaSheet'
 import '../features/movil/movil.css'
@@ -158,7 +158,13 @@ export function Layout() {
         )}
 
         <Suspense fallback={<div className="content"><ListSkeleton /></div>}>
-          <Outlet />
+          {mobile ? (
+            <EntraSeccion clave={loc.pathname}>
+              <Outlet />
+            </EntraSeccion>
+          ) : (
+            <Outlet />
+          )}
         </Suspense>
 
         <div className="agentbar desktop">

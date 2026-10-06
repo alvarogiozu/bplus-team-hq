@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom'
 import { Link, matchPath, useLocation, useNavigate } from 'react-router'
 import { motion, useTransform, type MotionValue } from 'motion/react'
 import { Icon } from '../../components/Icon'
+import { pantallas, pantallasDelProyecto } from '../../app/pantallas'
 import { haptic } from '../../lib/fx'
+import { precargar, precargarPagina } from '../../lib/precarga'
 import { AppSwitcher } from '../AppSwitcher'
 import { CuentaBoton } from '../../features/cuenta/Cuenta'
 import { appOf, appTint } from '../apps'
@@ -58,6 +60,7 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
   const navigate = useNavigate()
   const app = appOf(pathname)
   useEscribiendo()
+  usePrecargaApps()
 
   const activo = p.tabs.findIndex((t) => t.active ?? (t.to ? Boolean(matchPath({ path: t.to.split('?')[0], end: t.end ?? false }, pathname)) : false))
   const elegir = (i: number) => {
@@ -138,6 +141,16 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
         {p.tabs.slice(0, 4).map(tab)}
       </nav>
     </>
+  )
+}
+
+/** La pantalla de una sección en el celular: al cambiar de sección entra subiendo un poco (como en Hábitos), solo
+ *  con movimiento: un fundido desde transparente se ve como parpadeo. `clave` = la sección (su ruta). */
+export function EntraSeccion({ clave, children }: { clave: string; children: ReactNode }) {
+  return (
+    <motion.div key={clave} className="m-entra" initial={{ y: 12 }} animate={{ y: 0 }} transition={{ duration: 0.24, ease: [0.32, 0.72, 0, 1] }}>
+      {children}
+    </motion.div>
   )
 }
 
@@ -233,6 +246,19 @@ export function RockieCentro(p: {
 function Ring({ level }: { level: MotionValue<number> }) {
   const scale = useTransform(level, [0, 1], [1, 1.6])
   return <motion.span className="m-rockie-ring" style={{ scale }} />
+}
+
+/** Desde cualquier app, cuando el celular está libre, se bajan las demás (y Hábitos): pasar de una a otra no espera
+ *  la descarga. Los módulos ya bajados no se repiten (el navegador y Vite los guardan). */
+function usePrecargaApps() {
+  useEffect(() => {
+    const a = precargar([pantallas.inicio, pantallas.agenda, pantallas.cuaderno, pantallas.layout, ...pantallasDelProyecto(), pantallas.cuenta], 2500)
+    const b = precargarPagina('/habitos/', 5000)
+    return () => {
+      a()
+      b()
+    }
+  }, [])
 }
 
 /** Mientras escribes en una página o un formulario, el pie se esconde (el teclado ocupa ese lugar).

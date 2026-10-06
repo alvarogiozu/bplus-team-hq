@@ -54,7 +54,10 @@ function Splash() {
 }
 
 /** En la computadora, todo lo que es de una app se abre en el escritorio de Rockie OS (pestañas,
- *  dock, mosaico); dentro de una de sus ventanas —y en el celular— se muestra la app misma. */
+ *  dock, mosaico); dentro de una de sus ventanas —y en el celular— se muestra la app misma.
+ *  Las apps comparten UNA sola espera (aquí): al pasar de una app a otra, la navegación es una transición y React
+ *  deja la pantalla de antes hasta que la nueva está lista, en vez de tapar todo con el splash (que es lo que pasaba
+ *  con una espera propia por app: una espera nueva siempre muestra su «cargando»). */
 function EscritorioGate() {
   const pc = useMedia(ESCRITORIO_Q)
   if (pc && !enVentana() && !sinEscritorio()) {
@@ -64,7 +67,11 @@ function EscritorioGate() {
       </Suspense>
     )
   }
-  return <Outlet />
+  return (
+    <Suspense fallback={<Splash />}>
+      <Outlet />
+    </Suspense>
+  )
 }
 
 /** Sin sesión, todo redirige a /login. Contraseña temporal => primero cambiarla. */
@@ -77,7 +84,10 @@ function RequireAuth() {
   // nada de la app se muestra sin el Cofre abierto (ver features/cofre)
   return (
     <CofreGate uid={session.user.id} cargando={<Splash />}>
-      <Outlet />
+      {/* una espera compartida (Perfil, Ajustes, Tu plan…): pasar entre ellas no tapa la pantalla con el splash */}
+      <Suspense fallback={<Splash />}>
+        <Outlet />
+      </Suspense>
     </CofreGate>
   )
 }
@@ -105,11 +115,10 @@ function ToHabitos() {
 }
 
 function SpaceShell() {
+  // sin espera propia: la de EscritorioGate (ver arriba)
   return (
     <SpaceProvider fallback={<Splash />}>
-      <Suspense fallback={<Splash />}>
-        <Layout />
-      </Suspense>
+      <Layout />
     </SpaceProvider>
   )
 }
@@ -148,42 +157,19 @@ export function App() {
             }
           />
           {/* tu cuenta: la misma desde cualquier app */}
-          <Route path="/perfil" element={<Suspense fallback={<Splash />}><PerfilPage /></Suspense>} />
-          <Route path="/ajustes" element={<Suspense fallback={<Splash />}><AjustesPage /></Suspense>} />
-          <Route path="/planes" element={<Suspense fallback={<Splash />}><PlanesPage /></Suspense>} />
+          <Route path="/perfil" element={<PerfilPage />} />
+          <Route path="/ajustes" element={<AjustesPage />} />
+          <Route path="/planes" element={<PlanesPage />} />
           <Route element={<EscritorioGate />}>
-            <Route
-              path="/inicio"
-              element={
-                <Suspense fallback={<Splash />}>
-                  <HomePage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/agenda/*"
-              element={
-                <Suspense fallback={<Splash />}>
-                  <AgendaApp />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/cuaderno/*"
-              element={
-                <Suspense fallback={<Splash />}>
-                  <CuadernoApp />
-                </Suspense>
-              }
-            />
+            <Route path="/inicio" element={<HomePage />} />
+            <Route path="/agenda/*" element={<AgendaApp />} />
+            <Route path="/cuaderno/*" element={<CuadernoApp />} />
             {/* la puerta del Equipo: elegir en qué equipo entras (sin la barra del equipo: aún no hay contexto) */}
             <Route
               path="/equipos"
               element={
                 <SpaceProvider fallback={<Splash />}>
-                  <Suspense fallback={<Splash />}>
-                    <EquiposPage />
-                  </Suspense>
+                  <EquiposPage />
                 </SpaceProvider>
               }
             />

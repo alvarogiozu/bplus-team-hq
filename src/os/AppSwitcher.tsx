@@ -2,13 +2,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router'
 import { Icon } from '../components/Icon'
-import { APPS, appOf, appTint as tint } from './apps'
+import { useIsMobile } from '../lib/useMedia'
+import { APPS, appOf, appTint as tint, rutaApp } from './apps'
 import { enVentana } from './ventana'
 import './os.css'
 
 /** Las cuatro apps + Inicio, como filas (el selector y los menús móviles las comparten). */
 export function AppList({ onPick }: { onPick?: () => void }) {
   const current = appOf(useLocation().pathname)
+  const movil = useIsMobile()
   return (
     <nav className="os-list" aria-label="Tus apps">
       <Link to="/inicio" className={`os-row${current ? '' : ' on'}`} onClick={onPick} aria-current={current ? undefined : 'page'}>
@@ -39,7 +41,7 @@ export function AppList({ onPick }: { onPick?: () => void }) {
             {inner}
           </a>
         ) : (
-          <Link key={a.id} to={a.path} className={cls} style={tint(a)} onClick={onPick} aria-current={current?.id === a.id ? 'page' : undefined}>
+          <Link key={a.id} to={rutaApp(a, movil)} className={cls} style={tint(a)} onClick={onPick} aria-current={current?.id === a.id ? 'page' : undefined}>
             {inner}
           </Link>
         )

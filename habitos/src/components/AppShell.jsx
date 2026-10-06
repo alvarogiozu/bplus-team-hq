@@ -31,13 +31,11 @@ function pageKey(pathname) {
   return pathname
 }
 
-function ScreenBody({ children }) {
-  return (
-    <Suspense fallback={<div style={{ position: 'absolute', inset: 0, background: 'var(--paper)' }} />}>
-      {children}
-    </Suspense>
-  )
-}
+// UNA espera para todas las pantallas, fuera de la clave de cada una: al cambiar de pestaña (transición, ver
+// main.jsx) React deja la pantalla de antes hasta que la nueva está lista. Con una espera por pantalla (dentro de la
+// clave) cada pestaña montaba una espera NUEVA, que siempre pinta su «cargando»: 1-2 cuadros en blanco al abrir
+// Vida, Juntos o Progreso por primera vez (medido). El «cargando» ocupa el lugar de la pantalla: el pie sigue visible.
+const Cargando = () => <div className="scroll-area" style={{ background: 'var(--paper)' }} />
 
 export default function AppShell() {
   const location = useLocation()
@@ -61,6 +59,7 @@ export default function AppShell() {
 
   return (
     <>
+      <Suspense fallback={<Cargando />}>
       {sliding ? (
         <AnimatePresence mode="popLayout" custom={mode} initial={false}>
           <motion.div
@@ -73,7 +72,7 @@ export default function AppShell() {
             exit="exit"
             style={{ background: 'var(--paper)' }}
           >
-            <ScreenBody>{outlet}</ScreenBody>
+            {outlet}
           </motion.div>
         </AnimatePresence>
       ) : (
@@ -87,9 +86,10 @@ export default function AppShell() {
           transition={{ duration: 0.2, ease: 'easeOut' }}
           style={{ background: 'var(--paper)' }}
         >
-          <ScreenBody>{outlet}</ScreenBody>
+          {outlet}
         </motion.div>
       )}
+      </Suspense>
       <BottomNav />
       <RockieVozHost />
       <SfxBridge />

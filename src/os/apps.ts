@@ -25,6 +25,10 @@ export const APPS: OsApp[] = [
   { id: 'cuaderno', name: 'Cuaderno', path: '/cuaderno', icon: 'notebook', color: '#b4637a', edge: '#944d63', blurb: 'Notas, ideas y repasos' },
 ]
 
+/** Adónde lleva abrir una app. En el celular, «Proyectos» entra directo a tu proyecto (el último que usaste, o el
+ *  primero) con su barra; la lista de proyectos queda en su barra de arriba («B+ ▾»). En la PC, la lista. */
+export const rutaApp = (a: OsApp, movil: boolean) => (movil && a.id === 'equipo' ? '/hoy' : a.path)
+
 const EQUIPO_PATHS = ['/equipos', '/hoy', '/tareas', '/proyectos', '/metas', '/materiales', '/equipo', '/proyecto']
 
 /** A qué app pertenece una ruta (null = Inicio u otra pantalla común). */

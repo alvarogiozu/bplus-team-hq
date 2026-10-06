@@ -11,7 +11,7 @@ import { useMe } from '../features/auth/AuthProvider'
 import { CuentaBoton } from '../features/cuenta/Cuenta'
 import { APP_META, useRockieChat } from '../features/agent/chat'
 import { setAccent } from '../app/theme'
-import { APPS, type AppId, type OsApp } from './apps'
+import { APPS, rutaApp, type AppId, type OsApp } from './apps'
 import { faceFor, fetchHabitosHoy, rockieLook } from './habitos'
 import { RockieArt } from './RockieArt'
 import { useEscritorio } from './escritorio/contexto'
@@ -31,7 +31,8 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  *  (carga completa) y las demás van por el router. */
 function AppLink({ app, to, className, style, label, children }: { app: OsApp; to?: string; className?: string; style?: CSSProperties; label?: string; children: ReactNode }) {
   const escritorio = useEscritorio()
-  const href = to ?? app.path
+  const movil = useIsMobile()
+  const href = to ?? rutaApp(app, movil)
   if (escritorio) {
     return (
       <a
@@ -333,7 +334,7 @@ export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
         label="Tus apps"
         tabs={APPS.map((a) => ({
           key: a.id,
-          to: a.path,
+          to: rutaApp(a, true),
           label: a.name,
           // al arrastrar, la píldora toma el color de cada app; el ícono va de su color hasta que lo enciende
           color: a.color,

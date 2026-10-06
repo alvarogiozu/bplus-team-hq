@@ -31,17 +31,19 @@ export const akeys = {
 }
 
 // ---------- lecturas ----------
+/** Las preferencias de la Agenda de una persona (la misma consulta para usePrefs y para esperarlas al entrar). */
+export const prefsOpts = (userId: string | null) => ({
+  queryKey: akeys.prefs(userId),
+  queryFn: async () => {
+    const { data, error } = await supabase.from('agenda_prefs').select('*').eq('user_id', userId!).maybeSingle()
+    if (error) throw error
+    return data
+  },
+})
+
 export function usePrefs() {
   const { userId } = useAuth()
-  return useQuery({
-    queryKey: akeys.prefs(userId),
-    enabled: Boolean(userId),
-    queryFn: async () => {
-      const { data, error } = await supabase.from('agenda_prefs').select('*').eq('user_id', userId!).maybeSingle()
-      if (error) throw error
-      return data
-    },
-  })
+  return useQuery({ ...prefsOpts(userId), enabled: Boolean(userId) })
 }
 
 export function useItems() {
