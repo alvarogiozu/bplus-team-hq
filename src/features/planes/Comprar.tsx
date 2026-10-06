@@ -4,7 +4,7 @@ import { Icon } from '../../components/Icon'
 import { Select } from '../../components/Select'
 import { Sheet } from '../../components/Sheet'
 import { toast } from '../../components/Toasts'
-import { huella3DS, tarjetaConCulqi, tokenYape, verificar3DS, type Resultado3DS } from '../../lib/culqi'
+import { huella3DS, modoPrueba, tarjetaConCulqi, tokenYape, verificar3DS, type Resultado3DS } from '../../lib/culqi'
 import { NOMBRE_PLAN, PLAN_KEY, soles, usePlan } from '../../lib/planes'
 import { CADA, DURACION, precioDe, usePrecios, type Periodo, type PlanPago } from '../../lib/precios'
 import { supabase } from '../../lib/supabase'
@@ -59,6 +59,7 @@ export function ComprarPlan({
   periodo: periodoInicial,
   equipo: equipoInicial,
   metodo: metodoInicial,
+  catalogo,
 }: {
   plan: PlanPago
   estudiante: boolean
@@ -69,6 +70,8 @@ export function ComprarPlan({
   equipo?: string
   /** p. ej. «activar la renovación automática» abre directo con tarjeta */
   metodo?: 'yape' | 'tarjeta'
+  /** viene del catálogo de la página pública: el periodo es el elegido allí, no una renovación */
+  catalogo?: boolean
 }) {
   const { userId } = useMe()
   const { session } = useAuth()
@@ -95,7 +98,7 @@ export function ComprarPlan({
   const [fase, setFase] = useState<Fase>('')
   const [error, setError] = useState('')
   const elegido = de(periodo)
-  const renovando = Boolean(periodoInicial) && (plan === 'club' || mi.suscripcion?.plan === plan)
+  const renovando = !catalogo && Boolean(periodoInicial) && (plan === 'club' || mi.suscripcion?.plan === plan)
 
   const misEquipos = useQuery({
     queryKey: ['planes', 'mis-equipos', userId],
@@ -205,6 +208,15 @@ export function ComprarPlan({
       }
     >
       <div className="pl-comprar">
+        {modoPrueba && (
+          <p className="pl-prueba" role="note">
+            <Icon name="clock" className="sm" />
+            <span>
+              <b>Pagos en modo de prueba.</b> Culqi está revisando nuestra tienda: por ahora no se cobra dinero real y el plan no se activa. Puedes
+              probar con las tarjetas o el Yape de prueba de Culqi, o activar tu plan con un código de fundador.
+            </span>
+          </p>
+        )}
         <div className="pl-periodos" role="radiogroup" aria-label="Cada cuánto pagas">
           {opciones.map((p) => {
             const x = de(p)!

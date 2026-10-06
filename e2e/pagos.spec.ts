@@ -217,3 +217,12 @@ test('Invita a un amigo: tu link, y la portada que ve tu amigo', async ({ page, 
   expect(await amigo.evaluate(() => localStorage.getItem('rockie.ref'))).toContain(codigo)
   await ctx.close()
 })
+
+test('la tienda de la página pública abre el pago de ese producto (Culqi pide un botón de pago activo)', async ({ page }) => {
+  await entrar(page, 'qa.intruso', '/planes?comprar=pro&periodo=mes')
+  const hoja = page.getByRole('dialog', { name: 'Suscribirte a Pro' })
+  await expect(hoja).toBeVisible()
+  await expect(hoja.getByRole('radio', { name: /Mensual/ })).toHaveAttribute('aria-checked', 'true')
+  await expect(hoja.getByRole('button', { name: /Pagar S\/ 34\.90 con/ })).toBeEnabled()
+  await expect(page).toHaveURL(/\/planes$/)
+})

@@ -34,15 +34,13 @@ export type Resultado3DS = Record<string, string>
 /** Llave pública de Culqi (modo prueba hasta que Culqi apruebe el comercio; luego, la de producción). */
 export const CULQI_PUBLICA = (import.meta.env.VITE_CULQI_PUBLIC_KEY as string | undefined) || 'pk_test_s4it9czecPAqHXUh'
 
-/** ¿Se ofrece pagar en línea? Con la llave de producción, siempre. Con la de prueba, solo en tu computadora
- *  (localhost) o si lo activas a mano (localStorage 'rockie.culqi.prueba' = '1'): en rockie.plus sigue el código. */
+/** Mientras la llave no sea la de producción, los pagos son de prueba (Culqi revisa la tienda con este flujo). */
+export const modoPrueba = !CULQI_PUBLICA.startsWith('pk_live_')
+
+/** ¿Se ofrece pagar en línea? Siempre: Culqi pide un botón de pago activo para aprobar la tienda. En modo prueba la
+ *  hoja de pago lo avisa (no se cobra dinero real y solo las cuentas qa.* reciben el plan; lo decide culqi-cobro). */
 export function pagoEnLinea(): boolean {
-  if (CULQI_PUBLICA.startsWith('pk_live_')) return true
-  try {
-    return location.hostname === 'localhost' || localStorage.getItem('rockie.culqi.prueba') === '1'
-  } catch {
-    return false
-  }
+  return true
 }
 
 function script<T>(src: string, listo: () => T | undefined): Promise<T> {

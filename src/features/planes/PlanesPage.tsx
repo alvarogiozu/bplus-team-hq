@@ -42,7 +42,7 @@ export default function PlanesPage() {
   const [pideEquipo, setPideEquipo] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [verificando, setVerificando] = useState(false)
-  const [comprar, setComprar] = useState<{ plan: PlanPago; periodo?: Periodo; equipo?: string; metodo?: 'yape' | 'tarjeta' } | null>(null)
+  const [comprar, setComprar] = useState<{ plan: PlanPago; periodo?: Periodo; equipo?: string; metodo?: 'yape' | 'tarjeta'; catalogo?: boolean } | null>(null)
   const [estudianteMsg, setEstudianteMsg] = useState('')
   const [reanudando, setReanudando] = useState(false)
   const [params, setParams] = useSearchParams()
@@ -70,6 +70,24 @@ export default function PlanesPage() {
   })
 
   const estudiante = Boolean(plan.estudiante_hasta)
+
+  // rockie.plus/planes?comprar=plus&periodo=anio[&tarifa=estudiante] (el catálogo de la página pública): abre el pago
+  // de ese producto. El precio de estudiante pide verificar el correo de la universidad primero.
+  const estudianteRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const p = params.get('comprar')
+    if (!p || !cargado) return
+    if (p === 'plus' || p === 'pro' || p === 'club') {
+      const per = params.get('periodo')
+      const periodo = per === 'mes' || per === 'ciclo' || per === 'anio' ? per : undefined
+      if (params.get('tarifa') === 'estudiante' && !estudiante) {
+        setEstudianteMsg('Primero verifica el correo de tu universidad: así Plus te sale a precio de estudiante.')
+        setTimeout(() => estudianteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)
+      } else setComprar({ plan: p, periodo, catalogo: true })
+    }
+    for (const k of ['comprar', 'periodo', 'tarifa']) params.delete(k)
+    setParams(params, { replace: true })
+  }, [params, setParams, cargado, estudiante])
 
   async function canjear() {
     const c = codigo.trim().toUpperCase()
@@ -294,7 +312,7 @@ export default function PlanesPage() {
         )}
       </section>
 
-      <section className="cuenta-card">
+      <section className="cuenta-card" ref={estudianteRef}>
         <h2>Precio de estudiante</h2>
         {estudiante ? (
           <p className="hint">
@@ -358,6 +376,7 @@ export default function PlanesPage() {
           periodo={comprar.periodo}
           equipo={comprar.equipo}
           metodo={comprar.metodo}
+          catalogo={comprar.catalogo}
           estudiante={estudiante}
           onClose={() => setComprar(null)}
         />

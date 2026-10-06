@@ -9,6 +9,7 @@ import { capturarReferido, referidoPendiente } from '../planes/referidos'
 import { TARJETAS } from '../planes/tarjetas'
 import { COMERCIO } from './comercio'
 import { documento } from './legal'
+import { Catalogo } from './Catalogo'
 import { PortadaCierre, PortadaHero, PortadaHistoria } from './Portada'
 import '../planes/planes.css'
 import './publico.css'
@@ -39,6 +40,7 @@ export function MarcoPublico({ children }: { children: ReactNode }) {
         <nav className="pub-nav" aria-label="Secciones">
           <a href="/#apps">Qué es</a>
           <a href="/#planes">Planes</a>
+          <a href="/#tienda">Tienda</a>
           <a href="/#dudas">Dudas</a>
         </nav>
         <span className="pub-sp" />
@@ -167,7 +169,7 @@ function Inicio() {
                     </li>
                   ))}
                 </ul>
-                <Link className={`btn sm block${t.id === 'gratis' ? ' ghost' : ''}`} to={t.id === 'gratis' ? '/registro' : '/registro?next=%2Fplanes'}>
+                <Link className={`btn sm block${t.id === 'gratis' ? ' ghost' : ''}`} to={t.id === 'gratis' ? '/registro' : `/registro?${new URLSearchParams({ next: `/planes?comprar=${t.id}` })}`}>
                   {t.id === 'gratis' ? 'Empieza gratis' : t.id === 'club' ? 'Suscribir mi club' : 'Suscribirme'}
                 </Link>
               </article>
@@ -176,6 +178,8 @@ function Inicio() {
         </div>
         <p className="pub-nota">Precios en soles (S/), IGV incluido. Pagas con tarjeta o Yape a través de Culqi.</p>
       </section>
+
+      <Catalogo />
 
       <section id="dudas" className="pub-sec pub-dudas">
         <h2>Dudas rápidas</h2>

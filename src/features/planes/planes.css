@@ -165,3 +165,11 @@
   .pl-aviso { left: 12px; right: 12px; width: auto; bottom: var(--mnav-room, calc(96px + env(safe-area-inset-bottom))); }
   .pl-campos { grid-template-columns: 1fr; }
 }
+
+/* pagos en modo de prueba (llave pk_test de Culqi, mientras aprueban la tienda) */
+.pl-prueba {
+  display: flex; gap: 8px; align-items: flex-start; margin: 0 0 var(--s3); padding: var(--s3);
+  border-radius: var(--r-lg); background: var(--card); border: 1.5px solid var(--amber); box-shadow: 0 3px 0 var(--amber-edge);
+  font-size: var(--t-xs); color: var(--ink); line-height: 1.4;
+}
+.pl-prueba .ico { flex: none; margin-top: 1px; color: var(--amber-edge); }
