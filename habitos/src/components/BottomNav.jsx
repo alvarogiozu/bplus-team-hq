@@ -9,10 +9,10 @@ import Confetti from './Confetti.jsx'
 import Rockie from './Rockie.jsx'
 import './BottomNav.css'
 
-// Barra de Rockie OS (la misma idea que Agenda y Equipo): Hoy · Vida · [Rockie] · Juntos · Progreso.
-// Rockie al centro es la VOZ: un toque y le hablas (la tienda y el inventario viven dentro de él).
-// Las 4 pestañas mantienen la píldora deslizante (useSlideSelect); el hueco del centro no es pestaña.
-// La pestaña de Vida depende de prefs.vidaMode: 'areas' = casa completa (Vida), 'metas' = lista directa.
+// Barra de Rockie OS (la misma que Agenda, Proyectos y Cuaderno): una cápsula con Hoy · Vida · Juntos ·
+// Progreso y Rockie en su círculo, abajo a la derecha. Rockie es la VOZ: un toque y le hablas (la tienda y
+// el inventario viven dentro de él). Las 4 pestañas llevan la píldora que se arrastra con el pulgar
+// (useSlideSelect). La pestaña de Vida depende de prefs.vidaMode: 'areas' = casa completa (Vida), 'metas' = lista.
 const tabsFor = (vidaMode) => [
   { to: '/hoy', label: 'Hoy', icon: 'ti-sun', color: 'var(--coral)', edge: 'var(--coral-edge)', coach: 'fab-hoy' },
   vidaMode === 'metas'
@@ -88,7 +88,13 @@ export default function BottomNav() {
   const { trackRef, setItem, handlers, live, dragging, x, w } = useSlideSelect({
     index: navIndex,
     park: 'start',
-    onSelect: (i) => navigate(TABS[i].to),
+    onSelect: (i) => {
+      try { navigator.vibrate?.(8) } catch { /* sin vibración */ }
+      navigate(TABS[i].to)
+    },
+    // tocar la pestaña en la que ya estás te lleva arriba (como en iPhone)
+    onReselect: () => document.querySelector('.scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' }),
+    onLive: () => { try { navigator.vibrate?.(4) } catch { /* sin vibración */ } },
   })
 
   const shown = dragging ? live : navIndex
@@ -118,19 +124,15 @@ export default function BottomNav() {
 
   return (
     <div className="navbar-wrap">
-      <nav className="navbar" ref={trackRef} aria-label="Navegación">
+      <nav className={`navbar${dragging ? ' arrastrando' : ''}`} ref={trackRef} aria-label="Navegación">
         <motion.span
           className="nav-ind"
           style={{ x, width: w, background: indColor, '--nav-edge': indEdge, opacity: showInd ? 1 : 0 }}
           transition={{ opacity: { duration: 0.15 } }}
         />
-        {tab(TABS[0], 0)}
-        {tab(TABS[1], 1)}
-        <span className="nav-gap q" aria-hidden="true"><span className="label">Rockie</span></span>
-        {tab(TABS[2], 2)}
-        {tab(TABS[3], 3)}
-        <RockieBoton />
+        {TABS.map(tab)}
       </nav>
+      <RockieBoton />
     </div>
   )
 }

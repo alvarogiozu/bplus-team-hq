@@ -335,8 +335,11 @@ export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
           key: a.id,
           to: a.path,
           label: a.name,
+          // al arrastrar, la píldora toma el color de cada app; el ícono va de su color hasta que lo enciende
+          color: a.color,
+          edge: a.edge,
           icon: (
-            <span style={{ color: a.color, display: 'grid' }}>
+            <span className="os-app-ico" style={{ ['--ico' as string]: a.color }}>
               <Icon name={a.icon} />
             </span>
           ),

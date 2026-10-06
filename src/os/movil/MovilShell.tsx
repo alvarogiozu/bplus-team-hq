@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { NavLink, useLocation } from 'react-router'
+import { Link, matchPath, useLocation, useNavigate } from 'react-router'
 import { motion, useTransform, type MotionValue } from 'motion/react'
 import { Icon } from '../../components/Icon'
 import { haptic } from '../../lib/fx'
@@ -9,11 +9,12 @@ import { CuentaBoton } from '../../features/cuenta/Cuenta'
 import { appOf, appTint } from '../apps'
 import { rockieLook } from '../habitos'
 import { RockieArt } from '../RockieArt'
+import { useSlideSelect } from './useSlideSelect'
 import './movil-shell.css'
 
 // Rockie OS en el celular: las cuatro apps comparten la barra de arriba (el selector de apps a la
-// izquierda), el pie flotante (2 secciones · Rockie · 2 secciones) y el mismo Rockie al centro.
-// Lo que cambia por app son las secciones del pie y lo que Rockie hace con lo que le pides.
+// izquierda), el pie flotante (una cápsula con 4 secciones que se arrastran) y el mismo Rockie abajo a la
+// derecha. Lo que cambia por app son las secciones del pie y lo que Rockie hace con lo que le pides.
 
 /** La barra de arriba: «App ▾» a la izquierda, el título de la app, sus acciones y, al final, tu cuenta
  *  (Perfil · Ajustes · Cerrar sesión), la misma en todas las apps. */
@@ -36,36 +37,85 @@ export type MovilTab = {
   key: string
   label: string
   icon: ReactNode
-  /** Sección con ruta propia (NavLink) … */
+  /** Sección con ruta propia … */
   to?: string
   end?: boolean
   /** … o una vista dentro de la misma pantalla (Agenda). */
   onClick?: () => void
   active?: boolean
   badge?: number
+  /** color propio de la píldora en esta pestaña (el Inicio pinta cada app con el suyo); si no, el de la app */
+  color?: string
+  edge?: string
 }
 
-/** El pie: cuatro secciones de la app con un hueco al centro para Rockie. `room` deja su alto
- *  reservado en el flujo (para pantallas cuyo contenido no trae su propio margen de abajo). */
+/** El pie: una cápsula con las cuatro secciones de la app (a la izquierda) y Rockie en su círculo, abajo a la
+ *  derecha. La píldora de la sección se arrastra con el pulgar entre pestañas (como en Hábitos): suelta y
+ *  entra. Tocar la sección en la que ya estás te lleva arriba. `room` deja el alto del pie reservado en el
+ *  flujo (para pantallas cuyo contenido no trae su propio margen de abajo). */
 export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSProperties; room?: boolean }) {
-  const app = appOf(useLocation().pathname)
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const app = appOf(pathname)
   useEscribiendo()
-  const tab = (t: MovilTab) => {
+
+  const activo = p.tabs.findIndex((t) => t.active ?? (t.to ? Boolean(matchPath({ path: t.to.split('?')[0], end: t.end ?? false }, pathname)) : false))
+  const elegir = (i: number) => {
+    const t = p.tabs[i]
+    if (!t) return
+    haptic(8)
+    if (t.to) navigate(t.to)
+    else t.onClick?.()
+  }
+  const { trackRef, setItem, handlers, live, dragging, x, w } = useSlideSelect({
+    index: activo,
+    onSelect: elegir,
+    onReselect: () => scrollTo({ top: 0, behavior: 'smooth' }),
+    onLive: () => haptic(4),
+  })
+  const shown = dragging ? live : activo
+  const enc = p.tabs[shown]
+
+  const tab = (t: MovilTab, i: number) => {
     const inner = (
       <>
         <span className="mnav-ico">
           {t.icon}
           {(t.badge ?? 0) > 0 && <b className="mnav-badge">{t.badge}</b>}
         </span>
-        <span>{t.label}</span>
+        <span className="mnav-lbl">{t.label}</span>
       </>
     )
+    const cls = `mnav-tab${shown === i ? ' on' : ''}`
+    // el gesto (tocar o arrastrar) lo maneja useSlideSelect; el clic del dedo no navega dos veces,
+    // pero el teclado (Enter) sí usa el enlace o el botón normal
     return t.to ? (
-      <NavLink key={t.key} to={t.to} end={t.end} className={({ isActive }) => `mnav-tab${(t.active ?? isActive) ? ' active' : ''}`}>
+      <Link
+        key={t.key}
+        ref={setItem(i)}
+        to={t.to}
+        className={cls}
+        aria-current={activo === i ? 'page' : undefined}
+        draggable={false}
+        {...handlers(i)}
+        onClick={(e) => {
+          if (e.detail !== 0) e.preventDefault()
+        }}
+      >
         {inner}
-      </NavLink>
+      </Link>
     ) : (
-      <button key={t.key} type="button" className={`mnav-tab${t.active ? ' active' : ''}`} aria-pressed={t.active} onClick={t.onClick}>
+      <button
+        key={t.key}
+        ref={setItem(i)}
+        type="button"
+        className={cls}
+        aria-pressed={activo === i}
+        {...handlers(i)}
+        onClick={(e) => {
+          if (e.detail === 0) elegir(i)
+        }}
+      >
         {inner}
       </button>
     )
@@ -73,19 +123,26 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
   return (
     <>
       {p.room && <div className="mnav-room" aria-hidden="true" />}
-      <nav className="mnav" aria-label={p.label} style={p.tint ?? (app ? appTint(app) : undefined)}>
-        {p.tabs.slice(0, 2).map(tab)}
-        <span className="mnav-gap" aria-hidden="true">
-          <span>Rockie</span>
-        </span>
-        {p.tabs.slice(2, 4).map(tab)}
+      <nav ref={trackRef} className={`mnav${dragging ? ' arrastrando' : ''}`} aria-label={p.label} style={p.tint ?? (app ? appTint(app) : undefined)}>
+        <motion.span
+          className="mnav-ind"
+          aria-hidden="true"
+          style={{
+            x,
+            width: w,
+            opacity: shown >= 0 ? 1 : 0,
+            background: enc?.color ?? 'var(--app, var(--accent))',
+            ['--ind-edge' as string]: enc?.edge ?? 'var(--app-edge, var(--accent-edge))',
+          }}
+        />
+        {p.tabs.slice(0, 4).map(tab)}
       </nav>
     </>
   )
 }
 
-/** Rockie al centro del pie, igual en todas las apps: toca para escribirle · mantén para hablarle.
- *  Cada app decide qué hace con el pedido (su propio agente). */
+/** Rockie en su círculo, abajo a la derecha (junto al pie), igual en todas las apps: toca para escribirle ·
+ *  mantén para hablarle. Cada app decide qué hace con el pedido (su propio agente). */
 export function RockieCentro(p: {
   onTap: () => void
   /** Mantener presionado: empieza a escuchar. Sin esto, mantener cuenta como tocar. */

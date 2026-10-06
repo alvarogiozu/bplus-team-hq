@@ -29,46 +29,71 @@
 .mtop-sp { flex: 1; min-width: 0; }
 .mtop-acts { display: flex; align-items: center; gap: var(--s1); flex: none; }
 
-/* ---------- pie flotante ---------- */
+/* ---------- pie flotante: la cápsula de 4 secciones (Rockie va aparte, a la derecha) ---------- */
 .mnav {
   position: fixed;
   z-index: 60;
   left: 12px;
-  right: 12px;
+  right: calc(12px + var(--mnav-h) + 8px);
   bottom: calc(var(--mnav-gap) + env(safe-area-inset-bottom));
+  height: var(--mnav-h);
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
   padding: 6px;
   background: var(--card);
   border: 1.5px solid var(--card-line);
-  border-radius: 26px;
+  border-radius: 999px;
   box-shadow: 0 4px 0 var(--card-edge), var(--shadow-card);
+  touch-action: none; /* el arrastre entre pestañas es nuestro: no desplaza la página */
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* la píldora de la sección: sólida con su canto; se mueve con translateX (medida, sin escala) */
+.mnav-ind {
+  position: absolute;
+  z-index: 0;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  border-radius: 999px;
+  box-shadow: 0 3px 0 var(--ind-edge);
+  pointer-events: none;
+  will-change: transform;
+  backface-visibility: hidden;
+  transition: opacity 0.18s ease, background-color 0.2s ease;
 }
 .mnav-tab {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
   min-width: 0;
-  min-height: 54px;
-  padding: 0;
+  height: 100%;
+  padding: 0 2px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 999px;
   background: none;
   color: var(--ink-muted);
   font: 700 var(--t-3xs) var(--sans);
   text-decoration: none;
   cursor: pointer;
+  touch-action: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s var(--glide), color 0.2s, box-shadow 0.2s, transform 0.12s var(--glide);
+  -webkit-touch-callout: none;
+  transition: color 0.18s ease;
 }
-.mnav-tab > span:last-child { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.mnav-ico { position: relative; display: grid; place-items: center; }
+.mnav-lbl { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mnav-ico { position: relative; display: grid; place-items: center; transition: transform 0.25s var(--spring); }
 .mnav-ico svg { width: 22px; height: 22px; }
-.mnav-tab.active { background: var(--app, var(--accent)); color: var(--on-color); box-shadow: 0 3px 0 var(--app-edge, var(--accent-edge)); }
-.mnav-tab:active { transform: translateY(2px); }
+.mnav-tab.on { color: var(--on-color); }
+/* al apoyar el dedo, el ícono se hunde un poco (sin mover la píldora) */
+.mnav-tab:active .mnav-ico { transform: scale(0.88); transition-duration: 0.1s; }
+.mnav.arrastrando .mnav-tab.on .mnav-ico { transform: scale(1.08); }
 .mnav-badge {
   position: absolute;
   top: -6px;
@@ -83,27 +108,24 @@
   text-align: center;
   box-shadow: 0 0 0 2px var(--card);
 }
-.mnav-tab.active .mnav-badge { box-shadow: 0 0 0 2px var(--app, var(--accent)); }
+.mnav-tab.on .mnav-badge { box-shadow: 0 0 0 2px var(--app, var(--accent)); }
 .mnav-room { flex: none; height: var(--mnav-room); }
-/* el hueco de Rockie lleva su nombre abajo, como en Hábitos */
-.mnav-gap { align-self: stretch; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; color: var(--rockie); font: 700 var(--t-3xs) var(--sans); pointer-events: none; }
 
-/* ---------- Rockie al centro ---------- */
+/* ---------- Rockie: su círculo abajo a la derecha, del mismo alto que la cápsula ---------- */
 .m-rockie {
   position: fixed;
   z-index: 61;
-  left: 50%;
-  bottom: calc(var(--mnav-gap) + env(safe-area-inset-bottom) + 28px);
-  width: 72px;
-  height: 72px;
-  margin-left: -36px;
+  right: 12px;
+  bottom: calc(var(--mnav-gap) + env(safe-area-inset-bottom));
+  width: var(--mnav-h);
+  height: var(--mnav-h);
   padding: 0;
   border: 0;
   border-radius: 999px;
   display: grid;
   place-items: center;
   background: var(--rockie);
-  box-shadow: 0 5px 0 var(--rockie-edge), var(--shadow-card);
+  box-shadow: 0 4px 0 var(--rockie-edge), var(--shadow-card);
   cursor: pointer;
   touch-action: none;
   user-select: none;
@@ -112,8 +134,8 @@
   -webkit-tap-highlight-color: transparent;
   transition: background 0.2s, transform 0.12s var(--glide), box-shadow 0.12s;
 }
-.m-rockie:active, .m-rockie.pressed { transform: translateY(3px); box-shadow: 0 2px 0 var(--rockie-edge), var(--shadow-card); }
-.m-rockie.on { background: var(--title); box-shadow: 0 5px 0 var(--coral-edge), var(--shadow-card); }
+.m-rockie:active, .m-rockie.pressed { transform: translateY(3px); box-shadow: 0 1px 0 var(--rockie-edge), var(--shadow-card); }
+.m-rockie.on { background: var(--title); box-shadow: 0 4px 0 var(--coral-edge), var(--shadow-card); }
 .m-rockie-mic {
   position: absolute;
   right: -3px;
@@ -136,5 +158,9 @@ html.m-escribiendo .mnav,
 html.m-escribiendo .m-rockie { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .mnav-tab, .m-rockie { transition: none; }
+  .mnav-tab, .mnav-ico, .mnav-ind, .m-rockie { transition: none; }
 }
+
+/* Inicio: cada app con su color en el ícono; encendida (la píldora ya es de su color), en blanco */
+.os-app-ico { display: grid; color: var(--ico); transition: color 0.18s ease; }
+.mnav-tab.on .os-app-ico { color: var(--on-color); }

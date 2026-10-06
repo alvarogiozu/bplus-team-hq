@@ -53,7 +53,7 @@ const FLICK_MIN_VEL = 0.35
 // Si paso mucho desde el ultimo movimiento, el dedo estaba parado: sin flick.
 const FLICK_IDLE = 90
 
-export function useSlideSelect({ index, onSelect, park = 'end' }) {
+export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'end' }) {
   const trackRef = useRef(null)
   const items = useRef([])
   const [live, setLive] = useState(index)
@@ -69,6 +69,9 @@ export function useSlideSelect({ index, onSelect, park = 'end' }) {
   indexRef.current = index
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
+  // tocar la pestaña que ya es la tuya (iPhone: volver arriba) y el cambio bajo el dedo (toque de vibración)
+  const extraRef = useRef({ onReselect, onLive })
+  extraRef.current = { onReselect, onLive }
   const liveRef = useRef(index)
   const startX = useRef(0)
   const moved = useRef(false)
@@ -78,7 +81,11 @@ export function useSlideSelect({ index, onSelect, park = 'end' }) {
   const lastX = useRef(0)
   const lastT = useRef(0)
 
-  const setLiveBoth = useCallback((i) => { liveRef.current = i; setLive(i) }, [])
+  const setLiveBoth = useCallback((i) => {
+    if (liveRef.current !== i && pid.current !== null && i >= 0) extraRef.current.onLive?.(i)
+    liveRef.current = i
+    setLive(i)
+  }, [])
 
   // rect de un item relativo al riel (border-box)
   const rectFor = useCallback((i) => {
@@ -181,6 +188,7 @@ export function useSlideSelect({ index, onSelect, park = 'end' }) {
       setLiveBoth(target)
       springTo(target)
       if (target !== idx) onSelectRef.current(target)
+      else if (!moved.current) extraRef.current.onReselect?.()
     }
     win.current = { onMove, onUp: (e) => end(e, false), onCancel: (e) => end(e, true) }
   }

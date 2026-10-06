@@ -1,8 +1,12 @@
-/* Barra de Rockie OS: 4 pestañas con píldora deslizante y Rockie (la voz) al centro, en alto.
+/* Barra de Rockie OS en Hábitos — las mismas medidas que el pie de las otras apps (src/os/movil/movil-shell.css):
+   una cápsula de 68 px con las 4 pestañas (píldora deslizante) y Rockie en su círculo, abajo a la derecha.
    El wrapper lleva los márgenes y el safe-area. */
 .navbar-wrap {
-  margin: 0 var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom));
-  padding-top: 28px; /* aire para Rockie, que sobresale de la barra */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px calc(10px + env(safe-area-inset-bottom));
+  padding-top: var(--space-2);
   flex-shrink: 0;
   /* Aísla layout/paint del scroll de la pantalla: el gesto de la barra
      no fuerza recalcular el contenido de arriba. */
@@ -11,14 +15,20 @@
 
 .navbar {
   position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 68px;
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  align-items: stretch;
+  padding: 6px;
   background: var(--card);
-  border-radius: 24px;
-  padding: var(--space-3) var(--space-2);
-  border: 2px solid var(--card-line);
+  border-radius: 999px;
+  border: 1.5px solid var(--card-line);
   box-shadow: 0 4px 0 var(--card-edge), var(--shadow-soft);
+  touch-action: none; /* el arrastre entre pestañas es nuestro */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Píldora deslizante activa: sólida con canto (mismo lenguaje que el segmentado).
@@ -29,56 +39,52 @@
   bottom: 6px;
   left: 0;
   z-index: 0;
-  border-radius: 16px;
-  box-shadow: 0 2px 0 var(--nav-edge, var(--edge-soft));
+  border-radius: 999px;
+  box-shadow: 0 3px 0 var(--nav-edge, var(--edge-soft));
   pointer-events: none;
   will-change: transform;
   backface-visibility: hidden;
   transform: translateZ(0);
 }
 
-.nav-item,
-.nav-gap {
+.nav-item {
   position: relative;
   z-index: 1;
-  flex: 1 1 0;      /* mismas anchuras => píldora uniforme y Rockie justo al centro */
+  flex: 1 1 0;      /* mismas anchuras => píldora uniforme */
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-1);
-}
-.nav-item {
+  justify-content: center;
+  gap: 3px;
   background: none;
   border: none;
-  padding: 2px var(--space-1);
+  border-radius: 999px;
+  padding: 0 2px;
   color: var(--ink-muted);
   transition: color 0.18s ease;
   touch-action: none; /* el gesto de arrastre entre pestañas es nuestro */
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
-.nav-gap { justify-content: flex-end; align-self: stretch; pointer-events: none; color: var(--brand); }
 
-.nav-item i { font-size: var(--text-3xl); line-height: 1; }
-.nav-item .label,
-.nav-gap .label { font-size: var(--text-2xs); font-weight: 600; white-space: nowrap; }
-.nav-item.active .label,
-.nav-gap .label { font-weight: 700; }
+.nav-item i { font-size: 22px; line-height: 1; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.nav-item:active i { transform: scale(0.88); transition-duration: 0.1s; }
+.navbar.arrastrando .nav-item.active i { transform: scale(1.08); }
+.nav-item .label { font-size: var(--text-3xs, 11px); font-weight: 700; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
-/* Rockie al centro: botón redondo en alto (toca = hablar). Press con :active, sin JS. */
+/* Rockie: su círculo a la derecha, del mismo alto que la cápsula (toca = conversación, mantén = hablarle). */
 .nav-rockie-btn {
-  position: absolute;
+  position: relative;
   z-index: 2;
-  left: 50%;
-  top: -30px;
-  width: 72px;
-  height: 72px;
-  margin-left: -36px;
+  flex: none;
+  width: 68px;
+  height: 68px;
   padding: 0;
   border: none;
   border-radius: 50%;
   background: var(--brand);
-  box-shadow: 0 5px 0 var(--brand-edge), var(--shadow-soft);
+  box-shadow: 0 4px 0 var(--brand-edge), var(--shadow-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -90,7 +96,7 @@
   -webkit-touch-callout: none; /* mantener = hablar: sin el menú de la imagen */
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.nav-rockie-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--brand-edge); }
+.nav-rockie-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--brand-edge); }
 .nav-rockie-btn:focus-visible { outline: 3px solid var(--azure); outline-offset: 3px; }
 .nav-rockie-face { display: flex; line-height: 0; will-change: transform; backface-visibility: hidden; }
 .nav-rockie-mic {
@@ -118,7 +124,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-item, .nav-rockie-btn { transition: none; }
+  .nav-item, .nav-item i, .nav-rockie-btn { transition: none; }
 }
 
 /* Shell de escritorio (>=900px): la navegación vive en el rail izquierdo
