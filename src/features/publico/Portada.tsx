@@ -577,9 +577,8 @@ function MockFoto({ racha }: { racha: number }) {
   return (
     <div className="mk mk-foto" aria-hidden="true">
       <div className="mk-foto-img">
-        <svg viewBox="0 0 200 90" preserveAspectRatio="xMidYMid slice">
-          <rect width="200" height="90" style={{ fill: 'var(--accent)' }} />
-          <circle cx="160" cy="24" r="13" style={{ fill: 'var(--amber)' }} />
+        <span className="mk-sol" />
+        <svg viewBox="0 0 200 90" preserveAspectRatio="none">
           <path d="M0 60 C40 38 82 42 120 56 S180 48 200 44 V90 H0Z" style={{ fill: 'var(--olive)' }} />
           <path d="M0 74 C50 60 112 66 200 70 V90 H0Z" style={{ fill: 'var(--green-photo)' }} />
         </svg>

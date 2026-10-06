@@ -1,17 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate } from 'react-router'
-import { Icon, type IconName } from '../../components/Icon'
+import { Icon } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
-import { NOMBRE_PLAN, soles } from '../../lib/planes'
-import { precioDe, usePrecios } from '../../lib/precios'
 import { useAuth } from '../auth/AuthProvider'
 import { capturarReferido, referidoPendiente } from '../planes/referidos'
-import { TARJETAS } from '../planes/tarjetas'
 import { COMERCIO } from './comercio'
 import { documento } from './legal'
-import { Catalogo } from './Catalogo'
+import { PlanesPublicos } from './PlanesPublicos'
 import { PortadaCierre, PortadaHero, PortadaHistoria } from './Portada'
-import '../planes/planes.css'
 import './publico.css'
 
 // La cara pública de rockie.plus: qué es Rockie, sus planes con precio, los textos legales y el Libro de
@@ -40,7 +36,6 @@ export function MarcoPublico({ children }: { children: ReactNode }) {
         <nav className="pub-nav" aria-label="Secciones">
           <a href="/#apps">Qué es</a>
           <a href="/#planes">Planes</a>
-          <a href="/#tienda">Tienda</a>
           <a href="/#dudas">Dudas</a>
         </nav>
         <span className="pub-sp" />
@@ -105,10 +100,7 @@ function Pie() {
   )
 }
 
-const ICONO_PLAN: Record<string, IconName> = { gratis: 'star', plus: 'sparkle', pro: 'trophy', club: 'team' }
-
 function Inicio() {
-  const precios = usePrecios()
   // llegó con el link de un amigo (rockie.plus/?ref=CODIGO): se guarda hasta que cree su cuenta
   const [invitado] = useState(() => {
     capturarReferido(location.search)
@@ -124,62 +116,7 @@ function Inicio() {
       <PortadaHero />
       <PortadaHistoria />
 
-      <section id="planes" className="pub-sec">
-        <h2>Planes</h2>
-        <p className="pub-sub">
-          Empieza gratis. Si quieres más, pagas con Yape o tarjeta por un mes, un ciclo o un año. Con tarjeta, si quieres, se renueva solo (y lo cancelas en
-          un clic).
-        </p>
-        <div className="pl-grid">
-          {TARJETAS.map((t) => {
-            const mes = t.id === 'gratis' ? null : precioDe(precios, t.id, 'normal', 'mes')
-            const anio = t.id === 'gratis' ? null : precioDe(precios, t.id, 'normal', 'anio')
-            const est = t.id === 'plus' ? precioDe(precios, 'plus', 'estudiante', 'mes') : null
-            const ciclo = t.id === 'plus' ? precioDe(precios, 'plus', 'estudiante', 'ciclo') : null
-            const ahorro = mes && anio ? Math.round((1 - anio.centimos / (mes.centimos * 12)) * 100) : 0
-            return (
-              <article key={t.id} className={`pl-card pl-${t.id}`} aria-label={`Plan ${NOMBRE_PLAN[t.id]}`}>
-                <span className="pub-plan-ico" aria-hidden="true">
-                  <Icon name={ICONO_PLAN[t.id]} />
-                </span>
-                <h3>{NOMBRE_PLAN[t.id]}</h3>
-                <p className="pl-lema">{t.lema}</p>
-                <p className="pl-precio">
-                  <b>{mes ? `${soles(mes.centimos / 100)} al mes` : 'S/ 0'}</b>
-                  {anio && (
-                    <small>
-                      o {soles(anio.centimos / 100)} al año{ahorro > 0 ? ` (ahorras ${ahorro}%)` : ''}
-                    </small>
-                  )}
-                  {est && (
-                    <small>
-                      Estudiantes: {soles(est.centimos / 100)} al mes{ciclo ? ` o ${soles(ciclo.centimos / 100)} por ciclo` : ''}
-                    </small>
-                  )}
-                  {t.id === 'club' && <small>por equipo</small>}
-                </p>
-                <ul>
-                  {t.incluye.map((x) => (
-                    <li key={x.t} className={x.pronto ? 'pronto' : ''}>
-                      <Icon name={x.pronto ? 'clock' : 'check'} className="sm" />
-                      <span>
-                        {x.t}
-                        {x.pronto && <em> · muy pronto</em>}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <Link className={`btn sm block${t.id === 'gratis' ? ' ghost' : ''}`} to={t.id === 'gratis' ? '/registro' : `/registro?${new URLSearchParams({ next: `/planes?comprar=${t.id}` })}`}>
-                  {t.id === 'gratis' ? 'Empieza gratis' : t.id === 'club' ? 'Suscribir mi club' : 'Suscribirme'}
-                </Link>
-              </article>
-            )
-          })}
-        </div>
-        <p className="pub-nota">Precios en soles (S/), IGV incluido. Pagas con tarjeta o Yape a través de Culqi.</p>
-      </section>
-
-      <Catalogo />
+      <PlanesPublicos />
 
       <section id="dudas" className="pub-sec pub-dudas">
         <h2>Dudas rápidas</h2>
@@ -210,7 +147,7 @@ function Inicio() {
         </details>
         <details>
           <summary>¿Hay precio de estudiante?</summary>
-          <p>Sí: Plus te cuesta menos si verificas el correo de tu universidad, y puedes pagar todo el ciclo (4 meses) de una vez.</p>
+          <p>Sí: Plus te cuesta menos si verificas el correo de tu universidad, y puedes pagar 4 meses (un semestre) de una vez.</p>
         </details>
         <details>
           <summary>¿Qué es el plan Club?</summary>

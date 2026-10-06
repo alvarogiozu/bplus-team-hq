@@ -246,8 +246,10 @@ span.pt-cambia { display: inline-block; }
 .mk-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: var(--s3); }
 .mk-xp { margin-left: auto; font-weight: 700; color: var(--amber); font-size: var(--t-sm); }
 
-.mk-foto-img { position: relative; display: grid; place-items: center; height: 108px; border-radius: var(--r-md); overflow: hidden; }
-.mk-foto-img svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* la «foto»: cielo y sol fijos (no se recortan), solo las colinas se estiran al ancho */
+.mk-foto-img { position: relative; display: grid; place-items: center; height: 108px; border-radius: var(--r-md); overflow: hidden; background: var(--accent); }
+.mk-foto-img > svg { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 62%; }
+.mk-sol { position: absolute; top: 14px; right: 22px; width: 30px; height: 30px; border-radius: 50%; background: var(--amber); }
 .mk-sello {
   position: relative; display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%;
   background: #fdfbf7; border: 4px solid var(--green-photo); color: var(--green-photo); box-shadow: 0 3px 0 var(--green-photo-edge);
@@ -385,18 +387,18 @@ span.pt-cambia { display: inline-block; }
 
 /* ============================================================ cierre ============================================================ */
 .pt-final {
-  display: grid; gap: var(--s5); justify-items: center; text-align: center; margin: var(--s8) 0 calc(-1 * var(--s8)); padding: var(--s10) 0;
-  background: var(--navbar-blue); box-shadow: 0 0 0 100vmax var(--navbar-blue); clip-path: inset(0 -100vmax);
+  display: grid; gap: var(--s5); justify-items: center; align-items: center; text-align: center; margin: var(--s8) 0 calc(-1 * var(--s8)); padding: var(--s10) 0;
+  background: var(--accent); box-shadow: 0 0 0 100vmax var(--accent); clip-path: inset(0 -100vmax);
 }
-.pt-final img { width: min(240px, 62vw); height: auto; animation: pt-flota 4s ease-in-out infinite; }
+.pt-final img { display: block; width: min(240px, 62vw); height: auto; animation: pt-flota 4s ease-in-out infinite; }
+.pt-final > div { display: grid; justify-items: center; }
 .pt-final h2 { margin: 0; font: 700 clamp(30px, 6vw, 44px)/1.1 var(--serif); color: var(--on-color); }
 .pt-final p { margin: var(--s2) 0 var(--s5); color: color-mix(in srgb, var(--on-color) 86%, transparent); font-size: var(--t-md); }
-.pt-btn-claro { background: var(--paper-clean); color: var(--navbar-blue-edge); box-shadow: 0 4px 0 var(--navbar-blue-edge); }
-.pt-btn-claro:active:not(:disabled) { box-shadow: 0 1px 0 var(--navbar-blue-edge); }
-:root[data-theme='dark'] .pt-btn-claro { background: #fdfbf7; color: #2b4456; }
+.pt-btn-claro { background: #fdfbf7; color: var(--accent-edge); box-shadow: 0 4px 0 var(--accent-edge); }
+.pt-btn-claro:active:not(:disabled) { box-shadow: 0 1px 0 var(--accent-edge); }
 @media (min-width: 860px) {
   .pt-final { grid-template-columns: auto auto; justify-content: center; text-align: left; justify-items: start; gap: var(--s10); }
-  .pt-final > div { max-width: 460px; }
+  .pt-final > div { max-width: 460px; justify-items: start; }
 }
 
 /* los títulos de Planes y Dudas, a la altura de la portada */

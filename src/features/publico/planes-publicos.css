@@ -1,0 +1,48 @@
+/* ============================================================
+   Planes de rockie.plus (PlanesPublicos.tsx): una tarjeta por plan con su imagen, qué incluye y sus
+   opciones de compra. Tokens, cantos 2.5D, colores sólidos (nada pastel). Primero el celular.
+   ============================================================ */
+.pp-gratis { --pp: var(--accent); --pp-edge: var(--accent-edge); }
+.pp-plus { --pp: var(--amber); --pp-edge: var(--amber-edge); }
+.pp-pro { --pp: var(--berry); --pp-edge: var(--berry-edge); }
+.pp-club { --pp: var(--green-photo); --pp-edge: var(--green-photo-edge); }
+
+.pp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--s4); align-items: stretch; }
+.pp-card {
+  display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--pp-edge);
+}
+.pp-img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; background: var(--pp); }
+.pp-cuerpo { display: flex; flex-direction: column; gap: var(--s2); flex: 1; padding: var(--s4); }
+.pp-cuerpo h3 { margin: 0; font: 700 var(--t-xl) var(--serif); color: var(--title); }
+.pp-lema { margin: 0; color: var(--ink-soft); font-size: var(--t-xs); }
+.pp-desde { margin: 0; color: var(--ink-muted); font-size: var(--t-xs); font-weight: 700; }
+.pp-desde b { font-size: var(--t-xl); color: var(--ink); }
+.pp-card ul { display: grid; align-content: start; gap: 8px; margin: var(--s1) 0 var(--s2); padding: 0; list-style: none; flex: 1; }
+.pp-card li { display: flex; gap: 8px; align-items: flex-start; font-size: var(--t-xs); color: var(--ink); line-height: 1.35; }
+.pp-card li .ico { flex: none; margin-top: 1px; color: var(--pp); stroke-width: 2.6; }
+.pp-card li.pronto { color: var(--ink-muted); }
+.pp-card li.pronto .ico { color: var(--ink-faint); }
+.pp-card li em { font-style: normal; font-weight: 700; color: var(--ink-muted); }
+
+/* las opciones de compra: cada una es un botón con su periodo, su precio y «Comprar» */
+.pp-ops { display: grid; gap: var(--s2); }
+.pp-ops-t { margin: var(--s1) 0 0; font-size: var(--t-3xs); font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--ink-muted); }
+.pp-op {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s2); width: 100%; min-height: 52px; padding: 7px 7px 7px 14px;
+  border-radius: var(--r-lg); background: var(--card); border: 2px solid var(--pp); box-shadow: 0 3px 0 var(--pp-edge);
+  color: var(--ink); text-align: left; cursor: pointer; transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide);
+}
+.pp-op:hover { transform: translateY(-1px); }
+.pp-op:active { transform: translateY(3px); box-shadow: 0 0 0 var(--pp-edge); }
+.pp-op:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.pp-op-t { display: grid; min-width: 0; line-height: 1.25; }
+.pp-op-t b { font: 700 var(--t-sm) var(--sans); }
+.pp-op-t small { font-size: var(--t-sm); font-weight: 700; color: var(--ink); }
+.pp-op-t em { display: block; font-style: normal; font-size: var(--t-2xs); color: var(--green-photo); }
+:root[data-theme='dark'] .pp-op-t em { color: var(--olive); }
+.pp-op-cta {
+  display: inline-flex; align-items: center; gap: 5px; flex: none; padding: 8px 12px; border-radius: var(--r-pill);
+  background: var(--accent); color: var(--on-color); box-shadow: 0 2px 0 var(--accent-edge); font-size: var(--t-xs); font-weight: 700;
+}
+.pp .btn.block { width: 100%; }
