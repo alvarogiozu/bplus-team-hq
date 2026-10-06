@@ -58,6 +58,11 @@ export function HoyMovilAvance({ label, done, total, pct, view, onView }) {
           {vista('cartas', 'ti-cards', 'Cartas')}
           {vista('lista', 'ti-list', 'Lista')}
           {vista('cal', 'ti-calendar', 'Calendario')}
+          <span className="hm-views-tinta" aria-hidden="true">
+            {[['cartas', 'ti-cards'], ['lista', 'ti-list'], ['cal', 'ti-calendar']].map(([id, icono]) => (
+              <span key={id} className="hm-view"><i className={`ti ${icono}`} /></span>
+            ))}
+          </span>
         </span>
         <span className="q" style={{ ...pill, height: 28, fontSize: 'var(--text-s)' }}>{done} de {total}</span>
       </div>

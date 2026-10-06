@@ -15,7 +15,7 @@
 .amg-iconbtn--primary { background: var(--azure); color: #fff; border-color: transparent; --edge: var(--azure-edge); }
 
 /* Juntos en el celular: el segmentado grande del lienzo (Hoy | Metas | Feed) */
-.amg-seg .seg { border-radius: var(--r-lg); background: var(--card-2); padding: 4px; gap: 4px; }
+.amg-seg .seg { border-radius: var(--r-lg); background: var(--card-2); padding: 4px; gap: 4px; --tinta-y: 4px; --tinta-r: var(--r-md); }
 .amg-seg .seg-btn { min-height: 38px; font-size: var(--text-sm); font-weight: 700; }
 .amg-seg .seg-ind { top: 4px; bottom: 4px; border-radius: var(--r-md); box-shadow: 0 3px 0 var(--seg-edge); }
 

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useSearchParams } from 'react-router'
-import { AnimatePresence, MotionConfig } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { Rockie } from '../components/Rockie'
 import { AppSwitcher } from '../os/AppSwitcher'
 import { EntraSeccion, MovilNav, MovilTop } from '../os/movil/MovilShell'
@@ -111,7 +111,6 @@ function Shell() {
   return (
     <PanelCtx.Provider value={setPanel}>
       <DivisionProvider value={division}>
-      <MotionConfig reducedMotion="user">
         <div className={`cu${mobile ? ' is-mobile' : ''}`} data-width={width}>
           {!mobile && <Sidebar badges={badges} />}
           <main className={`cu-main${panel ? ' has-panel' : ''}`}>
@@ -148,7 +147,6 @@ function Shell() {
           )}
           <DialogHost />
         </div>
-      </MotionConfig>
       </DivisionProvider>
     </PanelCtx.Provider>
   )

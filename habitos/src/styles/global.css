@@ -168,6 +168,21 @@ a { color: inherit; text-decoration: none; }
   transition: color 0.2s ease;
   touch-action: none; /* el gesto de arrastre es nuestro, no scroll del navegador */
 }
+/* La tinta (useTinta): copia de las opciones con el texto encendido y el fondo de la pildora, recortada a ella */
+.seg { --tinta-y: 3px; --tinta-r: var(--r-pill); }
+.seg-tinta {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: stretch;
+  padding: inherit;
+  gap: inherit;
+  border-radius: inherit;
+  color: #fff;
+  pointer-events: none;
+}
+.seg-tinta .seg-btn { display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--font-sans); transition: none; }
 /* Indicador unico: se mide por rects (x + width), sin escala => no tambalea */
 .seg-ind {
   position: absolute;
@@ -219,16 +234,9 @@ a { color: inherit; text-decoration: none; }
 .pulse { animation: pulse 2s ease-in-out infinite; }
 .zzz { animation: zzz 1.8s ease-out infinite; }
 
-/* Accesibilidad / batería: si el usuario desactivo las animaciones en su
-   dispositivo (iOS/Android), reducimos casi todo el movimiento. */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}
+/* «Reducir movimiento» del teléfono (en muchos Android lo prende el ahorro de batería): NO se apaga todo. Antes
+   una regla global quitaba las transiciones CSS (la píldora de vistas, las entradas) mientras las de framer-motion
+   seguían: la app se sentía rota a medias. Solo se calman los adornos en bucle, cada uno en su hoja. */
 
 /* ==== Escritorio (>=900px): sin marco de iPhone flotante ====
    Login, legal, onboarding y splash usan todo el viewport. Con sesion,

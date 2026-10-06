@@ -35,6 +35,14 @@
   --sans: 'Quicksand', system-ui, -apple-system, sans-serif;
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --glide: cubic-bezier(0.32, 0.72, 0, 1);
+  /* el resorte de las hojas y páginas del celular (el mismo de Hábitos: rigidez 320, amortiguación 34, 0,5 s):
+     arranca desde cero, así la hoja se VE salir del borde (con --glide el primer cuadro ya saltaba ~10%) */
+  --resorte: cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  :root { --resorte: linear(0, 0.0328, 0.1103, 0.2094, 0.3153, 0.4188, 0.5146, 0.6002, 0.6745, 0.7379, 0.7909, 0.8346, 0.8703, 0.8991, 0.9221, 0.9403, 0.9546, 0.9657, 0.9744, 0.981, 0.986, 0.9898, 0.9926, 0.9948, 0.9963, 0.9975, 0.9983, 0.9989, 0.9993, 0.9996, 0.9998, 0.9999, 1); }
+}
+:root {
   --sidebar-w: 232px;
   --rail-w: 64px;
   --drawer-w: 420px;

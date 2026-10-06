@@ -128,3 +128,51 @@ test('el celular: sin parpadeos entre pestañas y apps, pie que se arrastra y Ro
   await tocar(page, '.mnav .mnav-tab', 1)
   await expect(page.locator('.mv .pv-title b')).toHaveText(/^[A-ZÁÉÍÓÚ][a-záéíóú]+ \d{4}$/)
 })
+
+// Con «Reducir movimiento» del teléfono (en muchos Android lo prende el ahorro de batería): las hojas IGUAL se
+// deslizan (una regla global las dejaba aparecer de golpe), la tinta del pie sigue a la píldora y nada se queda
+// fuera del celular: Tareas trae sus cinco vistas y Metas su mapa.
+test.describe('reducir movimiento', () => {
+  test.use({ reducedMotion: 'reduce' })
+  test('hojas que se deslizan, tinta del pie, todas las vistas de Tareas y el mapa de Metas', async ({ page }) => {
+    test.setTimeout(120_000)
+    await login(page)
+    await page.waitForTimeout(1000)
+
+    // la tinta: el recorte con el texto encendido queda exactamente sobre la píldora
+    await tocar(page, '.mnav .mnav-tab', 1)
+    await page.waitForTimeout(800)
+    const tinta = await page.evaluate(() => {
+      const ind = document.querySelector('.mnav-ind')!.getBoundingClientRect()
+      const tab = document.querySelectorAll('.mnav > .mnav-tab')[1].getBoundingClientRect()
+      const clip = (document.querySelector('.mnav-tinta') as HTMLElement).style.clipPath
+      return { ind: Math.round(ind.left + ind.width / 2), tab: Math.round(tab.left + tab.width / 2), clip }
+    })
+    expect(Math.abs(tinta.ind - tinta.tab)).toBeLessThan(3)
+    expect(tinta.clip).not.toContain('calc(100% - 0.00px)')
+
+    // Tareas: las cinco vistas de la computadora
+    for (const v of ['Lista', 'Tablero', 'Semana', 'Gantt', 'Panel']) await expect(page.getByRole('tab', { name: v, exact: true })).toBeVisible()
+    await page.getByRole('tab', { name: 'Gantt', exact: true }).click()
+    await expect(page.locator('.em-gantt .gantt')).toBeVisible()
+    await page.getByRole('tab', { name: 'Tablero', exact: true }).click()
+    await expect(page.getByRole('tab', { name: /^Por hacer · \d+$/ })).toBeVisible()
+
+    // Metas: el mapa
+    await tocar(page, '.mnav .mnav-tab', 2)
+    await expect(page.locator('.em-mapa .gmap')).toBeVisible()
+
+    // el Inbox de la Agenda sube (no aparece de golpe)
+    await page.goto('/agenda')
+    await expect(page.locator('.mnav')).toBeVisible({ timeout: 20_000 })
+    await page.waitForTimeout(1000)
+    await tocar(page, '.mnav .mnav-tab', 3)
+    const tops: number[] = []
+    for (let k = 0; k < 6; k++) {
+      tops.push(await page.evaluate(() => document.querySelector('.dialog')?.getBoundingClientRect().top ?? 9999))
+      await page.waitForTimeout(30)
+    }
+    const final = await page.evaluate(() => document.querySelector('.dialog')!.getBoundingClientRect().top)
+    expect(tops.some((t) => t > final + 40 && t < 844), `posiciones del Inbox: ${tops.join(' ')}`).toBe(true)
+  })
+})

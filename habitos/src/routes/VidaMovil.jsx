@@ -130,7 +130,7 @@ export default function VidaMovil({ soloMetas = false }) {
     : `Tu mapa · ${stats.length} ${stats.length === 1 ? 'área' : 'áreas'}`
 
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig>
       <div className="vm">
         <MovilHeader
           kicker={kicker}

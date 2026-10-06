@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, useAnimationControls } from 'framer-motion'
 import { useStore, useVidaMode } from '../data/mockStore.jsx'
 import { stageOfLevel } from '../data/rockie.js'
-import { useSlideSelect } from './useSlideSelect.js'
+import { useSlideSelect, useTinta } from './useSlideSelect.js'
 import { abrirVoz } from './RockieVozHost.jsx'
 import Confetti from './Confetti.jsx'
 import Rockie from './Rockie.jsx'
@@ -111,6 +111,7 @@ export default function BottomNav() {
   const showInd = dragging || navIndex >= 0
   const indColor = TABS[shown]?.color || 'var(--brand)'
   const indEdge = TABS[shown]?.edge || 'var(--brand-edge)'
+  const tinta = useTinta({ x, w, sx, originX })
 
   const tab = (t, i) => {
     const active = shown === i
@@ -120,7 +121,6 @@ export default function BottomNav() {
         ref={setItem(i)}
         type="button"
         className={`nav-item q ${active ? 'active' : ''}`}
-        style={active ? { color: '#fff' } : undefined}
         data-coach={t.coach}
         aria-current={navIndex === i ? 'page' : undefined}
         {...handlers(i)}
@@ -141,6 +141,15 @@ export default function BottomNav() {
           transition={{ opacity: { duration: 0.15 } }}
         />
         {TABS.map(tab)}
+        {/* la tinta: las mismas pestañas, encendidas, recortadas a la forma de la píldora (useTinta) */}
+        <motion.span className="nav-tinta" aria-hidden="true" style={{ clipPath: tinta, background: indColor, opacity: showInd ? 1 : 0 }}>
+          {TABS.map((t, i) => (
+            <span key={t.to} className={`nav-item q ${shown === i ? 'active' : ''}`}>
+              <i className={`ti ${t.icon}`} />
+              <span className="label">{t.label}</span>
+            </span>
+          ))}
+        </motion.span>
       </nav>
       <RockieBoton />
     </div>

@@ -90,7 +90,24 @@
 .mnav-lbl { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .mnav-ico { position: relative; display: grid; place-items: center; transition: transform 0.25s var(--spring); }
 .mnav-ico svg { width: 22px; height: 22px; }
-.mnav-tab.on { color: var(--on-color); }
+.mnav-tab.on { color: var(--ink-muted); }
+/* la tinta (MovilShell + useTinta): encima del riel, las mismas pestañas encendidas y con el fondo de la píldora,
+   recortadas a su forma cuadro a cuadro. Así el color nunca va antes ni después que la píldora. */
+.mnav-tinta {
+  --tinta-y: 6px;
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  padding: 6px;
+  border-radius: 999px;
+  color: var(--on-color);
+  pointer-events: none;
+  transition: opacity 0.18s ease, background-color 0.2s ease;
+}
+.mnav-tinta .mnav-tab { color: inherit; transition: none; }
 /* al apoyar el dedo, el ícono se hunde un poco (sin mover la píldora) */
 .mnav-tab:active .mnav-ico { transform: scale(0.88); transition-duration: 0.1s; }
 .mnav.arrastrando .mnav-tab.on .mnav-ico { transform: scale(1.08); }
@@ -182,4 +199,4 @@ html.m-escribiendo .m-rockie-wrap { display: none; }
 
 /* Inicio: cada app con su color en el ícono; encendida (la píldora ya es de su color), en blanco */
 .os-app-ico { display: grid; color: var(--ico); transition: color 0.18s ease; }
-.mnav-tab.on .os-app-ico { color: var(--on-color); }
+.mnav-tinta .os-app-ico { color: var(--on-color); transition: none; }

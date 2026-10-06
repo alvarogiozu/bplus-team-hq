@@ -7,25 +7,31 @@ import { Icon } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
 import { ListSkeleton, LoadError } from '../../components/States'
 import { addDays, dayOfTs, fmtDay, fmtTime, startOfWeek, weekday, WEEKDAY_NAMES } from '../../lib/dates'
+import { pointOf } from '../../lib/fx'
 import { lsGet, lsSet } from '../../lib/storage'
 import { GROUP_LABEL, groupTasks, type GroupKey } from '../../lib/taskGroups'
-import type { Task } from '../../lib/types'
+import { STATUS_LABEL, type Status, type Task } from '../../lib/types'
 import { useMe } from '../auth/AuthProvider'
 import { useEvents, useTasks } from '../data/queries'
-import { openNewTask } from '../tasks/dialogs'
+import { useTaskActions } from '../tasks/actions'
+import { openNewTask, openValidate } from '../tasks/dialogs'
 import { useLookup } from '../tasks/bits'
 import { applyFilters, EMPTY_FILTERS, type Filters } from '../views/filters'
-import { HeadBtn, MHead, Sec, Seg, TaskCard } from './bits'
+import { HeadBtn, MHead, Sec, Seg, TaskCard, type Desliz } from './bits'
 
-const BoardView = lazy(() => import('../views/BoardView').then((m) => ({ default: m.BoardView })))
+const GanttView = lazy(() => import('../views/GanttView').then((m) => ({ default: m.GanttView })))
+const DashboardView = lazy(() => import('../views/DashboardView').then((m) => ({ default: m.DashboardView })))
 
-// Tareas en el celular: tres vistas que caben en la mano (lista, tablero y semana), filtros en
-// pastillas que se deslizan y tarjetas grandes. El Gantt y el Panel se quedan en la computadora.
-type Vista = 'lista' | 'tablero' | 'semana'
+// Tareas en el celular: las MISMAS cinco vistas que en la computadora (nada se queda fuera), cada una hecha
+// para la mano: lista, tablero de una columna a la vez (la tarjeta se arrastra a un lado para pasarla de
+// columna), semana, Gantt que se desliza y el Panel. Filtros en pastillas y tarjetas grandes.
+type Vista = 'lista' | 'tablero' | 'semana' | 'gantt' | 'panel'
 const VISTAS: { value: Vista; label: string }[] = [
   { value: 'lista', label: 'Lista' },
   { value: 'tablero', label: 'Tablero' },
   { value: 'semana', label: 'Semana' },
+  { value: 'gantt', label: 'Gantt' },
+  { value: 'panel', label: 'Panel' },
 ]
 const PENDING: GroupKey[] = ['overdue', 'today', 'week', 'later', 'nodate']
 
@@ -58,7 +64,7 @@ function Tareas({ spaceId }: { spaceId: string }) {
 
   const vk = `hq.view.${userId}`
   const raw = params.get('vista') ?? lsGet(vk)
-  const vista: Vista = raw === 'tablero' ? 'tablero' : raw === 'calendario' || raw === 'semana' ? 'semana' : 'lista'
+  const vista: Vista = raw === 'calendario' || raw === 'semana' ? 'semana' : raw === 'tablero' || raw === 'gantt' || raw === 'panel' ? raw : 'lista'
   const setVista = (v: Vista) => {
     const key = v === 'semana' ? 'calendario' : v
     lsSet(vk, key)
@@ -125,12 +131,21 @@ function Tareas({ spaceId }: { spaceId: string }) {
       ) : q.isError ? (
         <LoadError error={q.error} onRetry={() => q.refetch()} />
       ) : vista === 'tablero' ? (
-        <Suspense fallback={<ListSkeleton />}>
-          <p className="em-tip">Mantén presionada una tarjeta para moverla de columna.</p>
-          <BoardView tasks={shown} />
-        </Suspense>
+        <TableroMovil tasks={shown} />
       ) : vista === 'semana' ? (
         <SemanaMovil tasks={shown} />
+      ) : vista === 'gantt' ? (
+        <Suspense fallback={<ListSkeleton />}>
+          <div className="em-vista em-gantt">
+            <GanttView tasks={shown} />
+          </div>
+        </Suspense>
+      ) : vista === 'panel' ? (
+        <Suspense fallback={<ListSkeleton />}>
+          <div className="em-vista em-panel">
+            <DashboardView tasks={shown} filtered={shown.length !== (q.data ?? []).length} />
+          </div>
+        </Suspense>
       ) : (
         <>
           {PENDING.every((g) => !groups[g].length) && (
@@ -260,6 +275,70 @@ function SemanaMovil({ tasks }: { tasks: Task[] }) {
       ) : (
         !evs.length && <p className="em-tip">Nada para este día.</p>
       )}
+    </div>
+  )
+}
+
+/** El tablero del celular: UNA columna a la vez (arriba eliges cuál, con cuántas tiene) y cada tarjeta se arrastra
+ *  con el dedo hacia un lado para pasarla de columna: → avanza (Por hacer → En curso → validar), ← regresa.
+ *  Antes eran tres columnas lado a lado que se desplazaban: arrastrar una tarjeta peleaba con ese desplazamiento
+ *  y la tarjeta saltaba. Lo que pasas de columna queda arriba de la otra. */
+const COLS: Status[] = ['todo', 'doing', 'done']
+function TableroMovil({ tasks }: { tasks: Task[] }) {
+  const { move } = useTaskActions()
+  const cols = useMemo(() => {
+    const out: Record<Status, Task[]> = { todo: [], doing: [], done: [] }
+    for (const t of tasks) out[t.status].push(t)
+    out.todo.sort((a, b) => a.position - b.position)
+    out.doing.sort((a, b) => a.position - b.position)
+    out.done.sort((a, b) => (b.validated_at ?? b.updated_at).localeCompare(a.validated_at ?? a.updated_at))
+    return out
+  }, [tasks])
+  const [col, setCol] = useState<Status>(() => (!cols.todo.length && cols.doing.length ? 'doing' : 'todo'))
+  const [dir, setDir] = useState(0)
+  const elegir = (s: Status) => {
+    setDir(Math.sign(COLS.indexOf(s) - COLS.indexOf(col)))
+    setCol(s)
+  }
+  const arriba = (s: Status) => (cols[s].length ? Math.min(...cols[s].map((t) => t.position)) - 1 : 0)
+  const pasar = (t: Task, to: Status) => void move(t, to, arriba(to))
+  const desliz = (t: Task): { der: Desliz | null; izq: Desliz | null } => {
+    if (t.status === 'todo') return { der: { label: STATUS_LABEL.doing, icon: 'expand', color: 'var(--amber)', run: () => pasar(t, 'doing') }, izq: null }
+    if (t.status === 'doing')
+      return {
+        der: { label: 'Validar', icon: 'check', color: 'var(--green-photo)', run: () => openValidate(t.id, pointOf(null)) },
+        izq: { label: STATUS_LABEL.todo, icon: 'collapse', color: 'var(--ink-muted)', run: () => pasar(t, 'todo') },
+      }
+    return { der: null, izq: { label: 'Reabrir', icon: 'collapse', color: 'var(--amber)', run: () => pasar(t, 'doing') } }
+  }
+  const lista = cols[col]
+
+  return (
+    <div className="em-board">
+      <Seg label="Columna" value={col} onChange={elegir} options={COLS.map((s) => ({ value: s, label: `${STATUS_LABEL[s]} · ${cols[s].length}` }))} />
+      <p className="em-tip">
+        {col === 'done' ? 'Arrastra una tarjeta ← para reabrirla.' : col === 'todo' ? 'Arrastra una tarjeta → para empezarla.' : 'Arrastra → para validarla · ← para regresarla.'}
+      </p>
+      <motion.div
+        key={col}
+        className="em-list"
+        initial={{ x: dir * 28, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ x: { type: 'spring', stiffness: 420, damping: 36 }, opacity: { duration: 0.14 } }}
+      >
+        <AnimatePresence initial={false} mode="popLayout">
+          {(col === 'done' ? lista.slice(0, 40) : lista).map((t, i) => (
+            <TaskCard key={t.id} task={t} index={i} desliz={desliz(t)} />
+          ))}
+        </AnimatePresence>
+        {!lista.length && (
+          <div className="em-card em-free">
+            <Rockie color="var(--brand)" size={48} />
+            <b>{col === 'todo' ? 'Nada por hacer' : col === 'doing' ? 'Nada en curso' : 'Aún nada validado'}</b>
+            <p className="hint">{col === 'doing' ? 'Arrastra una tarjeta de «Por hacer» → para empezarla.' : 'Con estos filtros no hay tarjetas aquí.'}</p>
+          </div>
+        )}
+      </motion.div>
     </div>
   )
 }

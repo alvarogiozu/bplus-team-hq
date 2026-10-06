@@ -445,7 +445,7 @@ svg { display: block; }
   /* la hoja: sube desde abajo con la curva de iOS (sin rebote) y baja al cerrarse */
   .dialog {
     top: auto; left: 0; right: 0; bottom: 0; width: 100%; transform: none; max-height: 92dvh; border-radius: var(--r-xl) var(--r-xl) 0 0;
-    border: 1.5px solid var(--card-line); border-bottom: 0; animation: hojasube 0.46s var(--glide);
+    border: 1.5px solid var(--card-line); border-bottom: 0; animation: hojasube 0.5s var(--resorte);
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.16);
   }
   @keyframes hojasube { from { transform: translateY(100%); } to { transform: none; } }
@@ -456,7 +456,7 @@ svg { display: block; }
   /* el panel: una página propia que entra desde la derecha, con «‹» y deslizando desde el borde para volver */
   .drawer {
     top: 0; left: 0; right: 0; bottom: 0; width: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: -12px 0 40px rgba(0, 0, 0, 0.18);
-    padding-top: env(safe-area-inset-top); animation: paginaentra 0.42s var(--glide);
+    padding-top: env(safe-area-inset-top); animation: paginaentra 0.5s var(--resorte);
   }
   @keyframes paginaentra { from { transform: translateX(100%); } to { transform: none; } }
   @keyframes paginasale { from { transform: var(--desde, none); } to { transform: translateX(100%); } }
@@ -475,9 +475,9 @@ svg { display: block; }
   .meet { grid-template-columns: 56px 1fr; }
   .meet .btn { grid-column: 2; justify-self: start; }
 }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
-}
+/* «Reducir movimiento» del teléfono (en muchos Android lo prende el ahorro de batería): NO se apaga todo. Antes una
+   regla global dejaba sin animación a las hojas y páginas (el Inbox aparecía de golpe) mientras lo hecho con motion
+   sí se movía: la app se sentía rota a medias. Ahora solo se calman los adornos en bucle, cada uno en su hoja. */
 
 /* ---------- calendario (semana) ---------- */
 .mobile-only { display: none; }

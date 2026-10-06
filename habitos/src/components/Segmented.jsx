@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { useSlideSelect } from './useSlideSelect.js'
+import { useSlideSelect, useTinta } from './useSlideSelect.js'
 
 // Control segmentado con pildora deslizante (compartido: Progreso, Habitos).
 // Riel "excavado" + pildora con canto. La pildora es UN indicador medido por
@@ -11,6 +11,8 @@ export default function Segmented({ id, options, value, onChange, color = 'var(-
     index,
     onSelect: (i) => onChange(options[i].id),
   })
+  // el texto encendido va en una copia recortada a la píldora (useTinta): cambia de color justo donde ella pasa
+  const tinta = useTinta({ x, w, sx, originX })
 
   return (
     <div className="seg" ref={trackRef}>
@@ -19,14 +21,14 @@ export default function Segmented({ id, options, value, onChange, color = 'var(-
         style={{ x, width: w, scaleX: sx, scaleY: sy, originX, background: color, '--seg-edge': edge }}
       />
       {options.map((o, i) => {
-        const on = live === i
         return (
           <button
             key={o.id}
             ref={setItem(i)}
             type="button"
             className="seg-btn q"
-            style={{ color: on ? '#fff' : 'var(--ink-soft)' }}
+            aria-pressed={index === i}
+            style={{ color: 'var(--ink-soft)' }}
             {...handlers(i)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onChange(o.id) } }}
           >
@@ -34,6 +36,13 @@ export default function Segmented({ id, options, value, onChange, color = 'var(-
           </button>
         )
       })}
+      <motion.span className="seg-tinta" aria-hidden="true" style={{ clipPath: tinta, background: color }}>
+        {options.map((o, i) => (
+          <span key={o.id} className={`seg-btn q${live === i ? ' on' : ''}`}>
+            <span style={{ position: 'relative', zIndex: 1 }}>{o.label}</span>
+          </span>
+        ))}
+      </motion.span>
     </div>
   )
 }

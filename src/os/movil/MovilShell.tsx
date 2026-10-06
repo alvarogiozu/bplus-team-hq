@@ -11,7 +11,7 @@ import { CuentaBoton } from '../../features/cuenta/Cuenta'
 import { appOf, appTint } from '../apps'
 import { rockieLook } from '../habitos'
 import { RockieArt } from '../RockieArt'
-import { useSlideSelect } from './useSlideSelect'
+import { useSlideSelect, useTinta } from './useSlideSelect'
 import './movil-shell.css'
 
 // Rockie OS en el celular: las cuatro apps comparten la barra de arriba (el selector de apps a la
@@ -84,17 +84,19 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
   })
   const shown = dragging ? live : activo
   const enc = p.tabs[shown]
+  const tinta = useTinta({ x, w, sx, originX })
+  const pintura = enc?.color ?? 'var(--app, var(--accent))'
 
+  const inner = (t: MovilTab) => (
+    <>
+      <span className="mnav-ico">
+        {t.icon}
+        {(t.badge ?? 0) > 0 && <b className="mnav-badge">{t.badge}</b>}
+      </span>
+      <span className="mnav-lbl">{t.label}</span>
+    </>
+  )
   const tab = (t: MovilTab, i: number) => {
-    const inner = (
-      <>
-        <span className="mnav-ico">
-          {t.icon}
-          {(t.badge ?? 0) > 0 && <b className="mnav-badge">{t.badge}</b>}
-        </span>
-        <span className="mnav-lbl">{t.label}</span>
-      </>
-    )
     const cls = `mnav-tab${shown === i ? ' on' : ''}`
     // el gesto (tocar o arrastrar) lo maneja useSlideSelect; el clic del dedo no navega dos veces,
     // pero el teclado (Enter) sí usa el enlace o el botón normal
@@ -112,7 +114,7 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
           if (e.detail !== 0) e.preventDefault()
         }}
       >
-        {inner}
+        {inner(t)}
       </Link>
     ) : (
       <button
@@ -127,7 +129,7 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
           if (e.detail === 0) elegir(i)
         }}
       >
-        {inner}
+        {inner(t)}
       </button>
     )
   }
@@ -145,11 +147,19 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
             scaleY: sy,
             originX,
             opacity: shown >= 0 ? 1 : 0,
-            background: enc?.color ?? 'var(--app, var(--accent))',
+            background: pintura,
             ['--ind-edge' as string]: enc?.edge ?? 'var(--app-edge, var(--accent-edge))',
           }}
         />
         {p.tabs.slice(0, 4).map(tab)}
+        {/* la tinta: las mismas pestañas, encendidas, recortadas a la forma de la píldora (useTinta) */}
+        <motion.span className="mnav-tinta" aria-hidden="true" style={{ clipPath: tinta, opacity: shown >= 0 ? 1 : 0, background: pintura }}>
+          {p.tabs.slice(0, 4).map((t, i) => (
+            <span key={t.key} className={`mnav-tab${shown === i ? ' on' : ''}`}>
+              {inner(t)}
+            </span>
+          ))}
+        </motion.span>
       </nav>
     </>
   )

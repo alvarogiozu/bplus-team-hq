@@ -113,9 +113,13 @@ export function Seg<T extends string>({ value, options, onChange, label }: { val
 
 const SWIPE = 96
 
+/** Lo que hace deslizar la tarjeta hacia un lado (lo que se ve detrás mientras la arrastras). */
+export type Desliz = { label: string; icon: IconName; color: string; run: () => void }
+
 /** Tarea como tarjeta: el círculo valida con un toque; deslizar a la derecha también la valida y a la
- *  izquierda la pospone un día (con deshacer). Tocarla abre la hoja con todo. */
-export const TaskCard = forwardRef<HTMLDivElement, { task: Task; index?: number; showAssignee?: boolean }>(function TaskCard({ task, index = 0, showAssignee = true }, ref) {
+ *  izquierda la pospone un día (con deshacer). Tocarla abre la hoja con todo. `desliz` cambia lo que hace cada
+ *  lado (el Tablero la pasa de columna); `null` en un lado = no se desliza hacia allá. */
+export const TaskCard = forwardRef<HTMLDivElement, { task: Task; index?: number; showAssignee?: boolean; desliz?: { der: Desliz | null; izq: Desliz | null } }>(function TaskCard({ task, index = 0, showAssignee = true, desliz }, ref) {
   const { memberById, today } = useLookup()
   const { validate, move, update } = useTaskActions()
   const [params, setParams] = useSearchParams()
@@ -148,6 +152,9 @@ export const TaskCard = forwardRef<HTMLDivElement, { task: Task; index?: number;
     })
   }
 
+  const der: Desliz | null = desliz ? desliz.der : done ? null : { label: 'Lo hice', icon: 'check', color: 'var(--green-photo)', run: lohice }
+  const izq: Desliz | null = desliz ? desliz.izq : done ? null : { label: 'Posponer', icon: 'clock', color: 'var(--amber)', run: () => void posponer() }
+
   return (
     <motion.div
       ref={ref}
@@ -158,33 +165,44 @@ export const TaskCard = forwardRef<HTMLDivElement, { task: Task; index?: number;
       exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.15 } }}
       transition={{ type: 'spring', stiffness: 520, damping: 40, mass: 0.8, delay: Math.min(index * 0.03, 0.24) }}
     >
-      {!done && (
-        <div className="em-swipe" aria-hidden="true">
+      {(der || izq) && (
+        <div className="em-swipe" aria-hidden="true" style={{ ['--sw-der' as string]: der?.color ?? 'transparent', ['--sw-izq' as string]: izq?.color ?? 'transparent' } as CSSProperties}>
           <motion.span className="ok" style={{ opacity: okOpacity }}>
-            <Icon name="check" /> Lo hice
+            {der && (
+              <>
+                <Icon name={der.icon} /> {der.label}
+              </>
+            )}
           </motion.span>
           <motion.span className="later" style={{ opacity: laterOpacity }}>
-            Posponer <Icon name="clock" />
+            {izq && (
+              <>
+                {izq.label} <Icon name={izq.icon} />
+              </>
+            )}
           </motion.span>
         </div>
       )}
       <motion.div
         className={`em-task${done ? ' done' : ''}${urgent ? ' urgent' : ''}${params.get('tarea') === task.id ? ' sel' : ''}`}
         style={{ x, touchAction: 'pan-y' }}
-        drag={done ? false : 'x'}
+        drag={der || izq ? 'x' : false}
         dragDirectionLock
         dragSnapToOrigin
         dragMomentum={false}
+        // hacia un lado sin acción apenas cede (como un tope)
+        dragConstraints={{ left: izq ? -400 : 0, right: der ? 400 : 0 }}
+        dragElastic={{ left: izq ? 0.5 : 0.06, right: der ? 0.5 : 0.06 }}
         onDragStart={() => {
           dragged.current = true
         }}
         onDragEnd={(_, info) => {
-          if (info.offset.x > SWIPE) {
+          if (info.offset.x > SWIPE && der) {
             haptic(10)
-            lohice()
-          } else if (info.offset.x < -SWIPE) {
+            der.run()
+          } else if (info.offset.x < -SWIPE && izq) {
             haptic(10)
-            void posponer()
+            izq.run()
           }
           // el click que llega justo al soltar no debe abrir la hoja
           setTimeout(() => (dragged.current = false), 80)

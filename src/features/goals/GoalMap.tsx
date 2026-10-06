@@ -23,6 +23,10 @@ const MW = 340
 const MH = 84
 
 type Placed = { node: GoalNode; x: number; y: number }
+
+/** El mapa se dibuja (líneas que se trazan, metas que aparecen) solo la PRIMERA vez de la sesión. Volver a Metas lo
+ *  muestra ya armado: antes cada visita lo redibujaba y las metas parpadeaban el primer medio segundo. */
+let yaDibujado = false
 type Edge = { key: string; d: string; childId: string }
 
 function edgePath(x1: number, y1: number, x2: number, y2: number) {
@@ -44,7 +48,17 @@ export function GoalMap({ roots, mission, onOpen, onEditMission }: { roots: Goal
   const [hot, setHot] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const box = useRef<HTMLDivElement>(null)
+  const lienzo = useRef<HTMLDivElement>(null)
+  const escala = useRef<HTMLDivElement>(null)
   const fitted = useRef(false)
+  const primera = useRef(!yaDibujado)
+  useEffect(() => {
+    yaDibujado = true
+  }, [])
+  const zoomRef = useRef(zoom)
+  zoomRef.current = zoom
+  /** el scroll que dejó el pellizco (el punto entre los dedos se queda donde estaba): manda sobre el centrado */
+  const scrollTras = useRef<{ l: number; t: number } | null>(null)
 
   const toggle = (id: string) => {
     const next = new Set(folded)
@@ -117,11 +131,71 @@ export function GoalMap({ roots, mission, onOpen, onEditMission }: { roots: Goal
     fit()
   })
 
-  // centrar horizontalmente al cambiar el zoom
+  // centrar horizontalmente al cambiar el zoom (salvo que lo haya hecho un pellizco: ahí se queda bajo los dedos)
   useLayoutEffect(() => {
     const el = box.current
-    if (el) el.scrollLeft = Math.max(0, (layout.width * zoom - el.clientWidth) / 2)
+    if (!el) return
+    const s = scrollTras.current
+    scrollTras.current = null
+    if (s) {
+      el.scrollLeft = s.l
+      el.scrollTop = s.t
+    } else el.scrollLeft = Math.max(0, (layout.width * zoom - el.clientWidth) / 2)
   }, [zoom]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // en el celular: pellizcar con dos dedos acerca y aleja, con el punto entre los dedos quieto. Mientras dura el
+  // gesto se escribe directo en el DOM (60 cuadros sin repintar React); al soltar se guarda el zoom.
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    let g: { d: number; z: number; cx: number; cy: number; sl: number; st: number; nz: number } | null = null
+    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return
+      const r = el.getBoundingClientRect()
+      g = {
+        d: Math.max(1, dist(e.touches)),
+        z: zoomRef.current,
+        nz: zoomRef.current,
+        cx: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left,
+        cy: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top,
+        sl: el.scrollLeft,
+        st: el.scrollTop,
+      }
+    }
+    const onMove = (e: TouchEvent) => {
+      if (!g || e.touches.length !== 2) return
+      e.preventDefault()
+      const z = Math.max(0.3, Math.min(1.6, (g.z * dist(e.touches)) / g.d))
+      g.nz = z
+      const w = layout.width * z
+      const h = layout.height * z
+      if (lienzo.current) {
+        lienzo.current.style.width = `${w}px`
+        lienzo.current.style.height = `${h}px`
+      }
+      if (escala.current) escala.current.style.transform = `scale(${z})`
+      el.scrollLeft = ((g.sl + g.cx) / g.z) * z - g.cx
+      el.scrollTop = ((g.st + g.cy) / g.z) * z - g.cy
+    }
+    const onEnd = (e: TouchEvent) => {
+      if (!g || e.touches.length >= 2) return
+      const z = Math.round(g.nz * 100) / 100
+      scrollTras.current = { l: el.scrollLeft, t: el.scrollTop }
+      g = null
+      setZoom(z)
+    }
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd)
+    el.addEventListener('touchcancel', onEnd)
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+    }
+  }, [layout.width, layout.height])
 
   // Ctrl/Cmd + rueda = zoom (el listener tiene que ser no pasivo para frenar el zoom del navegador)
   useEffect(() => {
@@ -139,7 +213,8 @@ export function GoalMap({ roots, mission, onOpen, onEditMission }: { roots: Goal
   // arrastrar el fondo para moverse por el mapa
   const pan = useRef<{ x: number; y: number; l: number; t: number } | null>(null)
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || (e.target as HTMLElement).closest('.gnode, .gmission, button')) return
+    // con el dedo, el mapa se desplaza solo (scroll nativo) y se pellizca: el arrastre a mano es del mouse
+    if (e.pointerType !== 'mouse' || e.button !== 0 || (e.target as HTMLElement).closest('.gnode, .gmission, button')) return
     const el = box.current!
     pan.current = { x: e.clientX, y: e.clientY, l: el.scrollLeft, t: el.scrollTop }
     el.setPointerCapture(e.pointerId)
@@ -168,14 +243,14 @@ export function GoalMap({ roots, mission, onOpen, onEditMission }: { roots: Goal
         onPointerUp={onUp}
         onPointerCancel={onUp}
       >
-        <div className="gmap-canvas" style={{ width: layout.width * zoom, height: layout.height * zoom }}>
-          <div className="gmap-scale" style={{ width: layout.width, height: layout.height, transform: `scale(${zoom})` }}>
+        <div className="gmap-canvas" ref={lienzo} style={{ width: layout.width * zoom, height: layout.height * zoom }}>
+          <div className="gmap-scale" ref={escala} style={{ width: layout.width, height: layout.height, transform: `scale(${zoom})` }}>
             <svg className="gmap-lines" width={layout.width} height={layout.height} aria-hidden="true">
               {layout.edges.map((e, i) => (
                 <motion.path
                   key={e.key}
                   className={hotPath.has(e.childId) ? 'hot' : ''}
-                  initial={{ pathLength: 0, opacity: 0, d: e.d }}
+                  initial={primera.current ? { pathLength: 0, opacity: 0, d: e.d } : false}
                   animate={{ d: e.d, pathLength: 1, opacity: 1 }}
                   transition={{ pathLength: { duration: 0.5, delay: 0.05 + i * 0.02 }, opacity: { duration: 0.2 }, d: { type: 'spring', stiffness: 260, damping: 30 } }}
                 />
@@ -187,7 +262,7 @@ export function GoalMap({ roots, mission, onOpen, onEditMission }: { roots: Goal
               className={`gmission${hotPath.size ? ' hot' : ''}`}
               style={{ left: layout.mx, top: 0, width: MW, height: MH }}
               onClick={onEditMission}
-              initial={{ opacity: 0, y: -8 }}
+              initial={primera.current ? { opacity: 0, y: -8 } : false}
               animate={{ opacity: 1, y: 0, left: layout.mx }}
               title="Editar la misión"
             >
@@ -209,7 +284,7 @@ export function GoalMap({ roots, mission, onOpen, onEditMission }: { roots: Goal
                   key={g.id}
                   className={`gnode${hotPath.has(g.id) ? ' hot' : ''}${node.depth === 0 ? ' root' : ''}`}
                   style={{ width: W, height: H, ['--gc' as string]: area?.color ?? 'var(--accent)', ['--st' as string]: PACE_COLOR[node.pace] } as CSSProperties}
-                  initial={{ opacity: 0, scale: 0.94, left: x, top: y }}
+                  initial={primera.current ? { opacity: 0, scale: 0.94, left: x, top: y } : false}
                   animate={{ opacity: 1, scale: 1, left: x, top: y }}
                   transition={{ type: 'spring', stiffness: 300, damping: 30, opacity: { duration: 0.25, delay: node.depth * 0.06 } }}
                   onPointerEnter={() => setHot(g.id)}
@@ -223,7 +298,7 @@ export function GoalMap({ roots, mission, onOpen, onEditMission }: { roots: Goal
                   <b className="gnode-title">{g.title}</b>
                   <div className="gnode-prog">
                     <div className="progress" style={{ ['--pc' as string]: PACE_COLOR[node.pace] } as CSSProperties}>
-                      <motion.i initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ type: 'spring', stiffness: 150, damping: 24 }} />
+                      <motion.i initial={primera.current ? { width: 0 } : false} animate={{ width: `${pct}%` }} transition={{ type: 'spring', stiffness: 150, damping: 24 }} />
                     </div>
                     <b>{pct}%</b>
                   </div>

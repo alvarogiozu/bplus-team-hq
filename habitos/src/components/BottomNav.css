@@ -68,6 +68,21 @@
   -webkit-touch-callout: none;
 }
 
+/* la tinta (useTinta): las mismas pestañas encendidas y con el fondo de la píldora, recortadas a su forma */
+.nav-tinta {
+  --tinta-y: 6px;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: stretch;
+  padding: 6px;
+  border-radius: 999px;
+  color: #fff;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background-color 0.2s ease;
+}
+.nav-tinta .nav-item { color: inherit; transition: none; font-family: var(--font-sans); }
 .nav-item i { font-size: 22px; line-height: 1; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .nav-item:active i { transform: scale(0.88); transition-duration: 0.1s; }
 .navbar.arrastrando .nav-item.active i { transform: scale(1.08); }

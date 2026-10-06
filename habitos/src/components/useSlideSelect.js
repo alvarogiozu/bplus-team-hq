@@ -98,14 +98,15 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'en
     setLive(i)
   }, [])
 
-  // rect de un item relativo al riel (border-box)
+  // rect de un item relativo al riel, descontando su borde: la píldora vive en el padding box (antes quedaba
+  // corrida a la derecha lo que mide el borde del riel)
   const rectFor = useCallback((i) => {
     const el = items.current[i]
     const track = trackRef.current
     if (!el || !track) return null
     const r = el.getBoundingClientRect()
     const t = track.getBoundingClientRect()
-    return { left: r.left - t.left, width: r.width }
+    return { left: r.left - t.left - track.clientLeft, width: r.width }
   }, [])
 
   // slot de un indice: >=0 => la pestaña; <0 => se APARCA dentro del riel en el
@@ -162,15 +163,22 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'en
       lastX.current = e.clientX
       lastT.current = e.timeStamp
       // Seguimiento SOLO por X: la Y del dedo da igual (nunca se congela).
-      const t = trackRef.current?.getBoundingClientRect()
-      if (!t) return
+      const track = trackRef.current
+      if (!track) return
+      const t = track.getBoundingClientRect()
       const i = nearest(e.clientX)
       setLiveBoth(i)
       const r = rectFor(i)
       if (r) {
         const half = r.width / 2
-        const dedo = e.clientX - t.left
-        const dentro = clamp(dedo, half, t.width - half)
+        const dedo = e.clientX - t.left - track.clientLeft
+        // el tope es la primera y la última pestaña (no el borde del riel): pasado eso la píldora se aplasta contra
+        // la pared por dentro, sin salirse del riel
+        const r0 = rectFor(0)
+        const rn = rectFor(items.current.length - 1)
+        const lo = r0 ? r0.left + half : half
+        const hi = rn ? rn.left + rn.width - half : track.clientWidth - half
+        const dentro = clamp(dedo, lo, hi)
         const a = aplaste(dedo - dentro)
         originX.set(dedo < dentro ? 0 : 1)
         sx.set(a.sx)
@@ -263,4 +271,28 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'en
   const handlers = useCallback((i) => ({ onPointerDown: onPointerDown(i) }), [onPointerDown])
 
   return { trackRef, setItem, handlers, live, dragging, x, w, sx, sy, originX }
+}
+
+// La «tinta» de la píldora: un recorte (clip-path) que la sigue cuadro a cuadro. Encima del riel va una copia de
+// las opciones pintada como la píldora (su fondo y el texto encendido), recortada así: el texto cambia de color
+// justo donde pasa la píldora, nunca antes ni después (antes el blanco saltaba de golpe y la píldora llegaba
+// después: unos cuadros de texto blanco sobre fondo claro). El alto y la curva salen de --tinta-y y --tinta-r.
+export function useTinta({ x, w, sx, originX }) {
+  const calc = () => {
+    const l = x.get() + w.get() * originX.get() * (1 - sx.get())
+    const r = l + w.get() * sx.get()
+    return `inset(var(--tinta-y, 6px) calc(100% - ${r.toFixed(2)}px) var(--tinta-y, 6px) ${l.toFixed(2)}px round var(--tinta-r, 999px))`
+  }
+  const clip = useMotionValue(calc())
+  // se suscribe DESPUÉS de la primera medida de la píldora (va declarado después de useSlideSelect) y la lee al
+  // suscribirse: con useTransform esa primera medida se perdía si nada volvía a pintar (Juntos: «Hoy» sin tinta).
+  // Cada cambio se copia en el acto: el recorte va en el MISMO cuadro que la píldora.
+  useLayoutEffect(() => {
+    const up = () => clip.set(calc())
+    up()
+    const subs = [x, w, sx, originX].map((v) => v.on('change', up))
+    return () => subs.forEach((u) => u())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [x, w, sx, originX, clip])
+  return clip
 }

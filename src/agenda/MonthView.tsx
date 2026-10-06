@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { motion } from 'motion/react'
 import { useAuth } from '../features/auth/AuthProvider'
 import { addDays, daysBetween, fmtDay, startOfWeek, WEEKDAY_NAMES, weekday } from '../lib/dates'
@@ -53,6 +53,11 @@ export function MonthView(p: { day: string; today: string; mobile: boolean; onPi
   const [seen, setSeen] = useState({ month, dir: 0 })
   if (seen.month !== month) setSeen({ month, dir: month > seen.month ? 1 : -1 })
   const dir = seen.dir
+  // la primera pintura (entrar a la pestaña Mes) ya muestra todo en su lugar; lo que aparezca después, entra
+  const montado = useRef(false)
+  useEffect(() => {
+    montado.current = true
+  }, [])
   const go = (n: number) => p.onPick(shiftMonthDay(p.day, n))
 
   const first = startOfWeek(`${month}-01`)
@@ -113,14 +118,14 @@ export function MonthView(p: { day: string; today: string; mobile: boolean; onPi
         }}
       >
         {weekStarts.map((w) => (
-          <Week key={w} week={w} month={month} spans={spans} maxRows={maxRows} {...p} />
+          <Week entra={montado.current} key={w} week={w} month={month} spans={spans} maxRows={maxRows} {...p} />
         ))}
       </motion.div>
     </div>
   )
 }
 
-function Week(p: { week: string; month: string; spans: Span[]; maxRows: number; day: string; today: string; onPick: (d: string) => void; onOpenDay: (d: string) => void }) {
+function Week(p: { entra: boolean; week: string; month: string; spans: Span[]; maxRows: number; day: string; today: string; onPick: (d: string) => void; onOpenDay: (d: string) => void }) {
   const { bars, hiddenOn } = useMemo(() => laneBars(p.spans, p.week, p.maxRows), [p.spans, p.week, p.maxRows])
   const more = hiddenOn.map((n, i) => ({ n, i })).filter((x) => x.n > 0)
   const days = Array.from({ length: 7 }, (_, i) => addDays(p.week, i))
@@ -148,7 +153,7 @@ function Week(p: { week: string; month: string; spans: Span[]; maxRows: number; 
       </div>
       <div className="mv-bars">
         {bars.map((b) => (
-          <MonthBar key={b.key} b={b} />
+          <MonthBar key={b.key} b={b} entra={p.entra} />
         ))}
         {more.map(({ n, i }) => (
           <span key={i} className="mv-more" style={{ gridColumn: i + 1, gridRow: p.maxRows + 1 }}>
@@ -160,13 +165,15 @@ function Week(p: { week: string; month: string; spans: Span[]; maxRows: number; 
   )
 }
 
-function MonthBar({ b }: { b: Bar }) {
+/** `entra`: la barra aparece de verdad (una nueva, o al cambiar de mes) y entra con su resorte. Al volver a la
+ *  pestaña Mes las barras ya están en su lugar (antes parpadeaban cada vez). */
+function MonthBar({ b, entra }: { b: Bar; entra: boolean }) {
   const label = b.kind === 'task' ? `Te toca: ${b.title}${b.project ? ` · ${b.project}` : ''}` : b.title
   return (
     <motion.button
       className={`ag-wbar mv-bar ${b.kind}${b.cutL ? ' cut-l' : ''}${b.cutR ? ' cut-r' : ''}${b.done ? ' done' : ''}`}
       style={{ gridColumn: `${b.c0 + 1} / ${b.c1 + 2}`, gridRow: b.row + 1, ['--c' as string]: b.color } as CSSProperties}
-      initial={{ opacity: 0, scaleX: 0.9 }}
+      initial={entra ? { opacity: 0, scaleX: 0.9 } : false}
       animate={{ opacity: 1, scaleX: 1 }}
       transition={{ type: 'spring', stiffness: 420, damping: 32 }}
       title={label}

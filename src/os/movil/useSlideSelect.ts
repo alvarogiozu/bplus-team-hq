@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { animate, useMotionValue, type AnimationPlaybackControls } from 'motion/react'
+import { animate, useMotionValue, type AnimationPlaybackControls, type MotionValue } from 'motion/react'
 
 // Selección por arrastre continuo para el pie del celular (el mismo gesto que la barra de Hábitos,
 // habitos/src/components/useSlideSelect.js). Un solo indicador medido con rects reales (translateX + width
@@ -144,7 +144,13 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'st
       if (r) {
         const half = r.width / 2
         const dedo = e.clientX - t.left - track.clientLeft
-        const dentro = clamp(dedo, half, track.clientWidth - half)
+        // el tope es la primera y la última pestaña (no el borde del riel): pasado eso la píldora se aplasta contra
+        // la pared por dentro, sin salirse del riel
+        const r0 = rectFor(0)
+        const rn = rectFor(items.current.length - 1)
+        const lo = r0 ? r0.left + half : half
+        const hi = rn ? rn.left + rn.width - half : track.clientWidth - half
+        const dentro = clamp(dedo, lo, hi)
         const a = aplaste(dedo - dentro)
         originX.set(dedo < dentro ? 0 : 1)
         sx.set(a.sx)
@@ -237,4 +243,29 @@ export function useSlideSelect({ index, onSelect, onReselect, onLive, park = 'st
   const handlers = useCallback((i: number) => ({ onPointerDown: onPointerDown(i) }), [onPointerDown])
 
   return { trackRef, setItem, handlers, live, dragging, x, w, sx, sy, originX }
+}
+
+/** La «tinta» de la píldora: un recorte (clip-path) que la sigue cuadro a cuadro. Encima del riel va una copia de
+ *  las pestañas pintada como la píldora (su fondo y el texto encendido), recortada así: el texto cambia de color
+ *  justo donde pasa la píldora, nunca antes ni después. Antes el color saltaba de golpe a la pestaña nueva y la
+ *  píldora llegaba unos cuadros después (texto blanco sobre fondo claro = el «glitch» al cambiar de sección).
+ *  El alto y la curva del recorte salen de --tinta-y y --tinta-r (los mismos de la píldora). */
+export function useTinta({ x, w, sx, originX }: { x: MotionValue<number>; w: MotionValue<number>; sx: MotionValue<number>; originX: MotionValue<number> }) {
+  const calc = () => {
+    const l = x.get() + w.get() * originX.get() * (1 - sx.get())
+    const r = l + w.get() * sx.get()
+    return `inset(var(--tinta-y, 6px) calc(100% - ${r.toFixed(2)}px) var(--tinta-y, 6px) ${l.toFixed(2)}px round var(--tinta-r, 999px))`
+  }
+  const clip = useMotionValue(calc())
+  // se suscribe DESPUÉS de la primera medida de la píldora (va declarado después de useSlideSelect) y la lee al
+  // suscribirse: con useTransform esa primera medida se perdía si nada volvía a pintar (el texto quedaba sin tinta).
+  // Cada cambio se copia en el acto: el recorte va en el MISMO cuadro que la píldora.
+  useLayoutEffect(() => {
+    const up = () => clip.set(calc())
+    up()
+    const subs = [x, w, sx, originX].map((v) => v.on('change', up))
+    return () => subs.forEach((u) => u())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [x, w, sx, originX, clip])
+  return clip
 }
