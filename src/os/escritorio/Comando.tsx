@@ -37,8 +37,8 @@ type Item = { key: string; icon: IconName; label: string; sub?: string; color?: 
 const EJEMPLOS = ['Reunión con Dante mañana a las 10', 'Tarea: revisar el PR del firmware', 'Anota: idea para la landing', 'Ya medité']
 
 type Props = {
-  /** flotante = Ctrl/⌘ K encima de todo; inicio = la barra grande arriba del Inicio */
-  variante: 'flotante' | 'inicio'
+  /** Ctrl/⌘ K encima de todo (en el Inicio, la conversación es escritorio/Inicio.tsx) */
+  variante: 'flotante'
   abierto?: boolean
   onCerrar?: () => void
   /** abrir la barra escuchando (el micrófono del dock) */
@@ -53,9 +53,8 @@ type Props = {
 export function Comando(p: Props) {
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(0)
-  const [enfocado, setEnfocado] = useState(false)
   const input = useRef<HTMLInputElement>(null)
-  const visible = p.variante === 'inicio' || Boolean(p.abierto)
+  const visible = Boolean(p.abierto)
 
   const cerrar = () => {
     setQ('')
@@ -73,7 +72,7 @@ export function Comando(p: Props) {
 
   // al abrir: foco en el texto; con el micrófono del dock, ya escuchando (lo pidió la persona)
   useEffect(() => {
-    if (p.variante !== 'flotante' || !p.abierto) return
+    if (!p.abierto) return
     const t = setTimeout(() => input.current?.focus(), 30)
     if (p.escuchar && voz.supported) voz.start({ mode: 'tap' })
     return () => clearTimeout(t)
@@ -155,19 +154,17 @@ export function Comando(p: Props) {
       <Icon name="search" />
       <input
         ref={input}
-        autoFocus={p.variante === 'flotante'}
+        autoFocus
         value={voz.listening ? voz.text : q}
         readOnly={voz.listening}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={teclas}
-        onFocus={() => setEnfocado(true)}
-        onBlur={() => setTimeout(() => setEnfocado(false), 150)}
         placeholder={voz.listening ? 'Te escucho… toca el micrófono para terminar' : 'Escribe o dile a Rockie… «reunión mañana a las 10»'}
         aria-label="Busca una app o pídele algo a Rockie"
         aria-controls="esc-cmd-lista"
         aria-activedescendant={items[sel] ? `esc-cmd-${items[sel].key}` : undefined}
       />
-      {p.variante === 'flotante' && !voz.listening && <kbd>Esc</kbd>}
+      {!voz.listening && <kbd>Esc</kbd>}
       <button
         type="button"
         className={`esc-cmd-mic${voz.listening ? ' on' : ''}`}
@@ -214,23 +211,6 @@ export function Comando(p: Props) {
       )}
     </ul>
   )
-
-  if (p.variante === 'inicio') {
-    return (
-      <section className="esc-cmd-inicio" aria-label="Rockie">
-        <h2>¿Qué hacemos hoy?</h2>
-        {barra}
-        {voz.error && <p className="esc-cmd-err">{voz.error}</p>}
-        <AnimatePresence>
-          {(enfocado || q) && (
-            <motion.div className="esc-cmd-drop" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.16 }}>
-              {lista}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </section>
-    )
-  }
 
   return (
     <AnimatePresence>

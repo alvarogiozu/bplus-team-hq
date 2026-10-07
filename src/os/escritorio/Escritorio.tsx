@@ -9,7 +9,7 @@ import { lsGet, lsSet } from '../../lib/storage'
 import { ZonasSoltar } from '../../components/ZonasSoltar'
 import { alBorde, cuenta as cuantas, desdeLista, destinoEn, frenoArriba, idsDe, lugarDe, moverHorizontal, moverVertical, poner, quitar, rects as rectsDe, reemplazar, sano, separadores, uno, VACIO as MOS_VACIO, zonasDe, type Destino, type Mosaico } from '../../lib/mosaico'
 import { cuandoLibre } from '../../lib/precarga'
-import HomePage from '../HomePage'
+import { InicioEscritorio } from './Inicio'
 import { APPS, appOf, type AppId, type OsApp } from '../apps'
 import { rockieLook } from '../habitos'
 import { RockieArt } from '../RockieArt'
@@ -825,18 +825,8 @@ export default function Escritorio() {
 
         <main className="esc-mesa" ref={mesa}>
           <div ref={inicio} className={`esc-inicio${s.vista === 'inicio' ? '' : ' oculta'}`} aria-hidden={s.vista !== 'inicio'}>
-            <HomePage
-              escritorio={
-                <Comando
-                  variante="inicio"
-                  abiertas={s.abiertas}
-                  foco={null}
-                  abrirPath={abrirPath}
-                  abrirApp={(id, donde) => abrir(id, undefined, donde)}
-                  irInicio={() => dispatch({ t: 'inicio' })}
-                />
-              }
-            />
+            {/* el Inicio: la conversación con Rockie al centro y tu día alrededor (escritorio/Inicio.tsx) */}
+            <InicioEscritorio visible={s.vista === 'inicio'} />
           </div>
 
           {[...s.abiertas, ...dormidas.filter((d) => !s.abiertas.includes(d))].map((id) => {

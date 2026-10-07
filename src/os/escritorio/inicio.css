@@ -1,0 +1,210 @@
+/* El Inicio del escritorio (escritorio/Inicio.tsx). Dos momentos:
+   - REPOSO: casi vacío. La hora grande al centro, una frase de tu día, cuatro mini widgets y el comando compacto.
+   - ABIERTO (tocas el comando o escribes): la conversación crece hacia arriba, la hora se achica a la esquina,
+     la frase y los mini widgets se van y el dock se corre a la izquierda.
+   Los widgets de detalle esperan escondidos a los lados y se asoman al acercar el mouse al borde o al hacer clic
+   en ese lado. Todo con tokens (claro y oscuro), cantos 2.5D y el resorte de la casa (--resorte, 0,5 s). */
+.ini { --abajo: 124px; position: relative; height: 100%; min-height: 540px; overflow: hidden; }
+.esc[data-dock='arriba'] .ini, .esc[data-dock='izq'] .ini, .esc[data-dock='der'] .ini { --abajo: 28px; }
+
+/* ---------- la hora ---------- */
+.ini-reloj {
+  position: absolute; z-index: 2; top: 8%; left: 50%; translate: -50% 0; scale: 1; transform-origin: 100% 0; pointer-events: none;
+  transition: top 0.55s var(--resorte), left 0.55s var(--resorte), translate 0.55s var(--resorte), scale 0.55s var(--resorte);
+}
+.ini-reloj b { display: block; font-family: var(--serif); font-size: 128px; font-weight: 600; line-height: 0.9; letter-spacing: -5px; color: var(--ink); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.ini.abierto .ini-reloj { top: 18px; left: calc(100% - 26px); translate: -100% 0; scale: 0.34; }
+
+.ini-frase, .ini-minis { position: absolute; left: 50%; translate: -50% 0; transition: opacity 0.28s ease, translate 0.45s var(--resorte); }
+.ini.abierto .ini-frase, .ini.abierto .ini-minis { opacity: 0; translate: -50% -16px; pointer-events: none; }
+.ini-frase { top: calc(8% + 134px); width: min(680px, calc(100% - 96px)); margin: 0; text-align: center; font-size: var(--t-md); font-weight: 600; line-height: 1.45; color: var(--ink-soft); }
+.ini-frase em { font-family: var(--serif); font-style: italic; font-weight: 600; color: var(--ink); }
+
+/* los cuatro mini widgets del reposo: cada uno abre su app */
+.ini-minis { top: calc(8% + 196px); display: flex; gap: 12px; }
+.ini-minis button {
+  display: flex; align-items: center; gap: 10px; max-width: 230px; padding: 9px 14px 9px 10px; border-radius: 18px; cursor: pointer; text-align: left;
+  background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge); font: inherit; color: var(--ink);
+  transition: transform 0.14s var(--glide), box-shadow 0.14s var(--glide);
+}
+.ini-minis button:hover { transform: translateY(-2px); box-shadow: 0 5px 0 var(--card-edge); }
+.ini-minis button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-edge); }
+.ini-mini-ic { width: 32px; height: 32px; flex: none; border-radius: 10px; display: grid; place-items: center; color: var(--on-color); background: var(--c); box-shadow: 0 2px 0 var(--ce); }
+.ini-mini-t { display: flex; flex-direction: column; min-width: 0; }
+.ini-mini-t small { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
+.ini-mini-t b { font-size: var(--t-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- los lados: el mouse en el borde de la pantalla (o un clic en el asa) asoma los widgets ---------- */
+.ini-asa {
+  position: absolute; z-index: 5; top: 50%; translate: 0 -50%; width: 30px; height: 64px; padding: 0; border-radius: 14px; cursor: pointer;
+  display: grid; place-items: center; background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge); color: var(--ink-muted);
+  opacity: 0.7; transition: opacity 0.2s ease;
+}
+.ini-asa:hover { opacity: 1; color: var(--ink); }
+.ini-asa.izq { left: 8px; }
+.ini-asa.der { right: 8px; }
+.ini.lado-izq .ini-asa.izq, .ini.lado-der .ini-asa.der { opacity: 0; pointer-events: none; }
+.ini-lado {
+  position: absolute; z-index: 4; top: 72px; bottom: var(--abajo); width: 262px; box-sizing: border-box; padding: 4px 4px 8px;
+  display: flex; flex-direction: column; gap: 14px; overflow-y: auto; scrollbar-width: none;
+  opacity: 0; pointer-events: none; transition: translate 0.5s var(--resorte), opacity 0.22s ease;
+}
+.ini-lado.izq { left: 18px; translate: -36px 0; }
+.ini-lado.der { right: 18px; translate: 36px 0; }
+.ini.lado-izq .ini-lado.izq, .ini.lado-der .ini-lado.der { opacity: 1; translate: 0 0; pointer-events: auto; }
+/* los widgets de cada lado entran uno tras otro */
+.ini-lado > * { transition: translate 0.5s var(--resorte); translate: 0 10px; }
+.ini.lado-izq .ini-lado.izq > *, .ini.lado-der .ini-lado.der > * { translate: 0 0; }
+.ini-lado > :nth-child(2) { transition-delay: 0.04s; }
+.ini-lado > :nth-child(3) { transition-delay: 0.08s; }
+
+/* widgets */
+.ini-w {
+  display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box; text-align: left;
+  padding: 14px 16px; border-radius: 20px; background: var(--card); border: 1.5px solid var(--card-line);
+  box-shadow: 0 4px 0 var(--card-edge); color: var(--ink); font: inherit;
+}
+.ini-w.toca { cursor: pointer; transition: transform 0.14s var(--glide), box-shadow 0.14s var(--glide); }
+.ini-w.toca:hover { transform: translateY(-2px); box-shadow: 0 6px 0 var(--card-edge); }
+.ini-w.toca:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--card-edge); }
+.ini-w-cab { display: flex; align-items: center; gap: 8px; font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--c, var(--ink-muted)); }
+.ini-w-cab em { font-style: normal; margin-left: auto; color: var(--ink-muted); letter-spacing: 0.04em; }
+.ini-w-ir { margin-left: auto; transform: rotate(-90deg); color: var(--ink-faint); }
+.ini-w-cab em + .ini-w-ir { margin-left: 4px; }
+.ini-w-cuerpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ini-w-cuerpo small { font-size: var(--t-xs); font-weight: 600; color: var(--ink-muted); }
+.ini-num { font-family: var(--serif); font-size: 38px; font-weight: 700; line-height: 1; color: var(--c, var(--ink)); font-variant-numeric: tabular-nums; }
+.ini-num span { font-size: 20px; color: var(--ink-muted); }
+.ini-nota { font-size: var(--t-sm); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ini-nada { margin: 0; font-size: var(--t-xs); font-weight: 600; color: var(--ink-muted); }
+.ini-skel { display: block; height: 14px; border-radius: 7px; background: var(--paper-dark); }
+
+.ini-sig { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 14px; border: 0; cursor: pointer; background: color-mix(in srgb, var(--c) 12%, var(--card)); color: var(--ink); font: inherit; }
+.ini-sig b { font-size: var(--t-base); }
+.ini-sig small { font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); }
+
+.ini-hoy { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ini-hoy button { display: grid; grid-template-columns: 42px 10px minmax(0, 1fr); align-items: center; gap: 8px; width: 100%; padding: 6px 4px; border: 0; border-radius: 10px; background: none; color: var(--ink); font: inherit; font-size: var(--t-s); font-weight: 600; text-align: left; cursor: pointer; }
+.ini-hoy button:hover { background: var(--paper-alt); }
+.ini-hoy i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.ini-hora { font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.ini-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ini-hoy .hecho .ini-t { text-decoration: line-through; color: var(--ink-muted); }
+.ini-hoy .hecho i { background: var(--paper-dark); }
+
+/* ===== el comando que se vuelve conversación: un panel que flota ===== */
+.ini-chat {
+  position: absolute; z-index: 3; left: 50%; translate: -50% 0; bottom: var(--abajo); width: min(640px, calc(100% - 96px)); height: 178px;
+  display: flex; flex-direction: column; background: var(--card); border: 1.5px solid var(--card-line); border-radius: 28px; overflow: hidden;
+  box-shadow: 0 6px 0 var(--card-edge), 0 26px 64px rgba(52, 46, 80, 0.16), 0 6px 18px rgba(52, 46, 80, 0.08);
+  transition: height 0.55s var(--resorte), width 0.55s var(--resorte);
+}
+:root[data-theme='dark'] .ini-chat { box-shadow: 0 6px 0 var(--card-edge), 0 26px 64px rgba(0, 0, 0, 0.45); }
+.ini.abierto .ini-chat { height: calc(100% - var(--abajo) - 76px); width: min(780px, calc(100% - 96px)); }
+.ini:not(.abierto) .ini-chat-cab, .ini:not(.abierto) .ini-hilo { display: none; }
+.ini.abierto .ini-reposo-sug { display: none; }
+.ini.abierto .ini-chat-cab, .ini.abierto .ini-hilo { animation: ini-entra 0.42s var(--resorte) 0.06s both; }
+@keyframes ini-entra { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.ini-reposo-sug { padding: 16px 18px 12px; }
+.ini-reposo-sug .ini-sug { margin: 0; flex-wrap: nowrap; }
+.ini-reposo-sug .ini-sug button:nth-child(n + 3) { display: none; }
+
+.ini-chat-cab { display: flex; align-items: center; gap: 8px; padding: 12px 14px 10px 20px; border-bottom: 1.5px solid var(--card-line); font-size: var(--t-xs); font-weight: 800; color: var(--ink-muted); }
+.ini-chat-cab button { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--card-line); background: var(--card); box-shadow: 0 2px 0 var(--card-edge); font: inherit; font-size: var(--t-xs); font-weight: 800; color: var(--ink); cursor: pointer; }
+.ini-chat-cab button:first-of-type { margin-left: auto; }
+.ini-chat-cab .ini-bajar { width: 30px; padding: 0; justify-content: center; }
+.ini-hilo { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 14px; padding: 18px 22px; }
+.ini-chat.vacio .ini-hilo { justify-content: center; }
+
+/* conversación nueva */
+.ini-nuevo { display: flex; flex-direction: column; gap: 10px; padding: 0 6px; }
+.ini-nuevo h1 { margin: 0; font-family: var(--serif); font-size: 38px; font-weight: 700; line-height: 1.05; letter-spacing: -1px; color: var(--ink); }
+.ini-nuevo p { margin: 0; font-size: var(--t-md); font-weight: 600; color: var(--ink-soft); max-width: 52ch; }
+.ini-sug { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ini-sug button, .ini-chips button {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border-radius: 999px; white-space: nowrap;
+  border: 1.5px solid var(--card-line); background: var(--card-2); box-shadow: 0 3px 0 var(--card-edge);
+  font: inherit; font-size: var(--t-s); font-weight: 700; color: var(--ink); cursor: pointer; transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide);
+}
+.ini-sug button:hover, .ini-chips button:hover { border-color: var(--accent); }
+.ini-sug button:active, .ini-chips button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-edge); }
+
+/* lo que dices y lo que responde: tú en burbuja; Rockie con la letra de la casa (Fraunces), como un texto */
+.ini-yo { align-self: flex-end; max-width: 78%; padding: 10px 16px; border-radius: 20px 20px 6px 20px; background: var(--accent); color: var(--on-color); box-shadow: 0 3px 0 var(--accent-edge); font-size: var(--t-base); font-weight: 600; line-height: 1.4; display: inline-flex; align-items: center; gap: 6px; }
+.ini-rk { display: flex; flex-direction: column; gap: 10px; max-width: 94%; }
+.ini-dice { margin: 0; font-family: var(--serif); font-size: 19px; font-weight: 600; line-height: 1.42; letter-spacing: -0.01em; color: var(--ink); }
+.ini-basico { align-self: flex-start; font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); padding: 2px 8px; border-radius: 999px; background: var(--paper-alt); }
+.ini-err { margin: 0; font-size: var(--t-xs); font-weight: 700; color: var(--coral-ink); }
+.ini-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ini-chips button { min-height: 34px; font-size: var(--t-xs); }
+
+/* lo que propone: tarjetas que confirmas (✓) o descartas (✕) */
+.ini-cards { display: flex; flex-direction: column; gap: 8px; }
+.ini-card { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--card-2); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge); }
+.ini-card.done { border-color: color-mix(in srgb, var(--green-photo) 55%, var(--card-line)); }
+.ini-card.skip { opacity: 0.6; }
+.ini-card-ic { width: 36px; height: 36px; border-radius: 11px; flex: none; display: grid; place-items: center; color: var(--on-color); background: var(--c); box-shadow: 0 3px 0 color-mix(in srgb, var(--c) 70%, #000); }
+.ini-card-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ini-card-t b { font-size: var(--t-sm); }
+.ini-card-t small { font-size: var(--t-xs); font-weight: 600; color: var(--ink-muted); }
+.ini-card-acts { display: flex; gap: 6px; }
+.ini-card-acts button { width: 36px; height: 36px; border-radius: 12px; border: 0; display: grid; place-items: center; cursor: pointer; }
+.ini-card-acts .si { background: var(--green-photo); color: var(--on-color); box-shadow: 0 3px 0 var(--green-photo-edge); }
+.ini-card-acts .no { background: var(--paper-alt); color: var(--ink-soft); box-shadow: 0 3px 0 var(--card-edge); }
+.ini-card-acts button:active { transform: translateY(2px); box-shadow: none; }
+.ini-card-st { font-size: var(--t-xs); font-weight: 800; color: var(--ink-muted); }
+.ini-todo { align-self: flex-start; height: 36px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--green-photo); color: var(--on-color); box-shadow: 0 3px 0 var(--green-photo-edge); font: inherit; font-size: var(--t-xs); font-weight: 800; cursor: pointer; }
+
+/* lo que es de otra app: se abre allá, en su pestaña, con el pedido */
+.ini-pase { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; border: 1.5px solid color-mix(in srgb, var(--c) 45%, var(--card-line)); background: color-mix(in srgb, var(--c) 8%, var(--card)); }
+.ini-pase-ic { width: 34px; height: 34px; border-radius: 11px; flex: none; display: grid; place-items: center; color: var(--on-color); background: var(--c); box-shadow: 0 3px 0 var(--ce); }
+.ini-pase-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ini-pase-t small { font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.ini-pase-t b { font-size: var(--t-sm); }
+.ini-pase button { flex: none; height: 36px; padding: 0 14px; border-radius: 999px; border: 0; background: var(--c); color: var(--on-color); box-shadow: 0 3px 0 var(--ce); font: inherit; font-size: var(--t-xs); font-weight: 800; cursor: pointer; }
+
+.ini-pensando { display: flex; align-items: center; gap: 10px; font-size: var(--t-xs); font-weight: 700; color: var(--ink-muted); }
+.ini-dots { display: inline-flex; gap: 4px; }
+.ini-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: inidot 1s infinite ease-in-out; }
+.ini-dots i:nth-child(2) { animation-delay: 0.15s; }
+.ini-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes inidot { 0%, 100% { transform: translateY(0); opacity: 0.45; } 40% { transform: translateY(-5px); opacity: 1; } }
+
+/* escribir y hablar: abajo, dentro del comando */
+.ini-comp {
+  display: flex; align-items: center; gap: 8px; margin: 0 16px; padding: 6px 6px 6px 14px;
+  border-radius: 18px; background: var(--card); border: 2px solid var(--accent); box-shadow: 0 3px 0 var(--accent-edge);
+}
+.ini-lupa { color: var(--ink-muted); flex: none; }
+.ini-comp input { flex: 1; min-width: 0; height: 44px; border: 0; outline: 0; background: none; font: inherit; font-size: var(--t-base); font-weight: 600; color: var(--ink); }
+.ini-comp input::placeholder { color: var(--ink-muted); }
+.ini-comp.oyendo input { color: var(--accent-ink); }
+.ini-mic { position: relative; width: 44px; height: 44px; flex: none; border-radius: 14px; border: 0; background: none; color: var(--accent); display: grid; place-items: center; cursor: pointer; }
+.ini-mic:hover { background: var(--paper-alt); }
+.ini-mic.on { background: var(--accent); color: var(--on-color); }
+.ini-mic-aro { position: absolute; inset: -4px; border-radius: 16px; border: 3px solid var(--accent); opacity: 0.35; pointer-events: none; }
+.ini-enviar { width: 44px; height: 44px; flex: none; border-radius: 14px; border: 0; display: grid; place-items: center; background: var(--accent); color: var(--on-color); box-shadow: 0 3px 0 var(--accent-edge); cursor: pointer; transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide), opacity 0.15s; }
+.ini-enviar:disabled { opacity: 0.4; cursor: default; }
+.ini-enviar:not(:disabled):active { transform: translateY(2px); box-shadow: 0 1px 0 var(--accent-edge); }
+.ini-teclas { display: flex; align-items: center; gap: 16px; padding: 10px 22px 14px; font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); white-space: nowrap; overflow: hidden; }
+.ini-teclas span { display: inline-flex; align-items: center; gap: 4px; }
+.ini-teclas .der { margin-left: auto; }
+.ini-teclas kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid var(--card-line); border-bottom-width: 3px; background: var(--card); font: inherit; font-size: var(--t-3xs); color: var(--ink-soft); }
+.ini-chat > .ini-err { padding: 0 22px 12px; cursor: pointer; }
+
+/* el dock del escritorio se corre a la izquierda mientras conversas (y vuelve al centro en reposo) */
+.esc[data-dock='abajo']:has(.esc-inicio:not(.oculta) .ini.abierto) .esc-dock.ver { transform: translate(calc(26px - 50vw), 0) scale(0.92); transform-origin: 0 100%; transition-duration: 0.55s; }
+
+/* pantallas bajitas: la hora y lo de arriba más compactos */
+@media (max-height: 760px) {
+  .ini-reloj { top: 6%; }
+  .ini-reloj b { font-size: 96px; letter-spacing: -4px; }
+  .ini-frase { top: calc(6% + 100px); }
+  .ini-minis { top: calc(6% + 156px); }
+}
+@media (max-width: 1080px) {
+  .ini-minis button:nth-child(4) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ini-dots i { animation: none; opacity: 0.8; }
+}

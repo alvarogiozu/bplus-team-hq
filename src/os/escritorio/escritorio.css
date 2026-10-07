@@ -75,7 +75,6 @@
 .esc-mesa { position: absolute; top: 54px; left: 10px; right: 10px; bottom: 10px; }
 .esc-inicio { position: absolute; inset: 0; overflow-y: auto; border-radius: 18px; background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--card-line); }
 .esc-inicio.oculta { visibility: hidden; pointer-events: none; }
-.esc-inicio .os-home { padding-bottom: 130px; }
 
 .esc-win {
   position: absolute; display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; background: var(--paper);
@@ -190,7 +189,6 @@
 .esc[data-dock='arriba'] .esc-dock-rockie { align-items: flex-start; margin: 6px 8px 0; }
 .esc[data-dock='arriba'] .esc-dock-rk { margin: 0 0 -24px; }
 .esc[data-dock='arriba'] .esc-dock-rk:hover { transform: translateY(4px) scale(1.06); }
-.esc[data-dock='arriba'] .esc-inicio .os-home { padding-top: 120px; padding-bottom: 24px; }
 
 /* a los lados: el dock se para (columna) y se asoma desde ese borde */
 .esc[data-dock='izq'] .esc-dock-zona, .esc[data-dock='der'] .esc-dock-zona { top: 54px; bottom: 0; width: 10px; height: auto; }
@@ -218,8 +216,6 @@
 .esc[data-dock='izq'] .esc-dock-rk, .esc[data-dock='der'] .esc-dock-rk { margin: 0; }
 .esc[data-dock='izq'] .esc-dock-rk:hover { transform: translateX(4px) scale(1.06); }
 .esc[data-dock='der'] .esc-dock-rk:hover { transform: translateX(-4px) scale(1.06); }
-.esc[data-dock='izq'] .esc-inicio .os-home { padding-left: 110px; padding-bottom: 24px; }
-.esc[data-dock='der'] .esc-inicio .os-home { padding-right: 110px; padding-bottom: 24px; }
 
 @media (hover: none) {
   .esc[data-dock='arriba'] .esc-dock-asa { top: 54px; bottom: auto; }
@@ -273,15 +269,6 @@
 .esc-cmd-ej button:hover { border-color: var(--brand); color: var(--ink); }
 .esc-cmd-pie { display: flex; flex-wrap: wrap; gap: 16px; padding: 10px 16px; border-top: 1.5px solid var(--card-line); font-size: var(--t-2xs); font-weight: 600; color: var(--ink-muted); }
 .esc-cmd-err { margin: 8px 18px 0; font-size: var(--t-xs); font-weight: 600; color: var(--coral-ink); }
-
-/* la barra grande del Inicio: Rockie primero */
-.esc-cmd-inicio { position: relative; z-index: 3; width: min(760px, 100%); align-self: center; margin: 4px auto 26px; }
-.esc-cmd-inicio h2 { margin-bottom: 14px; text-align: center; font-size: var(--t-2xl); color: var(--ink); }
-.esc-cmd-inicio .esc-cmd-bar { height: 64px; padding-left: 22px; background: var(--card); border: 2px solid var(--brand); border-radius: 999px; box-shadow: 0 5px 0 var(--card-edge); }
-.esc-cmd-drop {
-  position: absolute; left: 0; right: 0; top: calc(100% + 8px); z-index: 20; overflow: hidden; background: var(--paper-clean);
-  border: 1.5px solid var(--card-line); border-radius: 20px; box-shadow: var(--shadow-lift), 0 5px 0 var(--card-edge);
-}
 
 /* ---------- dentro de una ventana: la app completa, sin su propio selector de apps ---------- */
 html[data-ventana] .os-home { padding-bottom: 24px; }

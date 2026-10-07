@@ -5,71 +5,25 @@ import { Rockie } from '../components/Rockie'
 import { toast } from '../components/Toasts'
 import { haptic } from '../lib/fx'
 import { useAuth } from '../features/auth/AuthProvider'
-import { applyProposal, askRockie, buildContext, describe, ghostOf, makeLook, summarize, type Card, type Proposal } from './agent'
-import { APP_META, HandoffCard, RecentChat, useRockieChat, type ChatApp, type LifeArea } from '../features/agent/chat'
-import { useCalendarMap, type GEvent } from './calendars'
-import { useAgendaActions, useHq, useItems, usePrefs, type Undo } from './data'
-import { useGroupActions, useGroups } from './groups'
-import { useHobbies, useHobbyActions } from './hobbies'
-import { useDayActions, useDayMap } from './days'
-import { useReserveActions, useReserves } from './reserves'
+import { ghostOf } from './agent'
+import { HandoffCard, RecentChat } from '../features/agent/chat'
+import { type GEvent } from './calendars'
 import { openEditor } from './Editor'
 import { AIcon } from './icons'
-import { localPropose } from './localAgent'
 import type { Ghost } from './Timeline'
 import { listenHint, useHandsFree, useMicPress, useVoice, type VoiceMode } from './voice'
 import { RockieCentro } from '../os/movil/MovilShell'
-
-// card = cómo se veía al proponer (si no, tras mover diría «15:00 → 15:00»)
-type PropState = { p: Proposal; card: Card; st: 'pending' | 'done' | 'skip'; undo?: Undo | null }
-type Entry =
-  | { id: string; who: 'user'; text: string; voice?: boolean }
-  | {
-      id: string
-      who: 'rockie'
-      say: string
-      basic?: boolean
-      error?: string
-      props: PropState[]
-      handoffs: { app: ChatApp; pedido: string; area?: LifeArea | null }[]
-      question?: { question: string; options: string[] }
-      answer?: { text: string; refs: string[] }
-    }
-
-const uid = () => Math.random().toString(36).slice(2, 10)
+import { useRockieHilo } from './useRockieHilo'
 
 export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: string; nowMin: number; mobile: boolean; onGhosts: (g: Ghost[]) => void; onFocusDay: (d: string) => void; google?: GEvent[] }>(
   function RockieBar(p, inputRef) {
     const { profile } = useAuth()
-    const itemsData = useItems().data
-  const items = useMemo(() => itemsData ?? [], [itemsData])
-    const hq = useHq().data
-    const prefs = usePrefs().data
-    const agendaActions = useAgendaActions()
-    const groupActions = useGroupActions()
-    const hobbyActions = useHobbyActions()
-    const dayActions = useDayActions()
-    const dayMap = useDayMap()
-    const reserveActions = useReserveActions()
-    const reserves = useReserves().data
-    const actions = useMemo(
-      () => ({ ...agendaActions, groups: groupActions, hobbies: hobbyActions, days: dayActions, reserves: reserveActions }),
-      [agendaActions, groupActions, hobbyActions, dayActions, reserveActions],
-    )
-    const tz = profile?.timezone ?? 'America/Lima'
-    const { list: cals } = useCalendarMap()
-    const groups = useGroups().data
-    const hobbies = useHobbies().data
-    const look = useMemo(
-      () => makeLook({ today: p.today, tz, nowMin: p.nowMin, prefs, items, hq, cals, groups, hobbies, reserves }),
-      [p.today, tz, p.nowMin, prefs, items, hq, cals, groups, hobbies, reserves],
-    )
+    // la conversación (IA, propuestas, confirmar y deshacer) vive en useRockieHilo: la misma del Inicio
+    const hilo = useRockieHilo({ today: p.today, nowMin: p.nowMin, google: p.google })
+    const { look, thread, setThread, thinking, chat, confirm, confirmAll, patchProp, refTitle } = hilo
 
     const [text, setText] = useState('')
-    const [thread, setThread] = useState<Entry[]>([])
-    const chat = useRockieChat('agenda')
     const [open, setOpen] = useState(false)
-    const [thinking, setThinking] = useState(false)
     const [typing, setTyping] = useState(false) // móvil: muestra el campo de texto
     const scrollRef = useRef<HTMLDivElement>(null)
     const [params, setParams] = useSearchParams()
@@ -77,8 +31,6 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
     const voice = useVoice({ onFinal: (t) => void send(t, true) })
     const hands = useHandsFree(voice, thinking)
     const press = useMicPress(voice, () => haptic(12))
-    const threadRef = useRef(thread)
-    threadRef.current = thread
 
     // un pedido que llega desde otra app (?rockie=...) se envía solo al entrar
     const sentFromUrl = useRef(false)
@@ -97,7 +49,7 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
       if (!t || !profile) return
       // manos libres: «listo» termina, «sí» confirma lo pendiente, «no» lo descarta
       const cmd = hands.command(t)
-      const last = [...threadRef.current].reverse().find((e) => e.who === 'rockie') as Extract<Entry, { who: 'rockie' }> | undefined
+      const last = hilo.ultimo()
       const hasPending = Boolean(last?.props.some((x) => x.st === 'pending'))
       if (cmd === 'end') {
         hands.off()
@@ -105,46 +57,14 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
         return
       }
       if (cmd === 'yes' && last && hasPending) return void confirmAll(last)
-      if (cmd === 'no' && last && hasPending) {
-        setThread((x) => x.map((e) => (e.id === last.id && e.who === 'rockie' ? { ...e, props: e.props.map((ps) => (ps.st === 'pending' ? { ...ps, st: 'skip' as const } : ps)) } : e)))
-        return
-      }
+      if (cmd === 'no' && last && hasPending) return hilo.descartar(last.id)
       setText('')
       setOpen(true)
-      setThinking(true)
-      setThread((x) => [...x, { id: uid(), who: 'user' as const, text: t, voice: byVoice }].slice(-24))
-      const ctx = buildContext({ today: p.today, nowMin: p.nowMin, tz, profile, prefs, items, hq, cals, google: p.google, groups, hobbies, days: dayMap })
-      const people = (hq?.people ?? []).map((x) => ({ id: x.id, name: x.name, username: x.username }))
-      const reply = await askRockie(t, chat.history(), ctx, () => localPropose(t, { today: p.today, defaultDuration: prefs?.default_duration ?? 15, people }))
-      setThinking(false)
-      const q = reply.proposals.find((x) => x.tool === 'preguntar')
-      const a = reply.proposals.find((x) => x.tool === 'responder')
-      const acts = reply.proposals.filter((x) => x.tool !== 'preguntar' && x.tool !== 'responder' && x.tool !== 'otra_app')
-      const handoffs = reply.proposals
-        .filter((x) => x.tool === 'otra_app' && x.input.app !== 'agenda')
-        .map((x) => ({ app: x.input.app as ChatApp, pedido: String(x.input.pedido ?? t), area: (x.input.area as LifeArea | undefined) ?? null }))
-      const entry: Entry = {
-        id: uid(),
-        who: 'rockie',
-        say: reply.say,
-        basic: reply.basic,
-        error: reply.error,
-        props: acts.map((x) => ({ p: x, card: describe(x, look), st: 'pending' as const })),
-        handoffs,
-        question: q ? { question: String(q.input.question), options: (q.input.options as string[]) ?? [] } : undefined,
-        answer: a ? { text: String(a.input.text), refs: (a.input.refs as string[]) ?? [] } : undefined,
-      }
-      setThread((x) => [...x, entry].slice(-24))
-      const moved = handoffs.map((h) => `para ${APP_META[h.app].label}: ${h.pedido}`).join(' · ')
-      void chat.append([
-        { role: 'user', text: t },
-        { role: 'assistant', text: [summarize(reply.say || entry.answer?.text || entry.question?.question || '', acts, look), moved].filter(Boolean).join(' · ') || '…' },
-      ])
-      if (acts.length) haptic(10)
+      await hilo.send(t, byVoice)
     }
 
     // los "fantasmas" de las propuestas pendientes del último mensaje de Rockie
-    const lastRockie = [...thread].reverse().find((e) => e.who === 'rockie') as Extract<Entry, { who: 'rockie' }> | undefined
+    const lastRockie = [...thread].reverse().find((e) => e.who === 'rockie') as Extract<(typeof thread)[number], { who: 'rockie' }> | undefined
     const ghosts = useMemo(() => {
       if (!lastRockie) return []
       return lastRockie.props.flatMap((ps, i) => (ps.st === 'pending' ? [ghostOf(ps.p, look, p.day, `${lastRockie.id}:${i}`)] : [])).filter(Boolean) as Ghost[]
@@ -163,42 +83,6 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
       return () => window.removeEventListener('keydown', key)
     }, [voice])
 
-    const patchProp = (entryId: string, i: number, st: PropState) =>
-      setThread((x) => x.map((e) => (e.id === entryId && e.who === 'rockie' ? { ...e, props: e.props.map((ps, j) => (j === i ? st : ps)) } : e)))
-
-    async function confirm(e: Extract<Entry, { who: 'rockie' }>, i: number) {
-      const ps = e.props[i]
-      const undo = await applyProposal(ps.p, actions, look)
-      patchProp(e.id, i, { ...ps, st: undo ? 'done' : 'skip', undo })
-      haptic([8, 24, 8])
-      if (undo) toast(`Listo: ${describe(ps.p, look).title}`, { kind: 'ok', icon: 'check', action: { label: 'Deshacer', onClick: () => void undoOne(e.id, i, undo) } })
-    }
-    async function undoOne(entryId: string, i: number, undo: Undo) {
-      await undo()
-      setThread((x) => x.map((e) => (e.id === entryId && e.who === 'rockie' ? { ...e, props: e.props.map((ps, j) => (j === i ? { ...ps, st: 'skip' as const, undo: null } : ps)) } : e)))
-    }
-    async function confirmAll(e: Extract<Entry, { who: 'rockie' }>) {
-      const undos: Undo[] = []
-      for (let i = 0; i < e.props.length; i++) {
-        if (e.props[i].st !== 'pending') continue
-        const undo = await applyProposal(e.props[i].p, actions, look)
-        if (undo) undos.push(undo)
-        patchProp(e.id, i, { ...e.props[i], st: undo ? 'done' : 'skip', undo })
-      }
-      haptic([8, 24, 8])
-      toast(`Listo: ${undos.length} ${undos.length === 1 ? 'cambio' : 'cambios'}`, {
-        kind: 'ok',
-        icon: 'check',
-        action: {
-          label: 'Deshacer',
-          onClick: async () => {
-            for (const u of undos.reverse()) await u()
-            setThread((x) => x.map((en) => (en.id === e.id && en.who === 'rockie' ? { ...en, props: en.props.map((ps) => ({ ...ps, st: 'skip' as const, undo: null })) } : en)))
-          },
-        },
-      })
-    }
-
     function openRef(id: string) {
       const it = look.items.get(id)
       if (it) {
@@ -208,7 +92,6 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
       if (look.events.get(id)) return openEditor({ mode: 'event', id })
       if (look.tasks.get(id)) return openEditor({ mode: 'task', id })
     }
-    const refTitle = (id: string) => look.items.get(id)?.title ?? look.events.get(id)?.title ?? look.tasks.get(id)?.title ?? look.projects.get(id)?.name
 
     function submit(e: FormEvent) {
       e.preventDefault()
