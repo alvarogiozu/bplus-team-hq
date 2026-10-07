@@ -722,19 +722,19 @@ export default function Escritorio() {
   }
 
   const api = useMemo<EscritorioApi>(() => ({ abrir: abrirPath, comando: () => setCmd({ escuchar: false }) }), [abrirPath])
-  const dockVisible = s.vista === 'inicio' || asomo || Boolean(cmd)
+  // en el Inicio el dock se ve, salvo mientras conversas (ahí se esconde y se asoma al acercar el mouse abajo)
+  const [charla, setCharla] = useState(false)
+  const dockVisible = (s.vista === 'inicio' && !charla) || asomo || Boolean(cmd)
+  // la barra de pestañas aparece recién cuando abres una app: sin apps abiertas, el Inicio es toda la pantalla
+  const conBarra = s.abiertas.length > 0
   const partido = s.vista === 'apps' && cuantas(s.mos) > 1
   const seps = partido ? separadores(s.mos, tam.w, tam.h, GAP) : null
   const activa = s.vista === 'apps' ? s.foco : null
 
   return (
     <EscritorioCtx.Provider value={api}>
-      <div className={`esc${redim ? ` redim redim-${redim}` : ''}${arrastre ? ' arrastrando' : ''}`} data-dock={ladoDock}>
-        <header className="esc-bar">
-          <button className="esc-marca" onClick={() => dispatch({ t: 'inicio' })} title="Inicio (Alt 1)">
-            <RockieArt size={30} stone={look.stone} equipped={look.equipped} />
-            <span>Rockie</span>
-          </button>
+      <div className={`esc${redim ? ` redim redim-${redim}` : ''}${arrastre ? ' arrastrando' : ''}${conBarra ? '' : ' sin-barra'}${dockVisible ? ' dock-ver' : ''}`} data-dock={ladoDock}>
+        <header className="esc-bar" aria-hidden={!conBarra}>
           <nav className="esc-tabs" role="tablist" aria-label="Pestañas">
             <button role="tab" aria-selected={s.vista === 'inicio'} className={`esc-tab home${s.vista === 'inicio' ? ' on' : ''}`} onClick={() => dispatch({ t: 'inicio' })} title="Inicio (Alt 1)">
               <span className="esc-tab-ic">
@@ -792,41 +792,37 @@ export default function Escritorio() {
               {CON_DER.includes(activa) && <LadoBtn lado="der" visible={!sinDer(activa)} onClick={() => alternar(activa, 'der')} />}
             </span>
           )}
-          <button className="esc-buscar" onClick={() => setCmd({ escuchar: false })}>
-            <Icon name="search" className="sm" />
-            <span>Busca o pídele a Rockie</span>
-            <kbd>Ctrl K</kbd>
-          </button>
-          <div className="esc-cuenta">
-            <button className="esc-avatar" onClick={() => setCuenta((v) => !v)} aria-haspopup="menu" aria-expanded={cuenta} aria-label="Tu cuenta: perfil, ajustes y cerrar sesión">
-              <Avatar size={38} />
-            </button>
-            {cuenta && (
-              <div className="esc-menu esc-menu--cuenta" role="menu" onMouseLeave={() => setCuenta(false)}>
-                <b>{profile.display_name}</b>
-                {/* tu cuenta (la misma de todas las apps) y, aparte, dónde va el dock de este escritorio */}
-                <button role="menuitem" onClick={() => nav('/perfil')}>
-                  <Icon name="user" className="sm" /> Perfil
-                </button>
-                <button role="menuitem" onClick={() => nav('/ajustes')}>
-                  <Icon name="settings" className="sm" /> Ajustes
-                </button>
-                <button role="menuitem" onClick={() => nav('/planes')}>
-                  <Icon name="sparkle" className="sm" /> Tu plan
-                </button>
-                <LadosDock lado={ladoDock} elegir={setLadoDock} />
-                <button role="menuitem" onClick={() => signOut()}>
-                  <Icon name="logout" className="sm" /> Cerrar sesión
-                </button>
-              </div>
-            )}
-          </div>
         </header>
+        {/* tu cuenta: siempre a la mano, arriba a la derecha (con o sin pestañas) */}
+        <div className="esc-cuenta">
+          <button className="esc-avatar" onClick={() => setCuenta((v) => !v)} aria-haspopup="menu" aria-expanded={cuenta} aria-label="Tu cuenta: perfil, ajustes y cerrar sesión">
+            <Avatar size={42} />
+          </button>
+          {cuenta && (
+            <div className="esc-menu esc-menu--cuenta" role="menu" onMouseLeave={() => setCuenta(false)}>
+              <b>{profile.display_name}</b>
+              {/* tu cuenta (la misma de todas las apps) y, aparte, dónde va el dock de este escritorio */}
+              <button role="menuitem" onClick={() => nav('/perfil')}>
+                <Icon name="user" className="sm" /> Perfil
+              </button>
+              <button role="menuitem" onClick={() => nav('/ajustes')}>
+                <Icon name="settings" className="sm" /> Ajustes
+              </button>
+              <button role="menuitem" onClick={() => nav('/planes')}>
+                <Icon name="sparkle" className="sm" /> Tu plan
+              </button>
+              <LadosDock lado={ladoDock} elegir={setLadoDock} />
+              <button role="menuitem" onClick={() => signOut()}>
+                <Icon name="logout" className="sm" /> Cerrar sesión
+              </button>
+            </div>
+          )}
+        </div>
 
         <main className="esc-mesa" ref={mesa}>
           <div ref={inicio} className={`esc-inicio${s.vista === 'inicio' ? '' : ' oculta'}`} aria-hidden={s.vista !== 'inicio'}>
             {/* el Inicio: la conversación con Rockie al centro y tu día alrededor (escritorio/Inicio.tsx) */}
-            <InicioEscritorio visible={s.vista === 'inicio'} />
+            <InicioEscritorio visible={s.vista === 'inicio'} onAbierto={setCharla} />
           </div>
 
           {[...s.abiertas, ...dormidas.filter((d) => !s.abiertas.includes(d))].map((id) => {

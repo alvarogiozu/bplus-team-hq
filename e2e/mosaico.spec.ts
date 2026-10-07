@@ -124,8 +124,8 @@ test('Escritorio: al medio de verdad, abajo a la derecha, arriba si te quedas y 
   await expect(page).toHaveURL(/\/inicio/)
   const dock = page.getByRole('navigation', { name: 'Dock' })
   for (const app of ['Agenda', 'Proyectos', 'Cuaderno']) {
-    // el dock se ve en el Inicio (en las apps se esconde)
-    await page.locator('.esc-tab.home').click()
+    // el dock se ve en el Inicio (en las apps se esconde); sin apps abiertas no hay barra: ya estás en el Inicio
+    if (await page.locator('.esc:not(.sin-barra)').count()) await page.locator('.esc-tab.home').click()
     await dock.getByRole('button', { name: app, exact: true }).click()
     await expect(page.locator('.esc-tab', { hasText: app })).toBeVisible()
   }

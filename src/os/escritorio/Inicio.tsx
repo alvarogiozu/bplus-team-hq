@@ -12,9 +12,10 @@ import { useEscritorio } from './contexto'
 import './inicio.css'
 
 // El Inicio del escritorio (PC), minimalista: la hora grande, una frase de tu día, cuatro mini widgets y el
-// comando al centro. Tocar el comando (o escribir) lo abre hacia arriba como conversación: la hora se va a la
-// esquina, la frase se esconde y el dock se corre a la izquierda. Los widgets de detalle esperan a los lados y se
-// asoman al acercar el mouse al borde (o al hacer clic en ese lado); cada cosa abre su app en su pestaña.
+// comando al centro. Tocar el comando (o escribir) lo abre hacia arriba como conversación: la hora y la frase del
+// centro se van, el dock se esconde (se asoma al acercar el mouse abajo) y, al instante, entran los widgets a los
+// dos lados: a la izquierda la hora, lo siguiente y tu día; a la derecha tareas, hábitos y cuaderno. Cada cosa abre
+// su app en su pestaña.
 // La conversación es el mismo hilo de la Agenda (useRockieHilo): propone, confirmas y se deshace; lo que es de otra
 // app trae su botón para abrirla allá con el pedido.
 
@@ -29,9 +30,7 @@ const destino: Record<ChatApp, (pedido: string) => string> = {
 }
 const APP_DE: Record<ChatApp, AppId> = { agenda: 'agenda', equipo: 'equipo', cuaderno: 'cuaderno', habitos: 'habitos' }
 
-type Lado = 'izq' | 'der'
-
-export function InicioEscritorio({ visible }: { visible: boolean }) {
+export function InicioEscritorio({ visible, onAbierto }: { visible: boolean; onAbierto?: (abierto: boolean) => void }) {
   const esc = useEscritorio()
   const abrir = (path: string) => esc?.abrir(path)
   const hoy = useHoyOS()
@@ -49,7 +48,6 @@ export function InicioEscritorio({ visible }: { visible: boolean }) {
   const [text, setText] = useState('')
   const input = useRef<HTMLInputElement>(null)
   const scroll = useRef<HTMLDivElement>(null)
-  const panel = useRef<HTMLElement>(null)
   const voice = useVoice({ onFinal: (t) => void enviar(t, true) })
   const press = useMicPress(voice, () => setActivo(true))
 
@@ -65,32 +63,8 @@ export function InicioEscritorio({ visible }: { visible: boolean }) {
     input.current?.blur()
   }
 
-  // Los widgets viven a los lados, escondidos: se asoman al acercar el mouse al borde (o al hacer clic en ese lado)
-  const [lado, setLado] = useState<Lado | null>(null)
-  const espera = useRef<ReturnType<typeof setTimeout>>()
-  const verLado = (l: Lado) => {
-    clearTimeout(espera.current)
-    setLado(l)
-  }
-  const soltarLado = () => {
-    clearTimeout(espera.current)
-    espera.current = setTimeout(() => setLado(null), 380)
-  }
-  useEffect(() => () => clearTimeout(espera.current), [])
-  const ladoRef = useRef(lado)
-  ladoRef.current = lado
-  // el borde de verdad es el de la pantalla: al llevar el mouse ahí asoma ese lado; al irte lejos, se esconde
-  useEffect(() => {
-    if (!visible) return setLado(null)
-    const mover = (e: MouseEvent) => {
-      const w = innerWidth
-      if (e.clientX <= 34) verLado('izq')
-      else if (e.clientX >= w - 34) verLado('der')
-      else if ((ladoRef.current === 'izq' && e.clientX > 340) || (ladoRef.current === 'der' && e.clientX < w - 340)) soltarLado()
-    }
-    addEventListener('mousemove', mover, { passive: true })
-    return () => removeEventListener('mousemove', mover)
-  }, [visible]) // eslint-disable-line react-hooks/exhaustive-deps
+  // el escritorio esconde el dock mientras conversas
+  useEffect(() => onAbierto?.(abierto && visible), [abierto, visible, onAbierto])
 
   async function enviar(raw: string, byVoice = false) {
     const t = raw.trim()
@@ -120,14 +94,9 @@ export function InicioEscritorio({ visible }: { visible: boolean }) {
     return () => window.removeEventListener('keydown', key)
   }, [voice])
 
-  /** Un clic en el fondo: a un lado del comando asoma sus widgets; arriba o abajo, vuelve al reposo. */
+  /** Un clic en el fondo (fuera del comando y de los widgets) vuelve al reposo si no hay conversación. */
   function fondo(e: PointerEvent<HTMLDivElement>) {
-    if (e.target !== e.currentTarget) return
-    const r = panel.current?.getBoundingClientRect()
-    if (r && e.clientX < r.left) return verLado('izq')
-    if (r && e.clientX > r.right) return verLado('der')
-    setLado(null)
-    cerrar()
+    if (e.target === e.currentTarget) cerrar()
   }
 
   // lo que te nombra Rockie (una tarea, un evento, algo de tu agenda) se abre en su app
@@ -167,8 +136,8 @@ export function InicioEscritorio({ visible }: { visible: boolean }) {
   ]
 
   return (
-    <div className={`ini${abierto ? ' abierto' : ''}${lado ? ` lado-${lado}` : ''}`} onPointerDown={fondo}>
-      {/* la hora: grande al centro en reposo; con la conversación abierta, chiquita en la esquina */}
+    <div className={`ini${abierto ? ' abierto' : ''}`} onPointerDown={fondo}>
+      {/* la hora: grande al centro en reposo; con la conversación abierta pasa arriba de la columna izquierda */}
       <div className="ini-reloj" aria-label={`Son las ${hora}`}>
         <b>{hora}</b>
       </div>
@@ -189,15 +158,11 @@ export function InicioEscritorio({ visible }: { visible: boolean }) {
         ))}
       </div>
 
-      {/* las asas de los lados (también se asoman solos al llevar el mouse al borde de la pantalla) */}
-      <button type="button" className="ini-asa izq" onClick={() => (lado === 'izq' ? setLado(null) : verLado('izq'))} aria-expanded={lado === 'izq'} aria-label="Tu día">
-        <Icon name="today" className="sm" />
-      </button>
-      <button type="button" className="ini-asa der" onClick={() => (lado === 'der' ? setLado(null) : verLado('der'))} aria-expanded={lado === 'der'} aria-label="Tus apps">
-        <Icon name="apps" className="sm" />
-      </button>
-
-      <aside className="ini-lado izq" aria-label="Tu día" aria-hidden={lado !== 'izq'} onMouseEnter={() => verLado('izq')} onMouseLeave={soltarLado}>
+      <aside className="ini-lado izq" aria-label="Tu día" aria-hidden={!abierto}>
+        <div className="ini-lado-reloj">
+          <b>{hora}</b>
+          <span>{fmtDayLong(hoy.today)}</span>
+        </div>
         <Widget titulo="Lo siguiente">
           {hoy.loadingDay ? (
             <span className="ini-skel" />
@@ -231,7 +196,7 @@ export function InicioEscritorio({ visible }: { visible: boolean }) {
         </Widget>
       </aside>
 
-      <aside className="ini-lado der" aria-label="Tus apps" aria-hidden={lado !== 'der'} onMouseEnter={() => verLado('der')} onMouseLeave={soltarLado}>
+      <aside className="ini-lado der" aria-label="Tus apps" aria-hidden={!abierto}>
         <Widget titulo="Tareas" onClick={() => abrir('/tareas?vista=lista')} color={APP.equipo.color}>
           {hoy.tasks.data ? (
             hoy.tasks.data.open.length ? (
@@ -272,7 +237,7 @@ export function InicioEscritorio({ visible }: { visible: boolean }) {
       </aside>
 
       {/* el comando: en reposo, compacto; tocarlo o escribir lo abre hacia arriba como conversación */}
-      <section ref={panel} className={`ini-chat${vacio ? ' vacio' : ''}`} aria-label="Conversación con Rockie" onPointerDown={() => setActivo(true)}>
+      <section className={`ini-chat${vacio ? ' vacio' : ''}`} aria-label="Conversación con Rockie" onPointerDown={() => setActivo(true)}>
         <header className="ini-chat-cab">
           <span>{vacio ? 'Conversación nueva' : 'Conversación de hoy'}</span>
           {!vacio && (

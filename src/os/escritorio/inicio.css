@@ -1,19 +1,19 @@
 /* El Inicio del escritorio (escritorio/Inicio.tsx). Dos momentos:
    - REPOSO: casi vacío. La hora grande al centro, una frase de tu día, cuatro mini widgets y el comando compacto.
-   - ABIERTO (tocas el comando o escribes): la conversación crece hacia arriba, la hora se achica a la esquina,
-     la frase y los mini widgets se van y el dock se corre a la izquierda.
-   Los widgets de detalle esperan escondidos a los lados y se asoman al acercar el mouse al borde o al hacer clic
-   en ese lado. Todo con tokens (claro y oscuro), cantos 2.5D y el resorte de la casa (--resorte, 0,5 s). */
+   - ABIERTO (tocas el comando o escribes): la conversación crece hacia arriba hasta casi todo el alto; la hora, la
+     frase y los mini widgets del centro se van, el dock se esconde (se asoma al acercar el mouse abajo) y, al
+     instante, entran los widgets a los dos lados (la hora pasa arriba de la columna izquierda).
+   Todo con tokens (claro y oscuro), cantos 2.5D y el resorte de la casa (--resorte, 0,5 s). */
 .ini { --abajo: 124px; position: relative; height: 100%; min-height: 540px; overflow: hidden; }
 .esc[data-dock='arriba'] .ini, .esc[data-dock='izq'] .ini, .esc[data-dock='der'] .ini { --abajo: 28px; }
 
 /* ---------- la hora ---------- */
 .ini-reloj {
-  position: absolute; z-index: 2; top: 8%; left: 50%; translate: -50% 0; scale: 1; transform-origin: 100% 0; pointer-events: none;
-  transition: top 0.55s var(--resorte), left 0.55s var(--resorte), translate 0.55s var(--resorte), scale 0.55s var(--resorte);
+  position: absolute; z-index: 2; top: 8%; left: 50%; translate: -50% 0; scale: 1; transform-origin: 50% 0; pointer-events: none;
+  transition: opacity 0.25s ease, scale 0.45s var(--resorte);
 }
 .ini-reloj b { display: block; font-family: var(--serif); font-size: 128px; font-weight: 600; line-height: 0.9; letter-spacing: -5px; color: var(--ink); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
-.ini.abierto .ini-reloj { top: 18px; left: calc(100% - 26px); translate: -100% 0; scale: 0.34; }
+.ini.abierto .ini-reloj { opacity: 0; scale: 0.9; }
 
 .ini-frase, .ini-minis { position: absolute; left: 50%; translate: -50% 0; transition: opacity 0.28s ease, translate 0.45s var(--resorte); }
 .ini.abierto .ini-frase, .ini.abierto .ini-minis { opacity: 0; translate: -50% -16px; pointer-events: none; }
@@ -34,29 +34,24 @@
 .ini-mini-t small { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
 .ini-mini-t b { font-size: var(--t-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ---------- los lados: el mouse en el borde de la pantalla (o un clic en el asa) asoma los widgets ---------- */
-.ini-asa {
-  position: absolute; z-index: 5; top: 50%; translate: 0 -50%; width: 30px; height: 64px; padding: 0; border-radius: 14px; cursor: pointer;
-  display: grid; place-items: center; background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge); color: var(--ink-muted);
-  opacity: 0.7; transition: opacity 0.2s ease;
-}
-.ini-asa:hover { opacity: 1; color: var(--ink); }
-.ini-asa.izq { left: 8px; }
-.ini-asa.der { right: 8px; }
-.ini.lado-izq .ini-asa.izq, .ini.lado-der .ini-asa.der { opacity: 0; pointer-events: none; }
+/* ---------- los lados: al abrir la conversación entran solos (la izquierda con la hora arriba) ---------- */
 .ini-lado {
-  position: absolute; z-index: 4; top: 72px; bottom: var(--abajo); width: 262px; box-sizing: border-box; padding: 4px 4px 8px;
+  position: absolute; z-index: 4; top: 28px; bottom: 28px; width: 262px; box-sizing: border-box; padding: 4px 4px 8px;
   display: flex; flex-direction: column; gap: 14px; overflow-y: auto; scrollbar-width: none;
   opacity: 0; pointer-events: none; transition: translate 0.5s var(--resorte), opacity 0.22s ease;
 }
-.ini-lado.izq { left: 18px; translate: -36px 0; }
-.ini-lado.der { right: 18px; translate: 36px 0; }
-.ini.lado-izq .ini-lado.izq, .ini.lado-der .ini-lado.der { opacity: 1; translate: 0 0; pointer-events: auto; }
+.ini-lado.izq { left: 28px; translate: -40px 0; }
+/* a la derecha, debajo de tu cuenta */
+.ini-lado.der { right: 28px; top: 92px; translate: 40px 0; }
+.ini.abierto .ini-lado { opacity: 1; translate: 0 0; pointer-events: auto; }
 /* los widgets de cada lado entran uno tras otro */
-.ini-lado > * { transition: translate 0.5s var(--resorte); translate: 0 10px; }
-.ini.lado-izq .ini-lado.izq > *, .ini.lado-der .ini-lado.der > * { translate: 0 0; }
-.ini-lado > :nth-child(2) { transition-delay: 0.04s; }
-.ini-lado > :nth-child(3) { transition-delay: 0.08s; }
+.ini-lado > * { transition: translate 0.5s var(--resorte), opacity 0.3s ease; translate: 0 12px; opacity: 0; }
+.ini.abierto .ini-lado > * { translate: 0 0; opacity: 1; }
+.ini.abierto .ini-lado > :nth-child(2) { transition-delay: 0.05s; }
+.ini.abierto .ini-lado > :nth-child(3) { transition-delay: 0.1s; }
+.ini-lado-reloj { display: flex; flex-direction: column; gap: 6px; padding: 0 4px 6px; }
+.ini-lado-reloj b { font-family: var(--serif); font-size: 72px; font-weight: 600; line-height: 0.9; letter-spacing: -3px; color: var(--ink); font-variant-numeric: tabular-nums lining-nums; }
+.ini-lado-reloj span { font-size: var(--t-sm); font-weight: 700; color: var(--ink-soft); }
 
 /* widgets */
 .ini-w {
@@ -97,10 +92,13 @@
   position: absolute; z-index: 3; left: 50%; translate: -50% 0; bottom: var(--abajo); width: min(640px, calc(100% - 96px)); height: 178px;
   display: flex; flex-direction: column; background: var(--card); border: 1.5px solid var(--card-line); border-radius: 28px; overflow: hidden;
   box-shadow: 0 6px 0 var(--card-edge), 0 26px 64px rgba(52, 46, 80, 0.16), 0 6px 18px rgba(52, 46, 80, 0.08);
-  transition: height 0.55s var(--resorte), width 0.55s var(--resorte);
+  transition: height 0.55s var(--resorte), width 0.55s var(--resorte), bottom 0.55s var(--resorte);
 }
 :root[data-theme='dark'] .ini-chat { box-shadow: 0 6px 0 var(--card-edge), 0 26px 64px rgba(0, 0, 0, 0.45); }
-.ini.abierto .ini-chat { height: calc(100% - var(--abajo) - 76px); width: min(780px, calc(100% - 96px)); }
+/* abierto: casi todo el alto (el dock se esconde) y entre las dos columnas de widgets */
+.ini.abierto .ini-chat { bottom: 28px; height: calc(100% - 56px); width: min(760px, calc(100% - 660px)); }
+/* si el dock se asoma mientras conversas, la conversación le hace lugar (no lo tapa ni la tapa) */
+.esc[data-dock='abajo'].dock-ver .ini.abierto .ini-chat { bottom: 112px; height: calc(100% - 140px); }
 .ini:not(.abierto) .ini-chat-cab, .ini:not(.abierto) .ini-hilo { display: none; }
 .ini.abierto .ini-reposo-sug { display: none; }
 .ini.abierto .ini-chat-cab, .ini.abierto .ini-hilo { animation: ini-entra 0.42s var(--resorte) 0.06s both; }
@@ -192,9 +190,6 @@
 .ini-teclas kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid var(--card-line); border-bottom-width: 3px; background: var(--card); font: inherit; font-size: var(--t-3xs); color: var(--ink-soft); }
 .ini-chat > .ini-err { padding: 0 22px 12px; cursor: pointer; }
 
-/* el dock del escritorio se corre a la izquierda mientras conversas (y vuelve al centro en reposo) */
-.esc[data-dock='abajo']:has(.esc-inicio:not(.oculta) .ini.abierto) .esc-dock.ver { transform: translate(calc(26px - 50vw), 0) scale(0.92); transform-origin: 0 100%; transition-duration: 0.55s; }
-
 /* pantallas bajitas: la hora y lo de arriba más compactos */
 @media (max-height: 760px) {
   .ini-reloj { top: 6%; }
@@ -204,6 +199,11 @@
 }
 @media (max-width: 1080px) {
   .ini-minis button:nth-child(4) { display: none; }
+}
+/* sin lugar para las dos columnas: la conversación usa el ancho y los widgets se quedan en el reposo */
+@media (max-width: 1180px) {
+  .ini.abierto .ini-chat { width: min(760px, calc(100% - 96px)); }
+  .ini-lado { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ini-dots i { animation: none; opacity: 0.8; }

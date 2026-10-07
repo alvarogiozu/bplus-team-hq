@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { pasarCofre, PASS } from './helpers'
 
-// El Inicio del escritorio (PC): en reposo, la hora grande y el comando compacto; al tocar el comando se abre hacia
-// arriba como conversación (la hora a la esquina, el dock a la izquierda) y Esc lo devuelve al reposo. Los widgets
-// esperan a los lados y se asoman al llevar el mouse al borde de la pantalla.
+// El Inicio del escritorio (PC): sin apps abiertas no hay barra de arriba (solo tu cuenta, a la mano); en reposo,
+// la hora grande y el comando compacto. Al tocar el comando se abre hacia arriba como conversación: la hora del centro
+// se va, el dock se esconde y los widgets entran solos a los dos lados (la hora arriba a la izquierda). Esc vuelve.
 test.use({ viewport: { width: 1440, height: 900 } })
 
 test('Inicio del escritorio: reposo, conversación que se abre y widgets a los lados', async ({ page }) => {
@@ -20,21 +20,26 @@ test('Inicio del escritorio: reposo, conversación que se abre y widgets a los l
   await expect(page.locator('.ini-reloj b')).toHaveText(/^\d{2}:\d{2}$/)
   await expect(page.locator('.ini-minis button')).toHaveCount(4)
 
-  // el borde izquierdo de la pantalla asoma «Tu día»
-  await page.mouse.move(2, 450)
-  await expect(ini).toHaveClass(/lado-izq/)
-  await page.mouse.move(720, 450)
-  await expect(ini).not.toHaveClass(/lado-izq/, { timeout: 3000 })
+  // sin apps abiertas: sin barra de pestañas, pero tu cuenta se ve y se toca
+  await expect(page.locator('.esc')).toHaveClass(/sin-barra/)
+  await expect(page.getByRole('button', { name: /Tu cuenta/ })).toBeVisible()
+  await expect(page.locator('.esc-dock')).toHaveClass(/ver/)
+  await expect(page.locator('.ini-lado.izq')).toHaveCSS('opacity', '0')
 
-  // tocar el comando lo abre como conversación nueva; el dock se corre a la izquierda
-  const dock = page.locator('.esc-dock')
-  const antes = (await dock.boundingBox())!
+  // tocar el comando lo abre como conversación nueva: los widgets entran solos y el dock se esconde
   await page.locator('.ini-comp input').click()
   await expect(ini).toHaveClass(/abierto/)
   await expect(page.getByRole('heading', { name: /Buen(os|as) (días|tardes|noches)/ })).toBeVisible()
-  await page.waitForTimeout(700)
-  const despues = (await dock.boundingBox())!
-  expect(despues.x).toBeLessThan(antes.x - 200)
+  await expect(page.locator('.esc-dock')).not.toHaveClass(/ver/)
+  await expect(page.locator('.ini-lado.izq')).toHaveCSS('opacity', '1')
+  await expect(page.locator('.ini-lado.der')).toHaveCSS('opacity', '1')
+  await expect(page.locator('.ini-lado-reloj b')).toHaveText(/^\d{2}:\d{2}$/)
+  await expect(page.locator('.ini-reloj')).toHaveCSS('opacity', '0')
+
+  // el dock se asoma al llevar el mouse abajo
+  await page.mouse.move(720, 899)
+  await expect(page.locator('.esc-dock')).toHaveClass(/ver/)
+  await page.mouse.move(720, 450)
 
   // Esc (sin nada escrito) vuelve al reposo
   await page.locator('.ini-comp input').press('Escape')

@@ -3,19 +3,19 @@
    Pestañas arriba, ventanas en mosaico con huecos y esquinas redondas, dock flotante abajo y la
    barra de Rockie (Ctrl/⌘ K). Todo con los tokens de B+: funciona igual en claro y oscuro.
    ============================================================ */
-.esc { position: fixed; inset: 0; overflow: hidden; background: var(--paper-alt); }
+.esc { position: fixed; inset: 0; overflow: hidden; background: var(--paper); }
 .esc kbd {
   display: inline-block; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--card-line); background: var(--card-2);
   font-family: var(--sans); font-size: 11px; font-weight: 700; line-height: 1.5; color: var(--ink-muted); white-space: nowrap;
 }
 
-/* ---------- barra de arriba: marca, pestañas, buscar y cuenta ---------- */
-.esc-bar { position: absolute; top: 0; left: 0; right: 0; height: 54px; display: flex; align-items: center; gap: 10px; padding: 0 12px; }
-.esc-marca {
-  flex: none; display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px 0 6px; border-radius: 999px;
-  font-family: var(--serif); font-size: var(--t-md); font-weight: 700; color: var(--title); transition: background 0.15s;
+/* ---------- barra de arriba: solo las pestañas, sobre el mismo papel del escritorio (no una franja aparte).
+   Aparece recién cuando abres una app; sin apps abiertas, el Inicio ocupa toda la pantalla. ---------- */
+.esc-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 54px; display: flex; align-items: center; gap: 10px; padding: 0 84px 0 12px;
+  transition: opacity 0.3s ease, transform 0.45s var(--resorte);
 }
-.esc-marca:hover { background: var(--card); }
+.esc.sin-barra .esc-bar { opacity: 0; transform: translateY(-14px); pointer-events: none; }
 .esc-tabs { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 4px 2px 6px; }
 .esc-tabs::-webkit-scrollbar { display: none; }
 .esc-tab {
@@ -48,15 +48,17 @@
 .esc-lado.on .esc-lado-fill { opacity: 0.85; }
 .esc-win-bar .esc-lado { width: 26px; height: 26px; border-radius: 8px; }
 .esc-win-bar .esc-lado .ico { width: 16px; height: 16px; }
-.esc-buscar {
-  flex: none; display: inline-flex; align-items: center; gap: 8px; min-width: 250px; height: 40px; padding: 0 8px 0 14px; border-radius: 999px;
-  background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 2px 0 var(--card-edge); font-size: var(--t-xs); font-weight: 600; color: var(--ink-muted);
-  transition: border-color 0.15s;
+/* tu cuenta: un botón grande y a la mano, arriba a la derecha (no pegado al borde), con o sin pestañas */
+.esc-cuenta { position: absolute; z-index: 70; top: 4px; right: 16px; transition: top 0.4s var(--resorte), right 0.4s var(--resorte); }
+.esc.sin-barra .esc-cuenta { top: 18px; right: 24px; }
+.esc-avatar {
+  width: 50px; height: 50px; padding: 0; display: grid; place-items: center; border-radius: 999px; cursor: pointer;
+  background: var(--card); box-shadow: 0 0 0 1.5px var(--card-line), 0 4px 0 var(--card-edge);
+  transition: transform 0.14s var(--glide), box-shadow 0.14s var(--glide);
 }
-.esc-buscar:hover { border-color: var(--brand); }
-.esc-buscar span { flex: 1; text-align: left; }
-.esc-cuenta { position: relative; flex: none; }
-.esc-avatar { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; border-radius: 999px; background: none; }
+.esc-avatar:hover { transform: translateY(-2px); box-shadow: 0 0 0 1.5px var(--card-line), 0 6px 0 var(--card-edge); }
+.esc-avatar:active { transform: translateY(3px); box-shadow: 0 0 0 1.5px var(--card-line), 0 1px 0 var(--card-edge); }
+.esc-avatar[aria-expanded='true'] { box-shadow: 0 0 0 2.5px var(--accent), 0 4px 0 var(--card-edge); }
 
 /* ---------- menús (pestaña y cuenta) ---------- */
 .esc-menu-capa { position: fixed; inset: 0; z-index: 119; }
@@ -73,7 +75,8 @@
 
 /* ---------- la mesa: el Inicio y las ventanas ---------- */
 .esc-mesa { position: absolute; top: 54px; left: 10px; right: 10px; bottom: 10px; }
-.esc-inicio { position: absolute; inset: 0; overflow-y: auto; border-radius: 18px; background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--card-line); }
+.esc.sin-barra .esc-mesa { inset: 0; }
+.esc-inicio { position: absolute; inset: 0; overflow-y: auto; background: var(--paper); }
 .esc-inicio.oculta { visibility: hidden; pointer-events: none; }
 
 .esc-win {
