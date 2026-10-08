@@ -26,6 +26,7 @@
 
 /* ---------- selector «App ▾» ---------- */
 .os-switch {
+  touch-action: none; /* en el celular, la rueda sigue al dedo desde este botón: el navegador no se lleva el gesto */
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
@@ -61,6 +62,30 @@
 @keyframes os-pop {
   from { opacity: 0; transform: translateY(-6px) scale(0.98); }
 }
+
+/* ---------- la rueda de apps del celular (movil/RuedaApps): nace en «App ▾» y se abre en abanico hacia abajo
+   a la derecha; cada app es una sección del círculo que se enciende bajo el dedo ---------- */
+.os-rueda { position: fixed; inset: 0; z-index: 80; touch-action: none; -webkit-user-select: none; user-select: none; }
+.os-rueda-fondo { position: absolute; inset: 0; background: color-mix(in srgb, var(--paper) 55%, transparent); animation: os-fondo 0.2s ease; }
+@keyframes os-fondo { from { opacity: 0; } }
+.os-rueda-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.os-rueda-arco { fill: none; stroke: var(--ink-faint); stroke-width: 1.5; stroke-dasharray: 3 6; opacity: 0.7; }
+.os-rueda-cuna { fill-opacity: 0.16; stroke: none; }
+/* cada app es un enlace de 54×54 centrado en el punto del arco (un enlace de tamaño cero no se puede tocar ni enfocar) */
+.os-rueda-app {
+  position: absolute; width: 54px; height: 54px; margin: -27px 0 0 -27px; display: grid; place-items: center; text-decoration: none; color: var(--ink);
+  -webkit-tap-highlight-color: transparent; will-change: transform;
+}
+.os-rueda-app .os-tile.lg { width: 54px; height: 54px; border-radius: 17px; transition: box-shadow 0.15s; }
+.os-rueda-app .os-tile.lg .ico { width: 27px; height: 27px; }
+.os-rueda-app.on .os-tile.lg { box-shadow: 0 5px 0 var(--app-edge), 0 0 0 4px color-mix(in srgb, var(--app) 28%, transparent); }
+.os-rueda-nombre {
+  position: absolute; top: calc(100% + 6px); left: 50%; translate: -50% 0; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+  background: var(--ink); color: var(--paper); font-size: var(--t-2xs); font-weight: 800; opacity: 0; transform: scale(0.8);
+  transition: opacity 0.14s ease, transform 0.18s var(--spring); pointer-events: none;
+}
+.os-rueda-app.on .os-rueda-nombre { opacity: 1; transform: none; }
+.os-switch.abierto { background: var(--card-2); }
 
 .os-list { display: flex; flex-direction: column; gap: 2px; }
 .os-row {

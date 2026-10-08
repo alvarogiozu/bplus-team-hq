@@ -68,11 +68,11 @@ test('el celular: sin parpadeos entre pestañas y apps, pie que se arrastra y Ro
     expect(await malos(page), `Proyectos, pestaña ${i}`).toBe(0)
   }
 
-  // de app en app con el selector de arriba
+  // de app en app con la rueda de arriba (un toque la deja abierta; se elige tocando)
   for (const app of ['Agenda', 'Cuaderno', 'Inicio']) {
     await page.locator('.mtop').getByRole('button').first().click()
     await grabar(page)
-    await page.locator('.os-menu').getByRole('link', { name: new RegExp(`^${app}`) }).first().click()
+    await page.locator('.os-rueda').getByRole('menuitem', { name: new RegExp(`^${app}`) }).first().click()
     await page.waitForTimeout(1600)
     expect(await malos(page), `ir a ${app}`).toBe(0)
   }
