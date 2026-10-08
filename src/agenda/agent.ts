@@ -163,8 +163,10 @@ export function buildContext(p: {
   }
 }
 
-export async function askRockie(text: string, history: Turn[], context: unknown, local: () => Proposal | null): Promise<AgentReply> {
-  const { data, error } = await supabase.functions.invoke('agenda-agent', { body: { text, history, context, caps: ['otra_app'] } })
+/** `scope: 'os'` = el chat del sistema (Inicio del escritorio): además de la agenda, anota, crea hábitos y tareas del
+ *  equipo, y pregunta qué es cuando no está claro (aclarar). */
+export async function askRockie(text: string, history: Turn[], context: unknown, local: () => Proposal | null, scope?: 'os'): Promise<AgentReply> {
+  const { data, error } = await supabase.functions.invoke('agenda-agent', { body: { text, history, context, caps: ['otra_app'], ...(scope ? { scope } : {}) } })
   if (error) {
     let body: { error?: string } | null = null
     try {

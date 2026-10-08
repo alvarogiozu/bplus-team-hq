@@ -153,6 +153,24 @@
 .ini-card-st { font-size: var(--t-xs); font-weight: 800; color: var(--ink-muted); }
 .ini-todo { align-self: flex-start; height: 36px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--green-photo); color: var(--on-color); box-shadow: 0 3px 0 var(--green-photo-edge); font: inherit; font-size: var(--t-xs); font-weight: 800; cursor: pointer; }
 
+/* «¿cómo lo guardo?»: cuando no está claro qué es, eliges el tipo (cada uno con el color de su app) */
+.ini-aclarar { display: flex; flex-direction: column; gap: 6px; }
+.ini-aclarar > small { font-size: var(--t-xs); font-weight: 700; color: var(--ink-muted); }
+.ini-tipos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.ini-tipos button {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; text-align: left; cursor: pointer; font: inherit; color: var(--ink);
+  background: var(--card-2); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge); transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide), border-color 0.15s;
+}
+.ini-tipos button:hover:not(:disabled) { border-color: var(--c); transform: translateY(-1px); }
+.ini-tipos button:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-edge); }
+.ini-tipos button:disabled { cursor: default; opacity: 0.5; }
+.ini-tipos button.on { opacity: 1; border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, var(--card)); }
+.ini-tipos button > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.ini-tipos b { font-size: var(--t-sm); }
+.ini-tipos small { font-size: var(--t-2xs); font-weight: 600; color: var(--ink-muted); }
+.ini-tipo-ic { width: 34px; height: 34px; flex: none; border-radius: 11px; display: grid; place-items: center; color: var(--on-color); background: var(--c); box-shadow: 0 3px 0 var(--ce); }
+.ini-card-st button { margin-left: 8px; height: 28px; padding: 0 10px; border-radius: 999px; border: 1.5px solid var(--card-line); background: var(--card); box-shadow: 0 2px 0 var(--card-edge); font: inherit; font-size: var(--t-2xs); font-weight: 800; color: var(--ink); cursor: pointer; }
+
 /* lo que es de otra app: se abre allá, en su pestaña, con el pedido */
 .ini-pase { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; border: 1.5px solid color-mix(in srgb, var(--c) 45%, var(--card-line)); background: color-mix(in srgb, var(--c) 8%, var(--card)); }
 .ini-pase-ic { width: 34px; height: 34px; border-radius: 11px; flex: none; display: grid; place-items: center; color: var(--on-color); background: var(--c); box-shadow: 0 3px 0 var(--ce); }

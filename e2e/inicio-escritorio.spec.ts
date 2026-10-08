@@ -45,3 +45,52 @@ test('Inicio del escritorio: reposo, conversación que se abre y widgets a los l
   await page.locator('.ini-comp input').press('Escape')
   await expect(ini).not.toHaveClass(/abierto/)
 })
+
+// El chat del sistema hace cada cosa ahí mismo: una nota evidente se guarda sin pasar por la IA; si no está claro qué
+// es, pregunta «¿cómo lo guardo?» con opciones; un hábito abre Hábitos con el pedido. (La IA se simula aquí: la
+// batería de frases reales se corre aparte contra la de verdad.)
+test('chat del sistema: nota al instante, «¿cómo lo guardo?» y hábito que abre Hábitos', async ({ page }) => {
+  test.setTimeout(90_000)
+  let respuesta: unknown = null
+  await page.route('**/functions/v1/agenda-agent', async (route) => {
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' }
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
+    await route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify(respuesta) })
+  })
+  await page.addInitScript(() => localStorage.setItem('rockie.escritorio.pruebas', '1'))
+  await page.goto('/login?next=%2Finicio')
+  await page.getByLabel('Usuario').fill('qa.alvaro')
+  await page.getByLabel('Contraseña').fill(PASS)
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+  await pasarCofre(page)
+  const input = page.locator('.ini-comp input')
+  await expect(input).toBeVisible({ timeout: 30_000 })
+
+  // «anota que…» sin fecha: la tarjeta sale al instante y al confirmar queda en el Cuaderno
+  await input.fill('anota que el parcial entra hasta el capítulo 5')
+  await input.press('Enter')
+  const nota = page.locator('.ini-card[data-tool="anotar"]').last()
+  await expect(nota).toContainText('el parcial entra hasta el capítulo 5')
+  await nota.getByRole('button', { name: /^Confirmar/ }).click()
+  await expect(nota).toContainText('Anotado')
+  await expect(nota.getByRole('button', { name: 'Abrir' })).toBeVisible()
+
+  // no está claro: «¿cómo lo guardo?» con opciones; «Como nota» la guarda aquí mismo
+  respuesta = { say: '', proposals: [{ tool: 'aclarar', input: { pedido: 'estudiar cálculo', pregunta: '¿Cómo lo guardo?', opciones: ['agenda', 'habito', 'nota'] } }] }
+  await input.fill('estudiar cálculo')
+  await input.press('Enter')
+  const aclarar = page.locator('[data-aclarar]').last()
+  await expect(aclarar.getByRole('button')).toHaveCount(3)
+  await aclarar.getByRole('button', { name: /Como nota/ }).click()
+  await expect(page.locator('.ini-card[data-tool="anotar"]').last()).toContainText('estudiar cálculo')
+  await expect(aclarar.getByRole('button', { name: /Como hábito/ })).toBeDisabled()
+
+  // un hábito nuevo: al confirmar se abre Hábitos (su pestaña) con el pedido
+  respuesta = { say: '', proposals: [{ tool: 'habito', input: { accion: 'crear', nombre: 'Leer 20 minutos', hora: '22:00' } }] }
+  await input.fill('quiero leer 20 minutos todos los días a las 10 de la noche')
+  await input.press('Enter')
+  const hab = page.locator('.ini-card[data-tool="habito"]').last()
+  await expect(hab).toContainText('Hábito nuevo · a las 22:00')
+  await hab.getByRole('button', { name: /^Confirmar/ }).click()
+  await expect(page.locator('.esc-tab', { hasText: 'Hábitos' })).toBeVisible()
+})

@@ -250,6 +250,63 @@ Convierte cada orden en PROPUESTAS con las herramientas. Nunca ejecutas nada: la
 - Lo personal no es una tarea del equipo: una cita, el gimnasio o estudiar a una hora es otra_app "agenda"; algo que quiere repetir o volver hábito es "habitos"; una idea o apunte personal es "cuaderno". Personas que no están en "people" (pareja, familia, amigos) no son del equipo: no preguntes por ellas. area: cuerpo (salud, ejercicio, comida, sueño), mente (estudio, lectura, aprender, apuntes, ideas), alma (pareja, familia, amigos, descanso) o trabajo (solo tareas del equipo o del empleo).
 - Antes de las herramientas puedes escribir una frase corta y cálida.`
 
+// ---------- Modo OS: el chat del sistema, en el Inicio (scope: 'os') ----------
+// Un solo chat para las cuatro apps: primero decide QUÉ es cada cosa (nota, hábito, agenda o tarea del equipo) y,
+// si no está claro, pregunta con opciones (aclarar) en vez de adivinar. La agenda usa sus herramientas de siempre.
+const TOOLS_OS = [
+  ...TOOLS.filter((t) => t.name !== 'otra_app'),
+  {
+    name: 'anotar',
+    description:
+      'Guarda una NOTA en el Cuaderno: una idea, un apunte, algo que aprendió, una lista o algo que quiere recordar SIN día ni hora. texto = lo que hay que guardar, limpio (sin «anota que»).',
+    strict: true,
+    input_schema: obj({ texto: str }),
+  },
+  {
+    name: 'habito',
+    description:
+      'Hábitos: accion "crear" = algo que quiere REPETIR o volver costumbre (todos los días, cada mañana, 3 veces por semana, empezar a / dejar de). accion "hecho" = cuenta que YA hizo algo de su rutina hoy (ya medité, leí 20 minutos). nombre corto como lo diría (Leer 20 minutos). hora HH:mm si la dice.',
+    strict: true,
+    input_schema: obj({ accion: { type: 'string', enum: ['crear', 'hecho'] }, nombre: str, hora: optStr }),
+  },
+  {
+    name: 'crear_tarea_equipo',
+    description:
+      'Crea una TAREA en un equipo o proyecto (Proyectos): algo del grupo, del proyecto o para alguien de "people". space_id de "spaces". assignee_id de "people" (null = la persona que habla). due AAAA-MM-DD o null.',
+    strict: true,
+    input_schema: obj({ space_id: str, title: str, assignee_id: optStr, due: optStr }),
+  },
+  {
+    name: 'aclarar',
+    description:
+      'Cuando NO está claro de qué tipo es lo que dice (podría ser una actividad de la agenda, un hábito, una nota o una tarea del equipo): pregunta corta y las 2 a 4 opciones que tengan sentido.',
+    strict: true,
+    input_schema: obj({
+      pedido: str,
+      pregunta: str,
+      opciones: { type: 'array', items: { type: 'string', enum: ['agenda', 'habito', 'nota', 'tarea'] } },
+    }),
+  },
+]
+
+const SYSTEM_OS = `Eres Rockie, el asistente de Rockie OS (de B+): UN solo chat para cuatro apps. La Agenda (su día), Hábitos (lo que repite), el Cuaderno (sus notas) y Proyectos (las tareas de sus equipos). Te hablan en español, casi siempre estudiantes, muchas veces por voz (puede haber errores de dictado).
+
+Lo primero es decidir QUÉ es cada cosa que te dicen y usar la herramienta de ese tipo. Nunca ejecutas nada: la app muestra cada propuesta y la persona la confirma.
+
+1. NOTA → anotar. Algo para guardar o recordar SIN día ni hora: una idea, un apunte de clase, algo que aprendió, una lista, una fórmula, «anota…», «apunta…», «idea:…», «guarda que…», «que no se me olvide que…». texto limpio, sin «anota que».
+2. HÁBITO → habito. Algo que quiere REPETIR o volver costumbre: «todos los días», «cada mañana», «diario», «los lunes y miércoles», «tres veces por semana», «quiero empezar a…», «quiero dejar de…», «volverlo hábito». accion crear con un nombre corto («Leer 20 minutos», «Meditar», «Estudiar cálculo») y la hora si la dice. Si cuenta que YA HIZO algo de su rutina («ya medité», «hoy leí 20 minutos», «hice mis flexiones», «ya tomé mis vitaminas») y no es un ítem de su agenda: accion hecho.
+3. AGENDA → las herramientas de la agenda (crear_item, mover_item, reservar, completar_item…). Algo que hará UNA vez, con día u hora, o para ordenar su tiempo: «mañana a las 5 estudio cálculo», «el viernes examen de física a las 8», «bloquea 2 horas el sábado para el informe», «recuérdame pagar la pensión el lunes», «mueve el gimnasio a las 7». Un examen, una clase o una entrega personal con fecha es de la agenda. Preguntas sobre su día («¿qué tengo mañana?», «¿estoy libre el jueves?») son responder.
+4. TAREA DEL EQUIPO → crear_tarea_equipo. Algo de un proyecto o grupo de trabajo: menciona al equipo, al grupo, al proyecto o a alguien de "people" («que Diego haga el informe», «asígnale a Andrea la revisión», «tarea para el grupo: armar la presentación», «para el proyecto de circuitos…»). space_id: si tiene un solo equipo, ese; si son varios y no se sabe cuál, preguntar con los nombres de los equipos como opciones. assignee_id = id de people (null = la persona que habla). due si dice una fecha.
+5. Si NO está claro de qué tipo es («estudiar cálculo», «leer», «el gimnasio», «llamar a mamá», «tomar agua», sin día, sin hora y sin repetición), NO adivines: aclarar con el pedido tal cual, una pregunta corta y cálida («¿Cómo lo guardo?») y solo las opciones que tengan sentido.
+- Una frase puede traer varias cosas («anota que cambiaron el examen y ponme a estudiar el jueves a las 4»): una herramienta por cada una.
+- Horas sin «de la mañana», «temprano» ni «am»: de 1 a 7 son de la TARDE («a las 6» = 18:00, «a las 4» = 16:00); de 8 a 11, de la mañana. Despertar y dormir se entienden como siempre.
+- Si el pedido empieza con «Como nota:», «Como hábito:», «En la agenda:» o «Tarea del equipo:», la persona ya eligió el tipo: úsalo y no vuelvas a preguntar.
+- Saludos, agradecimientos o «¿qué puedes hacer?»: responder con una frase corta y cálida que diga que puedes agendar, crear hábitos, anotar y crear tareas del equipo.
+- Antes de las herramientas puedes escribir una frase corta y cálida (sin repetir lo que dicen las tarjetas).
+
+Reglas de la AGENDA personal (cuando el pedido es de la agenda):
+` + SYSTEM.replace(/^Eres Rockie, el asistente de Rockie Agenda[^\n]*\n\n/, '').replace(/^- Si el pedido es de otra app usa otra_app:[^\n]*\n/m, '')
+
 type Ctx = {
   items?: { id: string }[]
   events?: { id: string }[]
@@ -326,6 +383,14 @@ function valid(name: string, input: Record<string, unknown>, ctx: Ctx): boolean 
       return typeof input.text === 'string'
     case 'otra_app':
       return ['agenda', 'equipo', 'habitos', 'cuaderno'].includes(String(input.app)) && typeof input.pedido === 'string' && input.pedido.trim().length > 0
+    case 'anotar':
+      return typeof input.texto === 'string' && input.texto.trim().length > 0
+    case 'habito':
+      return (input.accion === 'crear' || input.accion === 'hecho') && typeof input.nombre === 'string' && input.nombre.trim().length > 0 && timeOk(input.hora)
+    case 'crear_tarea_equipo':
+      return has(ctx.spaces, input.space_id) && typeof input.title === 'string' && input.title.trim().length > 0 && (input.assignee_id == null || has(ctx.people, input.assignee_id)) && dateOk(input.due)
+    case 'aclarar':
+      return typeof input.pedido === 'string' && input.pedido.trim().length > 0 && Array.isArray(input.opciones) && input.opciones.filter((o) => ['agenda', 'habito', 'nota', 'tarea'].includes(String(o))).length >= 2
     default:
       return false
   }
@@ -371,7 +436,12 @@ Deno.serve(async (req) => {
   }
   const ligero = cupo?.plan === 'gratis'
   const ctx: Ctx = body.context ?? {}
-  const base: Kit = body.scope === 'hq' ? { tools: TOOLS_HQ as typeof TOOLS, system: SYSTEM_HQ } : { tools: TOOLS, system: SYSTEM }
+  const base: Kit =
+    body.scope === 'hq'
+      ? { tools: TOOLS_HQ as typeof TOOLS, system: SYSTEM_HQ }
+      : body.scope === 'os'
+        ? { tools: TOOLS_OS as typeof TOOLS, system: SYSTEM_OS }
+        : { tools: TOOLS, system: SYSTEM }
   // derivar a otra app solo si el cliente sabe mostrarlo (las versiones viejas no mandan caps)
   const canRoute = Array.isArray(body.caps) && body.caps.includes('otra_app')
   const kit: Kit = canRoute ? base : { ...base, tools: base.tools.filter((t) => t.name !== 'otra_app') }

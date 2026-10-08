@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useTransform, type MotionValue } from 'motion/
 import { Icon } from '../../components/Icon'
 import { AIcon } from '../../agenda/icons'
 import { useMicPress, useVoice } from '../../agenda/voice'
-import { useRockieHilo, type RockieDice } from '../../agenda/useRockieHilo'
+import { useRockieHilo, type RockieDice, type Tipo } from '../../agenda/useRockieHilo'
 import { APP_META, type ChatApp } from '../../features/agent/chat'
 import { fmtDayLong, greeting } from '../../lib/dates'
 import { APPS, rutaApp, type AppId, type OsApp } from '../apps'
@@ -30,6 +30,14 @@ const destino: Record<ChatApp, (pedido: string) => string> = {
 }
 const APP_DE: Record<ChatApp, AppId> = { agenda: 'agenda', equipo: 'equipo', cuaderno: 'cuaderno', habitos: 'habitos' }
 
+/** Las opciones de «¿cómo lo guardo?»: cada tipo con el color y el ícono de su app. */
+const TIPO: Record<Tipo, { titulo: string; sub: string; icon: OsApp['icon']; color: string; edge: string }> = {
+  agenda: { titulo: 'En la agenda', sub: 'una vez, con día u hora', icon: APP.agenda.icon, color: APP.agenda.color, edge: APP.agenda.edge },
+  habito: { titulo: 'Como hábito', sub: 'algo que repites', icon: APP.habitos.icon, color: APP.habitos.color, edge: APP.habitos.edge },
+  nota: { titulo: 'Como nota', sub: 'en tu Cuaderno', icon: APP.cuaderno.icon, color: APP.cuaderno.color, edge: APP.cuaderno.edge },
+  tarea: { titulo: 'Tarea del equipo', sub: 'en tus proyectos', icon: APP.equipo.icon, color: APP.equipo.color, edge: APP.equipo.edge },
+}
+
 export function InicioEscritorio({ visible, onAbierto }: { visible: boolean; onAbierto?: (abierto: boolean) => void }) {
   const esc = useEscritorio()
   const abrir = (path: string) => esc?.abrir(path)
@@ -43,7 +51,8 @@ export function InicioEscritorio({ visible, onAbierto }: { visible: boolean; onA
   }, [])
   const hora = useMemo(() => new Intl.DateTimeFormat('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: hoy.tz }).format(ahora), [ahora, hoy.tz])
 
-  const hilo = useRockieHilo({ today: hoy.today, nowMin: hoy.nowMin })
+  // el chat del sistema: además de la agenda, anota, crea hábitos y tareas del equipo, y pregunta si no está claro
+  const hilo = useRockieHilo({ today: hoy.today, nowMin: hoy.nowMin, scope: 'os', abrir: (path) => esc?.abrir(path) })
   const { thread, setThread, thinking } = hilo
   const [text, setText] = useState('')
   const input = useRef<HTMLInputElement>(null)
@@ -378,6 +387,32 @@ function Respuesta({ e, hilo, abrir, abrirRef, enviar }: { e: RockieDice; hilo: 
           ))}
         </div>
       )}
+      {e.aclarar && (
+        <div className="ini-aclarar" data-aclarar>
+          <p className="ini-dice">{e.aclarar.pregunta}</p>
+          <small>«{e.aclarar.pedido}»</small>
+          <div className="ini-tipos">
+            {e.aclarar.opciones.map((o) => (
+              <button
+                key={o}
+                type="button"
+                className={e.aclarar!.elegida === o ? 'on' : ''}
+                disabled={Boolean(e.aclarar!.elegida)}
+                onClick={() => hilo.elegir(e.id, o)}
+                style={{ ['--c' as string]: TIPO[o].color, ['--ce' as string]: TIPO[o].edge } as CSSProperties}
+              >
+                <span className="ini-tipo-ic">
+                  <Icon name={TIPO[o].icon} className="sm" />
+                </span>
+                <span>
+                  <b>{TIPO[o].titulo}</b>
+                  <small>{TIPO[o].sub}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {e.question && (
         <>
           <p className="ini-dice">{e.question.question}</p>
@@ -411,7 +446,7 @@ function Respuesta({ e, hilo, abrir, abrirRef, enviar }: { e: RockieDice; hilo: 
         <div className="ini-cards">
           <AnimatePresence initial={false}>
             {e.props.map((ps, i) => (
-              <motion.div key={i} className={`ini-card ${ps.st}`} style={{ ['--c' as string]: ps.card.color } as CSSProperties} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+              <motion.div key={i} className={`ini-card ${ps.st}`} data-tool={ps.p.tool} style={{ ['--c' as string]: ps.card.color } as CSSProperties} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                 <span className="ini-card-ic">
                   <AIcon name={ps.card.icon} size={17} />
                 </span>
@@ -432,7 +467,14 @@ function Respuesta({ e, hilo, abrir, abrirRef, enviar }: { e: RockieDice; hilo: 
                     </button>
                   </span>
                 ) : (
-                  <span className="ini-card-st">{ps.st === 'done' ? 'Hecho' : 'Descartada'}</span>
+                  <span className="ini-card-st">
+                    {ps.st === 'done' ? ps.listo ?? 'Hecho' : 'Descartada'}
+                    {ps.st === 'done' && ps.ir && (
+                      <button type="button" onClick={() => abrir(ps.ir!)}>
+                        Abrir
+                      </button>
+                    )}
+                  </span>
                 )}
               </motion.div>
             ))}
