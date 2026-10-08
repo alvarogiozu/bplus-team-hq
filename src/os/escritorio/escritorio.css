@@ -9,38 +9,7 @@
   font-family: var(--sans); font-size: 11px; font-weight: 700; line-height: 1.5; color: var(--ink-muted); white-space: nowrap;
 }
 
-/* ---------- barra de arriba: solo las pestañas, sobre el mismo papel del escritorio (no una franja aparte).
-   Aparece recién cuando abres una app; sin apps abiertas, el Inicio ocupa toda la pantalla. ---------- */
-.esc-bar {
-  position: absolute; top: 0; left: 0; right: 0; height: 54px; display: flex; align-items: center; gap: 10px; padding: 0 84px 0 12px;
-  transition: opacity 0.3s ease, transform 0.45s var(--resorte);
-}
-.esc.sin-barra .esc-bar { opacity: 0; transform: translateY(-14px); pointer-events: none; }
-.esc-tabs { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 4px 2px 6px; }
-.esc-tabs::-webkit-scrollbar { display: none; }
-.esc-tab {
-  position: relative; flex: none; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 8px 0 6px;
-  border-radius: 13px; font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); cursor: pointer; user-select: none; -webkit-user-select: none;
-  transition: background 0.18s, color 0.18s, box-shadow 0.18s, transform 0.12s var(--glide);
-}
-.esc-tab.home { padding-right: 12px; }
-.esc-tab:hover { background: color-mix(in srgb, var(--card) 75%, transparent); color: var(--ink); }
-.esc-tab:active { transform: translateY(1px); }
-.esc-tab.on { background: var(--card); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--card-line), 0 3px 0 var(--card-edge); }
-.esc-tab::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: -3px; height: 3px; border-radius: 3px; background: var(--app, var(--title)); opacity: 0; transition: opacity 0.18s; }
-.esc-tab.on::after { opacity: 1; }
-.esc-tab.vis::after { opacity: 0.45; }
-.esc-tab-ic {
-  width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 8px; color: var(--on-color);
-  background: var(--app, var(--title)); box-shadow: 0 2px 0 var(--app-edge, var(--coral-edge));
-}
-.esc-tab-t { white-space: nowrap; }
-.esc-tab-x { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 7px; color: var(--ink-muted); opacity: 0; transition: opacity 0.15s, background 0.15s; }
-.esc-tab:hover .esc-tab-x, .esc-tab.on .esc-tab-x { opacity: 1; }
-.esc-tab-x:hover { background: var(--paper-alt); color: var(--ink); }
-.esc-tab-mas { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; color: var(--ink-muted); transition: background 0.15s; }
-.esc-tab-mas:hover { background: var(--card); color: var(--ink); }
-.esc-lados { flex: none; display: inline-flex; gap: 2px; padding: 3px; border-radius: 13px; background: color-mix(in srgb, var(--card) 60%, transparent); }
+/* ---------- sin barra de arriba: cada ventana dice qué app es (su barra) y todo se abre desde el dock ---------- */
 .esc-lado { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: var(--ink-muted); transition: background 0.15s, color 0.15s; }
 .esc-lado:hover { background: var(--card); color: var(--ink); }
 .esc-lado.on { color: var(--ink-soft); }
@@ -49,8 +18,8 @@
 .esc-win-bar .esc-lado { width: 26px; height: 26px; border-radius: 8px; }
 .esc-win-bar .esc-lado .ico { width: 16px; height: 16px; }
 /* tu cuenta: un botón grande y a la mano, arriba a la derecha (no pegado al borde), con o sin pestañas */
-.esc-cuenta { position: absolute; z-index: 70; top: 4px; right: 16px; transition: top 0.4s var(--resorte), right 0.4s var(--resorte); }
-.esc.sin-barra .esc-cuenta { top: 18px; right: 24px; }
+/* tu cuenta: solo en el Inicio, un botón grande arriba a la derecha (no pegado al borde) */
+.esc-cuenta { position: absolute; z-index: 70; top: 18px; right: 24px; animation: popin 0.3s var(--spring); }
 .esc-avatar {
   width: 50px; height: 50px; padding: 0; display: grid; place-items: center; border-radius: 999px; cursor: pointer;
   background: var(--card); box-shadow: 0 0 0 1.5px var(--card-line), 0 4px 0 var(--card-edge);
@@ -74,9 +43,9 @@
 .esc-menu hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--line); }
 
 /* ---------- la mesa: el Inicio y las ventanas ---------- */
-.esc-mesa { position: absolute; top: 54px; left: 10px; right: 10px; bottom: 10px; }
-.esc.sin-barra .esc-mesa { inset: 0; }
-.esc-inicio { position: absolute; inset: 0; overflow-y: auto; background: var(--paper); transition: opacity 0.22s ease, visibility 0s linear 0s; }
+.esc-mesa { position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; }
+/* el Inicio es toda la pantalla (la mesa de las ventanas guarda su margen) */
+.esc-inicio { position: fixed; inset: 0; overflow-y: auto; background: var(--paper); transition: opacity 0.22s ease, visibility 0s linear 0s; }
 /* al abrir una app, el Inicio se desvanece por debajo de la ventana que entra (antes se cortaba: quedaba un cuadro vacío) */
 .esc-inicio.oculta { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.22s ease, visibility 0s linear 0.22s; }
 
@@ -91,8 +60,7 @@
 .esc-win[data-saliendo] { z-index: 0; pointer-events: none; }
 .esc-win iframe { flex: 1; width: 100%; min-height: 0; border: 0; background: transparent; opacity: 0; transition: opacity 0.25s; }
 .esc-win.lista iframe { opacity: 1; }
-.esc-win-splash { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; transition: opacity 0.25s; }
-.esc-win.partido .esc-win-splash { top: 34px; }
+.esc-win-splash { position: absolute; inset: 38px 0 0; display: grid; place-items: center; pointer-events: none; transition: opacity 0.25s; }
 .esc-win.lista .esc-win-splash { opacity: 0; }
 .esc-win-tile {
   width: 64px; height: 64px; display: grid; place-items: center; border-radius: 20px; color: var(--on-color);
@@ -103,11 +71,13 @@
 /* el latido es solo mientras la ventana arranca (después la portada queda invisible y no debe seguir animando) */
 .esc-win.lista .esc-win-tile, .esc-win.oculta .esc-win-tile { animation: none; }
 .esc-win-bar {
-  flex: none; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 6px 0 10px; background: var(--card);
-  border-bottom: 1.5px solid var(--card-line); font-size: var(--t-xs); user-select: none; -webkit-user-select: none;
+  flex: none; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 6px 0 10px; background: var(--card);
+  border-bottom: 1.5px solid var(--card-line); font-size: var(--t-xs); user-select: none; -webkit-user-select: none; cursor: grab;
 }
+.esc-win-bar b { font-size: var(--t-xs); font-weight: 800; color: var(--ink); }
+.esc-win-bar button.cerrar:hover { background: var(--coral); color: var(--on-color); }
 .esc-win.foco .esc-win-bar { background: color-mix(in srgb, var(--app) 10%, var(--card)); }
-.esc-win-ic { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 6px; background: var(--app); color: var(--on-color); }
+.esc-win-ic { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 7px; background: var(--app); color: var(--on-color); box-shadow: 0 2px 0 var(--app-edge); }
 .esc-win-ic .ico { width: 12px; height: 12px; }
 .esc-win-bar button { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; color: var(--ink-muted); }
 .esc-win-bar button:hover { background: var(--paper-alt); color: var(--ink); }
@@ -181,7 +151,7 @@
 /* ---------- el dock en otro lado (lo elige cada quien: menú de la cuenta o clic derecho en el dock) ---------- */
 /* arriba: cuelga justo debajo de las pestañas (no las tapa); se asoma desde el borde de arriba */
 .esc[data-dock='arriba'] .esc-dock-zona { top: 0; bottom: auto; height: 6px; }
-.esc[data-dock='arriba'] .esc-dock { top: 60px; bottom: auto; padding: 6px 14px 8px; box-shadow: 0 5px 0 var(--card-edge), var(--shadow-lift); transform: translate(-50%, calc(-100% - 70px)); }
+.esc[data-dock='arriba'] .esc-dock { top: 16px; bottom: auto; padding: 6px 14px 8px; box-shadow: 0 5px 0 var(--card-edge), var(--shadow-lift); transform: translate(-50%, calc(-100% - 70px)); }
 .esc[data-dock='arriba'] .esc-dock.ver { transform: translate(-50%, 0); }
 .esc[data-dock='arriba'] .esc-dock { align-items: flex-start; }
 .esc[data-dock='arriba'] .esc-dock-app { padding: 9px 4px 2px; transform-origin: 50% 0; }
@@ -195,10 +165,10 @@
 .esc[data-dock='arriba'] .esc-dock-rk:hover { transform: translateY(4px) scale(1.06); }
 
 /* a los lados: el dock se para (columna) y se asoma desde ese borde */
-.esc[data-dock='izq'] .esc-dock-zona, .esc[data-dock='der'] .esc-dock-zona { top: 54px; bottom: 0; width: 10px; height: auto; }
+.esc[data-dock='izq'] .esc-dock-zona, .esc[data-dock='der'] .esc-dock-zona { top: 0; bottom: 0; width: 10px; height: auto; }
 .esc[data-dock='izq'] .esc-dock-zona { left: 0; right: auto; }
 .esc[data-dock='der'] .esc-dock-zona { right: 0; left: auto; }
-.esc[data-dock='izq'] .esc-dock, .esc[data-dock='der'] .esc-dock { top: calc(50% + 27px); bottom: auto; flex-direction: column; align-items: center; padding: 14px 8px; }
+.esc[data-dock='izq'] .esc-dock, .esc[data-dock='der'] .esc-dock { top: 50%; bottom: auto; flex-direction: column; align-items: center; padding: 14px 8px; }
 .esc[data-dock='izq'] .esc-dock { left: 16px; transform: translate(calc(-100% - 34px), -50%); }
 .esc[data-dock='der'] .esc-dock { left: auto; right: 16px; transform: translate(calc(100% + 34px), -50%); }
 .esc[data-dock='izq'] .esc-dock.ver, .esc[data-dock='der'] .esc-dock.ver { transform: translate(0, -50%); }
@@ -222,9 +192,9 @@
 .esc[data-dock='der'] .esc-dock-rk:hover { transform: translateX(-4px) scale(1.06); }
 
 @media (hover: none) {
-  .esc[data-dock='arriba'] .esc-dock-asa { top: 54px; bottom: auto; }
+  .esc[data-dock='arriba'] .esc-dock-asa { top: 0; bottom: auto; }
   .esc[data-dock='arriba'] .esc-dock-asa::after { top: 7px; bottom: auto; }
-  .esc[data-dock='izq'] .esc-dock-asa, .esc[data-dock='der'] .esc-dock-asa { top: calc(50% + 27px); width: 26px; height: 140px; transform: translateY(-50%); }
+  .esc[data-dock='izq'] .esc-dock-asa, .esc[data-dock='der'] .esc-dock-asa { top: 50%; width: 26px; height: 140px; transform: translateY(-50%); }
   .esc[data-dock='izq'] .esc-dock-asa { left: 0; }
   .esc[data-dock='der'] .esc-dock-asa { left: auto; right: 0; }
   .esc[data-dock='izq'] .esc-dock-asa::after, .esc[data-dock='der'] .esc-dock-asa::after { top: 50%; bottom: auto; width: 5px; height: 80px; margin: -40px 0 0; }
@@ -278,6 +248,37 @@
 html[data-ventana] .os-home { padding-bottom: 24px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .esc-dock, .esc-dock-app, .esc-dock-rk, .esc-tab { transition: none; }
+  .esc-dock, .esc-dock-app, .esc-dock-rk { transition: none; }
   .esc-win-tile, .esc-cmd-mic.on { animation: none; }
 }
+
+/* ---------- el dock: reordenar (la app se abre hueco donde va a caer) ---------- */
+.esc-dock-app { transition: transform 0.2s var(--spring), margin 0.18s var(--glide); }
+.esc-dock-app.sobre-antes { margin-left: 22px; }
+.esc-dock-app.sobre-despues { margin-right: 22px; }
+.esc-dock-app[draggable='true'] { cursor: pointer; }
+
+/* ---------- personalizar una app (mantener presionado su ícono en el dock) ---------- */
+.esc-pers {
+  position: fixed; z-index: 121; width: 320px; padding: 14px; box-sizing: border-box; border-radius: 22px;
+  background: var(--paper-clean); border: 1.5px solid var(--card-line); box-shadow: var(--shadow-lift), 0 5px 0 var(--card-edge);
+  display: flex; flex-direction: column; gap: 8px; animation: popin 0.26s var(--spring); transform-origin: 50% 100%;
+}
+.esc-pers header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.esc-pers header > span:last-child { display: flex; flex-direction: column; }
+.esc-pers header b { font-size: var(--t-sm); }
+.esc-pers header small { font-size: var(--t-2xs); font-weight: 600; color: var(--ink-muted); }
+.esc-pers-tile { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 15px; color: var(--on-color); background: var(--app); box-shadow: 0 4px 0 var(--app-edge); transition: background 0.2s, box-shadow 0.2s; }
+.esc-pers-tile .ico { width: 24px; height: 24px; }
+.esc-pers-k { font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
+.esc-pers-colores { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.esc-pers-colores button { aspect-ratio: 1; border-radius: 999px; background: var(--k); box-shadow: 0 3px 0 var(--ke); border: 2.5px solid transparent; cursor: pointer; transition: transform 0.15s var(--spring); }
+.esc-pers-colores button:hover { transform: translateY(-2px); }
+.esc-pers-colores button[aria-checked='true'] { border-color: var(--paper-clean); box-shadow: 0 0 0 2.5px var(--k), 0 3px 0 var(--ke); }
+.esc-pers-iconos { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.esc-pers-iconos button { aspect-ratio: 1; display: grid; place-items: center; border-radius: 11px; color: var(--ink-soft); background: var(--card); border: 1.5px solid var(--card-line); cursor: pointer; }
+.esc-pers-iconos button:hover { color: var(--ink); }
+.esc-pers-iconos button[aria-checked='true'] { background: var(--app); border-color: var(--app); color: var(--on-color); }
+.esc-pers footer { display: flex; justify-content: space-between; margin-top: 6px; }
+.esc-pers footer button { height: 34px; padding: 0 14px; border-radius: 999px; font-size: var(--t-xs); font-weight: 800; color: var(--ink-soft); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 2px 0 var(--card-edge); }
+.esc-pers footer .listo { color: var(--on-color); background: var(--accent); border-color: var(--accent); box-shadow: 0 3px 0 var(--accent-edge); }

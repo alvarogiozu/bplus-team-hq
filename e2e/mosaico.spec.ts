@@ -113,7 +113,7 @@ test('Cuaderno: mover la nota que ves, al medio, abajo a la derecha y en lugar d
   await page.keyboard.press('Escape')
 })
 
-test('Escritorio: al medio de verdad, abajo a la derecha, arriba si te quedas y desde la barra', async ({ page }) => {
+test('Escritorio: desde el dock al medio de verdad, abajo a la derecha, arriba si te quedas y desde la barra de la ventana', async ({ page }) => {
   test.setTimeout(150_000)
   await page.addInitScript(() => localStorage.setItem('rockie.escritorio.pruebas', '1'))
   await page.goto('/login')
@@ -124,22 +124,28 @@ test('Escritorio: al medio de verdad, abajo a la derecha, arriba si te quedas y 
   await expect(page).toHaveURL(/\/inicio/)
   const dock = page.getByRole('navigation', { name: 'Dock' })
   for (const app of ['Agenda', 'Proyectos', 'Cuaderno']) {
-    // el dock se ve en el Inicio (en las apps se esconde); sin apps abiertas no hay barra: ya estás en el Inicio
-    if (await page.locator('.esc:not(.sin-barra)').count()) await page.locator('.esc-tab.home').click()
+    // todo se abre desde el dock (se ve en el Inicio; Alt 1 vuelve al Inicio)
+    await page.keyboard.press('Alt+1')
     await dock.getByRole('button', { name: app, exact: true }).click()
-    await expect(page.locator('.esc-tab', { hasText: app })).toBeVisible()
+    await expect(page.locator(`.esc-win[aria-label="${app}"]:not(.oculta)`)).toBeVisible()
   }
   // Cuaderno se ve sola; Proyectos a la derecha
   const mesa = await caja(page.locator('.esc-mesa'))
-  const tab = (t: string) => page.locator('.esc-tab', { hasText: t })
+  // arrastrar desde el dock: se asoma al acercar el mouse abajo
+  const tab = async (t: string) => {
+    await page.mouse.move(mesa.x + mesa.width / 2, mesa.y + mesa.height + 9)
+    await expect(dock).toHaveClass(/ver/)
+    await page.waitForTimeout(400)
+    return dock.getByRole('button', { name: t, exact: true })
+  }
   const win = (t: string) => page.locator(`.esc-win[aria-label="${t}"]:not(.oculta)`)
   const visibles = page.locator('.esc-win:not(.oculta)')
-  expect(await arrastrar(page, tab('Proyectos'), mesa.x + mesa.width - 30, mesa.y + mesa.height / 2, { snap: 'esc-a-la-derecha' })).toBe('A la derecha')
+  expect(await arrastrar(page, await tab('Proyectos'), mesa.x + mesa.width - 30, mesa.y + mesa.height / 2, { snap: 'esc-a-la-derecha' })).toBe('A la derecha')
   await expect(visibles).toHaveCount(2)
   // Agenda entre las dos: AL MEDIO
   await page.waitForTimeout(500)
   const izq = await caja(win('Cuaderno'))
-  expect(await arrastrar(page, tab('Agenda'), izq.x + izq.width + 5, mesa.y + mesa.height / 2, { snap: 'esc-al-medio' })).toBe('Al medio')
+  expect(await arrastrar(page, await tab('Agenda'), izq.x + izq.width + 5, mesa.y + mesa.height / 2, { snap: 'esc-al-medio' })).toBe('Al medio')
   await expect(visibles).toHaveCount(3)
   await page.waitForTimeout(500)
   const xs = await Promise.all(['Cuaderno', 'Agenda', 'Proyectos'].map(async (t) => (await caja(win(t))).x))
@@ -147,7 +153,7 @@ test('Escritorio: al medio de verdad, abajo a la derecha, arriba si te quedas y 
   expect(xs[1]).toBeLessThan(xs[2])
   // Agenda abajo de Proyectos: abajo a la derecha
   const eq = await caja(win('Proyectos'))
-  expect(await arrastrar(page, tab('Agenda'), eq.x + eq.width / 2, eq.y + eq.height - 40, { snap: 'esc-abajo-derecha' })).toBe('Abajo a la derecha')
+  expect(await arrastrar(page, await tab('Agenda'), eq.x + eq.width / 2, eq.y + eq.height - 40, { snap: 'esc-abajo-derecha' })).toBe('Abajo a la derecha')
   await page.waitForTimeout(500)
   const e2 = await caja(win('Proyectos'))
   const a2 = await caja(win('Agenda'))
@@ -155,8 +161,8 @@ test('Escritorio: al medio de verdad, abajo a la derecha, arriba si te quedas y 
   expect(a2.y).toBeGreaterThan(e2.y + e2.height - 2)
   await shot(page, 'esc-tres')
 
-  // arriba de Cuaderno: la franja de arriba cuenta si te quedas un momento (al pasar desde las pestañas, no)
-  expect(await arrastrar(page, tab('Agenda'), mesa.x + mesa.width * 0.25, mesa.y + mesa.height * 0.1, { quedarse: 450, snap: 'esc-arriba' })).toBe('Arriba a la izquierda')
+  // arriba de Cuaderno: la franja de arriba cuenta si te quedas un momento (al pasar de largo, no)
+  expect(await arrastrar(page, await tab('Agenda'), mesa.x + mesa.width * 0.25, mesa.y + mesa.height * 0.1, { quedarse: 450, snap: 'esc-arriba' })).toBe('Arriba a la izquierda')
   await page.waitForTimeout(500)
   const a3 = await caja(win('Agenda'))
   const c3 = await caja(win('Cuaderno'))

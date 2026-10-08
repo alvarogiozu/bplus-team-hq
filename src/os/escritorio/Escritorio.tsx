@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent as RPointerEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { useMe } from '../../features/auth/AuthProvider'
 import { signOut } from '../../features/auth/credentials'
 import { setAccent } from '../../app/theme'
@@ -69,6 +69,26 @@ type Accion =
 const VACIO: Estado = { vista: 'inicio', abiertas: [], mos: MOS_VACIO, foco: null }
 
 const nombreApp = (x: string) => APP[x as AppId]?.name ?? 'esa'
+
+/** Personalizar una app del dock (mantener presionado su ícono): su color y su ícono. */
+const COLORES: { c: string; e: string; n: string }[] = [
+  { c: '#bd6c56', e: '#9d5541', n: 'Coral' },
+  { c: '#eaa545', e: '#c8831e', n: 'Ámbar' },
+  { c: '#8aa54a', e: '#6d833a', n: 'Oliva' },
+  { c: '#4a7c3f', e: '#3a622f', n: 'Verde' },
+  { c: '#73a58a', e: '#5c8871', n: 'Jade' },
+  { c: '#2e88aa', e: '#216b87', n: 'Azul' },
+  { c: '#b4637a', e: '#944d63', n: 'Mora' },
+  { c: '#575279', e: '#3f3a5c', n: 'Tinta' },
+]
+const ICONOS: { n: IconName; t: string }[] = [
+  { n: 'calendar', t: 'Calendario' }, { n: 'today', t: 'Hoy' }, { n: 'tasks', t: 'Tareas' }, { n: 'board', t: 'Tablero' },
+  { n: 'projects', t: 'Proyectos' }, { n: 'notebook', t: 'Cuaderno' }, { n: 'flame', t: 'Fueguito' }, { n: 'goal', t: 'Meta' },
+  { n: 'team', t: 'Equipo' }, { n: 'star', t: 'Estrella' }, { n: 'trophy', t: 'Trofeo' }, { n: 'sparkle', t: 'Brillo' },
+  { n: 'folder', t: 'Carpeta' }, { n: 'flag', t: 'Bandera' }, { n: 'user', t: 'Persona' }, { n: 'home', t: 'Casa' },
+]
+type Estilo = { c?: string; e?: string; i?: IconName }
+type LookApp = { color: string; edge: string; icon: IconName }
 
 /** Sobre qué se coloca una app: el mosaico que se ve; desde el Inicio, junto a la última app que usaste. */
 function baseDe(s: Estado, id: AppId): Mosaico {
@@ -329,6 +349,57 @@ export default function Escritorio() {
     }
   }, [])
   const look = useMemo(() => rockieLook(), [])
+
+  // ---------- el dock: todo se abre desde aquí. El orden y el look de cada app los eliges tú ----------
+  const claveDock = `rockie.dock.${userId}`
+  const [dockOrden, setDockOrdenState] = useState<AppId[]>(() => {
+    try {
+      const g = JSON.parse(lsGet(`${claveDock}.orden`) ?? 'null') as unknown
+      if (Array.isArray(g)) {
+        const ok = g.filter((x): x is AppId => ORDEN.includes(x as AppId))
+        return [...ok, ...ORDEN.filter((x) => !ok.includes(x))]
+      }
+    } catch {
+      /* sin orden guardado */
+    }
+    return ORDEN
+  })
+  const setDockOrden = (o: AppId[]) => {
+    setDockOrdenState(o)
+    lsSet(`${claveDock}.orden`, JSON.stringify(o))
+  }
+  const [estilos, setEstilos] = useState<Partial<Record<AppId, Estilo>>>(() => {
+    try {
+      return (JSON.parse(lsGet(`${claveDock}.estilo`) ?? '{}') as Partial<Record<AppId, Estilo>>) ?? {}
+    } catch {
+      return {}
+    }
+  })
+  const setEstilo = (id: AppId, e: Estilo | null) =>
+    setEstilos((prev) => {
+      const n = { ...prev }
+      if (e) n[id] = { ...n[id], ...e }
+      else delete n[id]
+      lsSet(`${claveDock}.estilo`, JSON.stringify(n))
+      return n
+    })
+  /** el look de una app: el tuyo si lo cambiaste; si no, el de siempre */
+  const lookDe = (id: AppId): LookApp => ({ color: estilos[id]?.c ?? APP[id].color, edge: estilos[id]?.e ?? APP[id].edge, icon: estilos[id]?.i ?? APP[id].icon })
+  /** y: borde de arriba del ícono; y2: el de abajo (se abre hacia donde hay lugar) */
+  const [personalizar, setPersonalizar] = useState<{ id: AppId; x: number; y: number; y2?: number } | null>(null)
+  const [dockSobre, setDockSobre] = useState<{ id: AppId; antes: boolean } | null>(null)
+  const iconosDock = useRef(new Map<AppId, HTMLElement>())
+  /** la app que se abre desde su ícono (sale de ahí) y la que vuelve a él (al minimizar) */
+  const desdeDock = useRef<{ id: AppId; t: number } | null>(null)
+  const alDock = useRef<AppId | null>(null)
+  /** traslado+escala desde un rect de la mesa hasta el ícono del dock (o al revés) */
+  const haciaIcono = (id: AppId, r: Rect) => {
+    const ic = iconosDock.current.get(id)
+    const m = mesa.current?.getBoundingClientRect()
+    if (!ic || !m || !r.w || !r.h) return null
+    const a = ic.getBoundingClientRect()
+    return `translate(${a.left - m.left - r.x}px, ${a.top - m.top - r.y}px) scale(${a.width / r.w}, ${a.height / r.h})`
+  }
   // con el dedo no hay «alejar el mouse»: el dock que subiste con la manija baja solo
   useEffect(() => {
     if (!asomo || matchMedia('(hover: hover)').matches) return
@@ -438,10 +509,50 @@ export default function Escritorio() {
     reprogramar(3000)
   }
 
+  /** Minimizar: la ventana vuelve a su ícono del dock (la app sigue abierta, lista para volver al instante). */
+  const minimizar = (id: AppId) => {
+    alDock.current = id
+    dispatch({ t: 'quitar', id })
+  }
+  /** Cerrar: vuelve a su ícono como al minimizar (las demás ocupan su lugar a la vez) y luego se termina. */
+  const cerrarAlDock = (id: AppId) => {
+    const e = est.current
+    if (e.vista !== 'apps' || !idsDe(e.mos).includes(id)) return cerrar(id)
+    minimizar(id)
+    setTimeout(() => {
+      const n = est.current
+      // si la volviste a abrir mientras se iba, se queda
+      if (n.vista === 'apps' && idsDe(n.mos).includes(id)) return
+      cerrar(id)
+    }, 400)
+  }
+  /** Tocar una app en el dock: si es la que tienes adelante, se minimiza; si no, se abre saliendo de su ícono. */
+  const clicDock = (id: AppId) => {
+    const e = est.current
+    if (e.vista === 'apps' && e.foco === id && idsDe(e.mos).includes(id)) return minimizar(id)
+    desdeDock.current = { id, t: Date.now() }
+    abrir(id)
+  }
+  /** Reordenar el dock soltando una app sobre otra (a su izquierda o derecha). */
+  const soltarEnDock = (sobre: AppId, antes: boolean) => {
+    const id = enCurso.current
+    setDockSobre(null)
+    if (!id || id === sobre) return
+    const sin = dockOrden.filter((x) => x !== id)
+    const i = sin.indexOf(sobre) + (antes ? 0 : 1)
+    setDockOrden([...sin.slice(0, i), id, ...sin.slice(i)])
+  }
+
   // ---------- teclado: aquí y dentro de cada ventana ----------
   const teclas = useCallback(
     (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey
+      if (mod && !e.altKey && e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        e.stopPropagation()
+        setCmd((c) => (c ? null : { escuchar: false }))
+        return
+      }
       if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         e.stopPropagation()
@@ -656,7 +767,16 @@ export default function Escritorio() {
         }
         continue
       }
-      // toma el lugar de otra (cambiar de pestaña): se desliza de lado; si no, aparece con un pop
+      // abierta desde su ícono del dock: sale de ahí hasta su lugar
+      if (desdeDock.current?.id === id && Date.now() - desdeDock.current.t < 1500) {
+        desdeDock.current = null
+        const desde = haciaIcono(id, r)
+        if (desde) {
+          el.animate([{ transform: desde, opacity: 0.35, borderRadius: '22px' }, { transform: 'none', opacity: 1, borderRadius: '16px' }], { duration: 480, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' })
+          continue
+        }
+      }
+      // toma el lugar de otra (cambiar de app): se desliza de lado; si no, aparece con un pop
       const sale = [...prev.entries()].find(([pid, pr]) => !visibles.has(pid) && Math.abs(pr.x - r.x) < 2 && Math.abs(pr.w - r.w) < 2 && Math.abs(pr.y - r.y) < 2)
       if (sale) {
         const dir = orden(id) >= orden(sale[0]) ? 1 : -1
@@ -669,6 +789,18 @@ export default function Escritorio() {
       if (visibles.has(id)) continue
       const el = ventanas.current.get(id)
       if (!el || !suave) continue
+      // minimizada: vuelve a su ícono del dock
+      if (alDock.current === id) {
+        alDock.current = null
+        const hacia = haciaIcono(id, p)
+        if (hacia) {
+          el.dataset.saliendo = ''
+          // responde al instante y se posa en el ícono (un ease-in puro se veía congelado al empezar)
+          const a = el.animate([{ transform: 'none', opacity: 1 }, { transform: hacia, opacity: 0.15 }], { duration: 340, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' })
+          a.onfinish = a.oncancel = () => delete el.dataset.saliendo
+          continue
+        }
+      }
       const reemplazo = [...visibles.entries()].find(([nid, nr]) => !prev.has(nid) && Math.abs(nr.x - p.x) < 2 && Math.abs(nr.w - p.w) < 2)
       const dir = reemplazo ? (orden(reemplazo[0]) >= orden(id) ? -1 : 1) : 0
       el.dataset.saliendo = ''
@@ -764,76 +896,16 @@ export default function Escritorio() {
   const api = useMemo<EscritorioApi>(() => ({ abrir: abrirPath, comando: () => abrirChat(false) }), [abrirPath, abrirChat])
   // en el Inicio el dock se ve, salvo mientras conversas (ahí se esconde y se asoma al acercar el mouse abajo)
   const [charla, setCharla] = useState(false)
-  const dockVisible = (s.vista === 'inicio' && !charla) || asomo || Boolean(cmd)
-  // la barra de pestañas aparece recién cuando abres una app: sin apps abiertas, el Inicio es toda la pantalla
-  const conBarra = s.abiertas.length > 0
+  const dockVisible = (s.vista === 'inicio' && !charla) || asomo || Boolean(cmd) || Boolean(arrastre) || Boolean(personalizar)
   const partido = s.vista === 'apps' && cuantas(s.mos) > 1
   const seps = partido ? separadores(s.mos, tam.w, tam.h, GAP) : null
   const activa = s.vista === 'apps' ? s.foco : null
 
   return (
     <EscritorioCtx.Provider value={api}>
-      <div className={`esc${redim ? ` redim redim-${redim}` : ''}${arrastre ? ' arrastrando' : ''}${conBarra ? '' : ' sin-barra'}${dockVisible ? ' dock-ver' : ''}`} data-dock={ladoDock}>
-        <header className="esc-bar" aria-hidden={!conBarra}>
-          <nav className="esc-tabs" role="tablist" aria-label="Pestañas">
-            <button role="tab" aria-selected={s.vista === 'inicio'} className={`esc-tab home${s.vista === 'inicio' ? ' on' : ''}`} onClick={() => dispatch({ t: 'inicio' })} title="Inicio (Alt 1)">
-              <span className="esc-tab-ic">
-                <Icon name="home" className="sm" />
-              </span>
-              <span className="esc-tab-t">Inicio</span>
-            </button>
-            {s.abiertas.map((id) => {
-              const a = APP[id]
-              const enMosaico = s.vista === 'apps' && idsDe(s.mos).includes(id)
-              return (
-                <div
-                  key={id}
-                  role="tab"
-                  tabIndex={0}
-                  aria-selected={activa === id}
-                  className={`esc-tab${activa === id ? ' on' : ''}${enMosaico && activa !== id ? ' vis' : ''}`}
-                  style={{ ['--app' as string]: a.color, ['--app-edge' as string]: a.edge } as CSSProperties}
-                  title={`${a.name} (Alt ${ORDEN.indexOf(id) + 2})`}
-                  draggable
-                  onDragStart={(e) => empezarArrastre(e, id)}
-                  onDragEnd={terminarArrastre}
-                  onClick={() => abrir(id)}
-                  onKeyDown={(e) => e.key === 'Enter' && abrir(id)}
-                  onAuxClick={(e) => e.button === 1 && cerrar(id)}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    setMenu({ id, x: e.clientX, y: e.clientY })
-                  }}
-                >
-                  <span className="esc-tab-ic">
-                    <Icon name={a.icon} className="sm" />
-                  </span>
-                  <span className="esc-tab-t">{a.name}</span>
-                  <button
-                    className="esc-tab-x"
-                    aria-label={`Cerrar ${a.name}`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      cerrar(id)
-                    }}
-                  >
-                    <Icon name="close" className="sm" />
-                  </button>
-                </div>
-              )
-            })}
-            <button className="esc-tab-mas" onClick={() => setCmd({ escuchar: false })} aria-label="Abrir otra app" title="Abrir otra app (Ctrl K)">
-              <Icon name="plus" className="sm" />
-            </button>
-          </nav>
-          {activa && (
-            <span className="esc-lados" role="group" aria-label={`Barras de ${APP[activa].name}`}>
-              <LadoBtn lado="izq" visible={!sinIzq(activa)} onClick={() => alternar(activa, 'izq')} />
-              {CON_DER.includes(activa) && <LadoBtn lado="der" visible={!sinDer(activa)} onClick={() => alternar(activa, 'der')} />}
-            </span>
-          )}
-        </header>
-        {/* tu cuenta: siempre a la mano, arriba a la derecha (con o sin pestañas) */}
+      <div className={`esc${redim ? ` redim redim-${redim}` : ''}${arrastre ? ' arrastrando' : ''}${dockVisible ? ' dock-ver' : ''}`} data-dock={ladoDock}>
+        {/* tu cuenta: solo en el Inicio (en las apps, todo se abre y se cierra desde el dock) */}
+        {s.vista === 'inicio' && (
         <div className="esc-cuenta">
           <button className="esc-avatar" onClick={() => setCuenta((v) => !v)} aria-haspopup="menu" aria-expanded={cuenta} aria-label="Tu cuenta: perfil, ajustes y cerrar sesión">
             <Avatar size={42} />
@@ -858,6 +930,7 @@ export default function Escritorio() {
             </div>
           )}
         </div>
+        )}
 
         <main className="esc-mesa" ref={mesa}>
           <div ref={inicio} className={`esc-inicio${s.vista === 'inicio' ? '' : ' oculta'}`} aria-hidden={s.vista !== 'inicio'}>
@@ -879,11 +952,11 @@ export default function Escritorio() {
                   else ventanas.current.delete(id)
                 }}
                 className={`esc-win${ve ? '' : ' oculta'}${s.foco === id && partido ? ' foco' : ''}${partido ? ' partido' : ''}${listas.has(id) ? ' lista' : ''}`}
-                style={{ left: r.x, top: r.y, width: r.w, height: r.h, ['--app' as string]: a.color, ['--app-edge' as string]: a.edge } as CSSProperties}
+                style={{ left: r.x, top: r.y, width: r.w, height: r.h, ['--app' as string]: lookDe(id).color, ['--app-edge' as string]: lookDe(id).edge } as CSSProperties}
                 aria-label={a.name}
                 aria-hidden={!ve}
               >
-                {partido && ve && (
+                {ve && (
                   <div
                     className="esc-win-bar"
                     onPointerDown={(e) => {
@@ -900,23 +973,28 @@ export default function Escritorio() {
                     onDragEnd={terminarArrastre}
                   >
                     <span className="esc-win-ic">
-                      <Icon name={a.icon} className="sm" />
+                      <Icon name={lookDe(id).icon} className="sm" />
                     </span>
                     <b>{a.name}</b>
                     <span className="spacer" />
                     <LadoBtn lado="izq" visible={!sinIzq(id)} onClick={() => alternar(id, 'izq')} />
                     {CON_DER.includes(id) && <LadoBtn lado="der" visible={!sinDer(id)} onClick={() => alternar(id, 'der')} />}
-                    <button onClick={() => dispatch({ t: 'solo', id })} aria-label={`Solo ${a.name}`} title="Solo esta (Alt ↑)">
-                      <Icon name="expand" className="sm" />
+                    {partido && (
+                      <button onClick={() => dispatch({ t: 'solo', id })} aria-label={`Solo ${a.name}`} title="Solo esta (Alt ↑)">
+                        <Icon name="expand" className="sm" />
+                      </button>
+                    )}
+                    <button onClick={() => minimizar(id)} aria-label={`Minimizar ${a.name}`} title="Minimizar: vuelve al dock (Alt ↓)">
+                      <Icon name="minus" className="sm" />
                     </button>
-                    <button onClick={() => dispatch({ t: 'quitar', id })} aria-label={`Quitar ${a.name} del mosaico`} title="Quitar del mosaico (Alt ↓)">
+                    <button className="cerrar" onClick={() => cerrarAlDock(id)} aria-label={`Cerrar ${a.name}`} title="Cerrar">
                       <Icon name="close" className="sm" />
                     </button>
                   </div>
                 )}
                 <div className="esc-win-splash" aria-hidden="true">
                   <span className="esc-win-tile">
-                    <Icon name={a.icon} />
+                    <Icon name={lookDe(id).icon} />
                   </span>
                 </div>
                 {vivas.has(id) && (
@@ -994,8 +1072,41 @@ export default function Escritorio() {
             </span>
             <small>Inicio</small>
           </button>
-          {APPS.slice(0, 2).map((a) => (
-            <DockApp key={a.id} app={a} abierta={s.abiertas.includes(a.id)} on={activa === a.id} onClick={() => abrir(a.id)} />
+          {dockOrden.slice(0, 2).map((id) => (
+            <DockApp
+              key={id}
+              app={APP[id]}
+              look={lookDe(id)}
+              abierta={s.abiertas.includes(id)}
+              on={activa === id}
+              sobre={dockSobre?.id === id ? (dockSobre.antes ? 'antes' : 'despues') : null}
+              refIcono={(el) => {
+                if (el) iconosDock.current.set(id, el)
+                else iconosDock.current.delete(id)
+              }}
+              onAbrir={() => clicDock(id)}
+              onDragStart={(e) => empezarArrastre(e, id)}
+              onDragEnd={() => {
+                setDockSobre(null)
+                terminarArrastre()
+              }}
+              onDragOver={(e) => {
+                if (!enCurso.current || enCurso.current === id) return
+                e.preventDefault()
+                const r = e.currentTarget.getBoundingClientRect()
+                const antes = e.clientX < r.left + r.width / 2
+                if (dockSobre?.id !== id || dockSobre.antes !== antes) setDockSobre({ id, antes })
+              }}
+              onDragLeave={() => setDockSobre((x) => (x?.id === id ? null : x))}
+              onDrop={(e) => {
+                e.preventDefault()
+                const r = e.currentTarget.getBoundingClientRect()
+                soltarEnDock(id, e.clientX < r.left + r.width / 2)
+                terminarArrastre()
+              }}
+              onLargo={(x, y, y2) => setPersonalizar({ id, x, y, y2 })}
+              onMenu={(x, y) => setMenu({ id, x, y })}
+            />
           ))}
           <span className="esc-dock-rockie">
             <button className="esc-dock-rk" onClick={() => abrirChat(false)} aria-label="Rockie" title="Rockie (Ctrl K)">
@@ -1005,8 +1116,41 @@ export default function Escritorio() {
               <Icon name="mic" className="sm" />
             </button>
           </span>
-          {APPS.slice(2).map((a) => (
-            <DockApp key={a.id} app={a} abierta={s.abiertas.includes(a.id)} on={activa === a.id} onClick={() => abrir(a.id)} />
+          {dockOrden.slice(2).map((id) => (
+            <DockApp
+              key={id}
+              app={APP[id]}
+              look={lookDe(id)}
+              abierta={s.abiertas.includes(id)}
+              on={activa === id}
+              sobre={dockSobre?.id === id ? (dockSobre.antes ? 'antes' : 'despues') : null}
+              refIcono={(el) => {
+                if (el) iconosDock.current.set(id, el)
+                else iconosDock.current.delete(id)
+              }}
+              onAbrir={() => clicDock(id)}
+              onDragStart={(e) => empezarArrastre(e, id)}
+              onDragEnd={() => {
+                setDockSobre(null)
+                terminarArrastre()
+              }}
+              onDragOver={(e) => {
+                if (!enCurso.current || enCurso.current === id) return
+                e.preventDefault()
+                const r = e.currentTarget.getBoundingClientRect()
+                const antes = e.clientX < r.left + r.width / 2
+                if (dockSobre?.id !== id || dockSobre.antes !== antes) setDockSobre({ id, antes })
+              }}
+              onDragLeave={() => setDockSobre((x) => (x?.id === id ? null : x))}
+              onDrop={(e) => {
+                e.preventDefault()
+                const r = e.currentTarget.getBoundingClientRect()
+                soltarEnDock(id, e.clientX < r.left + r.width / 2)
+                terminarArrastre()
+              }}
+              onLargo={(x, y, y2) => setPersonalizar({ id, x, y, y2 })}
+              onMenu={(x, y) => setMenu({ id, x, y })}
+            />
           ))}
         </nav>
         {/* en tablets (sin mouse para asomarse al borde): una manija que sube el dock */}
@@ -1066,13 +1210,29 @@ export default function Escritorio() {
           </>
         )}
 
+        {personalizar && (
+          <Personalizar
+            app={APP[personalizar.id]}
+            look={lookDe(personalizar.id)}
+            x={personalizar.x}
+            y={personalizar.y}
+            y2={personalizar.y2 ?? personalizar.y}
+            elegir={(e) => setEstilo(personalizar.id, e)}
+            cerrar={() => setPersonalizar(null)}
+          />
+        )}
+
         {menu && (
           <>
             <div className="esc-menu-capa" onMouseDown={() => setMenu(null)} onContextMenu={(e) => {
                 e.preventDefault()
                 setMenu(null)
               }} />
-            <div className="esc-menu" role="menu" style={{ left: menu.x, top: menu.y }}>
+            <div
+              className="esc-menu"
+              role="menu"
+              style={{ left: Math.max(8, Math.min(menu.x, innerWidth - 250)), ...(menu.y > innerHeight / 2 ? { bottom: innerHeight - menu.y + 6 } : { top: menu.y }) }}
+            >
               <button role="menuitem" onClick={() => enMenu(() => abrir(menu.id, undefined, 'izq'))}>
                 <Icon name="collapse" className="sm" /> A la izquierda <kbd>Alt ←</kbd>
               </button>
@@ -1088,10 +1248,17 @@ export default function Escritorio() {
               })}>
                 <Icon name="panel" className="sm" /> Solo esta <kbd>Alt ↑</kbd>
               </button>
-              <hr />
-              <button role="menuitem" onClick={() => enMenu(() => cerrar(menu.id))}>
-                <Icon name="close" className="sm" /> Cerrar pestaña
+              <button role="menuitem" onClick={() => enMenu(() => setPersonalizar({ id: menu.id, x: menu.x, y: menu.y }))}>
+                <Icon name="edit" className="sm" /> Color e ícono…
               </button>
+              {s.abiertas.includes(menu.id) && (
+                <>
+                  <hr />
+                  <button role="menuitem" onClick={() => enMenu(() => cerrarAlDock(menu.id))}>
+                    <Icon name="close" className="sm" /> Cerrar
+                  </button>
+                </>
+              )}
             </div>
           </>
         )}
@@ -1142,13 +1309,138 @@ function LadosDock({ lado, elegir }: { lado: LadoDock; elegir: (l: LadoDock) => 
   )
 }
 
-function DockApp({ app, abierta, on, onClick }: { app: OsApp; abierta: boolean; on: boolean; onClick: () => void }) {
+/** Una app del dock: tocar = abrir (o minimizar si ya la tienes adelante); arrastrar = llevarla a la pantalla, o
+ *  soltarla sobre otra del dock para reordenar; mantener presionado = personalizar su color y su ícono. */
+function DockApp(p: {
+  app: OsApp
+  look: LookApp
+  abierta: boolean
+  on: boolean
+  sobre: 'antes' | 'despues' | null
+  refIcono: (el: HTMLElement | null) => void
+  onAbrir: () => void
+  onDragStart: (e: DragEvent) => void
+  onDragEnd: () => void
+  onDragOver: (e: DragEvent<HTMLButtonElement>) => void
+  onDragLeave: () => void
+  onDrop: (e: DragEvent<HTMLButtonElement>) => void
+  onLargo: (x: number, y: number, y2: number) => void
+  onMenu: (x: number, y: number) => void
+}) {
+  const largo = useRef<ReturnType<typeof setTimeout>>()
+  const fue = useRef(false)
+  const desde = useRef({ x: 0, y: 0 })
+  const cancelar = () => clearTimeout(largo.current)
+  useEffect(() => cancelar, [])
   return (
-    <button className={`esc-dock-app${on ? ' on' : ''}${abierta ? ' abierta' : ''}`} style={{ ['--app' as string]: app.color, ['--app-edge' as string]: app.edge } as CSSProperties} onClick={onClick} aria-label={app.name}>
+    <button
+      ref={p.refIcono}
+      draggable
+      className={`esc-dock-app${p.on ? ' on' : ''}${p.abierta ? ' abierta' : ''}${p.sobre ? ` sobre-${p.sobre}` : ''}`}
+      style={{ ['--app' as string]: p.look.color, ['--app-edge' as string]: p.look.edge } as CSSProperties}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return
+        fue.current = false
+        desde.current = { x: e.clientX, y: e.clientY }
+        const el = e.currentTarget
+        cancelar()
+        largo.current = setTimeout(() => {
+          fue.current = true
+          const r = el.getBoundingClientRect()
+          p.onLargo(r.left + r.width / 2, r.top, r.bottom)
+        }, 520)
+      }}
+      onPointerMove={(e) => {
+        if (Math.hypot(e.clientX - desde.current.x, e.clientY - desde.current.y) > 6) cancelar()
+      }}
+      onPointerUp={cancelar}
+      onPointerLeave={cancelar}
+      onDragStart={(e) => {
+        cancelar()
+        p.onDragStart(e)
+      }}
+      onDragEnd={p.onDragEnd}
+      onDragOver={p.onDragOver}
+      onDragLeave={p.onDragLeave}
+      onDrop={p.onDrop}
+      onClick={() => {
+        if (fue.current) {
+          fue.current = false
+          return
+        }
+        p.onAbrir()
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        cancelar()
+        p.onMenu(e.clientX, e.clientY)
+      }}
+      aria-label={p.app.name}
+      title={`${p.app.name} · arrástrala a la pantalla · mantén presionado para cambiar su color e ícono`}
+    >
       <span className="esc-dock-tile">
-        <Icon name={app.icon} />
+        <Icon name={p.look.icon} />
       </span>
-      <small>{app.name}</small>
+      <small>{p.app.name}</small>
     </button>
+  )
+}
+
+/** Personalizar una app del dock: su color y su ícono (se guardan en este equipo). */
+function Personalizar(p: { app: OsApp; look: LookApp; x: number; y: number; y2: number; elegir: (e: Estilo | null) => void; cerrar: () => void }) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && p.cerrar()
+    addEventListener('keydown', k)
+    return () => removeEventListener('keydown', k)
+  }, [p])
+  const left = Math.min(Math.max(12, p.x - 160), innerWidth - 332)
+  // dock abajo: se abre encima del ícono; dock arriba: debajo
+  const donde: CSSProperties = p.y > innerHeight / 2 ? { left, bottom: Math.max(12, innerHeight - p.y + 14) } : { left, top: Math.max(12, p.y2 + 14), transformOrigin: '50% 0' }
+  return (
+    <>
+      <div className="esc-menu-capa" onMouseDown={p.cerrar} />
+      <div className="esc-pers" role="dialog" aria-label={`Color e ícono de ${p.app.name}`} style={donde}>
+        <header>
+          <span className="esc-pers-tile" style={{ ['--app' as string]: p.look.color, ['--app-edge' as string]: p.look.edge } as CSSProperties}>
+            <Icon name={p.look.icon} />
+          </span>
+          <span>
+            <b>{p.app.name}</b>
+            <small>Así se verá en tu dock y en su ventana</small>
+          </span>
+        </header>
+        <small className="esc-pers-k">Color</small>
+        <div className="esc-pers-colores" role="radiogroup" aria-label="Color">
+          {COLORES.map((k) => (
+            <button
+              key={k.c}
+              role="radio"
+              aria-checked={p.look.color === k.c}
+              aria-label={k.n}
+              title={k.n}
+              style={{ ['--k' as string]: k.c, ['--ke' as string]: k.e } as CSSProperties}
+              onClick={() => p.elegir({ c: k.c, e: k.e })}
+            />
+          ))}
+        </div>
+        <small className="esc-pers-k">Ícono</small>
+        <div className="esc-pers-iconos" role="radiogroup" aria-label="Ícono">
+          {ICONOS.map(({ n, t }) => (
+            <button key={n} role="radio" aria-checked={p.look.icon === n} aria-label={t} title={t} onClick={() => p.elegir({ i: n })} style={{ ['--app' as string]: p.look.color } as CSSProperties}>
+              <Icon name={n} className="sm" />
+            </button>
+          ))}
+        </div>
+        <footer>
+          <button type="button" onClick={() => p.elegir(null)}>
+            Restablecer
+          </button>
+          <button type="button" className="listo" onClick={p.cerrar}>
+            Listo
+          </button>
+        </footer>
+      </div>
+    </>
   )
 }

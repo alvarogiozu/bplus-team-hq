@@ -20,8 +20,8 @@ test('Inicio del escritorio: reposo, conversación que se abre y widgets a los l
   await expect(page.locator('.ini-reloj b')).toHaveText(/^\d{2}:\d{2}$/)
   await expect(page.locator('.ini-minis button')).toHaveCount(4)
 
-  // sin apps abiertas: sin barra de pestañas, pero tu cuenta se ve y se toca
-  await expect(page.locator('.esc')).toHaveClass(/sin-barra/)
+  // sin barra de pestañas (todo se abre desde el dock); tu cuenta, en el Inicio
+  await expect(page.locator('.esc-bar')).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Tu cuenta/ })).toBeVisible()
   await expect(page.locator('.esc-dock')).toHaveClass(/ver/)
   await expect(page.locator('.ini-lado.izq')).toHaveCSS('opacity', '0')
@@ -92,7 +92,7 @@ test('chat del sistema: nota al instante, «¿cómo lo guardo?» y hábito que a
   const hab = page.locator('.ini-card[data-tool="habito"]').last()
   await expect(hab).toContainText('Hábito nuevo · a las 22:00')
   await hab.getByRole('button', { name: /^Confirmar/ }).click()
-  await expect(page.locator('.esc-tab', { hasText: 'Hábitos' })).toBeVisible()
+  await expect(page.locator('.esc-win[aria-label="Hábitos"]:not(.oculta)')).toBeVisible()
 })
 
 // Un solo Rockie en todo el sistema: dentro de una app, la barra flotante de abajo es la misma conversación del Inicio
@@ -112,7 +112,9 @@ test('Rockie del sistema dentro de las apps: barra flotante, Ctrl K y la misma c
   await pasarCofre(page)
   await expect(page.locator('.ini')).toBeVisible({ timeout: 30_000 })
   await page.getByRole('navigation', { name: 'Dock' }).getByRole('button', { name: 'Agenda', exact: true }).click()
-  await expect(page.locator('.esc-tab', { hasText: 'Agenda' })).toBeVisible()
+  await expect(page.locator('.esc-win[aria-label="Agenda"]:not(.oculta) .esc-win-bar')).toContainText('Agenda')
+  // en las apps no está tu cuenta (solo en el Inicio)
+  await expect(page.getByRole('button', { name: /Tu cuenta/ })).toHaveCount(0)
 
   // la barra del sistema abajo; la de Rockie de la Agenda, escondida dentro de su ventana
   const osc = page.locator('.osc')
@@ -136,7 +138,7 @@ test('Rockie del sistema dentro de las apps: barra flotante, Ctrl K y la misma c
   await page.keyboard.press('Control+k')
 
   // en el Inicio está la MISMA conversación
-  await page.locator('.esc-tab.home').click()
+  await page.keyboard.press('Alt+1')
   await expect(page.locator('.ini')).toHaveClass(/abierto/)
   await expect(page.locator('.ini .ini-dice')).toContainText('el gimnasio y leer')
 })
