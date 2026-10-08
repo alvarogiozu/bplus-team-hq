@@ -55,6 +55,8 @@ export function ChatPanel(p: {
   pedirVoz?: number
   /** el atajo de la derecha */
   pie?: string
+  /** lo que dice la caja vacía (en el celular, más corto) */
+  placeholder?: string
 }) {
   const { hilo } = p
   const { thread, setThread, thinking } = hilo
@@ -173,7 +175,7 @@ export function ChatPanel(p: {
           onKeyDown={(e) => {
             if (e.key === 'Escape' && !text) p.onEsc?.()
           }}
-          placeholder={voice.listening ? 'Te escucho…' : 'Escribe, pregunta o pide algo…'}
+          placeholder={voice.listening ? 'Te escucho…' : (p.placeholder ?? 'Escribe, pregunta o pide algo…')}
           aria-label="Escríbele a Rockie"
           enterKeyHint="send"
         />

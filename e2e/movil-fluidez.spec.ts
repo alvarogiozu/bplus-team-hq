@@ -27,7 +27,8 @@ async function grabar(page: Page) {
       if (!w.__grabando) return
       const main = document.querySelector('main, .content, .os-home') as HTMLElement | null
       w.__cuadros.push({
-        nav: visible('.mnav'),
+        // el pie: la cápsula en las apps, la caja de Rockie en el Inicio
+        nav: visible('.mnav') || visible('.im-chat .ini-comp'),
         rockie: visible('.m-rockie'),
         skel: document.querySelectorAll('.skel').length,
         texto: (main ?? document.body).innerText.length,
@@ -68,13 +69,18 @@ test('el celular: sin parpadeos entre pestañas y apps, pie que se arrastra y Ro
   }
 
   // de app en app con el selector de arriba
-  for (const app of ['Agenda', 'Cuaderno', 'Inicio', 'Proyectos']) {
+  for (const app of ['Agenda', 'Cuaderno', 'Inicio']) {
     await page.locator('.mtop').getByRole('button').first().click()
     await grabar(page)
     await page.locator('.os-menu').getByRole('link', { name: new RegExp(`^${app}`) }).first().click()
     await page.waitForTimeout(1600)
     expect(await malos(page), `ir a ${app}`).toBe(0)
   }
+  // del Inicio a Proyectos por su cuadro: en el Inicio del celular las apps son la cuadrícula de 2×2
+  await grabar(page)
+  await tocar(page, '.im-grid .im-w', 0)
+  await page.waitForTimeout(1600)
+  expect(await malos(page), 'ir a Proyectos').toBe(0)
   // «Proyectos» entra directo al proyecto, con su pie (no a la lista de proyectos)
   await expect(page).toHaveURL(/\/hoy/)
 

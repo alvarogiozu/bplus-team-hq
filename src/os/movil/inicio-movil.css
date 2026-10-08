@@ -1,0 +1,136 @@
+/* ============================================================
+   Inicio del celular (InicioMovil): la hora, tu día en una frase, tus cuatro apps en 2×2 y el comando de Rockie
+   sobre el pie (donde en las apps va la cápsula), con Rockie a la derecha. Medidas del lienzo del 7 oct.
+   La conversación usa las piezas del chat del escritorio (escritorio/inicio.css, clases ini-*): aquí solo cambia
+   cómo se acomodan en el celular.
+   ============================================================ */
+.im {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  /* abajo: el pie (la caja de Rockie) y la fila de sugerencias encima */
+  padding: calc(var(--s2) + env(safe-area-inset-top)) 0 calc(var(--mnav-room) + 56px);
+  background: var(--paper);
+  color: var(--ink);
+}
+.im.abierto { height: 100dvh; overflow: hidden; }
+.im-top { display: flex; align-items: center; justify-content: flex-end; min-height: var(--tap); padding: 0 var(--screen-x); }
+
+.im-reloj {
+  margin: var(--s4) 0 0;
+  text-align: center;
+  font-family: var(--serif);
+  /* grande como en la PC, pero cabe en un celular bajito (14 % del alto) */
+  font-size: min(116px, 29vw, 14dvh);
+  font-weight: 600;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--ink);
+}
+.im-frase { margin: var(--s4) var(--s8) 0; text-align: center; font-size: var(--t-base); font-weight: 600; line-height: 1.45; color: var(--ink-soft); text-wrap: balance; }
+.im-frase em { font-family: var(--serif); font-style: italic; font-weight: 600; color: var(--ink); }
+.im-aire { flex: 1; min-height: var(--s6); }
+
+/* ---------- tus cuatro apps: cuadros con canto (2.5D) ---------- */
+.im-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); padding: 0 var(--screen-x); }
+.im-w {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 128px;
+  box-sizing: border-box;
+  padding: 14px;
+  border-radius: var(--r-xl);
+  background: var(--card);
+  border: 1.5px solid var(--card-line);
+  box-shadow: 0 4px 0 var(--card-edge);
+  color: var(--ink);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  /* `translate` y no `transform`: el transform lo usa la entrada animada */
+  transition: translate 0.12s var(--glide), box-shadow 0.12s var(--glide);
+}
+.im-w:active { translate: 0 3px; box-shadow: 0 1px 0 var(--card-edge); }
+.im-w-cab { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.im-w-ic { width: 34px; height: 34px; flex: none; border-radius: 11px; display: grid; place-items: center; background: var(--c); box-shadow: 0 3px 0 var(--ce); color: var(--on-color); }
+.im-w-ic svg { width: 18px; height: 18px; }
+.im-racha { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: var(--r-pill); background: var(--amber-soft); color: var(--amber-ink); font-size: var(--t-2xs); font-weight: 700; }
+.im-racha svg { width: 12px; height: 12px; }
+.im-w-k { margin-top: var(--s3); font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
+.im-w-v, .im-w-s { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.im-w-v { margin-top: 2px; font-size: var(--t-md); font-weight: 700; color: var(--ink); }
+.im-w-s { margin-top: 2px; font-size: var(--t-xs); font-weight: 600; color: var(--ink-muted); }
+.im-w-s.pronto { font-weight: 700; color: var(--coral-ink); }
+.im-barra { display: block; width: 100%; height: 6px; margin-top: 9px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
+.im-barra i { display: block; height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--c) 80%, #fff); transition: width 0.6s var(--resorte); }
+.im-skel { display: block; width: 80%; height: 16px; margin-top: 6px; border-radius: 8px; background: var(--paper-alt); animation: im-pulso 1.4s ease-in-out infinite; }
+@keyframes im-pulso { 50% { opacity: 0.5; } }
+
+/* ---------- el comando (en reposo) y la conversación (abierta) ---------- */
+.im-chat {
+  position: fixed;
+  z-index: 60;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--mnav-gap) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+.im-chat:not(.abierto) .ini-chat-cab,
+.im-chat:not(.abierto) .ini-hilo,
+.im-chat:not(.abierto) .ini-mic,
+.im-chat:not(.abierto) .ini-enviar,
+.im-chat:not(.abierto) .ini-err,
+.im-chat .ini-teclas { display: none; }
+.im-chat .ini-reposo-sug, .im-chat .ini-comp { pointer-events: auto; }
+
+/* las sugerencias: una fila que se desliza de lado, de borde a borde */
+.im-chat .ini-reposo-sug { padding: 0 0 var(--s3); }
+.im-chat .ini-reposo-sug .ini-sug { margin: 0; padding: 0 var(--screen-x) 4px; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.im-chat .ini-reposo-sug .ini-sug::-webkit-scrollbar { display: none; }
+.im-chat .ini-reposo-sug .ini-sug button { flex: none; min-height: 40px; background: var(--card); }
+.im-chat .ini-reposo-sug .ini-sug button:nth-child(n + 3) { display: inline-flex; }
+
+/* la caja: donde en las apps va la cápsula, del mismo alto, dejando a Rockie su lugar a la derecha */
+.im-chat .ini-comp {
+  height: var(--mnav-h);
+  box-sizing: border-box;
+  margin: 0 calc(12px + var(--mnav-h) + 8px) 0 12px;
+  padding: 0 8px 0 18px;
+  border-radius: 24px;
+  background: var(--paper-clean);
+  box-shadow: 0 4px 0 var(--card-edge), 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+/* 16 px: iOS no hace zoom al enfocar */
+.im-chat .ini-comp input { height: 100%; font-size: var(--t-base); }
+
+/* abierta: toda la parte visible de la pantalla (con el teclado, hasta el teclado) */
+.im-chat.abierto {
+  top: var(--vv-top, 0px);
+  bottom: auto;
+  height: var(--vv-h, 100dvh);
+  box-sizing: border-box;
+  padding-bottom: calc(var(--s3) + env(safe-area-inset-bottom));
+  background: var(--paper);
+  pointer-events: auto;
+}
+.im-chat.abierto[data-teclado] { padding-bottom: var(--s2); }
+.im-chat.abierto .ini-reposo-sug { display: none; }
+.im-chat.abierto .ini-chat-cab { padding: calc(var(--s2) + env(safe-area-inset-top)) var(--screen-x) var(--s2); }
+.im-chat.abierto .ini-chat-cab button { height: 36px; }
+.im-chat.abierto .ini-chat-cab .ini-bajar { width: var(--tap); height: var(--tap); }
+.im-chat.abierto .ini-hilo { padding: var(--s4) var(--screen-x); }
+/* conversación nueva: el saludo y las sugerencias abajo, cerca del pulgar */
+.im-chat.abierto.vacio .ini-hilo { justify-content: flex-end; }
+.im-chat.abierto .ini-nuevo { padding: 0; }
+.im-chat.abierto .ini-nuevo h1 { font-size: var(--t-3xl); letter-spacing: -0.5px; }
+.im-chat.abierto .ini-nuevo p { font-size: var(--t-base); }
+.im-chat.abierto .ini-dice { font-size: var(--t-md); }
+.im-chat.abierto .ini-comp { height: 60px; margin: 0 12px; padding: 0 6px 0 16px; }
+.im-chat.abierto .ini-comp.oyendo + .ini-teclas { display: flex; padding: var(--s2) var(--screen-x) 0; }
+.im-chat.abierto .ini-err { padding: var(--s2) var(--screen-x) 0; cursor: pointer; }
+.im-chat.abierto .ini-chat-cab, .im-chat.abierto .ini-hilo { animation: ini-entra 0.42s var(--resorte) 0.04s both; }

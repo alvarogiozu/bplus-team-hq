@@ -4,7 +4,7 @@ import { motion } from 'motion/react'
 import { Icon } from '../components/Icon'
 import { fmtDayLong, greeting, timeAgo } from '../lib/dates'
 import { useIsMobile } from '../lib/useMedia'
-import { MovilNav, MovilTop, RockieCentro } from './movil/MovilShell'
+import { InicioMovil } from './movil/InicioMovil'
 import { CuentaBoton } from '../features/cuenta/Cuenta'
 import { APP_META, useRockieChat } from '../features/agent/chat'
 import { setAccent } from '../app/theme'
@@ -81,10 +81,16 @@ function Ring({ done, total, size = 44, stroke = 5, color, children }: { done: n
   )
 }
 
-/** `escritorio`: la barra de Rockie que va arriba cuando el Inicio vive en el escritorio (PC). */
+/** `escritorio`: la barra de Rockie que va arriba cuando el Inicio vive en el escritorio (PC).
+ *  En el celular, el Inicio es el de bolsillo (movil/InicioMovil): la hora, tus apps en 2×2 y Rockie abajo. */
 export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
-  // en el celular (sin escritorio) las apps son pantallas de esta misma página: se bajan mientras miras
-  // el Inicio, y Hábitos (que es otra página) deja sus archivos listos en el caché
+  const mobile = useIsMobile()
+  return mobile && !escritorio ? <InicioMovil /> : <HomeAncho escritorio={escritorio} />
+}
+
+function HomeAncho({ escritorio }: { escritorio?: ReactNode }) {
+  // sin escritorio las apps son pantallas de esta misma página: se bajan mientras miras el Inicio, y Hábitos (que
+  // es otra página) deja sus archivos listos en el caché
   useEffect(() => {
     if (escritorio) return
     const a = precargar([pantallas.agenda, pantallas.cuaderno, pantallas.equipos, pantallas.layout])
@@ -94,7 +100,6 @@ export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
       b()
     }
   }, [escritorio])
-  const mobile = useIsMobile()
   // tu día en las cuatro apps: el mismo hook que el Inicio del escritorio (os/hoy.ts)
   const { profile, today, hour, night, habitos, agenda, tasks, note, hab, habDone, habTotal, agItems, agDone, dueTasks, entries, nowMin, nowAt, total, done, pct, summary, first, loadingDay } = useHoyOS()
   useEffect(() => setAccent(profile.accent ?? null), [profile.accent])
@@ -142,126 +147,6 @@ export default function HomePage({ escritorio }: { escritorio?: ReactNode }) {
       ...(note.data ? { line: note.data.title.trim() || 'Nota sin título', sub: `Editada ${timeAgo(note.data.updated_at)}` } : { line: 'Tu cuaderno está vacío', sub: 'Escribe o dicta tu primera nota' }),
     },
   ]
-
-  // Celular (lienzo «B+ móvil», Tus apps): la barra y el pie comunes de Rockie OS (en el pie, las
-  // cuatro apps), saludo con Rockie, las apps, lo último que le pediste y tu día. El Rockie del
-  // centro es el de siempre: toca para escribirle · mantén para hablarle (su voz vive en Hábitos).
-  if (mobile) {
-    return (
-      <>
-      <MovilTop compact>
-        <div className="os-brand">
-          <span className="os-word">Rockie</span>
-          <span className="os-kicker">Tus apps, un solo Rockie</span>
-        </div>
-      </MovilTop>
-      <div className="os-home os-home--m">
-
-        <section className="os-hero os-hero--m">
-          <RockieArt size={72} stone={look.stone} equipped={look.equipped} eyes={face.eyes} mouth={face.mouth} />
-          <div className="os-hero-copy">
-            <h1>
-              {greeting(hour)}, {first}.
-            </h1>
-            <p>{loadingDay ? 'Mirando tu día…' : summary}</p>
-          </div>
-        </section>
-
-        <div className="os-grid">
-          {tiles.map((t, i) => (
-            <motion.div key={t.app.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i, type: 'spring', stiffness: 380, damping: 30 }}>
-              <AppLink app={t.app} className="os-app" style={{ ['--app' as string]: t.app.color, ['--app-edge' as string]: t.app.edge } as CSSProperties} label={[t.app.name, t.line, t.sub].filter(Boolean).join('. ')}>
-                <span className="os-tile lg">
-                  <Icon name={t.app.icon} />
-                </span>
-                <span className="os-app-name">{t.app.name}</span>
-                {t.loading ? <span className="os-app-line os-skel" aria-label="Cargando" /> : <span className="os-app-line">{t.line}</span>}
-              </AppLink>
-            </motion.div>
-          ))}
-        </div>
-
-        <section className="os-card os-said" aria-label="Lo último que le pediste a Rockie">
-          <h2>Lo último que le pediste</h2>
-          {said.length ? (
-            <ul>
-              {said.map((t) => (
-                <li key={t.id}>
-                  <span className="os-said-ic" style={{ ['--app' as string]: APP_META[t.app].color } as CSSProperties}>
-                    <Icon name={APP[t.app as AppId]?.icon ?? 'sparkle'} className="sm" />
-                  </span>
-                  <span className="os-said-t">
-                    <b>«{t.text}»</b>
-                    <small>
-                      {APP_META[t.app].label} · {timeAgo(t.created_at)}
-                    </small>
-                  </span>
-                  <Icon name="check" className="sm os-said-ok" />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="os-empty">Cuando le hables a Rockie en cualquier app, lo verás aquí: es un solo chat para las cuatro.</p>
-          )}
-        </section>
-
-        <section className="os-card os-day" aria-label="Tu día">
-          <h2>Tu día</h2>
-          {loadingDay ? (
-            <div className="os-day-skel" aria-label="Cargando">
-              <span className="os-skel" />
-              <span className="os-skel" />
-            </div>
-          ) : entries.length ? (
-            <ol>
-              {entries.map((e) => {
-                const app = APP[e.app]
-                return (
-                  <li key={e.key}>
-                    <AppLink app={app} to={e.to} className={`os-day-row${e.done ? ' done' : ''}`} style={{ ['--app' as string]: app.color } as CSSProperties}>
-                      <span className="os-day-t">{e.min != null ? fmtMin(e.min) : 'Hoy'}</span>
-                      <span className="os-day-dot" aria-hidden="true">
-                        {e.done && <Icon name="check" />}
-                      </span>
-                      <span className="os-day-txt">
-                        <b>{e.title}</b>
-                        <small>{e.done ? `${e.tag} · hecho` : e.tag}</small>
-                      </span>
-                    </AppLink>
-                  </li>
-                )
-              })}
-            </ol>
-          ) : (
-            <p className="os-empty">Hoy no tienes nada agendado. Dile a Rockie qué quieres lograr y lo ponemos en tu día.</p>
-          )}
-        </section>
-
-      </div>
-      <MovilNav
-        label="Tus apps"
-        tabs={APPS.map((a) => ({
-          key: a.id,
-          to: rutaApp(a, true),
-          label: a.name,
-          // al arrastrar, la píldora toma el color de cada app; el ícono va de su color hasta que lo enciende
-          color: a.color,
-          edge: a.edge,
-          icon: (
-            <span className="os-app-ico" style={{ ['--ico' as string]: a.color }}>
-              <Icon name={a.icon} />
-            </span>
-          ),
-        }))}
-      />
-      <RockieCentro
-        avatar={<RockieArt size={58} stone={look.stone} equipped={look.equipped} eyes={face.eyes} mouth={face.mouth} />}
-        onTap={() => location.assign('/habitos/hoy?voz=escribir')}
-        onHold={() => location.assign('/habitos/hoy?voz=escuchar')}
-      />
-      </>
-    )
-  }
 
   return (
     <div className="os-home">
