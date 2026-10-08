@@ -249,6 +249,14 @@ export function listenHint(mode: VoiceMode) {
   return 'Haz una pausa para enviar · Esc cancela'
 }
 
+/** La pista bajo la roca de «te escucho» (components/Escuchando): en el celular se toca (no hay Esc); en la
+ *  computadora, el micrófono y Esc también sirven. */
+export function pistaVoz(mode: VoiceMode, movil?: boolean) {
+  if (mode === 'hold') return movil ? 'Suelta a Rockie para enviar' : 'Suelta para enviar · Esc cancela'
+  if (mode === 'tap') return movil ? 'Toca la roca para enviar' : 'Toca la roca o el micrófono para enviar · Esc cancela'
+  return listenHint(mode)
+}
+
 /** Mantener = hablar mientras presionas; tocar = abre el micrófono hasta que vuelvas a tocar. */
 export function useMicPress(voice: Voice, onStart?: () => void) {
   const pressAt = useRef(0)

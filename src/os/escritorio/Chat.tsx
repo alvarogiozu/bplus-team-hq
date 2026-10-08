@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { AnimatePresence, motion, useTransform, type MotionValue } from 'motion/react'
+import { Escuchando } from '../../components/Escuchando'
 import { Icon } from '../../components/Icon'
 import { AIcon } from '../../agenda/icons'
-import { useMicPress, useVoice } from '../../agenda/voice'
-import { useRockieHilo, type RockieDice, type Tipo } from '../../agenda/useRockieHilo'
-import { APP_META, type ChatApp } from '../../features/agent/chat'
+import { pistaVoz, useMicPress, useVoice } from '../../agenda/voice'
+import { useRockieHilo, type PropState, type RockieDice, type Tipo } from '../../agenda/useRockieHilo'
+import { APP_META, AREA_LABEL, type ChatApp } from '../../features/agent/chat'
 import { APPS, type AppId, type OsApp } from '../apps'
 import './inicio.css'
 
@@ -33,6 +34,32 @@ const TIPO: Record<Tipo, { titulo: string; sub: string; icon: OsApp['icon']; col
   tarea: { titulo: 'Tarea del equipo', sub: 'en tus proyectos', icon: APP.equipo.icon, color: APP.equipo.color, edge: APP.equipo.edge },
 }
 
+/** Lo que dice el botón de cada propuesta de la Agenda (si no está aquí: «Confirmar»). */
+const VERBO_AGENDA: Record<string, string> = {
+  crear_item: 'Guardar en la Agenda',
+  crear_reunion: 'Crear la reunión',
+  mover_item: 'Mover',
+  mover_reunion: 'Mover',
+  mover_tarea_hq: 'Mover',
+  mover_proyecto: 'Mover',
+  agendar_tarea_hq: 'Agendar',
+  completar_item: 'Marcar hecho',
+  borrar_item: 'Borrar',
+  reservar: 'Reservar',
+  crear_grupo: 'Crear el grupo',
+  crear_hobby: 'Crear el hobby',
+  registrar_hobby: 'Registrar',
+  ajustar_dia: 'Ajustar el día',
+}
+/** A qué app va cada propuesta y qué dice su botón (la tarjeta de siempre: «Anotar en el Cuaderno»). */
+function destinoDe(ps: PropState): { app: OsApp; verbo: string } {
+  const t = ps.p.tool
+  if (t === 'anotar') return { app: APP.cuaderno, verbo: 'Anotar en el Cuaderno' }
+  if (t === 'habito') return { app: APP.habitos, verbo: ps.p.input.accion === 'hecho' ? 'Marcar hecho' : 'Crear el hábito' }
+  if (t === 'crear_tarea_equipo') return { app: APP.equipo, verbo: 'Crear la tarea' }
+  return { app: APP.agenda, verbo: VERBO_AGENDA[t] ?? 'Confirmar' }
+}
+
 /** El contenido de la conversación (cabecera, hilo, sugerencias, escribir y hablar). El contenedor lo pone quien lo
  *  usa (el panel del Inicio o la barra flotante), con sus estados y animaciones. */
 export function ChatPanel(p: {
@@ -53,10 +80,16 @@ export function ChatPanel(p: {
   cerrarLabel?: string
   /** cada vez que cambia, empieza a escuchar (el micrófono del dock) */
   pedirVoz?: number
+  /** cada vez que cambia, escucha MIENTRAS mantienes presionado a Rockie (termina con soltarVoz) */
+  mantenerVoz?: number
+  /** soltaste a Rockie: termina y envía */
+  soltarVoz?: number
   /** el atajo de la derecha */
   pie?: string
   /** lo que dice la caja vacía (en el celular, más corto) */
   placeholder?: string
+  /** en el celular: la roca se toca para enviar y hay «Cancelar» (no hay Esc) */
+  movil?: boolean
 }) {
   const { hilo } = p
   const { thread, setThread, thinking } = hilo
@@ -90,6 +123,14 @@ export function ChatPanel(p: {
     p.onActivo?.()
     voice.start({ mode: 'tap' })
   }, [p.pedirVoz]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!p.mantenerVoz || !voice.supported) return
+    p.onActivo?.()
+    voice.start({ mode: 'hold' })
+  }, [p.mantenerVoz]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (p.soltarVoz) voice.stop()
+  }, [p.soltarVoz]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     scroll.current?.scrollTo({ top: scroll.current.scrollHeight, behavior: 'smooth' })
   }, [thread, thinking])
@@ -132,8 +173,11 @@ export function ChatPanel(p: {
           <Icon name="close" className="sm" />
         </button>
       </header>
-      <div className="ini-hilo" ref={scroll} aria-live="polite">
-        {vacio ? (
+      <div className={`ini-hilo${voice.listening ? ' oyendo' : ''}`} ref={scroll} aria-live="polite">
+        {/* mientras le hablas: la roca al centro, lo que va entendiendo y cómo terminar (tocarla envía) */}
+        {voice.listening ? (
+          <Escuchando text={voice.text} level={voice.level} pista={pistaVoz(voice.mode, p.movil)} onTerminar={voice.stop} onCancelar={p.movil ? voice.cancel : undefined} />
+        ) : vacio ? (
           <div className="ini-nuevo">
             {p.saludo}
             {chips}
@@ -166,7 +210,7 @@ export function ChatPanel(p: {
         <Icon name="search" className="sm ini-lupa" />
         <input
           ref={input}
-          value={voice.listening ? voice.text : text}
+          value={voice.listening ? '' : text}
           readOnly={voice.listening}
           onChange={(e) => {
             setText(e.target.value)
@@ -186,7 +230,8 @@ export function ChatPanel(p: {
       </form>
       <div className="ini-teclas">
         {voice.listening ? (
-          <span>Toca el micrófono para enviar · Esc cancela</span>
+          // cómo terminar (y Esc) ya lo dice la pista bajo la roca; la fila guarda su alto para que nada salte
+          <span aria-hidden="true">&nbsp;</span>
         ) : (
           <>
             <span>
@@ -330,59 +375,69 @@ function Respuesta({ e, hilo, abrir, abrirRef, enviar }: { e: RockieDice; hilo: 
           </div>
         </>
       )}
+      {/* lo que es de otra app y lo que Rockie propone: la misma tarjeta (la app y su área arriba, lo que dijiste en
+          grande y un botón que dice qué va a pasar: «Anotar en el Cuaderno») */}
       {e.handoffs.map((h, i) => {
         const app = APP[APP_DE[h.app]]
         return (
-          <div key={i} className="ini-pase" style={{ ['--c' as string]: app.color, ['--ce' as string]: app.edge } as CSSProperties}>
-            <span className="ini-pase-ic">
-              <Icon name={app.icon} className="sm" />
-            </span>
-            <span className="ini-pase-t">
-              <small>Esto es de {APP_META[h.app].label}</small>
-              <b>{h.pedido}</b>
-            </span>
-            <button type="button" onClick={() => abrir(destino[h.app](h.pedido))}>
-              Abrir en {APP_META[h.app].label}
-            </button>
+          <div key={i} className="ini-card ini-pase" style={{ ['--c' as string]: app.color, ['--ce' as string]: app.edge } as CSSProperties}>
+            <div className="ini-card-chips">
+              <span className="ini-chip">{app.name}</span>
+              {h.area && <span className="ini-chip linea">{AREA_LABEL[h.area]}</span>}
+            </div>
+            <p className="ini-card-titulo">{h.pedido}</p>
+            <div className="ini-card-acts">
+              <button type="button" className="si" onClick={() => abrir(destino[h.app](h.pedido))}>
+                Abrir en {APP_META[h.app].label}
+              </button>
+            </div>
           </div>
         )
       })}
       {e.props.length > 0 && (
         <div className="ini-cards">
           <AnimatePresence initial={false}>
-            {e.props.map((ps, i) => (
-              <motion.div key={i} className={`ini-card ${ps.st}`} data-tool={ps.p.tool} style={{ ['--c' as string]: ps.card.color } as CSSProperties} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                <span className="ini-card-ic">
-                  <AIcon name={ps.card.icon} size={17} />
-                </span>
-                <span className="ini-card-t">
-                  <b>{ps.card.title}</b>
-                  <small>
-                    {ps.card.detail}
-                    {ps.card.team && <em> · lo ve el equipo</em>}
-                  </small>
-                </span>
-                {ps.st === 'pending' ? (
-                  <span className="ini-card-acts">
-                    <button type="button" className="si" onClick={() => void hilo.confirm(e, i)} aria-label={`Confirmar: ${ps.card.title}`}>
-                      <AIcon name="check" size={16} />
-                    </button>
-                    <button type="button" className="no" onClick={() => hilo.patchProp(e.id, i, { ...ps, st: 'skip' })} aria-label={`Descartar: ${ps.card.title}`}>
-                      <AIcon name="close" size={15} />
-                    </button>
-                  </span>
-                ) : (
-                  <span className="ini-card-st">
-                    {ps.st === 'done' ? ps.listo ?? 'Hecho' : 'Descartada'}
-                    {ps.st === 'done' && ps.ir && (
-                      <button type="button" onClick={() => abrir(ps.ir!)}>
-                        Abrir
+            {e.props.map((ps, i) => {
+              const { app, verbo } = destinoDe(ps)
+              return (
+                <motion.div
+                  key={i}
+                  className={`ini-card ${ps.st}`}
+                  data-tool={ps.p.tool}
+                  style={{ ['--c' as string]: app.color, ['--ce' as string]: app.edge } as CSSProperties}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <div className="ini-card-chips">
+                    <span className="ini-chip">{app.name}</span>
+                    {ps.card.team && <span className="ini-chip linea">Lo ve el equipo</span>}
+                  </div>
+                  <p className="ini-card-titulo">{ps.card.title}</p>
+                  {ps.card.detail && <small className="ini-card-detalle">{ps.card.detail}</small>}
+                  {ps.st === 'pending' ? (
+                    <div className="ini-card-acts">
+                      <button type="button" className="si" onClick={() => void hilo.confirm(e, i)} aria-label={`Confirmar: ${ps.card.title}`}>
+                        {verbo}
                       </button>
-                    )}
-                  </span>
-                )}
-              </motion.div>
-            ))}
+                      <button type="button" className="no" onClick={() => hilo.patchProp(e.id, i, { ...ps, st: 'skip' })} aria-label={`Descartar: ${ps.card.title}`}>
+                        <AIcon name="close" size={15} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="ini-card-st">
+                      {ps.st === 'done' && <AIcon name="check" size={15} />}
+                      {ps.st === 'done' ? ps.listo ?? 'Hecho' : 'Descartada'}
+                      {ps.st === 'done' && ps.ir && (
+                        <button type="button" onClick={() => abrir(ps.ir!)}>
+                          Abrir
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
           </AnimatePresence>
           {pendientes > 1 && (
             <button type="button" className="ini-todo" onClick={() => void hilo.confirmAll(e)}>
@@ -407,6 +462,9 @@ function Mic(p: { listening: boolean; level: MotionValue<number>; disabled: bool
       disabled={p.disabled}
       onPointerDown={(e) => {
         e.preventDefault()
+        // al tocarlo el chat se abre y el botón se mueve de debajo del dedo: sin esto, el «soltar» caía afuera, nunca
+        // pasaba a «toca para enviar» y se quedaba esperando que soltaras
+        e.currentTarget.setPointerCapture?.(e.pointerId)
         p.onDown()
       }}
       onPointerUp={p.onUp}

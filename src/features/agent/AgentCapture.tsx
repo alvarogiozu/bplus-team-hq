@@ -7,7 +7,8 @@ import { Rockie } from '../../components/Rockie'
 import { toast } from '../../components/Toasts'
 import { haptic } from '../../lib/fx'
 import { supabase } from '../../lib/supabase'
-import { listenHint, useHandsFree, useMicPress, useVoice } from '../../agenda/voice'
+import { pistaVoz, useHandsFree, useMicPress, useVoice } from '../../agenda/voice'
+import { Escuchando } from '../../components/Escuchando'
 import { useAuth } from '../auth/AuthProvider'
 import { useMembers, useTasks } from '../data/queries'
 import { removeTask } from '../data/realtime'
@@ -209,7 +210,8 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
             transition={{ type: 'spring', stiffness: 520, damping: 36 }}
           >
             {voice.listening ? (
-              <Listening text={voice.text} level={voice.level} hint={listenHint(voice.mode)} />
+              // la roca de todo Rockie OS: en fila en la barra de la computadora; grande en la hoja del celular
+              <Escuchando text={voice.text} level={voice.level} pista={pistaVoz(voice.mode, inline)} onTerminar={voice.stop} onCancelar={inline ? voice.cancel : undefined} compacto={!inline} />
             ) : voice.error ? (
               <p className="agenthint" style={{ margin: 0 }}>{voice.error}</p>
             ) : thinking ? (
@@ -376,26 +378,4 @@ function MicButton(p: { listening: boolean; level: MotionValue<number>; disabled
       </svg>
     </motion.button>
   )
-}
-
-function Listening({ text, level, hint }: { text: string; level: MotionValue<number>; hint: string }) {
-  const bars = [0.55, 0.85, 1, 0.7, 0.45]
-  return (
-    <div className="agentlisten">
-      <div className="agentwave" aria-hidden="true">
-        {bars.map((k, i) => (
-          <Bar key={i} k={k} level={level} />
-        ))}
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <b>Te escucho…</b>
-        <p className="agentheard" style={{ margin: 0 }}>{text || 'Di algo como «tarea para Andrea el lunes».'}</p>
-        <small className="agentlisten-hint">{hint}</small>
-      </div>
-    </div>
-  )
-}
-function Bar({ k, level }: { k: number; level: MotionValue<number> }) {
-  const h = useTransform(level, [0, 1], [6, 6 + 26 * k])
-  return <motion.i style={{ height: h }} />
 }

@@ -11,7 +11,8 @@ import { type GEvent } from './calendars'
 import { openEditor } from './Editor'
 import { AIcon } from './icons'
 import type { Ghost } from './Timeline'
-import { listenHint, useHandsFree, useMicPress, useVoice, type VoiceMode } from './voice'
+import { pistaVoz, useHandsFree, useMicPress, useVoice, type VoiceMode } from './voice'
+import { Escuchando } from '../components/Escuchando'
 import { RockieCentro } from '../os/movil/MovilShell'
 import { useRockieHilo } from './useRockieHilo'
 
@@ -124,7 +125,9 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
     return (
       <div className={`rk${p.mobile ? ' mobile' : ''}`} data-rockie>
         <AnimatePresence>
-          {voice.listening && <Listening key="listen" text={voice.text} level={voice.level} mode={voice.mode} />}
+          {voice.listening && (
+            <Listening key="listen" text={voice.text} level={voice.level} mode={voice.mode} movil={p.mobile} onTerminar={voice.stop} onCancelar={p.mobile ? voice.cancel : undefined} />
+          )}
         </AnimatePresence>
 
         <AnimatePresence>
@@ -277,6 +280,7 @@ export const RockieBar = forwardRef<HTMLInputElement, { day: string; today: stri
               pressed={typing}
               onTap={() => setTyping(!typing)}
               onHold={voice.supported ? () => voice.start({ mode: 'hold' }) : undefined}
+              onMic={voice.supported ? () => voice.start({ mode: 'tap' }) : undefined}
               onRelease={() => voice.stop()}
             />
           </>
@@ -328,37 +332,18 @@ export function MicButton(p: { listening: boolean; level: MotionValue<number>; d
   )
 }
 
-export function Listening({ text, level, mode = 'hold' }: { text: string; level: MotionValue<number>; mode?: VoiceMode }) {
-  const r1 = useTransform(level, [0, 1], [1, 1.55])
-  const r2 = useTransform(level, [0, 1], [1, 2.1])
+/** «Te escucho» de la Agenda y el Cuaderno: la misma roca de todo Rockie OS (components/Escuchando), en su tarjeta
+ *  que flota sobre la barra. */
+export function Listening(p: { text: string; level: MotionValue<number>; mode?: VoiceMode; movil?: boolean; onTerminar?: () => void; onCancelar?: () => void }) {
   return (
     <motion.div
       className="rk-listen"
-      role="status"
-      aria-live="polite"
       initial={{ opacity: 0, y: 24, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 14, scale: 0.97, transition: { duration: 0.18 } }}
       transition={{ type: 'spring', stiffness: 420, damping: 30 }}
     >
-      <div className="rk-orb">
-        <motion.span className="rk-orb-ring" style={{ scale: r2 }} />
-        <motion.span className="rk-orb-ring r1" style={{ scale: r1 }} />
-        <Rockie color="var(--brand)" size={66} listening />
-      </div>
-      <div className="rk-wave" aria-hidden="true">
-        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-          <WaveBar key={i} i={i} level={level} />
-        ))}
-      </div>
-      <p className="rk-live">{text || 'Te escucho…'}</p>
-      <small>{listenHint(mode)}</small>
+      <Escuchando text={p.text} level={p.level} pista={pistaVoz(p.mode ?? 'hold', p.movil)} onTerminar={p.onTerminar} onCancelar={p.onCancelar} />
     </motion.div>
   )
-}
-
-function WaveBar({ i, level }: { i: number; level: MotionValue<number> }) {
-  const k = 0.55 + 0.45 * Math.abs(Math.sin(i * 1.7 + 0.6))
-  const scaleY = useTransform(level, (v) => 0.18 + Math.min(1, v * 1.6) * k)
-  return <motion.i style={{ scaleY }} />
 }

@@ -182,7 +182,9 @@ export const CaptureBar = forwardRef<
   return (
     <div className={`cu-rk${p.mobile ? ' mobile' : ''}`} data-rockie>
       <AnimatePresence>
-        {voice.listening && <Listening key="listen" text={voice.text} level={voice.level} />}
+        {voice.listening && (
+          <Listening key="listen" text={voice.text} level={voice.level} mode={voice.mode} movil={p.mobile} onTerminar={voice.stop} onCancelar={p.mobile ? voice.cancel : undefined} />
+        )}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -265,6 +267,7 @@ export const CaptureBar = forwardRef<
           pressed={p.typing}
           onTap={() => p.onTyping(!p.typing)}
           onHold={voice.supported ? () => voice.start() : undefined}
+          onMic={voice.supported ? () => voice.start({ mode: 'tap' }) : undefined}
           onRelease={() => voice.stop()}
         />
       )}

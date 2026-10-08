@@ -131,6 +131,10 @@
 .im-chat.abierto .ini-nuevo p { font-size: var(--t-base); }
 .im-chat.abierto .ini-dice { font-size: var(--t-md); }
 .im-chat.abierto .ini-comp { height: 60px; margin: 0 12px; padding: 0 6px 0 16px; }
-.im-chat.abierto .ini-comp.oyendo + .ini-teclas { display: flex; padding: var(--s2) var(--screen-x) 0; }
+/* hablando: la roca grande al centro (la pista y «Cancelar» van con ella) */
+.im-chat.abierto .ini-hilo.oyendo { justify-content: center; }
+.im-chat.abierto .ini-hilo.oyendo .voz-roca { width: 168px; height: 168px; }
+.im-chat.abierto .ini-hilo.oyendo .voz-roca .roca { width: 108px; height: auto; }
+.im-chat.abierto .ini-hilo.oyendo .voz-texto { font-size: var(--t-xl); }
 .im-chat.abierto .ini-err { padding: var(--s2) var(--screen-x) 0; cursor: pointer; }
 .im-chat.abierto .ini-chat-cab, .im-chat.abierto .ini-hilo { animation: ini-entra 0.42s var(--resorte) 0.04s both; }

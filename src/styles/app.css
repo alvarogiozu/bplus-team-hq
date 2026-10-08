@@ -603,10 +603,6 @@ svg { display: block; }
 .agmic svg { position: relative; z-index: 1; }
 .agmic-ring { position: absolute; inset: -7px; border-radius: 999px; border: 3px solid var(--title); opacity: 0.45; pointer-events: none; }
 .agentform.listening { border-color: var(--title); box-shadow: 0 4px 0 var(--card-edge), 0 0 0 4px color-mix(in srgb, var(--title) 18%, transparent); }
-.agentlisten { display: flex; align-items: center; gap: 14px; }
-.agentlisten b { font-family: var(--serif); font-size: var(--t-md); }
-.agentwave { display: flex; align-items: center; gap: 4px; height: 36px; }
-.agentwave i { display: block; width: 5px; border-radius: 3px; background: var(--title); }
 .agentheard { font-size: var(--t-xs); color: var(--ink-soft); font-style: italic; margin: 0 0 8px; }
 .agentthink { display: flex; flex-direction: column; gap: 6px; }
 .agentdots { display: inline-flex; gap: 5px; padding: 6px 2px; }
@@ -1229,7 +1225,6 @@ button.mission:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ca
 .rk-hands:hover { background: var(--paper-alt); }
 .rk-hands.on { background: var(--accent-soft); color: var(--accent-ink); box-shadow: inset 0 0 0 1.5px var(--accent); animation: handsglow 2.2s ease-in-out infinite; }
 @keyframes handsglow { 50% { box-shadow: inset 0 0 0 1.5px var(--accent), 0 0 0 5px color-mix(in oklab, var(--accent) 18%, transparent); } }
-.agentlisten-hint { display: block; margin-top: 4px; font-size: var(--t-3xs); font-weight: 700; color: var(--ink-muted); }
 .rchat { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .rchat-t { font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
 .rchat-row { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: var(--t-xs); }

@@ -97,6 +97,10 @@ export function InicioMovil() {
   const [texto, setTexto] = useState('')
   const [oyendo, setOyendo] = useState(false)
   const [pedirVoz, setPedirVoz] = useState(0)
+  // mantener a Rockie = habla mientras presionas: él se queda en pantalla hasta que lo sueltas (soltar = enviar)
+  const [mantenerVoz, setMantenerVoz] = useState(0)
+  const [soltarVoz, setSoltarVoz] = useState(0)
+  const [manteniendo, setManteniendo] = useState(false)
   const vacio = hilo.thread.length === 0 && !hilo.thinking
   const abierto = activo || !vacio || oyendo || Boolean(texto)
   const visible = useVisible(abierto)
@@ -253,23 +257,37 @@ export function InicioMovil() {
           sugerencias={sugerencias}
           onActivo={() => setActivo(true)}
           onTexto={setTexto}
-          onEscuchando={setOyendo}
+          onEscuchando={(v) => {
+            setOyendo(v)
+            if (!v) setManteniendo(false)
+          }}
           onEsc={() => vacio && !oyendo && cerrar()}
           onCerrar={cerrar}
           cerrarLabel="Cerrar y volver al Inicio"
           placeholder="Escribe o pide algo…"
           pedirVoz={pedirVoz}
+          mantenerVoz={mantenerVoz}
+          soltarVoz={soltarVoz}
+          movil
         />
       </section>
 
-      {!abierto && (
+      {/* en el celular, primero la voz: la caja para escribir ya está al lado, así que tocar a Rockie es hablarle */}
+      {(!abierto || manteniendo) && (
         <RockieCentro
-          avatar={<RockieArt size={58} stone={look.stone} equipped={look.equipped} eyes={face.eyes} mouth={face.mouth} />}
-          onTap={() => {
-            input.current?.focus()
-            setActivo(true)
+          avatar={<RockieArt size={58} stone={look.stone} equipped={look.equipped} eyes={manteniendo ? 4 : face.eyes} mouth={manteniendo ? 7 : face.mouth} />}
+          etiqueta="toca para hablarle, o mantén y suelta para enviar"
+          listening={manteniendo}
+          onTap={() => setPedirVoz((n) => n + 1)}
+          onMic={() => setPedirVoz((n) => n + 1)}
+          onHold={() => {
+            setManteniendo(true)
+            setMantenerVoz((n) => n + 1)
           }}
-          onHold={() => setPedirVoz((n) => n + 1)}
+          onRelease={() => {
+            setManteniendo(false)
+            setSoltarVoz((n) => n + 1)
+          }}
         />
       )}
     </div>

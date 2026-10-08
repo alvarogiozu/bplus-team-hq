@@ -67,8 +67,8 @@ export default function MetasMovil() {
       </MHead>
       <SelectorEquipo />
 
-      {/* en el mapa la misión ya es la cima de la pirámide */}
-      {(editMission || vistaSel !== 'mapa' || vista.all.length === 0) && (
+      {/* la misión vive en la cima del mapa: aparte, solo al editarla o si todavía no hay metas (no hay mapa) */}
+      {(editMission || vista.all.length === 0) && (
         <Mission text={space?.mission ?? ''} editing={editMission} setEditing={setEditMission} compact />
       )}
 

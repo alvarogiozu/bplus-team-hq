@@ -83,8 +83,8 @@ export default function GoalsPage() {
         </div>
       </header>
 
-      {/* en el mapa la misión ya es la cima de la pirámide */}
-      {(editMission || !(tab === 'mapa' && vista.all.length > 0)) && (
+      {/* la misión vive en la cima del mapa: aparte, solo al editarla o si todavía no hay metas (no hay mapa) */}
+      {(editMission || vista.all.length === 0) && (
         <Mission text={space?.mission ?? ''} editing={editMission} setEditing={setEditMission} compact={false} />
       )}
 

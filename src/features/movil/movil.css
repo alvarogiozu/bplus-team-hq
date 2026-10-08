@@ -63,7 +63,8 @@
 
 /* ---------- anillo y caras ---------- */
 .em-ring { position: relative; display: inline-grid; place-items: center; flex: none; }
-.em-ring svg { position: absolute; inset: 0; }
+/* solo el anillo (hijo directo): el ícono de adentro se queda centrado */
+.em-ring > svg { position: absolute; inset: 0; }
 .em-ring-track { stroke: var(--paper-dark); }
 .em-ring-in { position: relative; display: grid; place-items: center; color: var(--em); }
 .em-ring-n { font-family: var(--serif); font-size: var(--t-md); font-weight: 700; color: var(--ink-soft); }
@@ -74,7 +75,9 @@
 .em-face-more { margin-left: 4px; font-size: var(--t-2xs); font-weight: 800; color: var(--ink-muted); }
 
 /* ---------- Hoy ---------- */
-.em-pulse { display: flex; align-items: center; gap: var(--s4); padding: var(--s4); }
+/* margin-bottom: sin «Ahora» la tarjeta que sigue (Día libre, cargando) quedaba pegada; con «Ahora» se funde con el
+   margen de su título (márgenes que colapsan) y no cambia nada */
+.em-pulse { display: flex; align-items: center; gap: var(--s4); padding: var(--s4); margin-bottom: var(--s4); }
 .em-pulse-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
 .em-pulse-t > b { font-family: var(--serif); font-size: var(--t-lg); line-height: 1.2; }
 .em-wa { color: var(--green-photo); }

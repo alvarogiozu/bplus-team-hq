@@ -189,6 +189,10 @@ export function RockieCentro(p: {
   pressed?: boolean
   /** Otra cara para el mismo Rockie (el Inicio le pone la de cómo va tu día). */
   avatar?: ReactNode
+  /** Qué hace tocarlo, si no es escribirle (en el Inicio del celular, tocar = hablarle). */
+  etiqueta?: string
+  /** El micrófono de al lado (un toque): si no se da, hace lo mismo que mantener. */
+  onMic?: () => void
 }) {
   // tu Rockie de Hábitos (su piedra y lo que tiene puesto), el mismo en todas las apps
   const look = useMemo(() => rockieLook(), [])
@@ -228,6 +232,7 @@ export function RockieCentro(p: {
   const hablar = () => {
     haptic(8)
     if (p.listening) p.onRelease?.()
+    else if (p.onMic) p.onMic()
     else if (p.onHold) p.onHold()
     else p.onTap()
   }
@@ -236,9 +241,9 @@ export function RockieCentro(p: {
       <button
         type="button"
         className={`m-rockie${p.listening ? ' on' : ''}${p.pressed ? ' pressed' : ''}`}
-        aria-label={p.listening ? 'Terminar y enviar' : 'Rockie: toca para escribirle, mantén para hablarle'}
+        aria-label={p.listening ? 'Terminar y enviar' : `Rockie: ${p.etiqueta ?? 'toca para escribirle, mantén para hablarle'}`}
         aria-pressed={p.listening || p.pressed}
-        title="Toca para escribirle · mantén para hablarle"
+        title={p.etiqueta ?? 'Toca para escribirle · mantén para hablarle'}
         onPointerDown={(e) => {
           e.preventDefault()
           down()

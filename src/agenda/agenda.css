@@ -360,13 +360,7 @@ body.ag-dragging, body.ag-dragging * { cursor: grabbing !important; user-select:
 .rk-dots i:nth-child(3) { animation-delay: .3s; }
 @keyframes rkdot { 0%, 100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(-5px); opacity: 1; } }
 .rk-listen { align-self: center; width: min(430px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 22px 20px 16px; border-radius: 28px; background: var(--paper-clean); border: 1.5px solid var(--card-line); box-shadow: var(--shadow-lift), 0 5px 0 var(--card-edge); text-align: center; }
-.rk-listen small { color: var(--ink-muted); font-weight: 700; font-size: var(--t-2xs); }
-.rk-orb { position: relative; width: 116px; height: 116px; display: grid; place-items: center; }
-.rk-orb-ring { position: absolute; inset: 16px; border-radius: 999px; background: var(--accent-soft); }
-.rk-orb-ring.r1 { inset: 24px; background: color-mix(in srgb, var(--accent) 24%, transparent); }
-.rk-wave { display: flex; gap: 5px; height: 36px; align-items: center; }
-.rk-wave i { width: 6px; height: 36px; border-radius: 6px; background: var(--accent); transform-origin: center; }
-.rk-live { margin: 0; font-family: var(--serif); font-size: var(--t-lg); font-weight: 700; max-width: 36ch; min-height: 1.4em; line-height: 1.3; }
+/* (lo de adentro, la roca que escucha, es components/Escuchando) */
 .rk-verr { align-self: center; margin: 0; padding: 6px 14px; border-radius: 999px; background: var(--title-soft); color: var(--coral-ink); font-weight: 700; font-size: var(--t-xs); cursor: pointer; }
 
 /* ---------- panel de edición ---------- */
