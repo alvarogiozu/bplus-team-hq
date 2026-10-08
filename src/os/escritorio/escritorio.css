@@ -76,8 +76,9 @@
 /* ---------- la mesa: el Inicio y las ventanas ---------- */
 .esc-mesa { position: absolute; top: 54px; left: 10px; right: 10px; bottom: 10px; }
 .esc.sin-barra .esc-mesa { inset: 0; }
-.esc-inicio { position: absolute; inset: 0; overflow-y: auto; background: var(--paper); }
-.esc-inicio.oculta { visibility: hidden; pointer-events: none; }
+.esc-inicio { position: absolute; inset: 0; overflow-y: auto; background: var(--paper); transition: opacity 0.22s ease, visibility 0s linear 0s; }
+/* al abrir una app, el Inicio se desvanece por debajo de la ventana que entra (antes se cortaba: quedaba un cuadro vacío) */
+.esc-inicio.oculta { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.22s ease, visibility 0s linear 0.22s; }
 
 .esc-win {
   position: absolute; display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; background: var(--paper);

@@ -640,14 +640,17 @@ export default function Escritorio() {
     const orden = (id: AppId) => est.current.abiertas.indexOf(id)
     const otroTam = tamAntes.current.w !== tam.w || tamAntes.current.h !== tam.h
     tamAntes.current = tam
-    const suave = !redimRef.current && !otroTam && !matchMedia('(prefers-reduced-motion: reduce)').matches
+    const quieto = redimRef.current || matchMedia('(prefers-reduced-motion: reduce)').matches
+    const suave = !quieto && !otroTam
     for (const [id, r] of visibles) {
       const el = ventanas.current.get(id)
       // volvió a verse mientras se iba: que reciba clics ya
       if (el && 'saliendo' in el.dataset) delete el.dataset.saliendo
-      if (!el || !suave) continue
+      if (!el || quieto) continue
       const p = prev.get(id)
       if (p) {
+        // si cambió el tamaño de la mesa (p. ej. aparece la barra con la primera app), las que ya estaban no se mueven
+        if (!suave) continue
         if (p.x !== r.x || p.y !== r.y || p.w !== r.w || p.h !== r.h) {
           el.animate([{ transform: `translate(${p.x - r.x}px, ${p.y - r.y}px) scale(${p.w / r.w}, ${p.h / r.h})` }, { transform: 'none' }], { duration: 320, easing: GLIDE })
         }
