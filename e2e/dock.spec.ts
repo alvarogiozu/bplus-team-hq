@@ -1,11 +1,12 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { PASS, pasarCofre } from './helpers'
 
-// Escritorio sin barra de arriba: todo se abre desde el dock. La app sale de su ícono y vuelve a él al minimizar o
-// cerrar; del dock se arrastra a la pantalla (mosaico) o a otro lugar del dock (reordenar); mantener presionado un
-// ícono cambia su color y su ícono (se guarda). Tu cuenta solo está en el Inicio.
-test('dock: abre desde el ícono, minimiza y cierra hacia él, arrastra, reordena y personaliza', async ({ page }) => {
-  test.setTimeout(120_000)
+// Escritorio: el dock vive solo en el Inicio (y se va mientras conversas); en las apps mandan las pestañas de arriba
+// (separadores de folder con el color de cada app). Del dock la app sale de su ícono y aparece su pestaña; las
+// pestañas crecen al pasar el mouse, se reordenan arrastrándolas (el mismo orden del dock) y, al quitar o cerrar una
+// ventana, se guarda en su pestaña. Mantener presionado (ícono o pestaña) cambia color e ícono. Rockie bajado del todo
+// en una app deja un asa abajo.
+async function entrar(page: Page) {
   await page.addInitScript(() => localStorage.setItem('rockie.escritorio.pruebas', '1'))
   await page.goto('/login')
   await page.getByLabel('Usuario').fill('qa.alvaro')
@@ -13,14 +14,36 @@ test('dock: abre desde el ícono, minimiza y cierra hacia él, arrastra, reorden
   await page.getByRole('button', { name: 'Entrar', exact: true }).click()
   await pasarCofre(page)
   await expect(page).toHaveURL(/\/inicio/)
+}
+
+/** arrastre nativo con el mouse hasta (x, y) */
+async function arrastrar(page: Page, a: { x: number; y: number; width: number; height: number }, x: number, y: number) {
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(a.x + a.width / 2 + 10, a.y + a.height / 2 + 4, { steps: 4 })
+  await page.mouse.move(x, y, { steps: 16 })
+  await page.mouse.move(x + 1, y, { steps: 2 })
+  // una persona sigue moviendo el mouse un poco (lo que tenía abajo pudo correrse al abrirse un hueco)
+  await page.waitForTimeout(300)
+  await page.mouse.move(x + 2, y, { steps: 2 })
+}
+
+test('dock solo en el Inicio, pestañas tipo folder: salen del dock, crecen, se reordenan y guardan su ventana', async ({ page }) => {
+  test.setTimeout(120_000)
+  await entrar(page)
+  const esc = page.locator('.esc')
   const dock = page.getByRole('navigation', { name: 'Dock' })
   const app = (n: string) => dock.getByRole('button', { name: n, exact: true })
+  const tab = (n: string) => page.locator('.esc-tab', { hasText: n })
   const ventana = (n: string) => page.locator(`.esc-win[aria-label="${n}"]:not(.oculta)`)
-  const cuenta = page.getByRole('button', { name: /Tu cuenta/ })
-  await expect(page.locator('.esc-bar')).toHaveCount(0)
-  await expect(cuenta).toBeVisible()
+  const nombresTabs = () => page.locator('.esc-tab:not(.home) .esc-tab-t').allTextContents()
 
-  // abrir: sale del ícono (su animación empieza con la escala del ícono)
+  // en el Inicio sin apps: sin pestañas, con dock y tu cuenta
+  await expect(esc).toHaveClass(/sin-barra/)
+  await expect(dock).toHaveClass(/ver/)
+  await expect(page.getByRole('button', { name: /Tu cuenta/ })).toBeVisible()
+
+  // del dock: la ventana sale de su ícono y aparece su pestaña (la que ves, adelante)
   await app('Agenda').click()
   const desde = await page.evaluate(() => {
     const el = document.querySelector('.esc-win[aria-label="Agenda"]') as HTMLElement | null
@@ -28,97 +51,113 @@ test('dock: abre desde el ícono, minimiza y cierra hacia él, arrastra, reorden
     return k?.find((t) => t.includes('scale')) ?? ''
   })
   expect(Number(desde.match(/scale\(([^,]+)/)?.[1] ?? 1)).toBeLessThan(0.2)
-  await expect(ventana('Agenda').locator('.esc-win-bar')).toContainText('Agenda')
-  await expect(cuenta).toHaveCount(0)
-
-  // minimizar: vuelve al Inicio (con tu cuenta); tocar el ícono la trae de vuelta
-  await page.getByRole('button', { name: 'Minimizar Agenda' }).click()
-  await expect(cuenta).toBeVisible()
-  await expect(ventana('Agenda')).toHaveCount(0)
-  await app('Agenda').click()
+  await expect(esc).not.toHaveClass(/sin-barra/)
+  await expect(tab('Agenda')).toHaveClass(/\bon\b/)
   await expect(ventana('Agenda')).toBeVisible()
-
-  // arrastrar Proyectos desde el dock (se asoma al acercar el mouse abajo) a la derecha
+  // en las apps el dock no se asoma aunque bajes el mouse, y la barra de Rockie se queda en su lugar
   const mesa = (await page.locator('.esc-mesa').boundingBox())!
-  await page.mouse.move(mesa.x + mesa.width / 2, mesa.y + mesa.height + 9)
+  const panel = page.locator('.osc-panel')
+  const abajoAntes = (await panel.boundingBox())!.y
+  await page.mouse.move(mesa.x + mesa.width / 2, mesa.y + mesa.height + 8)
+  await page.waitForTimeout(700)
+  await expect(dock).not.toHaveClass(/ver/)
+  expect(Math.abs((await panel.boundingBox())!.y - abajoAntes)).toBeLessThan(2)
+  // tu cuenta sigue arriba a la derecha, junto a las pestañas
+  await expect(page.getByRole('button', { name: /Tu cuenta/ })).toBeVisible()
+
+  // la pestaña crece al pasar el mouse (separador de folder que se levanta)
+  await tab('Agenda').hover()
+  await page.waitForTimeout(450)
+  const crece = await tab('Agenda').evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a)
+  expect(crece).toBeGreaterThan(1)
+
+  // abrir Proyectos desde el Inicio (el dock vuelve en el Inicio)
+  await tab('Inicio').click()
   await expect(dock).toHaveClass(/ver/)
-  await page.waitForTimeout(400)
-  const pr = (await app('Proyectos').boundingBox())!
-  await page.mouse.move(pr.x + pr.width / 2, pr.y + pr.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(pr.x + pr.width / 2 + 12, pr.y + pr.height / 2 - 12, { steps: 4 })
-  await page.mouse.move(mesa.x + mesa.width - 60, mesa.y + mesa.height / 2, { steps: 16 })
-  await page.mouse.move(mesa.x + mesa.width - 59, mesa.y + mesa.height / 2 + 1, { steps: 2 })
+  await app('Proyectos').click()
+  await expect(ventana('Proyectos')).toBeVisible()
+  expect(await nombresTabs()).toEqual(['Agenda', 'Proyectos'])
+
+  // reordenar: soltar Proyectos a la izquierda de Agenda (se abre un hueco y cae ahí; no abre nada nuevo)
+  const ag = (await tab('Agenda').boundingBox())!
+  await arrastrar(page, (await tab('Proyectos').boundingBox())!, ag.x + ag.width * 0.25, ag.y + ag.height / 2)
+  await expect(tab('Agenda')).toHaveClass(/sobre-antes/)
+  await page.mouse.up()
+  await expect.poll(nombresTabs).toEqual(['Proyectos', 'Agenda'])
+  await expect(page.locator('.zs')).toHaveCount(0)
+  // el dock comparte el orden
+  await tab('Inicio').click()
+  const orden = await dock.locator('.esc-dock-app:not(.home)').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))
+  expect(orden.indexOf('Proyectos')).toBeLessThan(orden.indexOf('Agenda'))
+
+  // arrastrar la pestaña Agenda a la derecha de la pantalla: pantalla dividida (cada ventana con su barra)
+  await tab('Proyectos').click()
+  await expect(ventana('Proyectos')).toBeVisible()
+  await arrastrar(page, (await tab('Agenda').boundingBox())!, mesa.x + mesa.width - 60, mesa.y + mesa.height / 2)
   await expect(page.locator('.zs-z.on span')).toHaveText('A la derecha')
   await page.mouse.up()
-  await expect(ventana('Proyectos')).toBeVisible()
   await expect(ventana('Agenda')).toBeVisible()
+  await expect(ventana('Proyectos')).toBeVisible()
+  await expect(ventana('Agenda').locator('.esc-win-bar')).toBeVisible()
 
-  // cerrar con la X: se va a su ícono, Agenda ocupa todo y Proyectos se termina
-  await page.getByRole('button', { name: 'Cerrar Proyectos' }).click()
-  await expect(ventana('Proyectos')).toHaveCount(0)
-  await expect.poll(async () => (await ventana('Agenda').boundingBox())?.width ?? 0).toBeGreaterThan(mesa.width - 4)
-  await expect(page.locator('.esc-win[aria-label="Proyectos"]')).toHaveCount(0)
+  // quitar Agenda de la pantalla: se guarda en su pestaña (su animación termina arriba, en la pestaña)
+  await page.getByRole('button', { name: 'Quitar Agenda del mosaico' }).click()
+  const hacia = await page.evaluate(() => {
+    const el = document.querySelector('.esc-win[aria-label="Agenda"]') as HTMLElement | null
+    const k = el?.getAnimations().map((a) => (a.effect as KeyframeEffect).getKeyframes())
+    return String(k?.find((f) => String(f[1]?.transform ?? '').includes('scale'))?.[1]?.transform ?? '')
+  })
+  const ty = Number(hacia.match(/translate\([^,]+,\s*(-?[\d.]+)px/)?.[1] ?? 0)
+  expect(ty).toBeLessThan(0)
+  await expect(ventana('Agenda')).toHaveCount(0)
+  await expect(tab('Agenda')).toBeVisible()
 
-  // reordenar: soltar Cuaderno a la izquierda de Agenda (no abre nada)
-  await page.keyboard.press('Alt+1')
-  await expect(cuenta).toBeVisible()
-  await page.waitForTimeout(400)
-  const nombres = () => dock.locator('.esc-dock-app:not(.home)').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))
-  const cu = (await app('Cuaderno').boundingBox())!
-  const ag = (await app('Agenda').boundingBox())!
-  await page.mouse.move(cu.x + cu.width / 2, cu.y + cu.height / 2)
+  // cerrar con la X de la pestaña: se va su pestaña
+  await tab('Agenda').hover()
+  await page.getByRole('button', { name: 'Cerrar Agenda', exact: true }).click()
+  await expect(tab('Agenda')).toHaveCount(0)
+  expect(await nombresTabs()).toEqual(['Proyectos'])
+
+  // Rockie bajado del todo: queda un asa abajo y vuelve con ella
+  await page.getByRole('button', { name: 'Ocultar a Rockie' }).click()
+  const asa = page.getByRole('button', { name: 'Mostrar a Rockie' })
+  await expect(asa).toBeVisible()
+  await asa.click()
+  await expect(asa).toHaveCount(0)
+  await expect(page.locator('.osc')).not.toHaveClass(/oculto/)
+
+  // mantener presionada la pestaña: color e ícono (la pestaña y su ventana lo usan); clic al soltar no cuenta
+  const pr = (await tab('Proyectos').boundingBox())!
+  await page.mouse.move(pr.x + 20, pr.y + pr.height / 2)
   await page.mouse.down()
-  await page.mouse.move(cu.x + cu.width / 2 - 10, cu.y + cu.height / 2, { steps: 4 })
-  await page.mouse.move(ag.x + ag.width * 0.25, ag.y + ag.height / 2, { steps: 16 })
-  await page.mouse.move(ag.x + ag.width * 0.25 + 1, ag.y + ag.height / 2, { steps: 2 })
-  await expect(app('Agenda')).toHaveClass(/sobre-antes/)
+  await page.waitForTimeout(700)
   await page.mouse.up()
-  const orden = await nombres()
-  expect(orden.indexOf('Cuaderno')).toBe(orden.indexOf('Agenda') - 1)
-  await expect(ventana('Cuaderno')).toHaveCount(0)
+  const pers = page.getByRole('dialog', { name: 'Color e ícono de Proyectos' })
+  await expect(pers).toBeVisible()
+  await expect(pers).toBeInViewport()
+  await pers.getByRole('radio', { name: 'Ámbar' }).click()
+  await pers.getByRole('radio', { name: 'Trofeo' }).click()
+  const color = (l: ReturnType<typeof tab>) => l.evaluate((e) => getComputedStyle(e).getPropertyValue('--app').trim())
+  expect(await color(tab('Proyectos'))).toBe('#eaa545')
+  expect(await color(page.locator('.esc-win[aria-label="Proyectos"]'))).toBe('#eaa545')
+  await pers.getByRole('button', { name: 'Restablecer' }).click()
+  expect(await color(tab('Proyectos'))).toBe('#2e88aa')
+  await page.keyboard.press('Escape')
+  await expect(pers).toHaveCount(0)
 
-  // mantener presionado Hábitos: color e ícono (soltar no la abre)
+  // en el Inicio, mantener presionado un ícono del dock también personaliza
+  await tab('Inicio').click()
+  await expect(dock).toHaveClass(/ver/)
+  await page.waitForTimeout(500)
   const ha = (await app('Hábitos').boundingBox())!
   await page.mouse.move(ha.x + ha.width / 2, ha.y + ha.height / 2)
   await page.mouse.down()
   await page.waitForTimeout(700)
   await page.mouse.up()
-  const pers = page.getByRole('dialog', { name: 'Color e ícono de Hábitos' })
-  await expect(pers).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Color e ícono de Hábitos' })).toBeVisible()
   await expect(ventana('Hábitos')).toHaveCount(0)
-  await pers.getByRole('radio', { name: 'Ámbar' }).click()
-  await pers.getByRole('radio', { name: 'Trofeo' }).click()
-  await expect(pers.getByRole('radio', { name: 'Trofeo' })).toHaveAttribute('aria-checked', 'true')
-  const color = (n: string) => app(n).evaluate((e) => getComputedStyle(e).getPropertyValue('--app').trim())
-  expect(await color('Hábitos')).toBe('#eaa545')
-  await pers.getByRole('button', { name: 'Listo' }).click()
-  await expect(pers).toHaveCount(0)
-
-  // se guarda: al recargar sigue igual (orden y look), y su ventana usa el mismo color
-  await page.reload()
-  await expect(app('Hábitos')).toBeVisible()
-  expect(await color('Hábitos')).toBe('#eaa545')
-  expect(await nombres()).toEqual(orden)
-  await app('Hábitos').click()
-  await expect(ventana('Hábitos')).toBeVisible()
-  expect(await ventana('Hábitos').evaluate((e) => getComputedStyle(e).getPropertyValue('--app').trim())).toBe('#eaa545')
-
-  // tocar su ícono teniéndola adelante: se minimiza
-  await page.mouse.move(mesa.x + mesa.width / 2, mesa.y + mesa.height + 9)
-  await expect(dock).toHaveClass(/ver/)
-  await page.waitForTimeout(400)
-  await app('Hábitos').click()
-  await expect(cuenta).toBeVisible()
-  await expect(ventana('Hábitos')).toHaveCount(0)
-
-  // clic derecho: el menú cabe en la pantalla (el dock está abajo) y desde ahí también se personaliza
-  await app('Hábitos').click({ button: 'right' })
-  const item = page.getByRole('menuitem', { name: /Color e ícono/ })
-  await expect(item).toBeInViewport()
-  await item.click()
-  await page.getByRole('dialog', { name: 'Color e ícono de Hábitos' }).getByRole('button', { name: 'Restablecer' }).click()
-  expect(await color('Hábitos')).toBe('#4a7c3f')
   await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog', { name: 'Color e ícono de Hábitos' })).toHaveCount(0)
+
+  // el orden queda guardado (para no ensuciar al usuario qa, se vuelve al de siempre)
+  await page.evaluate(() => Object.keys(localStorage).filter((k) => k.endsWith('.orden')).forEach((k) => localStorage.removeItem(k)))
 })

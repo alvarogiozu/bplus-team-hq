@@ -9,7 +9,58 @@
   font-family: var(--sans); font-size: 11px; font-weight: 700; line-height: 1.5; color: var(--ink-muted); white-space: nowrap;
 }
 
-/* ---------- sin barra de arriba: cada ventana dice qué app es (su barra) y todo se abre desde el dock ---------- */
+/* ---------- barra de arriba: las pestañas son separadores de folder, cada una con su color (un folder claro).
+   Crecen al pasar el mouse; la que ves sube y se pinta más. Aparece recién cuando abres una app: sin apps
+   abiertas, el Inicio ocupa toda la pantalla. ---------- */
+/* encima del Inicio: mientras se desvanece (al abrir una app) sus widgets no deben quedarse con los clics de las pestañas */
+.esc-bar {
+  position: absolute; z-index: 60; top: 0; left: 0; right: 0; height: 54px; display: flex; align-items: flex-end; gap: 10px; padding: 0 84px 0 12px;
+  transition: opacity 0.3s ease, transform 0.45s var(--resorte);
+}
+.esc.sin-barra .esc-bar { opacity: 0; transform: translateY(-14px); pointer-events: none; }
+.esc-tabs {
+  flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: flex-end; gap: 6px; padding: 0 6px;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+}
+.esc-tabs::-webkit-scrollbar { display: none; }
+.esc-tab {
+  position: relative; flex: none; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; height: 40px; margin-bottom: 3px; padding: 0 8px 0 7px;
+  border-radius: 14px 14px 7px 7px; border: 1.5px solid color-mix(in srgb, var(--app, var(--title)) 22%, var(--card-line));
+  border-top: 3px solid color-mix(in srgb, var(--app, var(--title)) 55%, var(--card));
+  background: color-mix(in srgb, var(--app, var(--title)) 10%, var(--card));
+  font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); cursor: pointer; user-select: none; -webkit-user-select: none;
+  transform-origin: 50% 100%;
+  transition: transform 0.32s var(--spring), height 0.32s var(--spring), margin 0.22s var(--glide), border-radius 0.2s, background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+  animation: esc-tab-entra 0.46s var(--spring) backwards;
+}
+.esc-tab.home { padding-right: 12px; }
+.esc-tab:hover { transform: translateY(-3px) scale(1.05); background: color-mix(in srgb, var(--app, var(--title)) 17%, var(--card)); color: var(--ink); }
+.esc-tab:active { transform: translateY(0) scale(0.97); transition-duration: 0.1s; }
+.esc-tab.vis { background: color-mix(in srgb, var(--app, var(--title)) 15%, var(--card)); }
+/* la que ves: el folder que está adelante (más alto, más color, su borde de arriba entero) */
+.esc-tab.on {
+  height: 46px; margin-bottom: 0; border-radius: 15px 15px 4px 4px; color: var(--ink);
+  background: color-mix(in srgb, var(--app, var(--title)) 22%, var(--card)); border-color: color-mix(in srgb, var(--app, var(--title)) 38%, var(--card-line));
+  border-top: 3.5px solid var(--app, var(--title));
+}
+.esc-tab.on:hover { transform: translateY(-2px) scale(1.02); }
+.esc-tab-ic {
+  width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 8px; color: var(--on-color);
+  background: var(--app, var(--title)); box-shadow: 0 2px 0 var(--app-edge, var(--coral-edge)); transition: transform 0.4s var(--spring);
+}
+.esc-tab:hover .esc-tab-ic { transform: rotate(-8deg) scale(1.12); }
+.esc-tab-t { white-space: nowrap; }
+.esc-tab-x { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 7px; color: var(--ink-muted); opacity: 0; transition: opacity 0.15s, background 0.15s, color 0.15s; }
+.esc-tab:hover .esc-tab-x, .esc-tab.on .esc-tab-x { opacity: 1; }
+.esc-tab-x:hover { background: color-mix(in srgb, var(--app, var(--title)) 22%, var(--card)); color: var(--ink); }
+/* reordenar: se abre un hueco donde va a caer; la que arrastras queda como fantasma */
+.esc-tab.sobre-antes { margin-left: 34px; }
+.esc-tab.sobre-despues { margin-right: 34px; }
+.esc-tab.arrastrada { opacity: 0.4; }
+@keyframes esc-tab-entra { from { opacity: 0; transform: translateY(16px) scale(0.86); } }
+.esc-tab-mas { flex: none; width: 36px; height: 36px; margin-bottom: 5px; display: grid; place-items: center; border-radius: 11px; color: var(--ink-muted); transition: background 0.15s, transform 0.25s var(--spring); }
+.esc-tab-mas:hover { background: var(--card); color: var(--ink); transform: rotate(90deg); }
+.esc-lados { flex: none; align-self: center; display: inline-flex; gap: 2px; padding: 3px; border-radius: 13px; background: color-mix(in srgb, var(--card) 60%, transparent); }
 .esc-lado { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: var(--ink-muted); transition: background 0.15s, color 0.15s; }
 .esc-lado:hover { background: var(--card); color: var(--ink); }
 .esc-lado.on { color: var(--ink-soft); }
@@ -18,8 +69,8 @@
 .esc-win-bar .esc-lado { width: 26px; height: 26px; border-radius: 8px; }
 .esc-win-bar .esc-lado .ico { width: 16px; height: 16px; }
 /* tu cuenta: un botón grande y a la mano, arriba a la derecha (no pegado al borde), con o sin pestañas */
-/* tu cuenta: solo en el Inicio, un botón grande arriba a la derecha (no pegado al borde) */
-.esc-cuenta { position: absolute; z-index: 70; top: 18px; right: 24px; animation: popin 0.3s var(--spring); }
+.esc-cuenta { position: absolute; z-index: 70; top: 2px; right: 16px; transition: top 0.4s var(--resorte), right 0.4s var(--resorte); }
+.esc.sin-barra .esc-cuenta { top: 18px; right: 24px; }
 .esc-avatar {
   width: 50px; height: 50px; padding: 0; display: grid; place-items: center; border-radius: 999px; cursor: pointer;
   background: var(--card); box-shadow: 0 0 0 1.5px var(--card-line), 0 4px 0 var(--card-edge);
@@ -43,9 +94,12 @@
 .esc-menu hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--line); }
 
 /* ---------- la mesa: el Inicio y las ventanas ---------- */
-.esc-mesa { position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; }
-/* el Inicio es toda la pantalla (la mesa de las ventanas guarda su margen) */
+/* la mesa siempre bajo la barra (así no cambia de tamaño al abrir la primera app y la ventana sale limpia del dock) */
+.esc-mesa { position: absolute; top: 54px; left: 10px; right: 10px; bottom: 10px; }
+/* el Inicio: toda la pantalla sin pestañas; con pestañas, debajo de ellas (solo mientras se ve: al abrir la primera
+   app se desvanece donde estaba, sin saltar hacia abajo) */
 .esc-inicio { position: fixed; inset: 0; overflow-y: auto; background: var(--paper); transition: opacity 0.22s ease, visibility 0s linear 0s; }
+.esc:not(.sin-barra) .esc-inicio:not(.oculta) { top: 54px; }
 /* al abrir una app, el Inicio se desvanece por debajo de la ventana que entra (antes se cortaba: quedaba un cuadro vacío) */
 .esc-inicio.oculta { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.22s ease, visibility 0s linear 0.22s; }
 
@@ -60,7 +114,8 @@
 .esc-win[data-saliendo] { z-index: 0; pointer-events: none; }
 .esc-win iframe { flex: 1; width: 100%; min-height: 0; border: 0; background: transparent; opacity: 0; transition: opacity 0.25s; }
 .esc-win.lista iframe { opacity: 1; }
-.esc-win-splash { position: absolute; inset: 38px 0 0; display: grid; place-items: center; pointer-events: none; transition: opacity 0.25s; }
+.esc-win-splash { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; transition: opacity 0.25s; }
+.esc-win.partido .esc-win-splash { top: 38px; }
 .esc-win.lista .esc-win-splash { opacity: 0; }
 .esc-win-tile {
   width: 64px; height: 64px; display: grid; place-items: center; border-radius: 20px; color: var(--on-color);
@@ -105,7 +160,6 @@
 /* soltar una pestaña (o una ventana) adonde quieras: components/zonas.css */
 
 /* ---------- el dock (como la Mac) ---------- */
-.esc-dock-zona { position: absolute; left: 0; right: 0; bottom: 0; z-index: 40; height: 12px; }
 .esc-dock {
   position: absolute; left: 50%; bottom: 16px; z-index: 50; display: flex; align-items: flex-end; gap: 6px; padding: 8px 14px 6px;
   border-radius: 26px; background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 5px 0 var(--card-edge), var(--shadow-lift);
@@ -141,16 +195,9 @@
 }
 .esc-dock-mic:hover { transform: scale(1.12); }
 
-.esc-dock-asa { display: none; }
-@media (hover: none) {
-  .esc-dock-asa { display: block; position: absolute; left: 50%; bottom: 0; z-index: 45; width: 140px; height: 26px; transform: translateX(-50%); }
-  .esc-dock-asa::after { content: ''; position: absolute; left: 50%; bottom: 7px; width: 80px; height: 5px; margin-left: -40px; border-radius: 5px; background: var(--ink-faint); }
-  .esc-dock.ver ~ .esc-dock-asa { display: none; }
-}
-
 /* ---------- el dock en otro lado (lo elige cada quien: menú de la cuenta o clic derecho en el dock) ---------- */
-/* arriba: cuelga justo debajo de las pestañas (no las tapa); se asoma desde el borde de arriba */
-.esc[data-dock='arriba'] .esc-dock-zona { top: 0; bottom: auto; height: 6px; }
+/* arriba: cuelga justo debajo de las pestañas (no las tapa) */
+.esc[data-dock='arriba']:not(.sin-barra) .esc-dock { top: 60px; }
 .esc[data-dock='arriba'] .esc-dock { top: 16px; bottom: auto; padding: 6px 14px 8px; box-shadow: 0 5px 0 var(--card-edge), var(--shadow-lift); transform: translate(-50%, calc(-100% - 70px)); }
 .esc[data-dock='arriba'] .esc-dock.ver { transform: translate(-50%, 0); }
 .esc[data-dock='arriba'] .esc-dock { align-items: flex-start; }
@@ -164,11 +211,9 @@
 .esc[data-dock='arriba'] .esc-dock-rk { margin: 0 0 -24px; }
 .esc[data-dock='arriba'] .esc-dock-rk:hover { transform: translateY(4px) scale(1.06); }
 
-/* a los lados: el dock se para (columna) y se asoma desde ese borde */
-.esc[data-dock='izq'] .esc-dock-zona, .esc[data-dock='der'] .esc-dock-zona { top: 0; bottom: 0; width: 10px; height: auto; }
-.esc[data-dock='izq'] .esc-dock-zona { left: 0; right: auto; }
-.esc[data-dock='der'] .esc-dock-zona { right: 0; left: auto; }
+/* a los lados: el dock se para (columna); con pestañas, centrado en lo que queda debajo de ellas */
 .esc[data-dock='izq'] .esc-dock, .esc[data-dock='der'] .esc-dock { top: 50%; bottom: auto; flex-direction: column; align-items: center; padding: 14px 8px; }
+.esc[data-dock='izq']:not(.sin-barra) .esc-dock, .esc[data-dock='der']:not(.sin-barra) .esc-dock { top: calc(50% + 27px); }
 .esc[data-dock='izq'] .esc-dock { left: 16px; transform: translate(calc(-100% - 34px), -50%); }
 .esc[data-dock='der'] .esc-dock { left: auto; right: 16px; transform: translate(calc(100% + 34px), -50%); }
 .esc[data-dock='izq'] .esc-dock.ver, .esc[data-dock='der'] .esc-dock.ver { transform: translate(0, -50%); }
@@ -190,17 +235,6 @@
 .esc[data-dock='izq'] .esc-dock-rk, .esc[data-dock='der'] .esc-dock-rk { margin: 0; }
 .esc[data-dock='izq'] .esc-dock-rk:hover { transform: translateX(4px) scale(1.06); }
 .esc[data-dock='der'] .esc-dock-rk:hover { transform: translateX(-4px) scale(1.06); }
-
-@media (hover: none) {
-  .esc[data-dock='arriba'] .esc-dock-asa { top: 0; bottom: auto; }
-  .esc[data-dock='arriba'] .esc-dock-asa::after { top: 7px; bottom: auto; }
-  .esc[data-dock='izq'] .esc-dock-asa, .esc[data-dock='der'] .esc-dock-asa { top: 50%; width: 26px; height: 140px; transform: translateY(-50%); }
-  .esc[data-dock='izq'] .esc-dock-asa { left: 0; }
-  .esc[data-dock='der'] .esc-dock-asa { left: auto; right: 0; }
-  .esc[data-dock='izq'] .esc-dock-asa::after, .esc[data-dock='der'] .esc-dock-asa::after { top: 50%; bottom: auto; width: 5px; height: 80px; margin: -40px 0 0; }
-  .esc[data-dock='izq'] .esc-dock-asa::after { left: 7px; }
-  .esc[data-dock='der'] .esc-dock-asa::after { left: auto; right: 7px; }
-}
 
 /* el selector de lado (en el menú de la cuenta y en el clic derecho del dock) */
 .esc-dock-lados { display: flex; align-items: center; gap: 10px; padding: 4px 6px 4px 12px; }
@@ -282,3 +316,19 @@ html[data-ventana] .os-home { padding-bottom: 24px; }
 .esc-pers footer { display: flex; justify-content: space-between; margin-top: 6px; }
 .esc-pers footer button { height: 34px; padding: 0 14px; border-radius: 999px; font-size: var(--t-xs); font-weight: 800; color: var(--ink-soft); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 2px 0 var(--card-edge); }
 .esc-pers footer .listo { color: var(--on-color); background: var(--accent); border-color: var(--accent); box-shadow: 0 3px 0 var(--accent-edge); }
+
+/* ---------- Rockie bajado del todo en las apps: queda un asa abajo para traerlo (no desaparece) ---------- */
+.esc-rk-asa {
+  position: absolute; z-index: 57; left: 50%; bottom: 12px; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px 0 6px;
+  border-radius: 999px; background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge), var(--shadow-lift);
+  color: var(--ink-muted); cursor: pointer; translate: -50% 0; animation: esc-asa-sube 0.42s var(--spring) both;
+  transition: transform 0.2s var(--spring), color 0.15s;
+}
+.esc-rk-asa:hover { transform: translateY(-3px); color: var(--ink); }
+.esc-rk-asa:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-edge); }
+.esc-rk-asa .ico { rotate: 180deg; }
+@keyframes esc-asa-sube { from { opacity: 0; translate: -50% 140%; } }
+.esc.arrastrando .esc-rk-asa, .esc.redim .esc-rk-asa { opacity: 0; pointer-events: none; }
+/* al pasar del Inicio a una app, la barra flotante de Rockie entra con un fundido corto (no se ven dos barras a la vez) */
+.esc > .osc { animation: esc-osc-entra 0.3s ease 0.14s backwards; }
+@keyframes esc-osc-entra { from { opacity: 0; } }

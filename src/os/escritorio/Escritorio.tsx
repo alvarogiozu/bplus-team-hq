@@ -22,7 +22,8 @@ import { EscritorioCtx, type EscritorioApi } from './contexto'
 import './escritorio.css'
 import { useFinSeguro } from '../../lib/finSeguro'
 
-// El escritorio de Rockie OS (PC y tablet horizontal). Arriba, pestañas: el Inicio y las apps abiertas.
+// El escritorio de Rockie OS (PC y tablet horizontal). Arriba, pestañas (separadores de folder con el color de cada
+// app): el Inicio y las apps abiertas; se reordenan arrastrándolas. El dock de abajo vive solo en el Inicio.
 // Cada pestaña es la app COMPLETA en su propia ventana (iframe del mismo sitio), con su barra lateral.
 // Abajo (o en el lado que elijas), un dock flotante como el de la Mac. Las ventanas se dividen en mosaico (hasta 6: tres columnas,
 // cada una entera o partida arriba/abajo, src/lib/mosaico.ts) con la
@@ -45,10 +46,6 @@ const LADOS_DOCK: { id: LadoDock; nombre: string }[] = [
   { id: 'arriba', nombre: 'Arriba' },
 ]
 const CLAVE_DOCK = 'rockie.dock.lado'
-const ES_MAC = /mac/i.test((navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform || '')
-/** Cuánto hay que quedarse en el borde para que el dock se asome. En la Mac, abajo espera un poco: si el Dock
-    de la Mac (escondido) sube primero, el cursor sale de la página y el nuestro ni aparece (no se enciman). */
-const ESPERA_DOCK: Record<LadoDock, number> = { abajo: ES_MAC ? 280 : 0, arriba: 200, izq: 180, der: 180 }
 const GLIDE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
 
@@ -316,7 +313,6 @@ export default function Escritorio() {
   /** el arrastre de la barra de una ventana empezó en uno de sus botones: no se arrastra */
   const desdeBoton = useRef(false)
   const [redim, setRedim] = useState<false | 'x' | 'y'>(false)
-  const [asomo, setAsomo] = useState(false)
   const [ladoDock, setLadoDockState] = useState<LadoDock>(() => {
     const g = lsGet(CLAVE_DOCK) as LadoDock | null
     return g && LADOS_DOCK.some((l) => l.id === g) ? g : 'abajo'
@@ -326,28 +322,6 @@ export default function Escritorio() {
     lsSet(CLAVE_DOCK, l)
   }
   const [menuDock, setMenuDock] = useState<{ x: number; y: number } | null>(null)
-  // asomarse con intención: hay que quedarse un momento en el borde (así pasar el mouse por ahí no lo abre)
-  const esperaAsomo = useRef<ReturnType<typeof setTimeout>>()
-  const pedirAsomo = () => {
-    clearTimeout(esperaAsomo.current)
-    const ms = ESPERA_DOCK[ladoDock]
-    if (!ms) return setAsomo(true)
-    esperaAsomo.current = setTimeout(() => setAsomo(true), ms)
-  }
-  const soltarAsomo = () => clearTimeout(esperaAsomo.current)
-  // si el cursor se va de la página (al Dock de la Mac, a la barra de Windows u otra ventana), el nuestro se esconde
-  useEffect(() => {
-    const fuera = (e: MouseEvent) => {
-      if (e.relatedTarget) return
-      clearTimeout(esperaAsomo.current)
-      setAsomo(false)
-    }
-    document.addEventListener('mouseout', fuera)
-    return () => {
-      document.removeEventListener('mouseout', fuera)
-      clearTimeout(esperaAsomo.current)
-    }
-  }, [])
   const look = useMemo(() => rockieLook(), [])
 
   // ---------- el dock: todo se abre desde aquí. El orden y el look de cada app los eliges tú ----------
@@ -364,6 +338,8 @@ export default function Escritorio() {
     }
     return ORDEN
   })
+  const ordenRef = useRef(dockOrden)
+  ordenRef.current = dockOrden
   const setDockOrden = (o: AppId[]) => {
     setDockOrdenState(o)
     lsSet(`${claveDock}.orden`, JSON.stringify(o))
@@ -388,25 +364,20 @@ export default function Escritorio() {
   /** y: borde de arriba del ícono; y2: el de abajo (se abre hacia donde hay lugar) */
   const [personalizar, setPersonalizar] = useState<{ id: AppId; x: number; y: number; y2?: number } | null>(null)
   const [dockSobre, setDockSobre] = useState<{ id: AppId; antes: boolean } | null>(null)
+  const [tabSobre, setTabSobre] = useState<{ id: AppId; antes: boolean } | null>(null)
   const iconosDock = useRef(new Map<AppId, HTMLElement>())
-  /** la app que se abre desde su ícono (sale de ahí) y la que vuelve a él (al minimizar) */
+  const pestanas = useRef(new Map<AppId, HTMLElement>())
+  /** la app que se abre desde su ícono del dock (sale de ahí) y la que se guarda en su pestaña (al quitarla o cerrarla) */
   const desdeDock = useRef<{ id: AppId; t: number } | null>(null)
-  const alDock = useRef<AppId | null>(null)
-  /** traslado+escala desde un rect de la mesa hasta el ícono del dock (o al revés) */
-  const haciaIcono = (id: AppId, r: Rect) => {
-    const ic = iconosDock.current.get(id)
+  const aSuPestana = useRef<AppId | null>(null)
+  /** traslado+escala desde un rect de la mesa hasta un elemento (el ícono del dock o la pestaña), o al revés */
+  const haciaEl = (el: HTMLElement | undefined, r: Rect) => {
     const m = mesa.current?.getBoundingClientRect()
-    if (!ic || !m || !r.w || !r.h) return null
-    const a = ic.getBoundingClientRect()
+    if (!el || !m || !r.w || !r.h) return null
+    const a = el.getBoundingClientRect()
+    if (!a.width || !a.height) return null
     return `translate(${a.left - m.left - r.x}px, ${a.top - m.top - r.y}px) scale(${a.width / r.w}, ${a.height / r.h})`
   }
-  // con el dedo no hay «alejar el mouse»: el dock que subiste con la manija baja solo
-  useEffect(() => {
-    if (!asomo || matchMedia('(hover: hover)').matches) return
-    const t = setTimeout(() => setAsomo(false), 4000)
-    return () => clearTimeout(t)
-  }, [asomo])
-
   const marcos = useRef(new Map<AppId, HTMLIFrameElement>())
   const ventanas = useRef(new Map<AppId, HTMLElement>())
   const mesa = useRef<HTMLDivElement>(null)
@@ -509,22 +480,35 @@ export default function Escritorio() {
     reprogramar(3000)
   }
 
-  /** Minimizar: la ventana vuelve a su ícono del dock (la app sigue abierta, lista para volver al instante). */
+  /** Quitarla de la pantalla: la ventana se guarda en su pestaña (la app sigue abierta, lista para volver al instante). */
   const minimizar = (id: AppId) => {
-    alDock.current = id
+    aSuPestana.current = id
     dispatch({ t: 'quitar', id })
   }
-  /** Cerrar: vuelve a su ícono como al minimizar (las demás ocupan su lugar a la vez) y luego se termina. */
-  const cerrarAlDock = (id: AppId) => {
+  /** Cerrar: si se ve, se guarda en su pestaña como al quitarla (las demás ocupan su lugar a la vez); luego la pestaña
+   *  se encoge y la app se termina. */
+  const cerrarSuave = (id: AppId) => {
     const e = est.current
-    if (e.vista !== 'apps' || !idsDe(e.mos).includes(id)) return cerrar(id)
-    minimizar(id)
+    const seVe = e.vista === 'apps' && idsDe(e.mos).includes(id)
+    if (seVe) minimizar(id)
+    const tab = pestanas.current.get(id)
+    const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches
+    let anim: Animation | undefined
+    const encoger = tab && !quieto
+      ? setTimeout(() => {
+          anim = tab.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(8px) scale(0.82)' }], { duration: 170, easing: GLIDE, fill: 'forwards' })
+        }, seVe ? 230 : 0)
+      : undefined
     setTimeout(() => {
       const n = est.current
       // si la volviste a abrir mientras se iba, se queda
-      if (n.vista === 'apps' && idsDe(n.mos).includes(id)) return
+      if (n.vista === 'apps' && idsDe(n.mos).includes(id)) {
+        clearTimeout(encoger)
+        anim?.cancel()
+        return
+      }
       cerrar(id)
-    }, 400)
+    }, quieto ? 0 : seVe ? 400 : 170)
   }
   /** Tocar una app en el dock: si es la que tienes adelante, se minimiza; si no, se abre saliendo de su ícono. */
   const clicDock = (id: AppId) => {
@@ -533,10 +517,11 @@ export default function Escritorio() {
     desdeDock.current = { id, t: Date.now() }
     abrir(id)
   }
-  /** Reordenar el dock soltando una app sobre otra (a su izquierda o derecha). */
-  const soltarEnDock = (sobre: AppId, antes: boolean) => {
+  /** Reordenar (el dock y las pestañas comparten el orden): soltar una app sobre otra, a su izquierda o derecha. */
+  const reordenar = (sobre: AppId, antes: boolean) => {
     const id = enCurso.current
     setDockSobre(null)
+    setTabSobre(null)
     if (!id || id === sobre) return
     const sin = dockOrden.filter((x) => x !== id)
     const i = sin.indexOf(sobre) + (antes ? 0 : 1)
@@ -568,7 +553,7 @@ export default function Escritorio() {
         e.stopPropagation()
         const n = Number(d[1])
         if (n === 1) dispatch({ t: 'inicio' })
-        else abrir(ORDEN[n - 2])
+        else if (ordenRef.current[n - 2]) abrir(ordenRef.current[n - 2])
         return
       }
       // con Alt + flechas se escribe en los campos (Mac): ahí no se toca
@@ -748,7 +733,8 @@ export default function Escritorio() {
   useLayoutEffect(() => {
     if (!tam.w) return
     const prev = antes.current
-    const orden = (id: AppId) => est.current.abiertas.indexOf(id)
+    // el orden de las pestañas (cambiar de una a otra se desliza hacia ese lado)
+    const orden = (id: AppId) => ordenRef.current.indexOf(id)
     const otroTam = tamAntes.current.w !== tam.w || tamAntes.current.h !== tam.h
     tamAntes.current = tam
     const quieto = redimRef.current || matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -770,7 +756,7 @@ export default function Escritorio() {
       // abierta desde su ícono del dock: sale de ahí hasta su lugar
       if (desdeDock.current?.id === id && Date.now() - desdeDock.current.t < 1500) {
         desdeDock.current = null
-        const desde = haciaIcono(id, r)
+        const desde = haciaEl(iconosDock.current.get(id), r)
         if (desde) {
           el.animate([{ transform: desde, opacity: 0.35, borderRadius: '22px' }, { transform: 'none', opacity: 1, borderRadius: '16px' }], { duration: 480, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' })
           continue
@@ -789,10 +775,10 @@ export default function Escritorio() {
       if (visibles.has(id)) continue
       const el = ventanas.current.get(id)
       if (!el || !suave) continue
-      // minimizada: vuelve a su ícono del dock
-      if (alDock.current === id) {
-        alDock.current = null
-        const hacia = haciaIcono(id, p)
+      // quitada o cerrada: se guarda en su pestaña (sin pestañas a la vista, en su ícono del dock)
+      if (aSuPestana.current === id) {
+        aSuPestana.current = null
+        const hacia = haciaEl(pestanas.current.get(id) ?? iconosDock.current.get(id), p)
         if (hacia) {
           el.dataset.saliendo = ''
           // responde al instante y se posa en el ícono (un ease-in puro se veía congelado al empezar)
@@ -894,18 +880,90 @@ export default function Escritorio() {
   }
 
   const api = useMemo<EscritorioApi>(() => ({ abrir: abrirPath, comando: () => abrirChat(false) }), [abrirPath, abrirChat])
-  // en el Inicio el dock se ve, salvo mientras conversas (ahí se esconde y se asoma al acercar el mouse abajo)
+  // el dock vive solo en el Inicio, y se va mientras conversas con Rockie (en las apps no se asoma: están las pestañas)
   const [charla, setCharla] = useState(false)
-  const dockVisible = (s.vista === 'inicio' && !charla) || asomo || Boolean(cmd) || Boolean(arrastre) || Boolean(personalizar)
+  const dockVisible = s.vista === 'inicio' && !charla
+  // la barra de pestañas aparece recién cuando abres una app: sin apps abiertas, el Inicio es toda la pantalla
+  const conBarra = s.abiertas.length > 0
+  const enOrden = dockOrden.filter((id) => s.abiertas.includes(id))
   const partido = s.vista === 'apps' && cuantas(s.mos) > 1
   const seps = partido ? separadores(s.mos, tam.w, tam.h, GAP) : null
   const activa = s.vista === 'apps' ? s.foco : null
 
   return (
     <EscritorioCtx.Provider value={api}>
-      <div className={`esc${redim ? ` redim redim-${redim}` : ''}${arrastre ? ' arrastrando' : ''}${dockVisible ? ' dock-ver' : ''}`} data-dock={ladoDock}>
-        {/* tu cuenta: solo en el Inicio (en las apps, todo se abre y se cierra desde el dock) */}
-        {s.vista === 'inicio' && (
+      <div className={`esc${redim ? ` redim redim-${redim}` : ''}${arrastre ? ' arrastrando' : ''}${conBarra ? '' : ' sin-barra'}${dockVisible ? ' dock-ver' : ''}`} data-dock={ladoDock}>
+        <header className="esc-bar" aria-hidden={!conBarra}>
+          <nav
+            className="esc-tabs"
+            role="tablist"
+            aria-label="Pestañas"
+            onDragEnter={(e) => {
+              if (enCurso.current) e.preventDefault()
+            }}
+            onDragOver={(e) => {
+              if (enCurso.current) e.preventDefault()
+            }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setTabSobre(null)
+            }}
+            onDrop={(e) => {
+              // soltar entre las pestañas: la reordena (cae en el hueco que se abrió)
+              e.preventDefault()
+              if (tabSobre) reordenar(tabSobre.id, tabSobre.antes)
+              terminarArrastre()
+            }}
+          >
+            <button role="tab" aria-selected={s.vista === 'inicio'} className={`esc-tab home${s.vista === 'inicio' ? ' on' : ''}`} onClick={() => dispatch({ t: 'inicio' })} title="Inicio (Alt 1)">
+              <span className="esc-tab-ic">
+                <Icon name="home" className="sm" />
+              </span>
+              <span className="esc-tab-t">Inicio</span>
+            </button>
+            {enOrden.map((id) => (
+              <Pestana
+                key={id}
+                app={APP[id]}
+                look={lookDe(id)}
+                on={activa === id}
+                vis={s.vista === 'apps' && activa !== id && idsDe(s.mos).includes(id)}
+                arrastrada={arrastre === id}
+                sobre={tabSobre?.id === id ? (tabSobre.antes ? 'antes' : 'despues') : null}
+                atajo={`Alt ${dockOrden.indexOf(id) + 2}`}
+                refEl={(el) => {
+                  if (el) pestanas.current.set(id, el)
+                  else pestanas.current.delete(id)
+                }}
+                onAbrir={() => abrir(id)}
+                onCerrar={() => cerrarSuave(id)}
+                onDragStart={(e) => empezarArrastre(e, id)}
+                onDragEnd={() => {
+                  setTabSobre(null)
+                  terminarArrastre()
+                }}
+                onDragOver={(e) => {
+                  if (!enCurso.current || enCurso.current === id) return
+                  e.preventDefault()
+                  const r = e.currentTarget.getBoundingClientRect()
+                  const antes = e.clientX < r.left + r.width / 2
+                  if (tabSobre?.id !== id || tabSobre.antes !== antes) setTabSobre({ id, antes })
+                }}
+                onLargo={(x, y, y2) => setPersonalizar({ id, x, y, y2 })}
+                onMenu={(x, y) => setMenu({ id, x, y })}
+              />
+            ))}
+            <button className="esc-tab-mas" onClick={() => setCmd({ escuchar: false })} aria-label="Abrir otra app" title="Abrir otra app (Ctrl ⇧ K)">
+              <Icon name="plus" className="sm" />
+            </button>
+          </nav>
+          {activa && (
+            <span className="esc-lados" role="group" aria-label={`Barras de ${APP[activa].name}`}>
+              <LadoBtn lado="izq" visible={!sinIzq(activa)} onClick={() => alternar(activa, 'izq')} />
+              {CON_DER.includes(activa) && <LadoBtn lado="der" visible={!sinDer(activa)} onClick={() => alternar(activa, 'der')} />}
+            </span>
+          )}
+        </header>
+        {/* tu cuenta: siempre a la mano, arriba a la derecha (con o sin pestañas) */}
         <div className="esc-cuenta">
           <button className="esc-avatar" onClick={() => setCuenta((v) => !v)} aria-haspopup="menu" aria-expanded={cuenta} aria-label="Tu cuenta: perfil, ajustes y cerrar sesión">
             <Avatar size={42} />
@@ -930,7 +988,6 @@ export default function Escritorio() {
             </div>
           )}
         </div>
-        )}
 
         <main className="esc-mesa" ref={mesa}>
           <div ref={inicio} className={`esc-inicio${s.vista === 'inicio' ? '' : ' oculta'}`} aria-hidden={s.vista !== 'inicio'}>
@@ -956,7 +1013,7 @@ export default function Escritorio() {
                 aria-label={a.name}
                 aria-hidden={!ve}
               >
-                {ve && (
+                {partido && ve && (
                   <div
                     className="esc-win-bar"
                     onPointerDown={(e) => {
@@ -979,15 +1036,13 @@ export default function Escritorio() {
                     <span className="spacer" />
                     <LadoBtn lado="izq" visible={!sinIzq(id)} onClick={() => alternar(id, 'izq')} />
                     {CON_DER.includes(id) && <LadoBtn lado="der" visible={!sinDer(id)} onClick={() => alternar(id, 'der')} />}
-                    {partido && (
-                      <button onClick={() => dispatch({ t: 'solo', id })} aria-label={`Solo ${a.name}`} title="Solo esta (Alt ↑)">
-                        <Icon name="expand" className="sm" />
-                      </button>
-                    )}
-                    <button onClick={() => minimizar(id)} aria-label={`Minimizar ${a.name}`} title="Minimizar: vuelve al dock (Alt ↓)">
+                    <button onClick={() => dispatch({ t: 'solo', id })} aria-label={`Solo ${a.name}`} title="Solo esta (Alt ↑)">
+                      <Icon name="expand" className="sm" />
+                    </button>
+                    <button onClick={() => minimizar(id)} aria-label={`Quitar ${a.name} del mosaico`} title="Quitar de la pantalla: se guarda en su pestaña (Alt ↓)">
                       <Icon name="minus" className="sm" />
                     </button>
-                    <button className="cerrar" onClick={() => cerrarAlDock(id)} aria-label={`Cerrar ${a.name}`} title="Cerrar">
+                    <button className="cerrar" onClick={() => cerrarSuave(id)} aria-label={`Cerrar la ventana de ${a.name}`} title="Cerrar">
                       <Icon name="close" className="sm" />
                     </button>
                   </div>
@@ -1054,13 +1109,10 @@ export default function Escritorio() {
           )}
         </main>
 
-        {/* el dock: siempre en el Inicio; en las apps se esconde y se asoma al acercarte al borde de abajo */}
-        <div className="esc-dock-zona" onMouseEnter={pedirAsomo} onMouseLeave={soltarAsomo} />
+        {/* el dock: solo en el Inicio (mientras conversas con Rockie se va); en las apps, las pestañas de arriba */}
         <nav
           className={`esc-dock${dockVisible ? ' ver' : ''}`}
           aria-label="Dock"
-          onMouseEnter={() => setAsomo(true)}
-          onMouseLeave={() => setAsomo(false)}
           onContextMenu={(e) => {
             e.preventDefault()
             setMenuDock({ x: e.clientX, y: e.clientY })
@@ -1101,7 +1153,7 @@ export default function Escritorio() {
               onDrop={(e) => {
                 e.preventDefault()
                 const r = e.currentTarget.getBoundingClientRect()
-                soltarEnDock(id, e.clientX < r.left + r.width / 2)
+                reordenar(id, e.clientX < r.left + r.width / 2)
                 terminarArrastre()
               }}
               onLargo={(x, y, y2) => setPersonalizar({ id, x, y, y2 })}
@@ -1145,7 +1197,7 @@ export default function Escritorio() {
               onDrop={(e) => {
                 e.preventDefault()
                 const r = e.currentTarget.getBoundingClientRect()
-                soltarEnDock(id, e.clientX < r.left + r.width / 2)
+                reordenar(id, e.clientX < r.left + r.width / 2)
                 terminarArrastre()
               }}
               onLargo={(x, y, y2) => setPersonalizar({ id, x, y, y2 })}
@@ -1153,8 +1205,6 @@ export default function Escritorio() {
             />
           ))}
         </nav>
-        {/* en tablets (sin mouse para asomarse al borde): una manija que sube el dock */}
-        <button className="esc-dock-asa" aria-label="Mostrar el dock" onClick={() => setAsomo(true)} />
 
         {/* dentro de las apps, Rockie del sistema flota abajo (la misma conversación del Inicio) */}
         {s.vista === 'apps' && (
@@ -1170,6 +1220,12 @@ export default function Escritorio() {
             enfocar={flotFoco}
             nombre={activa ? APP[activa].name : 'Rockie'}
           />
+        )}
+        {s.vista === 'apps' && flotOculto && !flotAbierto && (
+          <button className="esc-rk-asa" onClick={() => setFlotOculto(false)} aria-label="Mostrar a Rockie" title="Mostrar a Rockie (Ctrl K)">
+            <RockieArt size={30} stone={look.stone} equipped={look.equipped} />
+            <Icon name="chevron" className="sm" />
+          </button>
         )}
 
         <Comando
@@ -1254,8 +1310,8 @@ export default function Escritorio() {
               {s.abiertas.includes(menu.id) && (
                 <>
                   <hr />
-                  <button role="menuitem" onClick={() => enMenu(() => cerrarAlDock(menu.id))}>
-                    <Icon name="close" className="sm" /> Cerrar
+                  <button role="menuitem" onClick={() => enMenu(() => cerrarSuave(menu.id))}>
+                    <Icon name="close" className="sm" /> Cerrar pestaña
                   </button>
                 </>
               )}
@@ -1327,36 +1383,16 @@ function DockApp(p: {
   onLargo: (x: number, y: number, y2: number) => void
   onMenu: (x: number, y: number) => void
 }) {
-  const largo = useRef<ReturnType<typeof setTimeout>>()
-  const fue = useRef(false)
-  const desde = useRef({ x: 0, y: 0 })
-  const cancelar = () => clearTimeout(largo.current)
-  useEffect(() => cancelar, [])
+  const largo = usePresionLarga(p.onLargo)
   return (
     <button
       ref={p.refIcono}
       draggable
       className={`esc-dock-app${p.on ? ' on' : ''}${p.abierta ? ' abierta' : ''}${p.sobre ? ` sobre-${p.sobre}` : ''}`}
       style={{ ['--app' as string]: p.look.color, ['--app-edge' as string]: p.look.edge } as CSSProperties}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return
-        fue.current = false
-        desde.current = { x: e.clientX, y: e.clientY }
-        const el = e.currentTarget
-        cancelar()
-        largo.current = setTimeout(() => {
-          fue.current = true
-          const r = el.getBoundingClientRect()
-          p.onLargo(r.left + r.width / 2, r.top, r.bottom)
-        }, 520)
-      }}
-      onPointerMove={(e) => {
-        if (Math.hypot(e.clientX - desde.current.x, e.clientY - desde.current.y) > 6) cancelar()
-      }}
-      onPointerUp={cancelar}
-      onPointerLeave={cancelar}
+      {...largo.handlers}
       onDragStart={(e) => {
-        cancelar()
+        largo.cancelar()
         p.onDragStart(e)
       }}
       onDragEnd={p.onDragEnd}
@@ -1364,16 +1400,12 @@ function DockApp(p: {
       onDragLeave={p.onDragLeave}
       onDrop={p.onDrop}
       onClick={() => {
-        if (fue.current) {
-          fue.current = false
-          return
-        }
-        p.onAbrir()
+        if (!largo.fue()) p.onAbrir()
       }}
       onContextMenu={(e) => {
         e.preventDefault()
         e.stopPropagation()
-        cancelar()
+        largo.cancelar()
         p.onMenu(e.clientX, e.clientY)
       }}
       aria-label={p.app.name}
@@ -1387,7 +1419,112 @@ function DockApp(p: {
   )
 }
 
-/** Personalizar una app del dock: su color y su ícono (se guardan en este equipo). */
+/** Mantener presionado (sin moverse) un ícono del dock o una pestaña: abre su color e ícono. Después, el clic no cuenta. */
+function usePresionLarga(onLargo: (x: number, y: number, y2: number) => void) {
+  const t = useRef<ReturnType<typeof setTimeout>>()
+  const fue = useRef(false)
+  const desde = useRef({ x: 0, y: 0 })
+  const cancelar = () => clearTimeout(t.current)
+  useEffect(() => () => clearTimeout(t.current), [])
+  return {
+    cancelar,
+    /** ¿el clic que llega es el de soltar después de mantener presionado? (y lo consume) */
+    fue: () => {
+      const f = fue.current
+      fue.current = false
+      return f
+    },
+    handlers: {
+      onPointerDown: (e: RPointerEvent<HTMLElement>) => {
+        if (e.button !== 0) return
+        fue.current = false
+        desde.current = { x: e.clientX, y: e.clientY }
+        const el = e.currentTarget
+        cancelar()
+        t.current = setTimeout(() => {
+          fue.current = true
+          const r = el.getBoundingClientRect()
+          onLargo(r.left + r.width / 2, r.top, r.bottom)
+        }, 520)
+      },
+      onPointerMove: (e: RPointerEvent<HTMLElement>) => {
+        if (Math.hypot(e.clientX - desde.current.x, e.clientY - desde.current.y) > 6) cancelar()
+      },
+      onPointerUp: cancelar,
+      onPointerLeave: cancelar,
+    },
+  }
+}
+
+/** Una pestaña de arriba: un separador de folder con el color de su app (crece al pasar el mouse). Tocar = verla;
+ *  arrastrar = llevarla a la pantalla o a otro lugar entre las pestañas; mantener presionado = su color e ícono;
+ *  clic del medio o la X = cerrarla. */
+function Pestana(p: {
+  app: OsApp
+  look: LookApp
+  on: boolean
+  vis: boolean
+  arrastrada: boolean
+  sobre: 'antes' | 'despues' | null
+  atajo: string
+  refEl: (el: HTMLElement | null) => void
+  onAbrir: () => void
+  onCerrar: () => void
+  onDragStart: (e: DragEvent) => void
+  onDragEnd: () => void
+  onDragOver: (e: DragEvent<HTMLDivElement>) => void
+  onLargo: (x: number, y: number, y2: number) => void
+  onMenu: (x: number, y: number) => void
+}) {
+  const largo = usePresionLarga(p.onLargo)
+  return (
+    <div
+      ref={p.refEl}
+      role="tab"
+      tabIndex={0}
+      aria-selected={p.on}
+      className={`esc-tab${p.on ? ' on' : ''}${p.vis ? ' vis' : ''}${p.arrastrada ? ' arrastrada' : ''}${p.sobre ? ` sobre-${p.sobre}` : ''}`}
+      style={{ ['--app' as string]: p.look.color, ['--app-edge' as string]: p.look.edge } as CSSProperties}
+      title={`${p.app.name} (${p.atajo}) · arrástrala a la pantalla o entre las pestañas · mantén presionado para su color e ícono`}
+      draggable
+      {...largo.handlers}
+      onDragStart={(e) => {
+        largo.cancelar()
+        p.onDragStart(e)
+      }}
+      onDragEnd={p.onDragEnd}
+      onDragOver={p.onDragOver}
+      onClick={() => {
+        if (!largo.fue()) p.onAbrir()
+      }}
+      onKeyDown={(e) => e.key === 'Enter' && p.onAbrir()}
+      onAuxClick={(e) => e.button === 1 && p.onCerrar()}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        largo.cancelar()
+        p.onMenu(e.clientX, e.clientY)
+      }}
+    >
+      <span className="esc-tab-ic">
+        <Icon name={p.look.icon} className="sm" />
+      </span>
+      <span className="esc-tab-t">{p.app.name}</span>
+      <button
+        className="esc-tab-x"
+        aria-label={`Cerrar ${p.app.name}`}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          p.onCerrar()
+        }}
+      >
+        <Icon name="close" className="sm" />
+      </button>
+    </div>
+  )
+}
+
+/** Personalizar una app (dock o pestaña): su color y su ícono (se guardan en este equipo). */
 function Personalizar(p: { app: OsApp; look: LookApp; x: number; y: number; y2: number; elegir: (e: Estilo | null) => void; cerrar: () => void }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && p.cerrar()
