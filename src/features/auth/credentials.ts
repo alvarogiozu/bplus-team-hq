@@ -174,9 +174,9 @@ export async function syncBplusSessionFromHq(hqSession: Session, rawPassword?: s
         },
       })
       if (anonRes.data.session) {
-        await bp
-          .from('profiles')
-          .upsert({ id: anonRes.data.session.user.id, name: displayName }, { onConflict: 'id' })
+        // el perfil ya lo creó el trigger de Hábitos al registrar la sesión (handle_new_user): solo se le pone el
+        // nombre. Un upsert pedía INSERT, que la RLS de profiles no da → 403 y el perfil quedaba como «Tu».
+        await bp.from('profiles').update({ name: displayName }).eq('id', anonRes.data.session.user.id)
         return anonRes.data.session
       }
       return null
