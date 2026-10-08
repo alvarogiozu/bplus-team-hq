@@ -24,3 +24,9 @@ html[data-sin-izq] .cu > .cu-side { display: none; }
 html[data-sin-der] .cu-main.has-panel .cu-page { grid-template-columns: minmax(0, 1fr); }
 html[data-sin-der] .cu-page > .cu-panel { display: none; }
 html[data-sin-der] .cu-main.has-panel .cu-rk { right: 0; }
+
+/* Rockie es UNO en el escritorio: la barra flotante del sistema (escritorio/Chat.tsx), la misma del Inicio. Dentro
+   de una ventana se esconden las barras propias de Rockie de cada app (siguen recibiendo los pedidos ?rockie=). */
+html[data-ventana] .rk:not(.mobile),
+html[data-ventana] .agentbar.desktop,
+html[data-ventana] .cu-rk:not(.mobile) { display: none !important; }

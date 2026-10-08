@@ -4,6 +4,7 @@ import { haptic } from '../lib/fx'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../features/auth/AuthProvider'
 import { useCuadernoActions } from '../cuaderno/data'
+import { processEntry } from '../cuaderno/agent'
 import { APPS } from '../os/apps'
 import { applyProposal, askRockie, buildContext, describe, makeLook, summarize, type Card, type Proposal } from './agent'
 import { APP_META, useRockieChat, type ChatApp, type LifeArea } from '../features/agent/chat'
@@ -59,7 +60,7 @@ const OS_TOOLS = new Set(['anotar', 'habito', 'crear_tarea_equipo'])
 const NOTA = /^\s*(?:an[oó]ta(?:me)?|apunta(?:me)?|anotar|apuntar|nota|idea)\b(?:\s+(?:que|esto|lo siguiente))?\s*[:,-]?\s*(.+)$/i
 const CON_FECHA = /\b(hoy|mañana|manana|pasado|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|a las|semana|mes)\b|\d{1,2}[:h]\d{2}|\d{1,2}\s*(?:am|pm)\b/i
 
-export function useRockieHilo(p: { today: string; nowMin: number; google?: GEvent[]; scope?: 'os'; abrir?: (path: string) => void }) {
+export function useRockieHilo(p: { today: string; nowMin: number; google?: GEvent[]; scope?: 'os'; abrir?: (path: string) => void; /** en qué app está la persona (si lo que dice es ambiguo, se prefiere esa) */ app?: string }) {
   const { profile, userId } = useAuth()
   const itemsData = useItems().data
   const items = useMemo(() => itemsData ?? [], [itemsData])
@@ -72,7 +73,7 @@ export function useRockieHilo(p: { today: string; nowMin: number; google?: GEven
   const dayMap = useDayMap()
   const reserveActions = useReserveActions()
   const reserves = useReserves().data
-  const { createEntry, deleteEntry } = useCuadernoActions()
+  const { createEntry, deleteEntry, patchEntry } = useCuadernoActions()
   const actions = useMemo(
     () => ({ ...agendaActions, groups: groupActions, hobbies: hobbyActions, days: dayActions, reserves: reserveActions }),
     [agendaActions, groupActions, hobbyActions, dayActions, reserveActions],
@@ -119,6 +120,8 @@ export function useRockieHilo(p: { today: string; nowMin: number; google?: GEven
     if (x.tool === 'anotar') {
       const e = await createEntry(String(x.input.texto ?? '').trim(), 'texto')
       if (!e) return null
+      // el Rockie del Cuaderno la ordena como siempre (la misma vuelta que al escribir en el Cuaderno)
+      void processEntry(e, p.today, tz).then((r) => r.entry && patchEntry(r.entry))
       return { undo: () => deleteEntry(e), listo: 'Anotado', ir: '/cuaderno' }
     }
     if (x.tool === 'habito') {
@@ -191,7 +194,7 @@ export function useRockieHilo(p: { today: string; nowMin: number; google?: GEven
       return
     }
     setThinking(true)
-    const ctx = buildContext({ today: p.today, nowMin: p.nowMin, tz, profile, prefs, items, hq, cals, google: p.google, groups, hobbies, days: dayMap })
+    const ctx = { ...buildContext({ today: p.today, nowMin: p.nowMin, tz, profile, prefs, items, hq, cals, google: p.google, groups, hobbies, days: dayMap }), ...(p.scope === 'os' && p.app ? { app_abierta: p.app } : {}) }
     const people = (hq?.people ?? []).map((x) => ({ id: x.id, name: x.name, username: x.username }))
     // el chat del sistema arranca cada conversación de cero: su contexto es SOLO este hilo (con el historial de todas
     // las apps la IA repetía lo de antes: «hice mis flexiones» volvía como «Meditar»)

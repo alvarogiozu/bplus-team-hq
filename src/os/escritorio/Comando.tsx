@@ -48,6 +48,8 @@ type Props = {
   abrirPath: (path: string) => void
   abrirApp: (id: AppId, donde?: 'aqui' | 'izq' | 'der') => void
   irInicio: () => void
+  /** «Pídele a Rockie: …» va a la conversación del sistema (si no, a la app que corresponde) */
+  alRockie?: (texto: string) => void
 }
 
 export function Comando(p: Props) {
@@ -65,7 +67,8 @@ export function Comando(p: Props) {
   const pedir = (texto: string) => {
     const t = texto.trim()
     if (!t) return
-    p.abrirPath(destinoDe(t).path)
+    if (p.alRockie) p.alRockie(t)
+    else p.abrirPath(destinoDe(t).path)
     cerrar()
   }
   const voz = useVoice({ onFinal: (t) => pedir(t) })

@@ -226,3 +226,37 @@
 @media (prefers-reduced-motion: reduce) {
   .ini-dots i { animation: none; opacity: 0.8; }
 }
+
+/* ---------- Rockie dentro de las apps: la barra flotante del sistema (Chat.tsx · ChatFlotante) ----------
+   Compacta abajo (solo escribir y hablar); al tocarla crece hacia arriba con el mismo resorte del Inicio. Si el dock
+   se asoma, le hace lugar; si la ocultas, baja fuera de la pantalla y vuelve con Ctrl K o con Rockie en el dock. */
+.osc { position: absolute; inset: 0; z-index: 56; pointer-events: none; }
+.osc-capa { position: absolute; inset: 0; background: color-mix(in srgb, var(--paper) 42%, transparent); opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+.osc.abierto .osc-capa { opacity: 1; pointer-events: auto; }
+.osc-panel {
+  position: absolute; left: 50%; bottom: 18px; translate: -50% 0; width: min(560px, calc(100% - 48px)); height: 70px;
+  display: flex; flex-direction: column; justify-content: flex-end; pointer-events: auto; overflow: hidden;
+  background: var(--card); border: 1.5px solid var(--card-line); border-radius: 24px;
+  box-shadow: 0 5px 0 var(--card-edge), 0 18px 44px rgba(52, 46, 80, 0.18);
+  transition: height 0.55s var(--resorte), width 0.55s var(--resorte), bottom 0.45s var(--resorte), translate 0.45s var(--resorte), opacity 0.25s ease, border-radius 0.3s ease;
+}
+:root[data-theme='dark'] .osc-panel { box-shadow: 0 5px 0 var(--card-edge), 0 18px 44px rgba(0, 0, 0, 0.45); }
+.osc.con-dock .osc-panel { bottom: 112px; }
+.osc.oculto .osc-panel { translate: -50% 150%; opacity: 0; pointer-events: none; }
+.osc.abierto .osc-panel { height: min(660px, calc(100% - 110px)); width: min(760px, calc(100% - 96px)); border-radius: 28px; }
+.osc:not(.abierto) .ini-chat-cab, .osc:not(.abierto) .ini-hilo, .osc:not(.abierto) .ini-teclas, .osc:not(.abierto) .ini-err, .osc .ini-reposo-sug { display: none; }
+.osc:not(.abierto) .ini-comp { margin: 9px; border-width: 1.5px; box-shadow: none; }
+.osc.abierto .ini-chat-cab, .osc.abierto .ini-hilo { animation: ini-entra 0.42s var(--resorte) 0.06s both; }
+.osc-panel.vacio .ini-hilo { justify-content: center; }
+.osc-ocultar {
+  position: absolute; left: calc(50% + min(280px, 50% - 24px) + 10px); bottom: 34px; width: 34px; height: 34px; padding: 0; border-radius: 12px;
+  display: grid; place-items: center; cursor: pointer; pointer-events: auto; color: var(--ink-muted);
+  background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
+  transition: opacity 0.2s ease, bottom 0.45s var(--resorte);
+}
+.osc-ocultar:hover { color: var(--ink); }
+.osc.con-dock .osc-ocultar { bottom: 128px; }
+.osc.abierto .osc-ocultar, .osc.oculto .osc-ocultar { opacity: 0; pointer-events: none; }
+/* mientras arrastras una ventana o cambias su tamaño, la barra se aparta (no le roba el mouse a las zonas) */
+.esc.arrastrando .osc, .esc.redim .osc { opacity: 0; transition: opacity 0.15s ease; }
+.esc.arrastrando .osc *, .esc.redim .osc * { pointer-events: none !important; }

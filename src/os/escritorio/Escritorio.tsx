@@ -10,6 +10,9 @@ import { ZonasSoltar } from '../../components/ZonasSoltar'
 import { alBorde, cuenta as cuantas, desdeLista, destinoEn, frenoArriba, idsDe, lugarDe, moverHorizontal, moverVertical, poner, quitar, rects as rectsDe, reemplazar, sano, separadores, uno, VACIO as MOS_VACIO, zonasDe, type Destino, type Mosaico } from '../../lib/mosaico'
 import { cuandoLibre } from '../../lib/precarga'
 import { InicioEscritorio } from './Inicio'
+import { ChatFlotante } from './Chat'
+import { useRockieHilo } from '../../agenda/useRockieHilo'
+import { todayIn } from '../../lib/dates'
 import { APPS, appOf, type AppId, type OsApp } from '../apps'
 import { rockieLook } from '../habitos'
 import { RockieArt } from '../RockieArt'
@@ -384,6 +387,38 @@ export default function Escritorio() {
     [abrir],
   )
 
+  // ---------- Rockie del sistema: UNA conversación para todo el escritorio ----------
+  // Se ve al centro del Inicio y, dentro de cualquier app, en la barra flotante de abajo (Chat.tsx). Sabe en qué app
+  // estás (si lo que dices es ambiguo, prefiere esa) y hace cada cosa ahí mismo (useRockieHilo, scope 'os').
+  const [ahoraMin, setAhoraMin] = useState(() => new Date().getHours() * 60 + new Date().getMinutes())
+  useEffect(() => {
+    const t = setInterval(() => setAhoraMin(new Date().getHours() * 60 + new Date().getMinutes()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+  const hilo = useRockieHilo({ today: todayIn(profile.timezone), nowMin: ahoraMin, scope: 'os', abrir: abrirPath, app: s.vista === 'apps' && s.foco ? s.foco : undefined })
+  const [flotAbierto, setFlotAbierto] = useState(false)
+  const [flotOculto, setFlotOcultoState] = useState(() => lsGet('rockie.chat.oculto') === '1')
+  const setFlotOculto = (v: boolean) => {
+    setFlotOcultoState(v)
+    lsSet('rockie.chat.oculto', v ? '1' : '0')
+  }
+  const [flotVoz, setFlotVoz] = useState(0)
+  const [flotFoco, setFlotFoco] = useState(0)
+  const [senalInicio, setSenalInicio] = useState({ n: 0, escuchar: false })
+  const flotAbiertoRef = useRef(flotAbierto)
+  flotAbiertoRef.current = flotAbierto
+  /** Ctrl K, Rockie en el dock o su micrófono: la conversación, donde estés (y escuchando, si fue el micrófono). */
+  const abrirChat = useCallback((escuchar: boolean) => {
+    if (est.current.vista === 'inicio') return setSenalInicio((x) => ({ n: x.n + 1, escuchar }))
+    setFlotOcultoState(false)
+    lsSet('rockie.chat.oculto', '0')
+    setFlotAbierto(true)
+    setFlotFoco((n) => n + 1)
+    if (escuchar) setFlotVoz((n) => n + 1)
+  }, [])
+  // al cambiar de app o volver al Inicio, la barra flotante baja (la conversación sigue)
+  useEffect(() => setFlotAbierto(false), [s.vista, s.foco])
+
   // cerrar una app la termina de verdad (podría tener el micrófono abierto); luego se vuelve a
   // precargar limpia, así reabrirla sigue siendo instantáneo
   const cerrar = (id: AppId) => {
@@ -410,7 +445,9 @@ export default function Escritorio() {
       if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         e.stopPropagation()
-        setCmd((c) => (c ? null : { escuchar: false }))
+        // Ctrl K = Rockie (la conversación del sistema); otra vez, la baja
+        if (flotAbiertoRef.current) setFlotAbierto(false)
+        else abrirChat(false)
         return
       }
       if (!e.altKey || mod || e.shiftKey) return
@@ -437,7 +474,7 @@ export default function Escritorio() {
       else if (vista === 'apps' && cuantas(mos) > 1) dispatch({ t: 'quitar', id: foco })
       else dispatch({ t: 'inicio' })
     },
-    [abrir],
+    [abrir, abrirChat],
   )
   useEffect(() => {
     addEventListener('keydown', teclas, true)
@@ -449,13 +486,13 @@ export default function Escritorio() {
     const on = (e: MessageEvent<MsgEscritorio>) => {
       if (e.origin !== location.origin || !e.data || typeof e.data !== 'object' || !('rockieOS' in e.data)) return
       if (e.data.rockieOS === 'abrir') abrirPath(e.data.path)
-      if (e.data.rockieOS === 'comando') setCmd({ escuchar: false })
+      if (e.data.rockieOS === 'comando') abrirChat(false)
       // solo páginas de la cuenta (nada de direcciones de afuera)
       if (e.data.rockieOS === 'ir' && /^\/(planes|ajustes|perfil|cofre)(\?|$)/.test(e.data.path)) nav(e.data.path)
     }
     addEventListener('message', on)
     return () => removeEventListener('message', on)
-  }, [abrirPath, nav])
+  }, [abrirPath, abrirChat, nav])
 
   // cuándo llegó cada ventana a su ruta y cuántas veces rebotó hace poco (para cortar ciclos)
   const llegada = useRef(new Map<AppId, number>())
@@ -721,7 +758,7 @@ export default function Escritorio() {
     setMenu(null)
   }
 
-  const api = useMemo<EscritorioApi>(() => ({ abrir: abrirPath, comando: () => setCmd({ escuchar: false }) }), [abrirPath])
+  const api = useMemo<EscritorioApi>(() => ({ abrir: abrirPath, comando: () => abrirChat(false) }), [abrirPath, abrirChat])
   // en el Inicio el dock se ve, salvo mientras conversas (ahí se esconde y se asoma al acercar el mouse abajo)
   const [charla, setCharla] = useState(false)
   const dockVisible = (s.vista === 'inicio' && !charla) || asomo || Boolean(cmd)
@@ -822,7 +859,7 @@ export default function Escritorio() {
         <main className="esc-mesa" ref={mesa}>
           <div ref={inicio} className={`esc-inicio${s.vista === 'inicio' ? '' : ' oculta'}`} aria-hidden={s.vista !== 'inicio'}>
             {/* el Inicio: la conversación con Rockie al centro y tu día alrededor (escritorio/Inicio.tsx) */}
-            <InicioEscritorio visible={s.vista === 'inicio'} onAbierto={setCharla} />
+            <InicioEscritorio visible={s.vista === 'inicio'} onAbierto={setCharla} hilo={hilo} senal={senalInicio} />
           </div>
 
           {[...s.abiertas, ...dormidas.filter((d) => !s.abiertas.includes(d))].map((id) => {
@@ -958,10 +995,10 @@ export default function Escritorio() {
             <DockApp key={a.id} app={a} abierta={s.abiertas.includes(a.id)} on={activa === a.id} onClick={() => abrir(a.id)} />
           ))}
           <span className="esc-dock-rockie">
-            <button className="esc-dock-rk" onClick={() => setCmd({ escuchar: false })} aria-label="Rockie" title="Rockie (Ctrl K)">
+            <button className="esc-dock-rk" onClick={() => abrirChat(false)} aria-label="Rockie" title="Rockie (Ctrl K)">
               <RockieArt size={50} stone={look.stone} equipped={look.equipped} />
             </button>
-            <button className="esc-dock-mic" onClick={() => setCmd({ escuchar: true })} aria-label="Hablarle a Rockie" title="Hablarle a Rockie">
+            <button className="esc-dock-mic" onClick={() => abrirChat(true)} aria-label="Hablarle a Rockie" title="Hablarle a Rockie">
               <Icon name="mic" className="sm" />
             </button>
           </span>
@@ -971,6 +1008,22 @@ export default function Escritorio() {
         </nav>
         {/* en tablets (sin mouse para asomarse al borde): una manija que sube el dock */}
         <button className="esc-dock-asa" aria-label="Mostrar el dock" onClick={() => setAsomo(true)} />
+
+        {/* dentro de las apps, Rockie del sistema flota abajo (la misma conversación del Inicio) */}
+        {s.vista === 'apps' && (
+          <ChatFlotante
+            hilo={hilo}
+            abrir={abrirPath}
+            abierto={flotAbierto}
+            setAbierto={setFlotAbierto}
+            oculto={flotOculto}
+            setOculto={setFlotOculto}
+            conDock={dockVisible}
+            pedirVoz={flotVoz}
+            enfocar={flotFoco}
+            nombre={activa ? APP[activa].name : 'Rockie'}
+          />
+        )}
 
         <Comando
           variante="flotante"
@@ -982,6 +1035,10 @@ export default function Escritorio() {
           abrirPath={abrirPath}
           abrirApp={(id, donde) => abrir(id, undefined, donde)}
           irInicio={() => dispatch({ t: 'inicio' })}
+          alRockie={(t) => {
+            abrirChat(false)
+            void hilo.send(t)
+          }}
         />
 
         {menuDock && (

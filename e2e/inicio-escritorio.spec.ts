@@ -94,3 +94,49 @@ test('chat del sistema: nota al instante, «¿cómo lo guardo?» y hábito que a
   await hab.getByRole('button', { name: /^Confirmar/ }).click()
   await expect(page.locator('.esc-tab', { hasText: 'Hábitos' })).toBeVisible()
 })
+
+// Un solo Rockie en todo el sistema: dentro de una app, la barra flotante de abajo es la misma conversación del Inicio
+// (las barras propias de cada app se esconden). Ctrl K la abre; Esc la baja; se puede ocultar y Ctrl K la trae.
+test('Rockie del sistema dentro de las apps: barra flotante, Ctrl K y la misma conversación del Inicio', async ({ page }) => {
+  test.setTimeout(90_000)
+  await page.route('**/functions/v1/agenda-agent', async (route) => {
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' }
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
+    await route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify({ say: 'Hoy tienes poco: el gimnasio y leer.', proposals: [] }) })
+  })
+  await page.addInitScript(() => localStorage.setItem('rockie.escritorio.pruebas', '1'))
+  await page.goto('/login?next=%2Finicio')
+  await page.getByLabel('Usuario').fill('qa.alvaro')
+  await page.getByLabel('Contraseña').fill(PASS)
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
+  await pasarCofre(page)
+  await expect(page.locator('.ini')).toBeVisible({ timeout: 30_000 })
+  await page.getByRole('navigation', { name: 'Dock' }).getByRole('button', { name: 'Agenda', exact: true }).click()
+  await expect(page.locator('.esc-tab', { hasText: 'Agenda' })).toBeVisible()
+
+  // la barra del sistema abajo; la de Rockie de la Agenda, escondida dentro de su ventana
+  const osc = page.locator('.osc')
+  await expect(osc.locator('.osc-panel')).toBeVisible()
+  await expect(page.frameLocator('iframe[title="Agenda"]').locator('.rk-bar')).toBeHidden({ timeout: 20_000 })
+
+  // Ctrl K la abre como conversación; se pregunta y responde; Esc la baja
+  await page.keyboard.press('Control+k')
+  await expect(osc).toHaveClass(/abierto/)
+  await osc.locator('input').fill('¿qué tengo hoy?')
+  await osc.locator('input').press('Enter')
+  await expect(osc.locator('.ini-dice')).toContainText('el gimnasio y leer')
+  await osc.locator('input').press('Escape')
+  await expect(osc).not.toHaveClass(/abierto/)
+
+  // ocultarla: se va; Ctrl K la trae de vuelta, abierta
+  await page.locator('.osc-ocultar').click()
+  await expect(osc).toHaveClass(/oculto/)
+  await page.keyboard.press('Control+k')
+  await expect(osc).toHaveClass(/abierto/)
+  await page.keyboard.press('Control+k')
+
+  // en el Inicio está la MISMA conversación
+  await page.locator('.esc-tab.home').click()
+  await expect(page.locator('.ini')).toHaveClass(/abierto/)
+  await expect(page.locator('.ini .ini-dice')).toContainText('el gimnasio y leer')
+})

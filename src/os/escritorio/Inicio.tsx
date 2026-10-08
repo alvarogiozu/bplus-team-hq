@@ -1,13 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type PointerEvent, type ReactNode } from 'react'
-import { AnimatePresence, motion, useTransform, type MotionValue } from 'motion/react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
-import { AIcon } from '../../agenda/icons'
-import { useMicPress, useVoice } from '../../agenda/voice'
-import { useRockieHilo, type RockieDice, type Tipo } from '../../agenda/useRockieHilo'
-import { APP_META, type ChatApp } from '../../features/agent/chat'
 import { fmtDayLong, greeting } from '../../lib/dates'
 import { APPS, rutaApp, type AppId, type OsApp } from '../apps'
 import { fmtMin, plural, useHoyOS, type Entry } from '../hoy'
+import { ChatPanel, type Hilo } from './Chat'
 import { useEscritorio } from './contexto'
 import './inicio.css'
 
@@ -16,29 +12,18 @@ import './inicio.css'
 // centro se van, el dock se esconde (se asoma al acercar el mouse abajo) y, al instante, entran los widgets a los
 // dos lados: a la izquierda la hora, lo siguiente y tu día; a la derecha tareas, hábitos y cuaderno. Cada cosa abre
 // su app en su pestaña.
-// La conversación es el mismo hilo de la Agenda (useRockieHilo): propone, confirmas y se deshace; lo que es de otra
-// app trae su botón para abrirla allá con el pedido.
+// La conversación es la del sistema (escritorio/Chat.tsx): la misma que la barra flotante dentro de las apps.
 
 const APP = Object.fromEntries(APPS.map((a) => [a.id, a])) as Record<AppId, OsApp>
 
-/** Adónde va un pedido que es de otra app (la app lo recibe con ?rockie= y lo conversa allá). */
-const destino: Record<ChatApp, (pedido: string) => string> = {
-  agenda: (x) => `/agenda?rockie=${encodeURIComponent(x)}`,
-  equipo: (x) => `/tareas?vista=lista&rockie=${encodeURIComponent(x)}`,
-  cuaderno: (x) => `/cuaderno?rockie=${encodeURIComponent(x)}`,
-  habitos: (x) => `/habitos/hoy?rockie=${encodeURIComponent(x)}`,
-}
-const APP_DE: Record<ChatApp, AppId> = { agenda: 'agenda', equipo: 'equipo', cuaderno: 'cuaderno', habitos: 'habitos' }
-
-/** Las opciones de «¿cómo lo guardo?»: cada tipo con el color y el ícono de su app. */
-const TIPO: Record<Tipo, { titulo: string; sub: string; icon: OsApp['icon']; color: string; edge: string }> = {
-  agenda: { titulo: 'En la agenda', sub: 'una vez, con día u hora', icon: APP.agenda.icon, color: APP.agenda.color, edge: APP.agenda.edge },
-  habito: { titulo: 'Como hábito', sub: 'algo que repites', icon: APP.habitos.icon, color: APP.habitos.color, edge: APP.habitos.edge },
-  nota: { titulo: 'Como nota', sub: 'en tu Cuaderno', icon: APP.cuaderno.icon, color: APP.cuaderno.color, edge: APP.cuaderno.edge },
-  tarea: { titulo: 'Tarea del equipo', sub: 'en tus proyectos', icon: APP.equipo.icon, color: APP.equipo.color, edge: APP.equipo.edge },
-}
-
-export function InicioEscritorio({ visible, onAbierto }: { visible: boolean; onAbierto?: (abierto: boolean) => void }) {
+export function InicioEscritorio(p: {
+  visible: boolean
+  onAbierto?: (abierto: boolean) => void
+  hilo: Hilo
+  /** Ctrl K o Rockie en el dock: abrir la conversación (y escuchar, con el micrófono) */
+  senal?: { n: number; escuchar: boolean }
+}) {
+  const { visible, onAbierto, hilo } = p
   const esc = useEscritorio()
   const abrir = (path: string) => esc?.abrir(path)
   const hoy = useHoyOS()
@@ -51,41 +36,23 @@ export function InicioEscritorio({ visible, onAbierto }: { visible: boolean; onA
   }, [])
   const hora = useMemo(() => new Intl.DateTimeFormat('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: hoy.tz }).format(ahora), [ahora, hoy.tz])
 
-  // el chat del sistema: además de la agenda, anota, crea hábitos y tareas del equipo, y pregunta si no está claro
-  const hilo = useRockieHilo({ today: hoy.today, nowMin: hoy.nowMin, scope: 'os', abrir: (path) => esc?.abrir(path) })
-  const { thread, setThread, thinking } = hilo
-  const [text, setText] = useState('')
   const input = useRef<HTMLInputElement>(null)
-  const scroll = useRef<HTMLDivElement>(null)
-  const voice = useVoice({ onFinal: (t) => void enviar(t, true) })
-  const press = useMicPress(voice, () => setActivo(true))
-
-  // Dos momentos: en REPOSO el Inicio es casi vacío (la hora, una frase y el comando); al tocar el comando o
-  // escribir, la conversación crece hacia arriba, la hora se va a la esquina y el dock se corre a la izquierda.
+  // Dos momentos: en REPOSO el Inicio es casi vacío (la hora, una frase y el comando); al tocar el comando, escribir
+  // o hablar, la conversación crece hacia arriba y entran los widgets a los lados.
   const [activo, setActivo] = useState(false)
-  const vacio = thread.length === 0 && !thinking
-  const abierto = activo || !vacio || voice.listening || Boolean(text)
+  const [texto, setTexto] = useState('')
+  const [oyendo, setOyendo] = useState(false)
+  const [pedirVoz, setPedirVoz] = useState(0)
+  const vacio = hilo.thread.length === 0 && !hilo.thinking
+  const abierto = activo || !vacio || oyendo || Boolean(texto)
   const cerrar = () => {
-    if (!vacio || voice.listening) return
+    if (!vacio || oyendo) return
     setActivo(false)
-    setText('')
     input.current?.blur()
   }
 
   // el escritorio esconde el dock mientras conversas
   useEffect(() => onAbierto?.(abierto && visible), [abierto, visible, onAbierto])
-
-  async function enviar(raw: string, byVoice = false) {
-    const t = raw.trim()
-    if (!t) return
-    setText('')
-    setActivo(true)
-    await hilo.send(t, byVoice)
-  }
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    void enviar(text)
-  }
 
   // al volver al Inicio, el cursor ya está en el comando: escribir lo abre (estar enfocado no)
   useEffect(() => {
@@ -93,28 +60,17 @@ export function InicioEscritorio({ visible, onAbierto }: { visible: boolean; onA
     const t = setTimeout(() => input.current?.focus({ preventScroll: true }), 60)
     return () => clearTimeout(t)
   }, [visible])
+  // Ctrl K / Rockie en el dock
   useEffect(() => {
-    scroll.current?.scrollTo({ top: scroll.current.scrollHeight, behavior: 'smooth' })
-  }, [thread, thinking])
-  useEffect(() => {
-    if (!voice.listening) return
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && voice.cancel()
-    window.addEventListener('keydown', key)
-    return () => window.removeEventListener('keydown', key)
-  }, [voice])
+    if (!p.senal?.n) return
+    setActivo(true)
+    input.current?.focus({ preventScroll: true })
+    if (p.senal.escuchar) setPedirVoz((n) => n + 1)
+  }, [p.senal?.n]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Un clic en el fondo (fuera del comando y de los widgets) vuelve al reposo si no hay conversación. */
   function fondo(e: PointerEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) cerrar()
-  }
-
-  // lo que te nombra Rockie (una tarea, un evento, algo de tu agenda) se abre en su app
-  function abrirRef(id: string) {
-    const it = hilo.look.items.get(id)
-    if (it) return abrir(it.day ? `/agenda?dia=${it.day}` : '/agenda')
-    if (hilo.look.events.get(id)) return abrir('/agenda')
-    if (hilo.look.tasks.get(id)) return abrir(`/tareas?vista=lista&tarea=${id}`)
-    if (hilo.look.projects.get(id)) return abrir('/tareas')
   }
 
   const pendientes = hoy.entries.filter((e) => !e.done)
@@ -127,15 +83,6 @@ export function InicioEscritorio({ visible, onAbierto }: { visible: boolean; onA
     'Estudiar mañana a las 4 por 2 horas',
     'Anota: ideas para el proyecto',
   ]
-  const chips = (
-    <div className="ini-sug">
-      {sugerencias.map((s) => (
-        <button key={s} type="button" onClick={() => void enviar(s)}>
-          {s}
-        </button>
-      ))}
-    </div>
-  )
 
   const minis = [
     { app: APP.equipo, to: '/tareas?vista=lista', k: 'Tareas', v: hoy.tasks.data ? (hoy.tasks.data.open.length ? plural(hoy.tasks.data.open.length, 'pendiente', 'pendientes') : 'al día') : '…' },
@@ -247,102 +194,31 @@ export function InicioEscritorio({ visible, onAbierto }: { visible: boolean; onA
 
       {/* el comando: en reposo, compacto; tocarlo o escribir lo abre hacia arriba como conversación */}
       <section className={`ini-chat${vacio ? ' vacio' : ''}`} aria-label="Conversación con Rockie" onPointerDown={() => setActivo(true)}>
-        <header className="ini-chat-cab">
-          <span>{vacio ? 'Conversación nueva' : 'Conversación de hoy'}</span>
-          {!vacio && (
-            <button type="button" onClick={() => setThread([])}>
-              <Icon name="plus" className="sm" /> Nueva
-            </button>
-          )}
-          <button type="button" className="ini-bajar" onClick={() => {
-              setThread([])
-              setText('')
-              setActivo(false)
-              input.current?.blur()
-            }} aria-label="Cerrar la conversación">
-            <Icon name="close" className="sm" />
-          </button>
-        </header>
-        <div className="ini-hilo" ref={scroll} aria-live="polite">
-          {vacio ? (
-            <div className="ini-nuevo">
+        <ChatPanel
+          hilo={hilo}
+          abrir={abrir}
+          inputRef={input}
+          saludo={
+            <>
               <h1>
                 {greeting(hoy.hour)}, {hoy.first}.
               </h1>
               <p>Pregúntame por tu día, pídeme que agende o anote algo, o dime qué quieres lograr.</p>
-              {chips}
-            </div>
-          ) : (
-            thread.map((e) =>
-              e.who === 'user' ? (
-                <motion.div key={e.id} className="ini-yo" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                  {e.voice && <AIcon name="mic" size={14} />} {e.text}
-                </motion.div>
-              ) : (
-                <Respuesta key={e.id} e={e} hilo={hilo} abrir={abrir} abrirRef={abrirRef} enviar={(t) => void enviar(t)} />
-              ),
-            )
-          )}
-          {thinking && (
-            <div className="ini-pensando">
-              <span className="ini-dots">
-                <i />
-                <i />
-                <i />
-              </span>
-              Pensando…
-            </div>
-          )}
-        </div>
-        <div className="ini-reposo-sug">{chips}</div>
-
-        <form className={`ini-comp${voice.listening ? ' oyendo' : ''}`} onSubmit={submit}>
-          <Icon name="search" className="sm ini-lupa" />
-          <input
-            ref={input}
-            value={voice.listening ? voice.text : text}
-            readOnly={voice.listening}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' && !text) cerrar()
-            }}
-            placeholder={voice.listening ? 'Te escucho…' : 'Escribe, pregunta o pide algo…'}
-            aria-label="Escríbele a Rockie"
-            enterKeyHint="send"
-          />
-          <Mic listening={voice.listening} level={voice.level} disabled={!voice.supported} onDown={press.onDown} onUp={press.onUp} />
-          <button className="ini-enviar" aria-label="Enviar" disabled={!text.trim() || voice.listening}>
-            <AIcon name="send" size={18} />
-          </button>
-        </form>
-        <div className="ini-teclas">
-          {voice.listening ? (
-            <span>Toca el micrófono para enviar · Esc cancela</span>
-          ) : (
-            <>
-              <span>
-                <kbd>Enter</kbd> enviar
-              </span>
-              <span>
-                <kbd>
-                  <AIcon name="mic" size={12} />
-                </kbd>{' '}
-                toca o mantén para hablar
-              </span>
-              <span>
-                <kbd>Esc</kbd> cerrar
-              </span>
-              <span className="der">
-                <kbd>Ctrl</kbd> <kbd>K</kbd> abre cualquier app
-              </span>
             </>
-          )}
-        </div>
-        {voice.error && !voice.listening && (
-          <p className="ini-err" onClick={() => voice.setError(null)}>
-            {voice.error}
-          </p>
-        )}
+          }
+          sugerencias={sugerencias}
+          onActivo={() => setActivo(true)}
+          onTexto={setTexto}
+          onEscuchando={setOyendo}
+          onEsc={cerrar}
+          onCerrar={() => {
+            hilo.setThread([])
+            setActivo(false)
+            input.current?.blur()
+          }}
+          pedirVoz={pedirVoz}
+          pie="Ctrl K · Rockie desde cualquier app"
+        />
       </section>
     </div>
   )
@@ -367,153 +243,5 @@ function Widget(p: { titulo: string; cuenta?: string; color?: string; onClick?: 
       {cab}
       <div className="ini-w-cuerpo">{p.children}</div>
     </section>
-  )
-}
-
-function Respuesta({ e, hilo, abrir, abrirRef, enviar }: { e: RockieDice; hilo: ReturnType<typeof useRockieHilo>; abrir: (p: string) => void; abrirRef: (id: string) => void; enviar: (t: string) => void }) {
-  const pendientes = e.props.filter((x) => x.st === 'pending').length
-  return (
-    <motion.div className="ini-rk" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 420, damping: 34 }}>
-      {e.basic && <span className="ini-basico">Modo básico · sin IA</span>}
-      {e.error && <p className="ini-err">{e.error}</p>}
-      {e.say && <p className="ini-dice">{e.say}</p>}
-      {e.answer && <p className="ini-dice">{e.answer.text}</p>}
-      {e.answer && e.answer.refs.filter(hilo.refTitle).length > 0 && (
-        <div className="ini-chips">
-          {e.answer.refs.filter(hilo.refTitle).map((r) => (
-            <button key={r} type="button" onClick={() => abrirRef(r)}>
-              {hilo.refTitle(r)} <AIcon name="external" size={13} />
-            </button>
-          ))}
-        </div>
-      )}
-      {e.aclarar && (
-        <div className="ini-aclarar" data-aclarar>
-          <p className="ini-dice">{e.aclarar.pregunta}</p>
-          <small>«{e.aclarar.pedido}»</small>
-          <div className="ini-tipos">
-            {e.aclarar.opciones.map((o) => (
-              <button
-                key={o}
-                type="button"
-                className={e.aclarar!.elegida === o ? 'on' : ''}
-                disabled={Boolean(e.aclarar!.elegida)}
-                onClick={() => hilo.elegir(e.id, o)}
-                style={{ ['--c' as string]: TIPO[o].color, ['--ce' as string]: TIPO[o].edge } as CSSProperties}
-              >
-                <span className="ini-tipo-ic">
-                  <Icon name={TIPO[o].icon} className="sm" />
-                </span>
-                <span>
-                  <b>{TIPO[o].titulo}</b>
-                  <small>{TIPO[o].sub}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {e.question && (
-        <>
-          <p className="ini-dice">{e.question.question}</p>
-          <div className="ini-chips">
-            {e.question.options.map((o) => (
-              <button key={o} type="button" onClick={() => enviar(o)}>
-                {o}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-      {e.handoffs.map((h, i) => {
-        const app = APP[APP_DE[h.app]]
-        return (
-          <div key={i} className="ini-pase" style={{ ['--c' as string]: app.color, ['--ce' as string]: app.edge } as CSSProperties}>
-            <span className="ini-pase-ic">
-              <Icon name={app.icon} className="sm" />
-            </span>
-            <span className="ini-pase-t">
-              <small>Esto es de {APP_META[h.app].label}</small>
-              <b>{h.pedido}</b>
-            </span>
-            <button type="button" onClick={() => abrir(destino[h.app](h.pedido))}>
-              Abrir en {APP_META[h.app].label}
-            </button>
-          </div>
-        )
-      })}
-      {e.props.length > 0 && (
-        <div className="ini-cards">
-          <AnimatePresence initial={false}>
-            {e.props.map((ps, i) => (
-              <motion.div key={i} className={`ini-card ${ps.st}`} data-tool={ps.p.tool} style={{ ['--c' as string]: ps.card.color } as CSSProperties} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                <span className="ini-card-ic">
-                  <AIcon name={ps.card.icon} size={17} />
-                </span>
-                <span className="ini-card-t">
-                  <b>{ps.card.title}</b>
-                  <small>
-                    {ps.card.detail}
-                    {ps.card.team && <em> · lo ve el equipo</em>}
-                  </small>
-                </span>
-                {ps.st === 'pending' ? (
-                  <span className="ini-card-acts">
-                    <button type="button" className="si" onClick={() => void hilo.confirm(e, i)} aria-label={`Confirmar: ${ps.card.title}`}>
-                      <AIcon name="check" size={16} />
-                    </button>
-                    <button type="button" className="no" onClick={() => hilo.patchProp(e.id, i, { ...ps, st: 'skip' })} aria-label={`Descartar: ${ps.card.title}`}>
-                      <AIcon name="close" size={15} />
-                    </button>
-                  </span>
-                ) : (
-                  <span className="ini-card-st">
-                    {ps.st === 'done' ? ps.listo ?? 'Hecho' : 'Descartada'}
-                    {ps.st === 'done' && ps.ir && (
-                      <button type="button" onClick={() => abrir(ps.ir!)}>
-                        Abrir
-                      </button>
-                    )}
-                  </span>
-                )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-          {pendientes > 1 && (
-            <button type="button" className="ini-todo" onClick={() => void hilo.confirmAll(e)}>
-              Confirmar todo ({pendientes})
-            </button>
-          )}
-        </div>
-      )}
-    </motion.div>
-  )
-}
-
-function Mic(p: { listening: boolean; level: MotionValue<number>; disabled: boolean; onDown: () => void; onUp: () => void }) {
-  const ring = useTransform(p.level, [0, 1], [1, 1.7])
-  return (
-    <button
-      type="button"
-      className={`ini-mic${p.listening ? ' on' : ''}`}
-      aria-label={p.listening ? 'Terminar y enviar' : 'Hablarle a Rockie'}
-      aria-pressed={p.listening}
-      title={p.disabled ? 'Tu navegador no dicta: usa Chrome, Edge o Safari' : 'Toca para hablar y otra vez para enviar · o mantén presionado'}
-      disabled={p.disabled}
-      onPointerDown={(e) => {
-        e.preventDefault()
-        p.onDown()
-      }}
-      onPointerUp={p.onUp}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          p.onDown()
-        }
-      }}
-    >
-      {p.listening && <motion.span className="ini-mic-aro" style={{ scale: ring }} />}
-      <AIcon name="mic" size={19} />
-    </button>
   )
 }
