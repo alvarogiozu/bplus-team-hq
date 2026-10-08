@@ -775,10 +775,10 @@ export default function Escritorio() {
       if (visibles.has(id)) continue
       const el = ventanas.current.get(id)
       if (!el || !suave) continue
-      // quitada o cerrada: se guarda en su pestaña (sin pestañas a la vista, en su ícono del dock)
+      // quitada o cerrada: se guarda en su pestaña (si vuelves al Inicio, en su ícono del dock)
       if (aSuPestana.current === id) {
         aSuPestana.current = null
-        const hacia = haciaEl(pestanas.current.get(id) ?? iconosDock.current.get(id), p)
+        const hacia = haciaEl((s.vista === 'apps' ? pestanas.current.get(id) : undefined) ?? iconosDock.current.get(id), p)
         if (hacia) {
           el.dataset.saliendo = ''
           // responde al instante y se posa en el ícono (un ease-in puro se veía congelado al empezar)
@@ -883,8 +883,26 @@ export default function Escritorio() {
   // el dock vive solo en el Inicio, y se va mientras conversas con Rockie (en las apps no se asoma: están las pestañas)
   const [charla, setCharla] = useState(false)
   const dockVisible = s.vista === 'inicio' && !charla
-  // la barra de pestañas aparece recién cuando abres una app: sin apps abiertas, el Inicio es toda la pantalla
-  const conBarra = s.abiertas.length > 0
+  // la barra de pestañas vive en las apps: en el Inicio no se ve (ahí está el dock). Al abrir una app entran de
+  // izquierda a derecha, una tras otra; al volver al Inicio se van todas hacia la izquierda.
+  const conBarra = s.vista === 'apps'
+  const barra = useRef<HTMLElement>(null)
+  const barraAntes = useRef(conBarra)
+  const animsBarra = useRef<Animation[]>([])
+  useLayoutEffect(() => {
+    if (barraAntes.current === conBarra) return
+    barraAntes.current = conBarra
+    animsBarra.current.forEach((a) => a.cancel())
+    animsBarra.current = []
+    const h = barra.current
+    if (!h || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const els = [...h.querySelectorAll<HTMLElement>('.esc-tabs > *, .esc-lados')]
+    animsBarra.current = els.map((el, i) =>
+      conBarra
+        ? el.animate([{ opacity: 0, transform: 'translateX(-40px)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 60 + i * 45, easing: SPRING, fill: 'backwards' })
+        : el.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(-48px)' }], { duration: 230, delay: (els.length - 1 - i) * 24, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'forwards' }),
+    )
+  }, [conBarra])
   const enOrden = dockOrden.filter((id) => s.abiertas.includes(id))
   const partido = s.vista === 'apps' && cuantas(s.mos) > 1
   const seps = partido ? separadores(s.mos, tam.w, tam.h, GAP) : null
@@ -893,7 +911,7 @@ export default function Escritorio() {
   return (
     <EscritorioCtx.Provider value={api}>
       <div className={`esc${redim ? ` redim redim-${redim}` : ''}${arrastre ? ' arrastrando' : ''}${conBarra ? '' : ' sin-barra'}${dockVisible ? ' dock-ver' : ''}`} data-dock={ladoDock}>
-        <header className="esc-bar" aria-hidden={!conBarra}>
+        <header className="esc-bar" ref={barra} aria-hidden={!conBarra}>
           <nav
             className="esc-tabs"
             role="tablist"

@@ -87,12 +87,19 @@ test('dock solo en el Inicio, pestañas tipo folder: salen del dock, crecen, se 
   await expect(page.locator('.zs')).toHaveCount(0)
   // el dock comparte el orden
   await tab('Inicio').click()
+  // en el Inicio las pestañas no se ven (aunque haya apps abiertas): se fueron hacia la izquierda
+  await expect(esc).toHaveClass(/sin-barra/)
+  await expect(page.locator('.esc-bar')).toBeHidden()
   const orden = await dock.locator('.esc-dock-app:not(.home)').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))
   expect(orden.indexOf('Proyectos')).toBeLessThan(orden.indexOf('Agenda'))
 
   // arrastrar la pestaña Agenda a la derecha de la pantalla: pantalla dividida (cada ventana con su barra)
-  await tab('Proyectos').click()
+  await app('Proyectos').click()
   await expect(ventana('Proyectos')).toBeVisible()
+  // al volver a una app, las pestañas entran de nuevo
+  await expect(esc).not.toHaveClass(/sin-barra/)
+  await expect(tab('Proyectos')).toBeVisible()
+  await page.waitForTimeout(600)
   await arrastrar(page, (await tab('Agenda').boundingBox())!, mesa.x + mesa.width - 60, mesa.y + mesa.height / 2)
   await expect(page.locator('.zs-z.on span')).toHaveText('A la derecha')
   await page.mouse.up()

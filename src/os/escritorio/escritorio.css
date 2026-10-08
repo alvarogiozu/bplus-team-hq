@@ -10,14 +10,14 @@
 }
 
 /* ---------- barra de arriba: las pestañas son separadores de folder, cada una con su color (un folder claro).
-   Crecen al pasar el mouse; la que ves sube y se pinta más. Aparece recién cuando abres una app: sin apps
-   abiertas, el Inicio ocupa toda la pantalla. ---------- */
+   Crecen al pasar el mouse; la que ves sube y se pinta más. Vive en las apps: en el Inicio no se ve (las pestañas
+   entran y salen por la izquierda, Escritorio.tsx). ---------- */
 /* encima del Inicio: mientras se desvanece (al abrir una app) sus widgets no deben quedarse con los clics de las pestañas */
 .esc-bar {
   position: absolute; z-index: 60; top: 0; left: 0; right: 0; height: 54px; display: flex; align-items: flex-end; gap: 10px; padding: 0 84px 0 12px;
-  transition: opacity 0.3s ease, transform 0.45s var(--resorte);
+  transition: visibility 0s;
 }
-.esc.sin-barra .esc-bar { opacity: 0; transform: translateY(-14px); pointer-events: none; }
+.esc.sin-barra .esc-bar { visibility: hidden; pointer-events: none; transition: visibility 0s linear 0.42s; }
 .esc-tabs {
   flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: flex-end; gap: 6px; padding: 0 6px;
   overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
@@ -96,10 +96,8 @@
 /* ---------- la mesa: el Inicio y las ventanas ---------- */
 /* la mesa siempre bajo la barra (así no cambia de tamaño al abrir la primera app y la ventana sale limpia del dock) */
 .esc-mesa { position: absolute; top: 54px; left: 10px; right: 10px; bottom: 10px; }
-/* el Inicio: toda la pantalla sin pestañas; con pestañas, debajo de ellas (solo mientras se ve: al abrir la primera
-   app se desvanece donde estaba, sin saltar hacia abajo) */
+/* el Inicio: toda la pantalla (las pestañas no se ven en el Inicio) */
 .esc-inicio { position: fixed; inset: 0; overflow-y: auto; background: var(--paper); transition: opacity 0.22s ease, visibility 0s linear 0s; }
-.esc:not(.sin-barra) .esc-inicio:not(.oculta) { top: 54px; }
 /* al abrir una app, el Inicio se desvanece por debajo de la ventana que entra (antes se cortaba: quedaba un cuadro vacío) */
 .esc-inicio.oculta { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.22s ease, visibility 0s linear 0.22s; }
 
