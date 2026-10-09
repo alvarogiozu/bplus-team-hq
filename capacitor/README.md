@@ -35,9 +35,9 @@ Es un mini-proyecto aparte: tiene su propio `package.json` y no toca el build de
 - Para publicar en Play Store hace falta firmar (llave fuera del repo, abajo) y una ficha con capturas.
 
 ## Llave de firma (Play Store)
-**Ya existe** (9 oct, la generó Claude): `%USERPROFILE%DownloadsRespaldos-Rockieandroidockie-upload.jks` y, al lado,
+**Ya existe** (9 oct, la generó Claude): `%USERPROFILE%\Downloads\Respaldos-Rockie\android\rockie-upload.jks` y, al lado,
 `keystore.properties` con su contraseña (aleatoria; nunca en el repo, chats ni tareas). `android/app/build.gradle` la usa
-sola si encuentra ese archivo (o uno en `%USERPROFILE%.rockieirma`); si no, el release sale sin firmar.
+sola si encuentra ese archivo (o uno en `%USERPROFILE%\.rockie\firma\`); si no, el release sale sin firmar.
 - Alias `rockie`, RSA 2048, PKCS12, válida 10 000 días. Huella SHA-256 del certificado (pública; sirve para
   `assetlinks.json` y para un cliente OAuth Android de Google):
   `B5:BE:D0:24:3B:4C:A3:7E:F0:4D:2A:3A:CE:59:59:9F:6E:79:D6:8A:60:BD:07:D1:00:F4:3B:3E:49:A1:B2:76`
