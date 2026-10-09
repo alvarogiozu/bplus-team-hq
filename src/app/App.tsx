@@ -7,6 +7,7 @@ import { SpaceProvider, WelcomePage } from '../features/spaces/SpaceProvider'
 import CofrePage, { CofreGate } from '../features/cofre/Cofre'
 import { LimiteHost } from '../features/planes/Limite'
 import { AvisoPlanHost } from '../features/planes/AvisoHost'
+import { esAppNativa } from '../lib/appNativa'
 import { GuiaRockie } from '../os/GuiaRockie'
 import { useIsMobile, useMedia } from '../lib/useMedia'
 import { enVentana, ESCRITORIO_Q, sinEscritorio } from '../os/ventana'
@@ -130,12 +131,13 @@ export function App() {
       {/* la hoja de «llegaste al límite de tu plan» (la abre abrirLimite desde cualquier pantalla) */}
       <LimiteHost />
       {/* el aviso de tu plan (vence pronto, venció…) y los links de «invita a un amigo» */}
-      <AvisoPlanHost />
+      {/* en la app de Android/iPhone no se ofrece comprar (lib/appNativa) */}
+      {!esAppNativa() && <AvisoPlanHost />}
       {/* la guía de Rockie OS: la primera vez en el Inicio, y desde Ajustes cuando quieras */}
       <GuiaRockie />
       <Routes>
         {/* la cara pública: «/» sin sesión muestra Rockie y sus planes; con sesión, tus apps */}
-        <Route index element={<Suspense fallback={<Splash />}><RaizPublica /></Suspense>} />
+        <Route index element={esAppNativa() ? <Navigate to="/inicio" replace /> : <Suspense fallback={<Splash />}><RaizPublica /></Suspense>} />
         <Route path="/terminos" element={<Suspense fallback={<Splash />}><LegalPage slug="terminos" /></Suspense>} />
         <Route path="/reembolsos" element={<Suspense fallback={<Splash />}><LegalPage slug="reembolsos" /></Suspense>} />
         <Route path="/privacidad" element={<Suspense fallback={<Splash />}><LegalPage slug="privacidad" /></Suspense>} />

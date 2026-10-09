@@ -10,6 +10,7 @@ import { humanError, supabase } from '../../lib/supabase'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { Marco } from '../cuenta/CuentaPages'
 import { pagoEnLinea } from '../../lib/culqi'
+import { esAppNativa, plataformaNativa, TEXTO_PLAN_NATIVO } from '../../lib/appNativa'
 import { ComprarPlan } from './Comprar'
 import { AvisosCard, ClubesCard, InvitarCard, PausaCard, RenovacionCard, type PedirCompra } from './MiSuscripcion'
 import { TARJETAS } from './tarjetas'
@@ -53,7 +54,7 @@ export default function PlanesPage() {
   useEffect(() => {
     if (!params.has('renovar') || !cargado) return
     const p = (ultimoPago?.plan ?? suscripcion?.plan) as PlanPago | undefined
-    if (p && pagoEnLinea()) setComprar({ plan: p, periodo: ultimoPago?.plan === p ? ultimoPago.periodo : undefined })
+    if (p && pagoEnLinea() && !esAppNativa()) setComprar({ plan: p, periodo: ultimoPago?.plan === p ? ultimoPago.periodo : undefined })
     params.delete('renovar')
     setParams(params, { replace: true })
   }, [params, setParams, cargado, ultimoPago, suscripcion])
@@ -131,7 +132,9 @@ export default function PlanesPage() {
   }
 
   const actual = plan.plan
-  const enLinea = pagoEnLinea()
+  // dentro de la app de Android/iPhone no se vende nada (lib/appNativa): solo tu plan, tus cupos y tu código
+  const nativa = esAppNativa()
+  const enLinea = pagoEnLinea() && !nativa
   // Club siempre (va con un equipo); Plus/Pro: no un plan menor que el tuyo, ni renovar uno sin vencimiento
   const RANGO = { gratis: 0, plus: 1, pro: 2 }
   const puedeComprar = (id: PlanId | 'club') =>
@@ -219,7 +222,13 @@ export default function PlanesPage() {
       <PausaCard plan={plan} />
       {enLinea && <ClubesCard plan={plan} pedir={pedir} />}
 
-      <div className="pl-grid">
+      {nativa && plataformaNativa() === 'android' && (
+        <section className="cuenta-card">
+          <p className="hint">{TEXTO_PLAN_NATIVO}</p>
+        </section>
+      )}
+
+      {!nativa && <div className="pl-grid">
         {TARJETAS.map((t) => {
           const es = t.id === actual
           return (
@@ -260,12 +269,14 @@ export default function PlanesPage() {
             </article>
           )
         })}
-      </div>
+      </div>}
 
       <section className="cuenta-card" ref={activar}>
-        <h2>{enLinea ? '¿Tienes un código?' : 'Activar un plan'}</h2>
+        <h2>{enLinea || nativa ? '¿Tienes un código?' : 'Activar un plan'}</h2>
         <p className="hint">
-          {enLinea ? (
+          {nativa ? (
+            <>Si te dieron un código de regalo, actívalo aquí.</>
+          ) : enLinea ? (
             <>
               Si te dieron un <b>código de fundador</b> o de regalo, actívalo aquí: los fundadores mantienen su precio para siempre.
             </>
@@ -312,6 +323,8 @@ export default function PlanesPage() {
         )}
       </section>
 
+      {!nativa && (
+        <>
       <section className="cuenta-card" ref={estudianteRef}>
         <h2>Precio de estudiante</h2>
         {estudiante ? (
@@ -370,6 +383,8 @@ export default function PlanesPage() {
           <p>Le mandas tu link. Cuando se suscribe a cualquier plan, los dos ganan 1 mes gratis (si estás en Gratis, un mes de Plus). Hasta 12 meses al año.</p>
         </details>
       </section>
+        </>
+      )}
       {comprar && (
         <ComprarPlan
           plan={comprar.plan}

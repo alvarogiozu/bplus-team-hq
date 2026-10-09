@@ -3,6 +3,11 @@ import CenterModal from './CenterModal.jsx'
 import { alPedirLimite } from '../../../src/lib/limites'
 import { TEXTOS } from '../../../src/lib/limitesTextos'
 import { irAPlanes, limitePlan } from '../lib/planHq.js'
+import { esAppNativa, plataformaNativa, TEXTO_PLAN_NATIVO } from '../../../src/lib/appNativa'
+
+// en la app de Android/iPhone no se ofrece comprar (src/lib/appNativa): en Android, solo el texto sin enlace
+const NATIVA = esAppNativa()
+const MEJORA_NATIVA = plataformaNativa() === 'android' ? TEXTO_PLAN_NATIVO : null
 
 // La hoja de «llegaste al límite de tu plan» en Hábitos: los mismos textos que en el resto de Rockie
 // (src/lib/limitesTextos.ts), con el lenguaje visual de Hábitos (como ConfirmModal). Nunca castiga: lo que ya
@@ -28,17 +33,17 @@ export default function LimitePlanSheet() {
             <div className="q" style={{ fontSize: 'var(--text-base)', color: 'var(--ink-soft)', textAlign: 'center', lineHeight: 1.5 }}>
               {t.cuerpo(n)}
             </div>
-            <div className="q" style={{
+            {(!NATIVA || MEJORA_NATIVA) && <div className="q" style={{
               display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)',
               borderRadius: 'var(--r-md)', background: 'var(--amber-soft)', boxShadow: '0 3px 0 var(--amber-edge)',
               color: 'var(--ink)', fontWeight: 700, fontSize: 'var(--text-sm)',
             }}>
-              <i className="ti ti-star" style={{ color: 'var(--amber)' }} /> {t.mejora}
-            </div>
+              {NATIVA ? MEJORA_NATIVA : <><i className="ti ti-star" style={{ color: 'var(--amber)' }} /> {t.mejora}</>}
+            </div>}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            <button
+            {!NATIVA && <button
               type="button"
               className="q gbtn"
               onClick={() => { cerrar(); irAPlanes() }}
@@ -50,7 +55,7 @@ export default function LimitePlanSheet() {
               }}
             >
               <i className="ti ti-sparkles" /> Ver planes
-            </button>
+            </button>}
             <button
               type="button"
               className="q"
@@ -62,7 +67,7 @@ export default function LimitePlanSheet() {
                 fontWeight: 700, fontSize: 'var(--text-sm)', cursor: 'pointer',
               }}
             >
-              Ahora no
+              {NATIVA ? 'Entendido' : 'Ahora no'}
             </button>
           </div>
         </>

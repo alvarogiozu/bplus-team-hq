@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { env } from '../../lib/env'
 import { setKeepSession, supabase } from '../../lib/supabase'
 import { bplus } from '../../os/habitos'
+import { abrirLoginNativo, loginGoogleNativo, VUELTA_NATIVA } from '../../lib/appNativa'
 
 export const USERNAME_RE = /^[a-z0-9._]{3,20}$/
 
@@ -65,15 +66,18 @@ export async function signInWithGoogle(path = '/inicio') {
     /* sin almacenamiento */
   }
   const client = bplus() ?? supabase
+  // en la app de Android Google no deja entrar en el WebView: va por la Custom Tab (lib/appNativa)
+  const nativa = loginGoogleNativo()
   const { data, error } = await client.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${location.origin}${safePath}`,
-      skipBrowserRedirect: EN_VENTANA,
+      redirectTo: nativa ? VUELTA_NATIVA : `${location.origin}${safePath}`,
+      skipBrowserRedirect: EN_VENTANA || nativa,
       queryParams: { prompt: 'select_account' },
     },
   })
   if (error) throw error
+  if (nativa && data?.url) return abrirLoginNativo(data.url, safePath)
   if (EN_VENTANA && data?.url) window.top!.location.assign(data.url)
 }
 

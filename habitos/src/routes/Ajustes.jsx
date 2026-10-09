@@ -16,6 +16,7 @@ import useDesktop from '../lib/useDesktop.js'
 import { irAPlanes, usePlanHq } from '../lib/planHq.js'
 import { NOMBRE_PLAN } from '../../../src/lib/limitesTextos'
 import './desk/AjustesDesk.css'
+import { esAppNativa } from '../../../src/lib/appNativa'
 
 // ============================================================================
 // Ajustes — la "tuerca" de B+ (movil: header de Progreso; PC: rail izquierdo).
@@ -572,7 +573,7 @@ export default function Ajustes() {
           <Fila
             icon="ti-sparkles" tint="var(--amber)" soft="var(--amber-soft)"
             label={plan ? `Plan ${NOMBRE_PLAN[plan.plan] || 'Gratis'}` : 'Tu plan'}
-            caption={!plan || plan.plan === 'gratis' ? 'Mira qué trae Plus y cómo activarlo' : 'Hasta cuándo y qué incluye'}
+            caption={plan && plan.plan !== 'gratis' ? 'Hasta cuándo y qué incluye' : esAppNativa() ? 'Lo que trae tu plan' : 'Mira qué trae Plus y cómo activarlo'}
             onTap={irAPlanes}
             right={<i className="ti ti-chevron-right" style={{ color: 'var(--amber)' }} />}
           />

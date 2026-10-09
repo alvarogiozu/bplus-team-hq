@@ -16,6 +16,7 @@ import { supabase } from './supabase.js'
 import { sincronizarSesionHq, cerrarSesionHq, sincronizarDesdeHq, iniciarSesionCredenciales } from '../lib/hqChat.js'
 import { cabeEnPlan } from '../lib/planHq.js'
 import { abrirLimite } from '../../../src/lib/limites'
+import { abrirLoginNativo, loginGoogleNativo, VUELTA_NATIVA } from '../../../src/lib/appNativa'
 import { prepararFoto } from './photos.js'
 import { typeOf } from './habitTypes.js'
 import { colorForUser, esUuid } from './chat.js'
@@ -23,7 +24,15 @@ import { colorForUser, esUuid } from './chat.js'
 // Rockie OS (PC): dentro de una ventana del escritorio Google no deja entrar (no abre en iframes).
 // El viaje a Google lo hace la pagina entera y, al volver, el escritorio abre Habitos otra vez.
 const EN_VENTANA = (() => { try { return window.self !== window.top } catch { return true } })()
+// En la app de Android Google no deja entrar en el WebView: va por la Custom Tab (src/lib/appNativa) y, al
+// volver, la app carga la misma direccion que options.redirectTo con lo que trajo Google.
 async function oauthGoogle(options) {
+  if (loginGoogleNativo()) {
+    const vuelta = new URL(options?.redirectTo || '/habitos/entrar', window.location.origin)
+    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { ...options, redirectTo: VUELTA_NATIVA, skipBrowserRedirect: true } })
+    if (!error && data?.url) await abrirLoginNativo(data.url, vuelta.pathname + vuelta.search)
+    return { error }
+  }
   const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { ...options, skipBrowserRedirect: EN_VENTANA } })
   if (!error && EN_VENTANA && data?.url) window.top.location.assign(data.url)
   return { error }

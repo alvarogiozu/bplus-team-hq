@@ -18,6 +18,7 @@ import { MovilTop } from '../../os/movil/MovilShell'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { signOut } from '../auth/credentials'
 import { Avatar, CuentaBoton } from './Cuenta'
+import { esAppNativa } from '../../lib/appNativa'
 
 // Perfil y Ajustes: los de tu cuenta, iguales desde cualquier app (no hay unos por app).
 // En el celular son listas de filas grandes (una cosa por fila, 56 px, chevron): se leen de un vistazo y se tocan
@@ -187,7 +188,7 @@ export function PerfilPage() {
 
       <section className="cuenta-card">
         <nav className="cuenta-lista" aria-label="Tu cuenta">
-          <Fila to="/planes" icon="sparkle" titulo="Tu plan" sub={`Tienes ${NOMBRE_PLAN[plan.plan]}${plan.plan === 'gratis' ? ' · mira qué trae Plus' : ''}`} />
+          <Fila to="/planes" icon="sparkle" titulo="Tu plan" sub={`Tienes ${NOMBRE_PLAN[plan.plan]}${plan.plan === 'gratis' && !esAppNativa() ? ' · mira qué trae Plus' : ''}`} />
           <Fila to="/cofre" icon="lock" titulo="Tu Cofre" sub="Tu código de recuperación y tus otros dispositivos" />
           <Fila to="/ajustes" icon="settings" titulo="Ajustes" sub="Tema, color, zona horaria y lo de cada app" />
           <Fila onClick={() => signOut()} icon="logout" titulo="Cerrar sesión" peligro derecha={<span />} />
@@ -287,7 +288,7 @@ export function AjustesPage() {
         <nav className="cuenta-lista" aria-label="Tu cuenta" style={{ marginTop: 12 }}>
           <Fila to="/perfil" icon="user" titulo="Perfil" sub="Tu nombre, tu color y tu código de amigo" />
           <Fila to="/cambiar-clave" icon="key" titulo="Cambiar contraseña" />
-          <Fila to="/planes" icon="sparkle" titulo="Tu plan" sub={`Tienes ${NOMBRE_PLAN[plan.plan]}${plan.plan === 'gratis' ? ' · mira qué trae Plus y cómo activarlo' : ' · hasta cuándo y lo que incluye'}`} />
+          <Fila to="/planes" icon="sparkle" titulo="Tu plan" sub={`Tienes ${NOMBRE_PLAN[plan.plan]}${plan.plan !== 'gratis' ? ' · hasta cuándo y lo que incluye' : esAppNativa() ? '' : ' · mira qué trae Plus y cómo activarlo'}`} />
           <Fila to="/cofre" icon="lock" titulo="Tu Cofre" sub="Lo que guardas se cifra en tu dispositivo. Aquí está tu código de recuperación" />
         </nav>
       </section>

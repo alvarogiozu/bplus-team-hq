@@ -7,6 +7,7 @@ import AppShell from './components/AppShell.jsx'
 import Splash from './components/Splash.jsx'
 import LimitePlanSheet from './components/LimitePlanSheet.jsx'
 import AvisoPlanHabitos from './components/AvisoPlanHabitos.jsx'
+import { esAppNativa } from '../../src/lib/appNativa'
 import { irAPlanes, refrescarPlan } from './lib/planHq.js'
 import Login from './routes/Login.jsx'
 import InviteLanding from './routes/InviteLanding.jsx'
@@ -308,7 +309,8 @@ export default function App() {
         </Routes>
         </Suspense>
         <LimitePlanSheet />
-        <AvisoPlanHabitos />
+        {/* en la app de Android/iPhone no se ofrece comprar (src/lib/appNativa) */}
+        {!esAppNativa() && <AvisoPlanHabitos />}
       </div>
     </div>
   )

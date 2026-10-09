@@ -6,6 +6,7 @@ import { alPedirLimite, type Clave } from '../../lib/limites'
 import { TEXTOS } from '../../lib/limitesTextos'
 import { usePlan } from '../../lib/planes'
 import { alEscritorio, enVentana } from '../../os/ventana'
+import { esAppNativa, plataformaNativa, TEXTO_PLAN_NATIVO } from '../../lib/appNativa'
 import './planes.css'
 
 // La hoja que aparece al llegar a un límite del plan: explica qué pasó en simple, qué sigue funcionando y qué
@@ -40,12 +41,20 @@ function HojaLimite({ clave, cerrar }: { clave: Clave; cerrar: () => void }) {
   if (!plan.cargado && esperar) return null
   const t = TEXTOS[clave]
   const n = plan.limite(clave) ?? 0
+  const nativa = esAppNativa()
   return (
     <Sheet
       open
       onClose={cerrar}
       title={t.titulo(n)}
       footer={
+        nativa ? (
+          <div className="pl-lim-pie">
+            <button className="btn sm" data-autofocus onClick={cerrar}>
+              Entendido
+            </button>
+          </div>
+        ) : (
         <div className="pl-lim-pie">
           <button className="btn ghost sm" onClick={cerrar}>
             Ahora no
@@ -61,13 +70,19 @@ function HojaLimite({ clave, cerrar }: { clave: Clave; cerrar: () => void }) {
             <Icon name="sparkle" className="sm" /> Ver planes
           </button>
         </div>
+        )
       }
     >
       <div className="pl-lim">
         <p>{t.cuerpo(n)}</p>
-        <p className="pl-lim-mejora">
-          <Icon name="star" className="sm" /> {t.mejora}
-        </p>
+        {/* en la app de tienda no se ofrece comprar (lib/appNativa); en Android, solo el texto sin enlace */}
+        {!nativa ? (
+          <p className="pl-lim-mejora">
+            <Icon name="star" className="sm" /> {t.mejora}
+          </p>
+        ) : (
+          plataformaNativa() === 'android' && <p className="pl-lim-mejora">{TEXTO_PLAN_NATIVO}</p>
+        )}
       </div>
     </Sheet>
   )

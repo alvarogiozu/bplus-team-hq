@@ -1,3 +1,4 @@
+import { escucharVueltaNativa } from '../lib/appNativa'
 // Lo primero que corre en cada app de Rockie OS (y en Hábitos): es su propio <script> en index.html y
 // habitos/index.html, ANTES del de la app, porque la librería de animaciones (motion) guarda
 // requestAnimationFrame al cargarse (importarlo desde main no basta: los bloques de librerías corren antes).
@@ -89,5 +90,8 @@ addEventListener('vite:preloadError', (e) => {
   e.preventDefault()
   location.reload()
 })
+
+// ---------- 3) app de Android: vuelta del login de Google (Custom Tab → plus.rockie.app://auth) ----------
+escucharVueltaNativa()
 
 export {}
