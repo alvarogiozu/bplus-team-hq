@@ -164,6 +164,10 @@ export function useNoteEditor(p: {
   wikiKeys?: WikiKeys
   /** nota compartida: el texto vive en un documento Yjs y se edita a la vez con el equipo */
   collab?: { sync: NoteSync; user: CollabUser } | null
+  /** solo texto (las notas de una tarea): sin pegar ni soltar imágenes */
+  soloTexto?: boolean
+  /** lo que dice un párrafo vacío (si no, el de las páginas) */
+  placeholder?: string
 }) {
   const collab = p.collab ?? null
   const { userId } = useAuth()
@@ -227,7 +231,7 @@ export function useNoteEditor(p: {
         TrailingNode,
         Placeholder.configure({
           placeholder: ({ node }) =>
-            node.type.name === 'heading' ? 'Título' : 'Escribe aquí… o selecciona un texto y pregúntale a Rockie',
+            node.type.name === 'heading' ? 'Título' : (p.placeholder ?? 'Escribe aquí… o selecciona un texto y pregúntale a Rockie'),
         }),
         Markdown,
       ],
@@ -262,6 +266,7 @@ export function useNoteEditor(p: {
         },
         handlePaste: (_view, event) => {
           const files = Array.from(event.clipboardData?.files ?? [])
+          if (p.soloTexto && files.length) return true
           if (!files.some((f) => f.type.startsWith('image/')) || !uidRef.current || !editorRef.current) return false
           event.preventDefault()
           void insertImages(editorRef.current, uidRef.current, files, undefined, p.noteId)
@@ -269,6 +274,7 @@ export function useNoteEditor(p: {
         },
         handleDrop: (view, event) => {
           const files = Array.from(event.dataTransfer?.files ?? [])
+          if (p.soloTexto && files.length) return true
           if (!files.some((f) => f.type.startsWith('image/')) || !uidRef.current || !editorRef.current) return false
           event.preventDefault()
           const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
@@ -334,7 +340,22 @@ function Btn(p: { icon?: string; label: string; on?: boolean; disabled?: boolean
   )
 }
 
-export function Toolbar({ editor, onDictate, dictating, note, lite }: { editor: Editor | null; onDictate?: () => void; dictating?: boolean; note?: Note; lite?: boolean }) {
+export function Toolbar({
+  editor,
+  onDictate,
+  dictating,
+  note,
+  lite,
+  soloTexto,
+}: {
+  editor: Editor | null
+  onDictate?: () => void
+  dictating?: boolean
+  note?: Note
+  lite?: boolean
+  /** las notas de una tarea: sin imagen, dibujo, pizarra ni columnas */
+  soloTexto?: boolean
+}) {
   const { userId } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const s = useEditorState({
@@ -452,8 +473,8 @@ export function Toolbar({ editor, onDictate, dictating, note, lite }: { editor: 
       <Btn icon="codeb" label="Código" on={s.code} onClick={() => c().toggleCodeBlock().run()} />
       <Btn icon="divider" label="Separador" onClick={() => c().setHorizontalRule().run()} />
       <span className="cu-tb-sep" />
-      <Btn icon="image" label="Imagen" onClick={() => fileRef.current?.click()} />
-      {!lite && <Btn icon="pen" label="Dibujar (la hoja crece hacia abajo)" onClick={draw} />}
+      {!soloTexto && <Btn icon="image" label="Imagen" onClick={() => fileRef.current?.click()} />}
+      {!lite && !soloTexto && <Btn icon="pen" label="Dibujar (la hoja crece hacia abajo)" onClick={draw} />}
       {note && (
         <button
           type="button"
@@ -471,7 +492,7 @@ export function Toolbar({ editor, onDictate, dictating, note, lite }: { editor: 
         {note && <BoardPick editor={editor} note={note} onDone={() => setBoardAt(null)} />}
       </Popover>
       <Btn icon="table" label="Tabla" on={s.table} onClick={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
-      <Btn icon="columns" label="Columnas (arrastra el borde entre ellas para cambiar el ancho)" on={s.cols} onClick={() => insertColumns(editor, 2)} />
+      {!soloTexto && <Btn icon="columns" label="Columnas (arrastra el borde entre ellas para cambiar el ancho)" on={s.cols} onClick={() => insertColumns(editor, 2)} />}
       {s.cols && (
         <span className="cu-tb-table">
           <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => addColumn(editor)}>

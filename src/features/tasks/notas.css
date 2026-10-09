@@ -1,17 +1,43 @@
 /* ============================================================
-   NOTAS DE UNA TAREA (tasks/NotasTarea.tsx): el campo crece con el texto y «Abrir en grande»
-   Solo tokens: funciona igual en claro y oscuro.
+   NOTAS DE UNA TAREA (tasks/NotasTarea.tsx + NotasEditor.tsx): el editor del Cuaderno (Markdown) en la hoja y en
+   «Abrir en grande». Solo tokens: funciona igual en claro y oscuro.
    ============================================================ */
 /* la etiqueta conserva su lugar de siempre (label.lbl): el margen pasa a la fila que la lleva con el botón */
 .notas-cab { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); margin: var(--s4) 0 6px; }
 .notas-cab .lbl { margin: 0; }
-/* el alto lo pone NotasTarea (crece con el texto hasta un tope); sin estirar a mano */
-.notas-campo { resize: none; }
+
+/* el campo en la hoja: se ve como la nota renderizada; crece con el texto hasta un tope y después scrollea */
+.notas-ed.notas-campo {
+  max-height: 55dvh; overflow-y: auto; overscroll-behavior: contain;
+  padding: var(--s2) var(--s3); border-radius: var(--r-md); border: 1.5px solid var(--card-line); background: var(--card);
+  transition: border-color 0.15s;
+}
+.notas-ed.notas-campo:focus-within { border-color: var(--accent); }
+.notas-cargando { white-space: pre-wrap; font-size: var(--t-sm); line-height: 1.6; color: var(--ink); }
+
+/* la tipografía del Cuaderno, un punto más chica para una hoja de tarea */
+.notas-ed .cu-prose { min-height: 3.2em; font-size: var(--t-sm); line-height: 1.6; }
+.notas-ed .cu-prose > :first-child { margin-top: 0; }
+.notas-ed .cu-prose > :last-child { margin-bottom: 0; }
+.notas-ed .cu-prose h1 { margin: var(--s4) 0 var(--s2); font-size: var(--t-xl); }
+.notas-ed .cu-prose h2 { margin: var(--s4) 0 var(--s2); font-size: var(--t-lg); }
+.notas-ed .cu-prose h3 { margin: var(--s3) 0 var(--s1); font-size: var(--t-md); }
+.notas-ed .cu-prose p { margin: 0 0 var(--s2); }
+.notas-ed .cu-prose ul, .notas-ed .cu-prose ol { margin: 0 0 var(--s2); padding-left: var(--s5); }
+.notas-ed .cu-prose table { font-size: var(--t-xs); }
+.notas-ed .ProseMirror { outline: none; }
 
 /* la ventana grande: al centro y amplia en la PC; en el celular es la página completa (Sheet drawer) */
 .dialog:has(.notas-grande) { width: min(780px, calc(100vw - 32px)); height: min(86dvh, 920px); max-height: none; }
 .dialog:has(.notas-grande) .dbody, .drawer:has(.notas-grande) .dbody { display: flex; flex-direction: column; }
-.notas-grande {
-  flex: 1; width: 100%; min-height: 240px; resize: none; padding: var(--s4); border-radius: var(--r-lg);
-  font-size: var(--t-md); line-height: 1.7; tab-size: 4; background: var(--card); color: var(--ink);
+.notas-grande { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.notas-grande .cu-toolbar {
+  position: sticky; top: 0; z-index: 2; max-width: none; margin: 0; padding: 2px; border-radius: var(--r-md);
+  background: var(--card); border: 1.5px solid var(--card-line);
 }
+.notas-grande .notas-ed-cuerpo {
+  flex: 1; min-height: 240px; overflow-y: auto; padding: var(--s4); border-radius: var(--r-lg);
+  background: var(--card); border: 1.5px solid var(--card-line);
+}
+.notas-grande .cu-prose { min-height: 100%; font-size: var(--t-md); line-height: 1.7; }
+.notas-grande.notas-cargando { padding: var(--s4); border-radius: var(--r-lg); background: var(--card); font-size: var(--t-md); }

@@ -1,24 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { Sheet } from '../../components/Sheet'
 import { useMedia } from '../../lib/useMedia'
-import { Linkify } from './bits'
 import './notas.css'
 
-// Las notas de una tarea (hoja de la PC y del celular): el campo crece con el texto hasta un tope, sin cajita con
-// scroll; «Abrir en grande» las abre al centro (en el celular, a pantalla completa) para leer y editar con calma.
-// Se guarda igual que siempre: al salir del campo y al cerrar la ventana grande (por la ✕, Esc, el fondo o deslizando).
+// Las notas de una tarea (hoja de la PC y del celular), con el editor del Cuaderno: se guardan como Markdown y se ven
+// como una nota (títulos, listas, casillas, negritas, tablas). En la hoja se ven renderizadas y se editan con un toque;
+// «Abrir en grande» abre el mismo editor con su barra, al centro (en el celular, a pantalla completa).
+// Se guarda igual que siempre: al salir del campo y una sola vez al cerrar la ventana grande (✕, Esc, fondo o
+// deslizando). Las notas viejas (texto plano) se leen bien: cada salto de línea es un párrafo (notasMarkdown.ts).
 
-/** Alto máximo del campo en la hoja (después aparece el scroll). */
-const TOPE = () => Math.round(innerHeight * 0.55)
-
-function ajustar(el: HTMLTextAreaElement | null) {
-  if (!el) return
-  el.style.height = 'auto'
-  const alto = el.scrollHeight + 2
-  el.style.height = `${Math.min(alto, TOPE())}px`
-  el.style.overflowY = alto > TOPE() ? 'auto' : 'hidden'
-}
+const NotasEditor = lazy(() => import('./NotasEditor'))
 
 export function NotasTarea(p: {
   id: string
@@ -29,21 +21,8 @@ export function NotasTarea(p: {
   titulo: string
   className?: string
 }) {
-  const campo = useRef<HTMLTextAreaElement>(null)
   const [grande, setGrande] = useState(false)
   const celular = useMedia('(max-width: 767px)')
-
-  useLayoutEffect(() => ajustar(campo.current), [p.value, grande])
-  useEffect(() => {
-    const r = () => ajustar(campo.current)
-    addEventListener('resize', r)
-    // el ancho final llega con la animación de la hoja
-    const t = setTimeout(r, 400)
-    return () => {
-      removeEventListener('resize', r)
-      clearTimeout(t)
-    }
-  }, [])
 
   const cerrar = () => {
     setGrande(false)
@@ -62,6 +41,9 @@ export function NotasTarea(p: {
     return () => removeEventListener('keydown', k, true)
   }) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // mientras carga el editor: el texto tal cual (nada salta: mismo lugar, mismo alto aproximado)
+  const espera = <div className={`notas-ed notas-cargando${p.className ? ` ${p.className}` : ''}`}>{p.value || <span className="hint">Contexto, pasos, links…</span>}</div>
+
   return (
     <>
       <div className="notas-cab">
@@ -70,29 +52,14 @@ export function NotasTarea(p: {
           <Icon name="file" className="sm" /> Abrir en grande
         </button>
       </div>
-      <textarea
-        ref={campo}
-        id={p.id}
-        className={`notas-campo${p.className ? ` ${p.className}` : ''}`}
-        value={p.value}
-        placeholder="Contexto, links, lo que haga falta…"
-        onChange={(e) => p.onChange(e.target.value)}
-        onBlur={p.onGuardar}
-      />
-      {/https?:\/\//.test(p.value) && (
-        <p className="notesview hint" style={{ marginTop: 6 }}>
-          <Linkify text={p.value} />
-        </p>
-      )}
+      {/* en la hoja: renderizada, se edita con un toque (con la grande abierta, sigue lo que escribes allá) */}
+      <Suspense fallback={espera}>
+        <NotasEditor id={p.id} value={p.value} onChange={p.onChange} onBlur={p.onGuardar} className={`notas-campo${p.className ? ` ${p.className}` : ''}`} />
+      </Suspense>
       <Sheet open={grande} onClose={cerrar} variant={celular ? 'drawer' : 'dialog'} title={p.titulo || 'Notas'}>
-        <textarea
-          className="notas-grande"
-          data-autofocus
-          aria-label="Notas"
-          value={p.value}
-          placeholder="Contexto, pasos, links, lo que haga falta…"
-          onChange={(e) => p.onChange(e.target.value)}
-        />
+        <Suspense fallback={<div className="notas-grande notas-cargando">{p.value}</div>}>
+          {grande && <NotasEditor id={`${p.id}-grande`} value={p.value} onChange={p.onChange} barra autoFocus className="notas-grande" label="Notas en grande" />}
+        </Suspense>
       </Sheet>
     </>
   )
