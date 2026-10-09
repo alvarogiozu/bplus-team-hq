@@ -409,6 +409,13 @@
         "response": "sí/no/quizás: el servidor calcula la disponibilidad"
       }
     },
+    "task_dependencies": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {},
+      "_por_que": "solo ids (task_id espera a depende_de, del proyecto space_id) y fechas: no hay texto de nadie que cifrar; el servidor los lee para impedir ciclos y para que el conector diga «bloqueada por»"
+    },
     "xp_log": {
       "llave": "ninguna",
       "estado": "activo",

@@ -29,6 +29,18 @@ function estadoDe(v: unknown): Status | null {
 }
 
 const ESTADO = { type: 'string', enum: ['por_hacer', 'en_curso', 'hecho'], description: 'por_hacer, en_curso o hecho' }
+const DEPENDE_CREAR = {
+  type: 'array',
+  maxItems: 20,
+  items: { type: 'string' },
+  description: 'Las tareas que esta tiene que esperar: ids de tareas que ya existen, o «#2» para la 2.ª tarea de esta misma lista',
+}
+const DEPENDE_ACTUALIZAR = {
+  type: 'array',
+  maxItems: 20,
+  items: { type: 'string' },
+  description: 'La lista COMPLETA de tareas que esta espera (ids); reemplaza la anterior. [] = ya no espera a ninguna',
+}
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 const EDIT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
 
@@ -46,7 +58,7 @@ export const PROYECTO_TOOLS = [
     name: 'ver_tareas',
     title: 'Ver las tareas de un proyecto',
     description:
-      'Las tareas de un proyecto agrupadas por estado (Por hacer, En curso, Hecho), con id, área, responsable, fecha y si es urgente. Filtra por estado, área o palabras.',
+      'Las tareas de un proyecto agrupadas por estado (Por hacer, En curso, Hecho), con id, área, responsable, fecha, si es urgente y qué tareas la bloquean (las que espera y aún no están hechas). Filtra por estado, área o palabras.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -64,7 +76,7 @@ export const PROYECTO_TOOLS = [
     name: 'crear_tareas',
     title: 'Crear tareas',
     description:
-      'Crea una o varias tareas en un proyecto (hasta 30). Cada una con título y, si quieres, notas, estado, área (por nombre), responsable (nombre, usuario o «yo»), fecha (AAAA-MM-DD, «hoy» o «mañana») y urgente.',
+      'Crea una o varias tareas en un proyecto (hasta 30). Cada una con título y, si quieres, notas, estado, área (por nombre), responsable (nombre, usuario o «yo»), fecha (AAAA-MM-DD, «hoy» o «mañana»), urgente y depende_de (las tareas que tiene que esperar).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -83,6 +95,7 @@ export const PROYECTO_TOOLS = [
               responsable: { type: 'string' },
               fecha: { type: 'string' },
               urgente: { type: 'boolean' },
+              depende_de: DEPENDE_CREAR,
             },
             required: ['titulo'],
           },
@@ -117,6 +130,7 @@ export const PROYECTO_TOOLS = [
               responsable: { type: 'string', description: 'Nombre, usuario, «yo» o «nadie»' },
               fecha: { type: 'string', description: 'AAAA-MM-DD, «hoy», «mañana» o «ninguna»' },
               urgente: { type: 'boolean' },
+              depende_de: DEPENDE_ACTUALIZAR,
             },
             required: ['id'],
           },
@@ -137,6 +151,8 @@ export const PROYECTO_INSTRUCCIONES = [
   '- Mueve en lote: una sola llamada con varios cambios. No vuelvas a pedir la lista entera después de cada cambio.',
   '- Las áreas vienen numeradas (1, 2, 3…) y también se eligen por número: si un nombre sale «aún cifrado», usa su número.',
   '- Hecho no es validada: la validación (y su XP) la da una persona en la app. No digas que quedó validada.',
+  '- Dependencias: depende_de dice qué tareas tiene que esperar una tarea. ver_tareas marca «⛔ bloqueada por» mientras',
+  '  alguna no esté hecha: empieza por las que no están bloqueadas. Al crear, «#2» apunta a la 2.ª tarea de la misma lista.',
   '- Solo ves los proyectos que su dueño abrió para Claude. Si te pide otro, dile que lo abra en Rockie › Proyectos ›',
   '  Ajustes del proyecto › Claude.',
 ].join('\n')
@@ -208,6 +224,31 @@ async function tareas(ctx: Ctx, sid: string): Promise<Task[]> {
     .order('position')
     .limit(2000)
   return ((data ?? []) as Task[]).map((t) => ({ ...t, cifrada: cifrado(t.title) || cifrado(t.notes), title: cifrado(t.title) ? '(tarea todavía cifrada)' : t.title, notes: cifrado(t.notes) ? '' : t.notes }))
+}
+
+/** Qué espera cada tarea del proyecto: task_id → [depende_de…] (tabla task_dependencies). */
+async function dependencias(ctx: Ctx, sid: string): Promise<Map<string, string[]>> {
+  const { data } = await ctx.db.from('task_dependencies').select('task_id, depende_de').eq('space_id', sid).limit(5000)
+  const m = new Map<string, string[]>()
+  for (const d of (data ?? []) as { task_id: string; depende_de: string }[]) m.set(d.task_id, [...(m.get(d.task_id) ?? []), d.depende_de])
+  return m
+}
+
+/** depende_de de una tarea → ids (o el motivo por el que no). «#2» = la 2.ª de la misma lista (solo al crear). */
+function idsDependencias(v: unknown, creadas?: (string | null)[]): string[] | string {
+  if (!Array.isArray(v)) return 'depende_de va como una lista de ids'
+  const out: string[] = []
+  for (const x of v.slice(0, 20)) {
+    const s = asStr(x, 60).trim()
+    const ref = /^#(\d{1,2})$/.exec(s)
+    if (ref && creadas) {
+      const id = creadas[Number(ref[1]) - 1]
+      if (!id) return `«${s}» no es una tarea de esta lista (o no se pudo crear)`
+      out.push(id)
+    } else if (UUID.test(s)) out.push(s)
+    else return `«${s}» no es un id de tarea${creadas ? ' ni «#N»' : ''}`
+  }
+  return [...new Set(out)]
 }
 
 /** La fecha de hoy en la zona horaria de la persona (para «hoy» y «mañana»). */
@@ -305,7 +346,7 @@ async function verProyectos(ctx: Ctx): Promise<Result> {
 async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
   const p = await proyecto(ctx, asStr(args.proyecto_id, 60))
   if (typeof p === 'string') return oops(p)
-  const [ts, ar, ms] = await Promise.all([tareas(ctx, p.id), areas(ctx, p.id), miembros(ctx, p.id)])
+  const [ts, ar, ms, deps] = await Promise.all([tareas(ctx, p.id), areas(ctx, p.id), miembros(ctx, p.id), dependencias(ctx, p.id)])
   const soloEstado = args.estado ? estadoDe(args.estado) : null
   if (args.estado && !soloEstado) return oops('El estado es por_hacer, en_curso o hecho.')
   let lista = ts
@@ -318,8 +359,15 @@ async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
   if (q) lista = lista.filter((t) => fold(`${t.title} ${t.notes}`).includes(q))
   const areaN = new Map(ar.map((a) => [a.id, a.name]))
   const quien = new Map(ms.map((m) => [m.user_id, m.display_name || m.username]))
+  const porId = new Map(ts.map((t) => [t.id, t]))
+  // bloqueada = alguna de las que espera aún no está hecha (las hechas ya no bloquean)
+  const bloqueos = (t: Task) => {
+    if (t.status === 'done') return ''
+    const pend = (deps.get(t.id) ?? []).map((id) => porId.get(id)).filter((d): d is Task => !!d && d.status !== 'done')
+    return pend.length ? ` · ⛔ bloqueada por: ${pend.map((d) => `«${d.title}» [${d.id}]`).join(', ')}` : ''
+  }
   const fila = (t: Task) =>
-    `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · vence ${t.due_date}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${t.status === 'done' ? (t.validation ? ' · validada' : ' · por validar') : ''}`
+    `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · vence ${t.due_date}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${t.status === 'done' ? (t.validation ? ' · validada' : ' · por validar') : ''}${bloqueos(t)}`
   const out: string[] = [`📁 ${p.name}`]
   if (ts.some((t) => t.cifrada) || ar.some((a) => a.name.endsWith('(aún cifrada)'))) out.push(`⚠️ ${PENDIENTE}`)
   for (const st of ['doing', 'todo', 'done'] as Status[]) {
@@ -344,7 +392,8 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
   const [ar, ms, hoyDia] = await Promise.all([areas(ctx, p.id), miembros(ctx, p.id), hoy(ctx)])
   const hechas: string[] = []
   const errores: string[] = []
-  for (const t of lista) {
+  const creadas: (string | null)[] = lista.map(() => null) // el id de cada una, en el orden de la lista (para «#N»)
+  for (const [i, t] of lista.entries()) {
     const titulo = asStr(t.titulo, 200).trim()
     if (!titulo) {
       errores.push('una tarea sin título')
@@ -391,7 +440,24 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
       p_priority: t.urgente === true ? 'urgent' : 'normal',
     })
     if (error) errores.push(`«${titulo}»: ${error.message}`)
-    else hechas.push(`- ${titulo} [${data}] · ${NOMBRE[estado]}${area ? ` · ${area.name}` : ''}`)
+    else {
+      creadas[i] = data as string
+      hechas.push(`- ${titulo} [${data}] · ${NOMBRE[estado]}${area ? ` · ${area.name}` : ''}`)
+    }
+  }
+  // las dependencias, cuando ya existen todas (así «#3» puede apuntar a una que va más abajo)
+  for (const [i, t] of lista.entries()) {
+    if (!creadas[i] || t.depende_de === undefined) continue
+    const titulo = asStr(t.titulo, 200).trim()
+    const ids = idsDependencias(t.depende_de, creadas)
+    if (typeof ids === 'string') {
+      errores.push(`«${titulo}» se creó, pero sin dependencias: ${ids}`)
+      continue
+    }
+    if (!ids.length) continue
+    const { error } = await ctx.db.rpc('mcp_dependencias', { p_uid: ctx.uid, p_task: creadas[i], p_depende_de: ids })
+    if (error) errores.push(`«${titulo}» se creó, pero sin dependencias: ${error.message}`)
+    else hechas[hechas.findIndex((h) => h.includes(`[${creadas[i]}]`))] += ` · espera a ${ids.length}`
   }
   const out = [hechas.length ? `Creé ${hechas.length} ${hechas.length === 1 ? 'tarea' : 'tareas'} en ${p.name}:\n${hechas.join('\n')}` : 'No creé ninguna tarea.']
   if (errores.length) out.push(`\nNo pude con:\n${errores.map((e) => `- ${e}`).join('\n')}`)
@@ -487,13 +553,32 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
       patch.priority = c.urgente ? 'urgent' : 'normal'
       dice.push(c.urgente ? 'urgente' : 'normal')
     }
-    if (!Object.keys(patch).length) {
+    let deps: string[] | null = null
+    if (c.depende_de !== undefined) {
+      const ids = idsDependencias(c.depende_de)
+      if (typeof ids === 'string') {
+        errores.push(`«${t.title}»: ${ids}`)
+        continue
+      }
+      deps = ids
+    }
+    if (!Object.keys(patch).length && deps === null) {
       hechas.push(`- ${t.title}: ya estaba así`)
       continue
     }
-    const { error } = await ctx.db.rpc('mcp_actualizar_tarea', { p_uid: ctx.uid, p_task: id, p_patch: patch })
-    if (error) errores.push(`«${t.title}»: ${error.message}`)
-    else hechas.push(`- ${patch.title ?? t.title} ${dice.join(' · ')}`)
+    if (Object.keys(patch).length) {
+      const { error } = await ctx.db.rpc('mcp_actualizar_tarea', { p_uid: ctx.uid, p_task: id, p_patch: patch })
+      if (error) {
+        errores.push(`«${t.title}»: ${error.message}`)
+        continue
+      }
+    }
+    if (deps !== null) {
+      const { data: n, error } = await ctx.db.rpc('mcp_dependencias', { p_uid: ctx.uid, p_task: id, p_depende_de: deps })
+      if (error) errores.push(`«${t.title}»${dice.length ? ` (lo demás sí se guardó)` : ''}: ${error.message}`)
+      else dice.push(n ? `espera a ${n}` : 'sin dependencias')
+    }
+    if (dice.length || Object.keys(patch).length) hechas.push(`- ${patch.title ?? t.title} ${dice.join(' · ') || 'notas nuevas'}`)
   }
   const out = [hechas.length ? `Listo:\n${hechas.join('\n')}` : 'No cambié nada.']
   if (errores.length) out.push(`\nNo pude con:\n${errores.map((e) => `- ${e}`).join('\n')}`)
