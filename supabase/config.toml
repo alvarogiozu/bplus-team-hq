@@ -421,3 +421,7 @@ verify_jwt = false
 [functions.planes-renovar]
 # la llama pg_cron cada día: solo cobra lo que ya toca (y lo marca antes), así que llamarla de más no hace daño
 verify_jwt = false
+
+[functions.libro-aviso]
+# la llama el trigger del Libro de Reclamaciones (pg_net) y un cron cada hora: solo manda lo pendiente y lo marca
+verify_jwt = false
