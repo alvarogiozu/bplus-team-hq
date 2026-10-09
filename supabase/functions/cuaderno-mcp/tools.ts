@@ -411,6 +411,21 @@ async function makeBook(ctx: Ctx, name: string, kind: Book['kind'], parentId: st
   return data as Book
 }
 
+/** ¿Es la nota de una tarea de un proyecto abierto para Claude del que esta persona es miembro? (entonces la puede
+ *  leer y editar aunque la haya creado otra persona del equipo). */
+async function notaDeProyecto(ctx: Ctx, id: string): Promise<boolean> {
+  const { data: m } = await ctx.db.from('materials').select('space_id').eq('note_id', id).eq('kind', 'note').not('task_id', 'is', null).limit(1).maybeSingle()
+  if (!m) return false
+  const sid = (m as { space_id: string }).space_id
+  const [{ data: sp }, { data: yo }] = await Promise.all([
+    ctx.db.from('spaces').select('abierto_claude').eq('id', sid).maybeSingle(),
+    ctx.db.from('space_members').select('user_id').eq('space_id', sid).eq('user_id', ctx.uid).maybeSingle(),
+  ])
+  return Boolean((sp as { abierto_claude?: boolean } | null)?.abierto_claude && yo)
+}
+const enCifrado = (v: unknown) => typeof v === 'string' && /^c[fj]1\./.test(v)
+const AUN_CIFRADA = 'Esa nota todavía está cifrada: se abre sola cuando su dueña entra a Rockie (rockie.plus). Mientras tanto no se puede leer ni cambiar.'
+
 // ---------- cada herramienta ----------
 export async function callTool(name: string, args: Args, ctx: Ctx): Promise<Result> {
   const deProyectos = await callProyecto(name, args, ctx)
@@ -538,14 +553,12 @@ async function buscar(ctx: Ctx, args: Args) {
 async function leerPagina(ctx: Ctx, args: Args) {
   const id = asStr(args.id, 60)
   if (!UUID.test(id)) return oops('Ese id no es de una página. Usa buscar o ver_cuaderno para encontrarlo.')
-  const { data: n } = await ctx.db
-    .from('cuaderno_notes')
-    .select('id, title, body, book_id, parent_note_id, kind, area, created_at, updated_at')
-    .eq('user_id', ctx.uid)
-    .eq('id', id)
-    .eq('abierta', true)
-    .maybeSingle()
-  if (!n) return oops('No encontré esa página en los cuadernos abiertos para Claude (lo demás está cifrado).')
+  const delProyecto = await notaDeProyecto(ctx, id)
+  let q = ctx.db.from('cuaderno_notes').select('id, title, body, book_id, parent_note_id, kind, area, created_at, updated_at').eq('id', id).eq('abierta', true)
+  if (!delProyecto) q = q.eq('user_id', ctx.uid)
+  const { data: n } = await q.maybeSingle()
+  if (!n) return oops(delProyecto ? 'Esa nota de tarea no está abierta para Claude todavía.' : 'No encontré esa página en los cuadernos abiertos para Claude (lo demás está cifrado).')
+  if (enCifrado(n.title) || enCifrado(n.body)) return oops(AUN_CIFRADA)
   const [bs, ns, links, cards] = await Promise.all([
     books(ctx),
     notes(ctx),
@@ -666,8 +679,13 @@ async function crearPaginas(ctx: Ctx, args: Args) {
 async function editarPagina(ctx: Ctx, args: Args) {
   const id = asStr(args.id, 60)
   if (!UUID.test(id)) return oops('Ese id no es de una página.')
-  const { data: n } = await ctx.db.from('cuaderno_notes').select('id, title, body').eq('user_id', ctx.uid).eq('id', id).eq('abierta', true).maybeSingle()
-  if (!n) return oops('No encontré esa página en los cuadernos abiertos para Claude.')
+  const delProyecto = await notaDeProyecto(ctx, id)
+  let q = ctx.db.from('cuaderno_notes').select('id, title, body').eq('id', id).eq('abierta', true)
+  if (!delProyecto) q = q.eq('user_id', ctx.uid)
+  const { data: n } = await q.maybeSingle()
+  if (!n) return oops(delProyecto ? 'Esa nota de tarea no está abierta para Claude todavía.' : 'No encontré esa página en los cuadernos abiertos para Claude.')
+  // sumarle texto en claro a una nota que sigue cifrada la rompería
+  if (enCifrado(n.title) || enCifrado(n.body)) return oops(AUN_CIFRADA)
   const mode = args.modo === 'reemplazar' ? 'reemplazar' : 'agregar'
   const titulo = asStr(args.titulo, 160).trim()
   const add = asStr(args.contenido, MAX_BODY)
@@ -678,10 +696,13 @@ async function editarPagina(ctx: Ctx, args: Args) {
   if (next.length > MAX_BODY) return oops(`La página quedaría demasiado larga (máximo ${MAX_BODY} caracteres). Crea una subnota con crear_pagina y "tema".`)
   const patch: Record<string, string> = { body: next }
   if (titulo) patch.title = titulo
-  const { error } = await ctx.db.from('cuaderno_notes').update(patch).eq('id', id).eq('user_id', ctx.uid)
+  let upd = ctx.db.from('cuaderno_notes').update(patch).eq('id', id).eq('abierta', true)
+  if (!delProyecto) upd = upd.eq('user_id', ctx.uid)
+  const { error } = await upd
   if (error) return oops('No pude guardar el cambio.')
-  const enlaces = await linkAll(ctx, id, targets)
-  await embedNotes(ctx, [id])
+  // las conexiones y la huella de significado son del cuaderno personal: en la nota de otra persona no se tocan
+  const enlaces = delProyecto ? { nuevas: [] as string[], ya: [] as string[], fallidas: [] as string[] } : await linkAll(ctx, id, targets)
+  if (!delProyecto) await embedNotes(ctx, [id])
   const nombre = (x: string) => all.find((m) => m.id === x)?.title ?? x
   const what = !add.trim() ? 'Le cambié el título' : mode === 'agregar' ? 'Agregué el contenido al final de' : 'Reescribí'
   const notas = [

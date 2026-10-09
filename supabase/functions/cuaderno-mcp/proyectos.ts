@@ -162,6 +162,8 @@ export const PROYECTO_INSTRUCCIONES = [
   '  alguna no esté hecha: empieza por las que no están bloqueadas. Al crear, «#2» apunta a la 2.ª tarea de la misma lista.',
   '- Frentes: un proyecto puede tener frentes (sus grandes objetivos) que avanzan solos con sus tareas hechas y mueven',
   '  las metas. Cada tarea nueva va a un frente: dilo con «frente» (nombre o número) o se toma el que corresponde a su área.',
+  '- «📝 nota [id]» en una tarea es su nota del proyecto: léela con leer_pagina y súmale con editar_pagina (ese id).',
+  '  Las notas se crean en la app (Rockie › Proyectos › la tarea › Crear nota), no desde aquí.',
   '- Solo ves los proyectos que su dueño abrió para Claude. Si te pide otro, dile que lo abra en Rockie › Proyectos ›',
   '  Ajustes del proyecto › Claude.',
 ].join('\n')
@@ -236,6 +238,25 @@ async function tareas(ctx: Ctx, sid: string): Promise<Task[]> {
     .limit(2000)
   return ((data ?? []) as Task[]).map((t) => ({ ...t, cifrada: cifrado(t.title) || cifrado(t.notes), title: cifrado(t.title) ? '(tarea todavía cifrada)' : t.title, notes: cifrado(t.notes) ? '' : t.notes }))
 }
+
+/** La nota del proyecto de cada tarea (materials kind 'note'; la crea la app, cifrada con la llave del equipo).
+ *  abierta = se puede leer y editar con leer_pagina / editar_pagina; cifrada = todavía no la reescribe en claro la app
+ *  de su dueña; cerrada = no está abierta para Claude. */
+async function notasDeTareas(ctx: Ctx, sid: string): Promise<Map<string, { id: string; estado: 'abierta' | 'cifrada' | 'cerrada' }>> {
+  const { data: ms } = await ctx.db.from('materials').select('task_id, note_id').eq('space_id', sid).eq('kind', 'note').not('task_id', 'is', null).not('note_id', 'is', null).limit(2000)
+  const filas = (ms ?? []) as { task_id: string; note_id: string }[]
+  const out = new Map<string, { id: string; estado: 'abierta' | 'cifrada' | 'cerrada' }>()
+  if (!filas.length) return out
+  const { data: ns } = await ctx.db.from('cuaderno_notes').select('id, title, body, abierta').in('id', filas.map((f) => f.note_id))
+  const porId = new Map(((ns ?? []) as { id: string; title: string; body: string; abierta: boolean }[]).map((n) => [n.id, n]))
+  for (const f of filas) {
+    const n = porId.get(f.note_id)
+    if (!n) continue
+    out.set(f.task_id, { id: n.id, estado: !n.abierta ? 'cerrada' : cifrado(n.title) || cifrado(n.body) ? 'cifrada' : 'abierta' })
+  }
+  return out
+}
+const NOTA_TXT = { abierta: '', cifrada: ' (todavía cifrada: se abre sola cuando su dueña entra a rockie.plus)', cerrada: ' (no está abierta para Claude)' }
 
 /** Los frentes del proyecto (projects abiertos, sin archivar), numerados, con sus tareas hechas / total. */
 async function frentes(ctx: Ctx, sid: string): Promise<Frente[]> {
@@ -451,7 +472,7 @@ async function metasDe(ctx: Ctx, sid: string): Promise<string[]> {
 async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
   const p = await proyecto(ctx, asStr(args.proyecto_id, 60))
   if (typeof p === 'string') return oops(p)
-  const [ts, ar, ms, deps, fs] = await Promise.all([tareas(ctx, p.id), areas(ctx, p.id), miembros(ctx, p.id), dependencias(ctx, p.id), frentes(ctx, p.id)])
+  const [ts, ar, ms, deps, fs, notas] = await Promise.all([tareas(ctx, p.id), areas(ctx, p.id), miembros(ctx, p.id), dependencias(ctx, p.id), frentes(ctx, p.id), notasDeTareas(ctx, p.id)])
   const soloEstado = args.estado ? estadoDe(args.estado) : null
   if (args.estado && !soloEstado) return oops('El estado es por_hacer, en_curso o hecho.')
   let lista = ts
@@ -478,7 +499,7 @@ async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
     return pend.length ? ` · ⛔ bloqueada por: ${pend.map((d) => `«${d.title}» [${d.id}]`).join(', ')}` : ''
   }
   const fila = (t: Task) =>
-    `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.project_id && frenteN.get(t.project_id) ? ` · ▸ ${frenteN.get(t.project_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · vence ${t.due_date}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${t.status === 'done' ? (t.validation ? ' · validada' : ' · por validar') : ''}${bloqueos(t)}`
+    `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.project_id && frenteN.get(t.project_id) ? ` · ▸ ${frenteN.get(t.project_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · vence ${t.due_date}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${notas.get(t.id) ? ` · 📝 nota${notas.get(t.id)!.estado === 'abierta' ? ` [${notas.get(t.id)!.id}]` : NOTA_TXT[notas.get(t.id)!.estado]}` : ''}${t.status === 'done' ? (t.validation ? ' · validada' : ' · por validar') : ''}${bloqueos(t)}`
   const out: string[] = [`📁 ${p.name}`]
   if (ts.some((t) => t.cifrada) || ar.some((a) => a.name.endsWith('(aún cifrada)'))) out.push(`⚠️ ${PENDIENTE}`)
   for (const st of ['doing', 'todo', 'done'] as Status[]) {
