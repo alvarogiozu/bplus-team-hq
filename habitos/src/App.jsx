@@ -66,7 +66,6 @@ const Landing = lazy(() => import('./landing/Landing.jsx'))
 const TeamHqLanding = lazy(() => import('./landing/TeamHq.jsx'))
 const DesktopNav = lazy(() => import('./components/DesktopNav.jsx'))
 
-const Legal = lazy(() => import('./routes/Legal.jsx'))
 const DeviceApp = lazy(() => import('./device/DeviceApp.jsx'))
 const Familia = lazy(() => import('./routes/Familia.jsx'))
 const NotFound = lazy(() => import('./routes/NotFound.jsx'))
@@ -138,17 +137,11 @@ export default function App() {
     }
   }, [])
 
-  // Pantalla legal: publica y accesible SIEMPRE (con o sin sesion), porque es la
-  // URL de politica de privacidad de las tiendas y el enlace obligatorio para
-  // apps con contenido de usuarios. Va antes de cualquier gate de sesion.
+  // Legal: UN solo texto para todo Rockie (src/features/publico/legal.ts, en rockie.plus). /habitos/legal sigue
+  // existiendo (enlace de las tiendas y de Ajustes) y lleva ahi, con o sin sesion. replace: «volver» regresa a Ajustes.
   if (pathname === '/legal') {
-    return (
-      <div className="app-root">
-        <div className="app-phone">
-          <Suspense fallback={<RouteFallback />}><Legal /></Suspense>
-        </div>
-      </div>
-    )
+    window.location.replace(location.hash === '#privacidad' ? '/privacidad' : '/terminos')
+    return null
   }
 
   // Team HQ: pagina publica de producto (fuera del gate de sesion, full-bleed
@@ -213,6 +206,11 @@ export default function App() {
       : (pathname === '/' || pathname === '/bienvenida')
         ? 'landing'
         : '404'
+    // sin sesion, la cara publica es la portada de rockie.plus (la landing vieja de B+ queda para /bienvenida con sesion)
+    if (vista === 'landing') {
+      window.location.replace('/')
+      return null
+    }
 
     return (
       <AnimatePresence mode="wait" initial={false}>

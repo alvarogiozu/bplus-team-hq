@@ -1,7 +1,8 @@
 // Constantes de sitio (contacto, URL publica, SEO). La URL de produccion se
 // configura en VITE_SITE_URL; en local cae a window.location.origin.
 
-export const CONTACT_EMAIL = 'pmocore.ia@gmail.com'
+// el unico contacto publico (reenvia al dueno, cuyo correo nunca se muestra)
+export const CONTACT_EMAIL = 'contacto@rockie.plus'
 
 export const SITE_NAME = 'B+'
 export const SITE_TAGLINE = 'A pocket companion for the goals that matter.'

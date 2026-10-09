@@ -72,6 +72,13 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
           ],
         },
         {
+          h: 'Contenido de otras personas: tolerancia cero',
+          p: [
+            'En Rockie hay contenido que crean las personas: fotos de prueba, nombres, avatares, mensajes, notas y tareas compartidas. No toleramos el contenido ofensivo, ilegal, sexual explícito, violento, de odio o de acoso, ni el trato abusivo a otras personas.',
+            `En amigos, grupos y chats de Hábitos puedes reportar o bloquear a cualquier persona desde su menú; también puedes reportar ${contacto}. Revisamos cada reporte, retiramos el contenido y suspendemos o cerramos las cuentas que incumplan estas reglas.`,
+          ],
+        },
+        {
           h: 'Tu contenido',
           p: [
             'Lo que escribes y subes es tuyo. Tus notas, tu agenda y tus proyectos se cifran en tu dispositivo (el Cofre): nadie, ni el equipo de Rockie, puede leerlos. Lo que compartes con un equipo lo pueden ver sus miembros.',
@@ -207,6 +214,12 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
         ],
       },
       {
+        h: 'Lo que ven otras personas',
+        p: [
+          'Tus amigos y las personas de tus grupos y equipos ven tu nombre visible, tu foto o color y lo que compartes con ellos (por ejemplo, el avance de tus hábitos o las tareas de un proyecto). Lo que no compartes, no lo ven.',
+        ],
+      },
+      {
         h: 'Dónde se guardan',
         p: [
           'En proveedores de nube (Supabase para la base de datos y Vercel para la web), cuyos servidores pueden estar fuera del Perú. Al usar Rockie aceptas esa transferencia, con las mismas protecciones descritas aquí.',
@@ -215,7 +228,10 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
       { h: 'Para qué los usamos', p: ['Para darte el servicio, cobrar tu plan, darte soporte y mantenerlo seguro. No vendemos tus datos ni mostramos publicidad.'] },
       {
         h: 'Cuánto tiempo',
-        p: ['Mientras tengas tu cuenta. Si la borras, se borran tus datos; solo conservamos los registros de pago el tiempo que exige la ley tributaria.'],
+        p: [
+          'Mientras tengas tu cuenta. Si la borras, se borran tus datos; solo conservamos los registros de pago el tiempo que exige la ley tributaria.',
+          `Tus datos de Hábitos (hábitos, fotos, rachas, metas y amistades) los borras tú mismo en Hábitos › Ajustes › Eliminar cuenta, al instante y para siempre. Para borrar tu cuenta completa de Rockie, pídelo ${contacto} y lo hacemos en un máximo de 10 días hábiles.`,
+        ],
       },
       {
         h: 'Tus derechos',
