@@ -4,12 +4,16 @@
 // (dice «listo / ya lo agendé» en vez de proponer: Rockie nunca ejecuta), latencia y costo por tarea bien hecha.
 //
 //   node scripts/modelos-baratos.mjs                  todos los que tengan llave
-//   node scripts/modelos-baratos.mjs openai together  solo esos (gemini = producción, por agenda-agent con qa.*)
+//   node scripts/modelos-baratos.mjs openai together  solo esos (gemini = producción, por agenda-agent con su usuario propio; tinfoil = IA confidencial)
 //
 // Llaves: .secrets/modelos.env (las pone Álvaro; nunca por chat):
 //   OPENAI_API_KEY=…            OPENAI_MODEL=…    (si no, el primero que diga «luna» en /v1/models)
 //   TOGETHER_API_KEY=…          TOGETHER_MODEL=…  (si no, un Qwen 3.5 de /v1/models, alojado en EE. UU.)
 //   OPENAI_PRECIO=entrada,salida (USD por millón; Together trae el suyo en /v1/models)
+//   TINFOIL_API_KEY=…  IA confidencial (enclave): TINFOIL_MODELS=gemma4-31b,deepseek-v4-1-flash,gpt-oss-120b (por defecto)
+//   TINFOIL_PRECIO=gemma4-31b:entrada,salida;gpt-oss-120b:entrada,salida  (USD por millón; sus docs no los publican)
+//   Ojo: la prueba llama a Tinfoil directo por HTTPS, SIN verificar la atestación (solo mide calidad, latencia y costo);
+//   en producción iría con su SDK (SecureClient), que verifica el enclave antes de mandar nada.
 // Resultado: tabla en la consola y el detalle en test-results/modelos-baratos.json. Nunca imprime las llaves.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -218,6 +222,26 @@ if (quiere('together')) {
         ? { entrada: Number(m.pricing.input), salida: Number(m.pricing.output) }
         : null
     provs.push(proveedorOAI({ nombre: 'together', base, key: env.TOGETHER_API_KEY, modelo: m, precio: pr }))
+  }
+}
+
+if (quiere('tinfoil')) {
+  if (!env.TINFOIL_API_KEY) console.log('— tinfoil: falta TINFOIL_API_KEY en .secrets/modelos.env')
+  else {
+    const precios = Object.fromEntries(
+      (env.TINFOIL_PRECIO ?? '')
+        .split(';')
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .map((x) => {
+          const [id, p] = x.split(':')
+          const [e, s] = (p ?? '').split(',').map(Number)
+          return [id.trim(), e >= 0 && s >= 0 ? { entrada: e, salida: s } : null]
+        }),
+    )
+    for (const id of (env.TINFOIL_MODELS ?? 'gemma4-31b,deepseek-v4-1-flash,gpt-oss-120b').split(',').map((x) => x.trim()).filter(Boolean)) {
+      provs.push(proveedorOAI({ nombre: `tinfoil `, base: 'https://inference.tinfoil.sh/v1', key: env.TINFOIL_API_KEY, modelo: id, precio: precios[id] ?? null }))
+    }
   }
 }
 
