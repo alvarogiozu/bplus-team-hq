@@ -32,3 +32,24 @@ Es un mini-proyecto aparte: tiene su propio `package.json` y no toca el build de
   (abrir el login en el navegador del sistema o usar el inicio de sesión nativo de Google), dentro de la app se entra
   con correo y clave.
 - Para publicar en Play Store hace falta firmar (una keystore que se guarda fuera del repo) y una ficha con capturas.
+
+## Llave de firma (Play Store)
+La llave vive **fuera del repo**, en `%USERPROFILE%\.rockie\firma\`. `android/app/build.gradle` la usa sola si existe
+`keystore.properties` ahí; si no, el release sale sin firmar. Crearla (una vez; la contraseña la escribes tú, nunca
+en un chat):
+```powershell
+New-Item -ItemType Directory -Force "$HOME\.rockie\firma" | Out-Null
+& "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -genkeypair -v -keystore "$HOME\.rockie\firma\rockie-upload.jks" -alias rockie -keyalg RSA -keysize 2048 -validity 10000
+notepad "$HOME\.rockie\firma\keystore.properties"
+```
+Contenido de `keystore.properties`:
+```
+storeFile=rockie-upload.jks
+storePassword=LA_CONTRASEÑA_QUE_ELEGISTE
+keyAlias=rockie
+keyPassword=LA_CONTRASEÑA_QUE_ELEGISTE
+```
+Guarda una copia del `.jks` y su contraseña fuera de la PC (gestor de contraseñas o USB). Play Store usa «Play App
+Signing»: esta es la llave de **subida**; si se pierde, se puede pedir otra a Google, pero tarda días.
+Para el archivo que se sube: Android Studio › Build › Generate Signed App Bundle(s)/APK(s) › Android App Bundle, o
+`cd android && .\gradlew.bat bundleRelease` → `android/app/build/outputs/bundle/release/app-release.aab`.

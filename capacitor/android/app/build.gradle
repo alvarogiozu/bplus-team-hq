@@ -16,8 +16,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Llave de firma de Play Store: vive FUERA del repo, en ~/.rockie/firma/ (ver capacitor/README.md).
+    // keystore.properties trae storeFile, storePassword, keyAlias y keyPassword. Sin ese archivo, el release
+    // sale sin firmar (y Android Studio lo avisa); el debug no la necesita.
+    def firmaProps = new File(System.getProperty('user.home'), '.rockie/firma/keystore.properties')
+    signingConfigs {
+        if (firmaProps.exists()) {
+            release {
+                def p = new Properties()
+                firmaProps.withInputStream { p.load(it) }
+                storeFile new File(firmaProps.parentFile, p['storeFile'])
+                storePassword p['storePassword']
+                keyAlias p['keyAlias']
+                keyPassword p['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (firmaProps.exists()) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
