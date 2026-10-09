@@ -1,0 +1,16 @@
+/* ============================================================
+   MATERIALES: Red y Mapa del proyecto (materials/VistasProyecto.tsx). Solo tokens: claro y oscuro.
+   ============================================================ */
+.mvista { position: relative; height: max(420px, calc(100dvh - 300px)); margin-top: var(--s3); overflow: hidden; border-radius: var(--r-lg); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge); }
+@media (max-width: 767px) { .mvista { height: max(380px, calc(100dvh - 260px)); } }
+
+/* la marca de «algo tuyo conectado»: en la Red, el aviso al pasar; en el Mapa, un clip ámbar */
+.cu-graph-tip {
+  position: absolute; z-index: 3; transform: translate(12px, 12px); max-width: 280px; padding: 6px 10px; border-radius: var(--r-md);
+  background: var(--ink); color: var(--paper); font-size: var(--t-2xs); font-weight: 700; line-height: 1.35; pointer-events: none; box-shadow: var(--shadow-lift);
+}
+.cu-mm-marca circle { fill: var(--amber); stroke: var(--card); stroke-width: 2; }
+.cu-mm-marca .ico, .cu-mm-marca svg { color: var(--cu-ink-fixed, var(--ink)); }
+
+/* el selector Lista · Red · Mapa */
+.mvistas { margin-left: auto; }

@@ -38,9 +38,9 @@ import { useHasPanel, useIsMobile } from './ui'
 //    páginas, y las páginas se unen entre sí (y con proyectos del HQ) con su porqué.
 //  · Carpetas: el árbol de tus carpetas como un mapa mental que se abre y se cierra.
 
-type Sel = { kind: 'node'; id: string } | { kind: 'edge'; id: string } | null
+export type Sel = { kind: 'node'; id: string } | { kind: 'edge'; id: string } | null
 type Mode = 'grafo' | 'carpetas'
-type ColorBy = 'carpeta' | 'memoria'
+export type ColorBy = 'carpeta' | 'memoria'
 
 function useStored<T>(key: string, initial: T): [T, (v: T) => void] {
   const [v, setV] = useState<T>(() => {
@@ -371,7 +371,9 @@ const backOut = (t: number) => {
   return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2)
 }
 
-function GlobalGraph(p: {
+/** La red. Se usa también fuera del Cuaderno (Materiales de un proyecto): ahí `marcas` dice qué páginas tienen algo
+ *  tuyo conectado (un aro ámbar y, al pasar el mouse, qué es). */
+export function GlobalGraph(p: {
   nodes: GNode[]
   edges: GEdge[]
   sel: Sel
@@ -382,6 +384,7 @@ function GlobalGraph(p: {
   onSel: (s: Sel) => void
   onOpen: (n: GNode) => void
   onConnect: (a: GNode, b: GNode) => void
+  marcas?: Map<string, string>
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -408,6 +411,7 @@ function GlobalGraph(p: {
     colorBy: 'carpeta' as ColorBy,
     connect: false,
     line: null as { from: GNode; x: number; y: number; over: GNode | null } | null,
+    marcas: null as Map<string, string> | null,
   })
   const st0 = s.current
   st0.sel = p.sel
@@ -415,7 +419,9 @@ function GlobalGraph(p: {
   st0.highlight = p.highlight
   st0.colorBy = p.colorBy
   st0.connect = p.connect
+  st0.marcas = p.marcas ?? null
   st0.dirty = true
+  const [tip, setTip] = useState<{ t: string; x: number; y: number } | null>(null)
   const cb = useRef(p)
   cb.current = p
   const fitRef = useRef<() => void>(() => {})
@@ -717,6 +723,21 @@ function GlobalGraph(p: {
         else ctx.roundRect(x - r * 1.15 - 5, y - r - 7, r * 2.3 + 10, r * 2 + 14, r * 0.45)
         ctx.stroke()
       }
+      // algo tuyo conectado (solo fuera del Cuaderno): aro ámbar y un punto
+      if (st.marcas?.has(n.id)) {
+        ctx.globalAlpha = dim(n.id) ? 0.3 : 1
+        ctx.strokeStyle = C.amber
+        ctx.lineWidth = 2.5
+        ctx.setLineDash([4, 3])
+        ctx.beginPath()
+        ctx.arc(x, y, r + 4, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.fillStyle = C.amber
+        ctx.beginPath()
+        ctx.arc(x + r * 0.78, y - r * 0.78, Math.max(3.5, 4.5 * Math.min(1.2, cam.k)), 0, Math.PI * 2)
+        ctx.fill()
+      }
     }
 
     // nombres (a tamaño fijo en pantalla): los núcleos siempre; las páginas al acercar, al pasar o si destacan
@@ -848,6 +869,8 @@ function GlobalGraph(p: {
           st.hover = hid
           st.dirty = true
           kickRef.current()
+          const t = hid ? st.marcas?.get(hid) : undefined
+          setTip(t ? { t, x: pt.x, y: pt.y } : null)
         }
         return
       }
@@ -961,6 +984,11 @@ function GlobalGraph(p: {
   return (
     <div className={`cu-graph${p.connect ? ' connecting' : ''}`} ref={wrapRef}>
       <canvas ref={canvasRef} role="img" aria-label={`Mapa: ${p.nodes.length} nodos y ${p.edges.length} líneas`} />
+      {tip && (
+        <div className="cu-graph-tip" role="tooltip" style={{ left: tip.x, top: tip.y }}>
+          {tip.t}
+        </div>
+      )}
       <div className="cu-mapctl" role="group" aria-label="Zoom">
         <button className="iconbtn" onClick={() => zoom(1.25)} aria-label="Acercar">
           <CIcon name="plus" size={18} />

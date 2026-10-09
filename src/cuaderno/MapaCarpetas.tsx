@@ -29,6 +29,17 @@ type N = {
   canOpen: boolean
   match?: boolean
   mem?: Memory
+  /** algo tuyo conectado con esta página (Materiales del proyecto): se marca y se dice al pasar */
+  marca?: string
+}
+
+/** Para usar el mapa fuera de tu Cuaderno (los Materiales de un proyecto): el centro, cómo se abre cada cosa,
+ *  dónde se recuerda qué ramas abriste y qué páginas tienen algo tuyo conectado. Sin esto, es tu Cuaderno. */
+export type CarpetasFuera = {
+  raiz: { titulo: string; icono?: string; sueltas?: string }
+  abrir: (x: { id: string; kind: 'carpeta' | 'page' }) => void
+  clave: string
+  marcas?: Map<string, string>
 }
 type Item = N & { x: number; y: number; w: number; h: number; parent: Item | null; open: boolean }
 
@@ -50,10 +61,16 @@ const branch = (x1: number, y1: number, x2: number, y2: number) => {
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
 }
 
-export function CarpetasView({ books, notes, query, memOf }: { books: Book[]; notes: Note[]; query: string; memOf: (id: string) => Memory }) {
-  const nav = useNavigate()
+export function CarpetasView({ books, notes, query, memOf, fuera }: { books: Book[]; notes: Note[]; query: string; memOf: (id: string) => Memory; fuera?: CarpetasFuera }) {
+  const navegar = useNavigate()
   const { userId } = useAuth()
-  const key = `cu.map.open.${userId}`
+  const key = fuera?.clave ?? `cu.map.open.${userId}`
+  // fuera del Cuaderno, «ir» abre lo de ese lugar (las rutas /cuaderno/... no sirven ahí)
+  const nav = (to: string) => {
+    if (!fuera) return navegar(to)
+    const m = /\/cuaderno\/(c|nota)\/([^/?#]+)/.exec(to)
+    if (m) fuera.abrir({ id: m[2], kind: m[1] === 'nota' ? 'page' : 'carpeta' })
+  }
   const { tree, unfiled, subsOf } = useMemo(() => buildTree(books, notes), [books, notes])
   const [open, setOpen] = useState<Set<string>>(() => {
     try {
@@ -134,6 +151,7 @@ export function CarpetasView({ books, notes, query, memOf }: { books: Book[]; no
           count: subs.length || undefined,
           match: hits.has(p.id),
           mem: memOf(p.id),
+          marca: fuera?.marcas?.get(p.id),
         }
       })
       const rest = pages.length - shown.length
@@ -158,7 +176,7 @@ export function CarpetasView({ books, notes, query, memOf }: { books: Book[]; no
       kids.push({
         id: 'sueltas',
         kind: 'loose',
-        title: 'Sueltas',
+        title: fuera?.raiz.sueltas ?? 'Sueltas',
         color: null,
         fallback: 'note',
         count: unfiled.length,
@@ -169,15 +187,15 @@ export function CarpetasView({ books, notes, query, memOf }: { books: Book[]; no
     return {
       id: 'root',
       kind: 'root',
-      title: 'Tu conocimiento',
+      title: fuera?.raiz.titulo ?? 'Tu conocimiento',
       color: null,
-      fallback: 'sparkle',
+      fallback: fuera?.raiz.icono ?? 'sparkle',
       count: notes.length,
       kids: isOpen('root') ? kids : [],
       canOpen: kids.length > 0,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tree, unfiled, books, notes, open, forced, hits, memOf])
+  }, [tree, unfiled, books, notes, open, forced, hits, memOf, fuera?.marcas, fuera?.raiz.titulo])
 
   // acomodo en árbol: cada rama ocupa su alto; el padre queda al medio de sus hijos
   const { items, W, H } = useMemo(() => {
@@ -301,7 +319,7 @@ export function CarpetasView({ books, notes, query, memOf }: { books: Book[]; no
                   className={`cu-mm-node ${it.kind}${it.match ? ' match' : ''}`}
                   style={it.color ? spine(it.color) : undefined}
                   role="treeitem"
-                  aria-label={`${it.title}${it.count != null ? `, ${it.count} páginas` : ''}`}
+                  aria-label={`${it.title}${it.count != null ? `, ${it.count} páginas` : ''}${it.marca ? `. ${it.marca}` : ''}`}
                   aria-expanded={it.canOpen ? it.open : undefined}
                   tabIndex={0}
                   initial={{ x: from.x, y: from.y, opacity: 0, scale: 0.6 }}
@@ -315,6 +333,15 @@ export function CarpetasView({ books, notes, query, memOf }: { books: Book[]; no
                   onKeyDown={onKey}
                 >
                   <Shape it={it} />
+                  {it.marca && (
+                    <g className="cu-mm-marca" transform={`translate(${it.w - 4} -4)`}>
+                      <title>{it.marca}</title>
+                      <circle r={7} />
+                      <g transform="translate(-5 -5)">
+                        <CIcon name="connect" size={10} />
+                      </g>
+                    </g>
+                  )}
                   {it.to && it.canOpen && (
                     <g
                       className="cu-mm-open"
@@ -388,7 +415,7 @@ function Shape({ it }: { it: Item }) {
       <>
         <rect className="cu-mm-edge" x={0} y={5} width={w} height={h} rx={22} />
         <rect className="cu-mm-root" width={w} height={h} rx={22} />
-        <SvgIcon value={null} fallback="sparkle" x={16} y={h / 2 - 11} size={22} />
+        <SvgIcon value={null} fallback={it.fallback} x={16} y={h / 2 - 11} size={22} />
         <text className="cu-mm-title on" x={46} y={h / 2 - 3}>
           {it.title}
         </text>

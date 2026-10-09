@@ -35,6 +35,16 @@ import {
 
 const DRAG_TYPE = 'application/x-material'
 
+// la Red y el Mapa del proyecto (con las vistas del Cuaderno): se cargan solo si los abres
+const RedProyecto = lazy(() => import('./VistasProyecto').then((m) => ({ default: m.RedProyecto })))
+const MapaProyecto = lazy(() => import('./VistasProyecto').then((m) => ({ default: m.MapaProyecto })))
+type Vista = 'lista' | 'red' | 'mapa'
+const VISTAS: { key: Vista; label: string; icon: 'tasks' | 'tree' | 'gantt' }[] = [
+  { key: 'lista', label: 'Lista', icon: 'tasks' },
+  { key: 'red', label: 'Red', icon: 'tree' },
+  { key: 'mapa', label: 'Mapa', icon: 'gantt' },
+]
+
 export default function MaterialsPage() {
   const fq = useFolders()
   const mq = useMaterials()
@@ -66,6 +76,25 @@ export default function MaterialsPage() {
   }
   const [addOpen, setAddOpen] = useState(false)
   const mobile = useIsMobile()
+  // Lista · Red · Mapa (la URL manda: ?vista=); en el celular se entra al Mapa
+  const pedida = params.get('vista') as Vista | null
+  const vista: Vista = pedida && VISTAS.some((v) => v.key === pedida) ? pedida : mobile ? 'mapa' : 'lista'
+  const setVista = (v: Vista) => {
+    const next = new URLSearchParams(params)
+    next.set('vista', v)
+    setParams(next)
+  }
+  const abrirEnVista = {
+    material: (m: Material) => (m.kind === 'note' && m.note_id ? openNote(m.note_id) : openDetails(m.id)),
+    // una carpeta se abre en la Lista
+    carpeta: (id: string | null) => {
+      const next = new URLSearchParams(params)
+      next.set('vista', 'lista')
+      if (id) next.set('carpeta', id)
+      else next.delete('carpeta')
+      setParams(next)
+    },
+  }
   const fileInput = useRef<HTMLInputElement>(null)
   const dragDepth = useRef(0)
 
@@ -238,6 +267,16 @@ export default function MaterialsPage() {
           <Icon name="search" className="sm" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar en todos los materiales" aria-label="Buscar en todos los materiales" />
         </label>
+        <div className="segmented slide mvistas" role="tablist" aria-label="Vista de los materiales">
+          {VISTAS.map((v) => (
+            <button key={v.key} role="tab" aria-selected={vista === v.key} onClick={() => setVista(v.key)}>
+              {vista === v.key && <motion.span layoutId="mvista-ind" className="seg-ind" transition={{ type: 'spring', stiffness: 520, damping: 38 }} />}
+              <span className="seg-lbl">
+                <Icon name={v.icon} className="sm" /> <span className="seg-txt">{v.label}</span>
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
 
@@ -245,6 +284,14 @@ export default function MaterialsPage() {
         <ListSkeleton rows={3} />
       ) : error ? (
         <LoadError error={error} onRetry={() => void (fq.refetch(), mq.refetch())} />
+      ) : vista !== 'lista' && !needle ? (
+        <Suspense fallback={<ListSkeleton rows={3} />}>
+          {vista === 'red' ? (
+            <RedProyecto titulo={space?.name ?? 'Proyecto'} folders={folders} materials={materials} abrir={abrirEnVista} />
+          ) : (
+            <MapaProyecto titulo={space?.name ?? 'Proyecto'} folders={folders} materials={materials} abrir={abrirEnVista} clave={`m.map.open.${space?.id ?? ''}`} />
+          )}
+        </Suspense>
       ) : (
         <>
           {shownFolders.length > 0 && (

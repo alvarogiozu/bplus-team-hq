@@ -42,10 +42,13 @@ export function useSharedNote(noteId: string | null) {
 
 export function SharedNoteView({ noteId, onClose }: { noteId: string; onClose: () => void }) {
   const q = useSharedNote(noteId)
-  // Esc cierra (como las demás hojas)
+  // Esc cierra (como las demás hojas), salvo que haya otra cosa abierta encima (un menú o una hoja).
+  // Ella misma es un role="dialog": no cuenta (antes se encontraba a sí misma y Esc nunca la cerraba)
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !document.querySelector('.cu-bubble, [role="dialog"]')) onClose()
+      if (e.key !== 'Escape') return
+      const encima = document.querySelector('.cu-bubble') || Array.from(document.querySelectorAll('[role="dialog"]')).some((el) => !el.closest('.mnote'))
+      if (!encima) onClose()
     }
     addEventListener('keydown', on)
     return () => removeEventListener('keydown', on)
