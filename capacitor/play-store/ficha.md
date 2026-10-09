@@ -9,6 +9,7 @@ política de privacidad publicada (src/features/publico/legal.ts) y de precios-y
 - **Categoría:** Productividad · **Etiquetas:** productividad, hábitos, notas, calendario
 - **Correo de contacto:** contacto@rockie.plus · **Web:** https://rockie.plus
 - **Política de privacidad:** https://rockie.plus/privacidad
+- **Enlace para borrar la cuenta** (Seguridad de los datos › Eliminación de datos): https://rockie.plus/borrar-cuenta
 - **Precio:** gratis, **sin compras en la aplicación** (los planes se venden solo en la web; dentro de la app no hay
   precios, botones ni enlaces de pago).
 - **Anuncios:** no.
@@ -72,9 +73,9 @@ Hecho en el Perú.
   política de Familias.
 
 ## Ojo antes de enviar
-- **Borrar la cuenta:** Google Play exige poder borrar la cuenta *desde la app* y una *página web* para pedirlo. Hoy
-  solo vi el borrado en Hábitos › Ajustes; hay que confirmar que borra también lo de Rockie OS y publicar una página
-  (p. ej. rockie.plus/borrar-cuenta). Tarea creada en Base de datos.
+- **Borrar la cuenta:** Google Play exige poder borrarla *desde la app* y una *página web* para pedirlo. La función
+  `borrar-cuenta` (borra la cuenta completa) ya existe (520514e); la página https://rockie.plus/borrar-cuenta la hace
+  Landing. Antes de enviar, comprobar que esa página abre y que Ajustes de la app lleva al borrado.
 - **Acceso para la revisión:** Google pide una cuenta de prueba con instrucciones (usuario + contraseña) para revisar
   la app; se escribe en Play Console › Contenido de la app › Acceso a la app (no en el repo).
 - **Prueba cerrada:** las cuentas *personales* nuevas de Play Console deben pasar 14 días de prueba cerrada con al menos
