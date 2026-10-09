@@ -11,11 +11,12 @@ import { pointOf } from '../../lib/fx'
 import { useActivity, useTasks } from '../data/queries'
 import { useTaskActions } from './actions'
 import { openValidate } from './dialogs'
-import { Linkify, useLookup } from './bits'
+import { useLookup } from './bits'
 import { proofUrl } from './proofUpload'
 import { Select } from '../../components/Select'
 import { PersonPicker } from '../team/PersonPicker'
 import { BloqueadaPill, DependenciasEditor } from './dependencias'
+import { NotasTarea } from './NotasTarea'
 
 // Panel de tarea compartido por todas las vistas. La URL manda: ?tarea=<id>
 export function TaskPanel() {
@@ -133,19 +134,7 @@ function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
 
       <DependenciasEditor task={task} abrir={abrirOtra} />
 
-      <label className="lbl" htmlFor="tp-notes">Notas</label>
-      <textarea
-        id="tp-notes"
-        value={notes}
-        placeholder="Contexto, links, lo que haga falta…"
-        onChange={(e) => setNotes(e.target.value)}
-        onBlur={() => notes !== task.notes && update(task.id, { notes })}
-      />
-      {/https?:\/\//.test(notes) && (
-        <p className="notesview hint" style={{ marginTop: 6 }}>
-          <Linkify text={notes} />
-        </p>
-      )}
+      <NotasTarea id="tp-notes" value={notes} onChange={setNotes} onGuardar={() => notes !== task.notes && update(task.id, { notes })} titulo={task.title} />
 
       {(task.proof_url || task.proof_image_path) && (
         <>
