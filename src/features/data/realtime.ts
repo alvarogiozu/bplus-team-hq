@@ -41,6 +41,8 @@ export function useRealtime(spaceId: string) {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tasks' }, (p) =>
         removeTask(qc, spaceId, (p.old as { id: string }).id),
       )
+      // replica identity full: los DELETE también traen space_id
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_dependencies', filter }, invalidate(keys.deps(spaceId)))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter }, invalidate(keys.projects(spaceId)))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'xp_log', filter }, invalidate(keys.xp(spaceId)))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'xp_log' }, invalidate(keys.xp(spaceId)))

@@ -13,6 +13,7 @@ import { prioLevel, STATUS_LABEL, type Status, type Task } from '../../lib/types
 import { useTaskActions } from '../tasks/actions'
 import { openValidate } from '../tasks/dialogs'
 import { DuePill, MemberAvatar, useLookup } from '../tasks/bits'
+import { BloqueadaPill } from '../tasks/dependencias'
 
 // Kanban de 3 columnas fijas. Soltar en "Hecho" abre la validación: nada llega a Hecho sin validarse.
 const COLS: Status[] = ['todo', 'doing', 'done']
@@ -183,6 +184,7 @@ function CardBody({ task, dragging, overlay }: { task: Task; dragging?: boolean;
         <MemberAvatar member={member} size={22} />
         {member && <span>{(member.profile.display_name || member.profile.username || 'Usuario').split(' ')[0]}</span>}
         <DuePill task={task} today={today} />
+        <BloqueadaPill task={task} corta />
         {!done && <Prio level={prioLevel(task.priority)} label />}
       </div>
       {!done && !overlay && (

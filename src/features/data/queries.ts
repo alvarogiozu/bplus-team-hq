@@ -12,6 +12,7 @@ export const keys = {
   areas: (sid: string) => ['areas', sid] as const,
   projects: (sid: string) => ['projects', sid] as const,
   tasks: (sid: string) => ['tasks', sid] as const,
+  deps: (sid: string) => ['task_dependencies', sid] as const,
   xp: (sid: string) => ['xp', sid] as const,
   achievements: (sid: string) => ['achievements', sid] as const,
   activity: (sid: string) => ['activity', sid] as const,

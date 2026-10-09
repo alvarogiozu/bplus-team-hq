@@ -10,6 +10,7 @@ import { pointOf } from '../../lib/fx'
 import { prioLevel, type Task } from '../../lib/types'
 import { useTaskActions } from '../tasks/actions'
 import { AreaDot, DuePill, MemberAvatar, useLookup } from '../tasks/bits'
+import { BloqueadaPill } from '../tasks/dependencias'
 import { presenceStore } from '../team/presence'
 
 // Fila de tarea (Lista y Hoy). El check valida con un toque ("Lo hice");
@@ -78,6 +79,7 @@ export const TaskRow = forwardRef<HTMLDivElement, { task: Task; showAssignee?: b
       <div className="meta">
         {!done && <Prio level={prioLevel(task.priority)} label />}
         {task.status === 'doing' && <span className="pill doing">En curso</span>}
+        <BloqueadaPill task={task} />
         <DuePill task={task} today={today} />
         <AreaDot area={area} />
         {showAssignee && <AssigneePicker task={task} member={memberById.get(task.assignee_id ?? '')} />}

@@ -15,6 +15,7 @@ import { Linkify, useLookup } from './bits'
 import { proofUrl } from './proofUpload'
 import { Select } from '../../components/Select'
 import { PersonPicker } from '../team/PersonPicker'
+import { BloqueadaPill, DependenciasEditor } from './dependencias'
 
 // Panel de tarea compartido por todas las vistas. La URL manda: ?tarea=<id>
 export function TaskPanel() {
@@ -38,6 +39,12 @@ function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
   const { areas, memberById, today } = useLookup()
   const { update, remove, duplicate, move } = useTaskActions()
   const activity = (useActivity().data ?? []).filter((a) => a.entity_id === task.id).slice(0, 8)
+  const [params, setParams] = useSearchParams()
+  const abrirOtra = (id: string) => {
+    const next = new URLSearchParams(params)
+    next.set('tarea', id)
+    setParams(next)
+  }
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes)
   useEffect(() => setTitle(task.title), [task.title])
@@ -92,6 +99,7 @@ function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
       <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
         {task.validation && <span className="pill done"><Icon name="check" className="sm" /> {task.validation === 'proof' ? 'Validada con prueba' : 'Validada'}</span>}
         {task.status !== 'done' && <Prio level={prioLevel(task.priority)} label />}
+        <BloqueadaPill task={task} />
         {late && <span className="pill late">Atrasada</span>}
         {noDate && <span className="pill">Sin fecha</span>}
       </div>
@@ -122,6 +130,8 @@ function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
         <span>Fecha límite</span>
         <input type="date" value={task.due_date ?? ''} min={task.start_date ?? undefined} onChange={(e) => update(task.id, { due_date: e.target.value || null })} />
       </div>
+
+      <DependenciasEditor task={task} abrir={abrirOtra} />
 
       <label className="lbl" htmlFor="tp-notes">Notas</label>
       <textarea

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { useSearchParams } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { Icon } from '../../components/Icon'
@@ -12,6 +12,7 @@ import type { Task } from '../../lib/types'
 import { useAuth } from '../auth/AuthProvider'
 import { useTaskActions } from '../tasks/actions'
 import { MemberAvatar, useLookup } from '../tasks/bits'
+import { BloqueadaPill, useDeps } from '../tasks/dependencias'
 
 // Gantt: cada tarea es una barra de su inicio a su fecha límite, agrupadas por proyecto,
 // persona o área. Se arrastra para mover, se estira de las puntas para cambiar inicio o fin,
@@ -42,6 +43,7 @@ export function GanttView({ tasks }: { tasks: Task[] }) {
   const [groupBy, setGroupByRaw] = useState<GroupBy>(() => (lsGet(`hq.gantt.group.${userId}`) === 'area' ? 'area' : 'persona'))
   const [closed, setClosed] = useState<Record<string, boolean>>({})
   const scroller = useRef<HTMLDivElement>(null)
+  const cuerpo = useRef<HTMLDivElement>(null)
   const pendingCenter = useRef<number | null>(null)
   const dw = DAY_W[zoom]
   const narrow = useMedia('(max-width: 700px)')
@@ -205,8 +207,9 @@ export function GanttView({ tasks }: { tasks: Task[] }) {
             </div>
           </div>
 
-          <div className="gantt-body">
+          <div className="gantt-body" ref={cuerpo}>
             <div className="gantt-grid" style={{ left: nameW, width }} aria-hidden="true" />
+            <Flechas cuerpo={cuerpo} tasks={tasks} from={from} dw={dw} left={nameW} width={width} cambio={`${groupBy}|${JSON.stringify(closed)}|${zoom}`} />
             <div className="gantt-today" style={{ left: nameW + todayX }} aria-hidden="true">
               <i />
             </div>
@@ -377,10 +380,11 @@ function TaskLine({ task, from, days, dw, today }: { task: Task; from: string; d
   const labelOutside = w < Math.min(160, task.title.length * 7 + 40)
 
   return (
-    <div className={`gantt-row${done ? ' done' : ''}`}>
+    <div className={`gantt-row${done ? ' done' : ''}`} data-tid={task.id}>
       <button className="gantt-name task" onClick={open} title={task.title}>
         <MemberAvatar member={member} size={20} />
         <span className="gname">{task.title}</span>
+        <BloqueadaPill task={task} corta />
         {late && <span className="pill late">se pasó</span>}
       </button>
       <div
@@ -438,6 +442,85 @@ function TaskLine({ task, from, days, dw, today }: { task: Task; from: string; d
         )}
       </div>
     </div>
+  )
+}
+
+/** Las flechas de «espera a»: del final de la barra que tiene que terminar al inicio de la que sigue, con un
+ *  ganchito (sale a la derecha, baja o sube, y entra por la izquierda). Si la que sigue empieza antes de que
+ *  termine la otra, la flecha da la vuelta y se pinta de coral (el orden no cuadra con las fechas). */
+function Flechas({ cuerpo, tasks, from, dw, left, width, cambio }: { cuerpo: RefObject<HTMLDivElement | null>; tasks: Task[]; from: string; dw: number; left: number; width: number; cambio: string }) {
+  const deps = useDeps().data
+  const [filas, setFilas] = useState<{ y: Map<string, number>; h: number }>({ y: new Map(), h: 0 })
+  // dónde quedó cada fila (se mide: los grupos se pliegan y las filas se animan)
+  useLayoutEffect(() => {
+    const el = cuerpo.current
+    if (!el) return
+    const medir = () => {
+      const b = el.getBoundingClientRect()
+      const y = new Map<string, number>()
+      el.querySelectorAll<HTMLElement>('[data-tid]').forEach((f) => {
+        const r = f.getBoundingClientRect()
+        if (r.height > 0) y.set(f.dataset.tid!, r.top - b.top + r.height / 2)
+      })
+      setFilas({ y, h: el.scrollHeight })
+    }
+    medir()
+    const t = setTimeout(medir, 260) // después de que las filas terminan de animarse
+    const ro = new ResizeObserver(medir)
+    ro.observe(el)
+    return () => {
+      clearTimeout(t)
+      ro.disconnect()
+    }
+  }, [cuerpo, tasks, deps, cambio])
+
+  const flechas = useMemo(() => {
+    const byId = new Map(tasks.map((t) => [t.id, t]))
+    const out: { k: string; d: string; choca: boolean; hecha: boolean; titulo: string }[] = []
+    for (const dep of deps ?? []) {
+      const sigue = byId.get(dep.task_id)
+      const antes = byId.get(dep.depende_de)
+      const y2 = filas.y.get(dep.task_id)
+      const y1 = filas.y.get(dep.depende_de)
+      const a = antes && span(antes)
+      const s = sigue && span(sigue)
+      if (!a || !s || y1 == null || y2 == null) continue
+      const x1 = (daysBetween(from, a.e) + 1) * dw
+      const x2 = daysBetween(from, s.s) * dw
+      const G = 8
+      const abajo = y2 > y1 ? 1 : -1
+      const d =
+        x2 - x1 >= G * 2
+          ? `M${x1} ${y1} H${x1 + G} V${y2} H${x2 - 2}`
+          : `M${x1} ${y1} H${x1 + G} V${y2 - abajo * 20} H${x2 - G} V${y2} H${x2 - 2}`
+      out.push({
+        k: `${dep.task_id}-${dep.depende_de}`,
+        d,
+        choca: x2 < x1 && antes.status !== 'done',
+        hecha: antes.status === 'done',
+        titulo: `«${sigue.title}» espera a «${antes.title}»`,
+      })
+    }
+    return out
+  }, [deps, tasks, filas, from, dw])
+
+  if (!flechas.length) return null
+  return (
+    <svg className="gantt-flechas" style={{ left, width, height: filas.h }} aria-hidden="true">
+      <defs>
+        {/* una punta por color (la punta no hereda el color de la línea en todos los navegadores) */}
+        {(['', 'choca', 'hecha'] as const).map((c) => (
+          <marker key={c} id={`gf-punta${c && `-${c}`}`} className={c} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L8 4 L0 8 z" />
+          </marker>
+        ))}
+      </defs>
+      {flechas.map((f) => (
+        <path key={f.k} d={f.d} className={f.choca ? 'choca' : f.hecha ? 'hecha' : ''} markerEnd={`url(#gf-punta${f.choca ? '-choca' : f.hecha ? '-hecha' : ''})`}>
+          <title>{f.titulo}</title>
+        </path>
+      ))}
+    </svg>
   )
 }
 
