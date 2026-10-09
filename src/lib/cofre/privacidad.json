@@ -124,7 +124,7 @@
         "kind": "tipo (nota/pizarra)",
         "color": "apariencia",
         "icon": "apariencia (ícono)",
-        "abierta": "su cuaderno está abierto para Claude (lo eligió la persona): va en claro para que el conector lo lea"
+        "abierta": "su cuaderno está abierto para Claude (lo eligió la persona), o es una página compartida con un proyecto abierto para Claude (lo eligió su dueño): va en claro para que el conector la lea"
       },
       "llaveSi": {
         "si": "space_id",
@@ -340,8 +340,10 @@
         "name"
       ],
       "publico": {
-        "color": "apariencia"
-      }
+        "color": "apariencia",
+        "abierta": "el proyecto está abierto para Claude (lo eligió su dueño): va en claro para que el conector lo lea y lo mueva"
+      },
+      "enClaroSi": "abierta"
     },
     "materials": {
       "llave": "espacio:space_id",
@@ -354,8 +356,10 @@
       "publico": {
         "kind": "tipo (archivo/enlace/nota)",
         "storage_path": "ruta del archivo (el archivo va cifrado)",
-        "mime": "tipo de archivo, para mostrarlo"
-      }
+        "mime": "tipo de archivo, para mostrarlo",
+        "abierta": "el proyecto está abierto para Claude (lo eligió su dueño): va en claro para que el conector lo lea y lo mueva"
+      },
+      "enClaroSi": "abierta"
     },
     "team_achievements": {
       "llave": "espacio:space_id",
