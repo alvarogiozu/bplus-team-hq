@@ -13,11 +13,14 @@ import { useActivity, useEvents, useSpaceRow, useTasks, useXp } from '../data/qu
 import { useTaskActions } from '../tasks/actions'
 import { openValidate } from '../tasks/dialogs'
 import { useLookup } from '../tasks/bits'
+import { useLoQueSigue, type Paso } from '../tasks/loQueSigue'
 import { presenceStore } from '../team/presence'
 import { Faces, Ring, Sec, TaskCard } from './bits'
 
 // Hoy en el celular: cómo va tu día (anillo), lo que toca AHORA en grande, lo que sigue en
 // tarjetas que se deslizan, tus reuniones y lo que movió el equipo.
+// AHORA y «Lo que sigue» salen del mismo orden que la vista «Lo que sigue» de la PC (tasks/loQueSigue.ts): arriba la
+// primera tarea tuya que nada frena, con «Empezar»; abajo tus demás pasos en orden y, en las bloqueadas, a qué esperan.
 export default function HoyMovil() {
   const { userId, profile } = useMe()
   const tz = profile.timezone
@@ -29,7 +32,8 @@ export default function HoyMovil() {
   const activity = useActivity().data ?? []
   const space = useSpaceRow().data
   const online = presenceStore.use()
-  const { validate } = useTaskActions()
+  const { validate, move } = useTaskActions()
+  const sigue = useLoQueSigue()
   const [params, setParams] = useSearchParams()
   const [feedAll, setFeedAll] = useState(false)
   const ahoraBtn = useRef<HTMLButtonElement>(null)
@@ -37,17 +41,11 @@ export default function HoyMovil() {
 
   const day = useMemo(() => {
     const open = tasks.filter((t) => t.assignee_id === userId && t.status !== 'done')
-    const soon = addDays(today, 3)
     const byDue = (a: Task, b: Task) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999') || (a.priority === 'urgent' ? -1 : 1)
     const overdue = open.filter((t) => t.due_date && t.due_date < today).sort(byDue)
     const todays = open.filter((t) => t.due_date === today).sort(byDue)
-    const doing = open.filter((t) => !t.due_date && t.status === 'doing')
-    const next = open.filter((t) => t.due_date && t.due_date > today && t.due_date <= soon).sort(byDue)
     const doneToday = tasks.filter((t) => t.assignee_id === userId && t.validated_at && dayOfTs(t.validated_at, tz) === today)
-    const queue = [...overdue, ...todays, ...doing, ...next]
-    // lo de AHORA: lo urgente primero, si no lo más atrasado
-    const ahora = queue.find((t) => t.priority === 'urgent' && (!t.due_date || t.due_date <= today)) ?? queue[0]
-    return { overdue, todays, doneToday, ahora, rest: queue.filter((t) => t !== ahora), pending: overdue.length + todays.length }
+    return { overdue, todays, doneToday, pending: overdue.length + todays.length }
   }, [tasks, userId, today, tz])
 
   const total = day.pending + day.doneToday.length
@@ -82,8 +80,13 @@ export default function HoyMovil() {
     window.open('https://wa.me/?text=' + encodeURIComponent(out.join('\n')), '_blank', 'noopener')
   }
 
-  const ahora = day.ahora
+  // la siguiente que nada frena (si todo lo tuyo espera, la primera de la fila, con a qué espera)
+  const quien = (t: Task) => (t.assignee_id ? memberById.get(t.assignee_id)?.profile.display_name?.split(' ')[0] : undefined)
+  const nombrar = (ts: Task[]) => ts.map((t) => `«${t.title}»${quien(t) ? ` de ${quien(t)}` : ''}`).join(', ')
+  const paso: Paso | undefined = sigue.siguiente ?? sigue.pasos[0]
+  const ahora = paso?.task
   const ahoraLate = ahora?.due_date && ahora.due_date < today
+  const resto = sigue.pasos.filter((x) => x !== paso)
   const feed = activity.slice(0, feedAll ? 12 : 4)
 
   return (
@@ -136,54 +139,87 @@ export default function HoyMovil() {
         </div>
       </section>
 
-      {tasksQ.isLoading ? (
+      {tasksQ.isLoading || sigue.cargando ? (
         <ListSkeleton rows={3} />
       ) : tasksQ.isError ? (
         <LoadError error={tasksQ.error} onRetry={() => tasksQ.refetch()} />
-      ) : !ahora ? (
+      ) : !ahora || !paso ? (
         <div className="em-card em-free">
           <Empty title="Día libre. Rockie aprueba.">
-            <p className="hint">Nada tuyo vence en los próximos 3 días.</p>
+            <p className="hint">No tienes tareas pendientes en este proyecto.</p>
           </Empty>
         </div>
       ) : (
         <>
-          {/* lo de ahora, en grande */}
-          <Sec title={<span className={`em-now${ahoraLate ? ' late' : ''}`}><i />{ahoraLate ? 'Atrasada' : 'Ahora'}</span>} />
+          {/* lo de ahora, en grande: la primera que nada frena */}
+          <Sec
+            title={
+              <span className={`em-now${ahoraLate ? ' late' : ''}${paso.bloqueada ? ' espera' : ''}`}>
+                <i />
+                {paso.bloqueada ? 'Todo lo tuyo espera' : ahoraLate ? 'Atrasada' : ahora.status === 'doing' ? 'Sigues con' : 'Ahora'}
+              </span>
+            }
+          />
           <article className={`em-card em-ahora${ahora.priority === 'urgent' ? ' urgent' : ''}`}>
             <button className="em-ahora-open" onClick={() => openTask(ahora.id)}>
               <b>{ahora.title}</b>
               <span>
-                {[ahora.priority === 'urgent' ? 'Urgente' : null, ahora.due_date ? fmtRelative(ahora.due_date, today) + (ahoraLate ? ' · se pasó' : '') : ahora.status === 'doing' ? 'En curso' : null]
+                {[ahora.priority === 'urgent' ? 'Urgente' : null, ahora.due_date ? fmtRelative(ahora.due_date, today) + (ahoraLate ? ' · se pasó' : '') : null, ahora.status === 'doing' ? 'En curso' : null]
                   .filter(Boolean)
                   .join(' · ')}
               </span>
             </button>
-            <div className="em-ahora-act">
-              <button ref={ahoraBtn} className="btn" onClick={() => void validate(ahora, 'plain', {}, pointOf(ahoraBtn.current))}>
-                <Icon name="check" /> Lo hice
-              </button>
-              <button className="btn ghost" onClick={(e) => openValidate(ahora.id, pointOf(e.currentTarget))}>
-                <Icon name="image" /> Con prueba
-              </button>
-            </div>
+            {paso.bloqueada ? (
+              <p className="em-destraba">
+                <Icon name="lock" className="sm" /> Espera a {nombrar(paso.esperaA)}
+              </p>
+            ) : (
+              paso.desbloquea.length > 0 && (
+                <p className="em-destraba">
+                  <Icon name="lock" className="sm" /> Al terminarla destrabas {nombrar(paso.desbloquea)}
+                </p>
+              )
+            )}
+            {!paso.bloqueada && (
+              <div className="em-ahora-act">
+                {ahora.status === 'todo' ? (
+                  <>
+                    <button className="btn" onClick={() => void move(ahora, 'doing', ahora.position)}>
+                      <Icon name="arrow" /> Empezar
+                    </button>
+                    <button ref={ahoraBtn} className="btn ghost" onClick={() => void validate(ahora, 'plain', {}, pointOf(ahoraBtn.current))}>
+                      <Icon name="check" /> Lo hice
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button ref={ahoraBtn} className="btn" onClick={() => void validate(ahora, 'plain', {}, pointOf(ahoraBtn.current))}>
+                      <Icon name="check" /> Lo hice
+                    </button>
+                    <button className="btn ghost" onClick={(e) => openValidate(ahora.id, pointOf(e.currentTarget))}>
+                      <Icon name="image" /> Con prueba
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </article>
 
-          {day.rest.length > 0 && (
+          {resto.length > 0 && (
             <>
-              <Sec title="Lo que sigue" count={day.rest.length}>
+              <Sec title="Lo que sigue" count={resto.length}>
                 <Link to="/tareas?vista=lista" className="em-link">Ver todas</Link>
               </Sec>
               <div className="em-list">
                 <AnimatePresence initial={false} mode="popLayout">
-                  {day.rest.slice(0, 6).map((t, i) => (
-                    <TaskCard key={t.id} task={t} index={i} showAssignee={false} />
+                  {resto.slice(0, 6).map((x, i) => (
+                    <TaskCard key={x.task.id} task={x.task} index={i} showAssignee={false} espera={x.bloqueada ? nombrar(x.esperaA) : undefined} />
                   ))}
                 </AnimatePresence>
               </div>
-              {day.rest.length > 6 && (
+              {resto.length > 6 && (
                 <Link to="/tareas?vista=lista" className="em-more">
-                  {day.rest.length - 6} más en Tareas <Icon name="expand" className="sm" />
+                  {resto.length - 6} más en Tareas <Icon name="expand" className="sm" />
                 </Link>
               )}
             </>

@@ -101,6 +101,13 @@ a.em-pill::after { content: ''; position: absolute; inset: -8px -2px; }
 .em-ahora-open span { font-size: var(--t-xs); font-weight: 700; color: var(--ink-muted); }
 .em-ahora-act { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
 .em-ahora-act .btn { padding: 10px 12px; }
+/* «Lo que sigue» (dependencias): qué destrabas al terminarla, o a qué espera si todo lo tuyo está frenado */
+.em-destraba { display: flex; align-items: flex-start; gap: 6px; margin: calc(var(--s2) * -1) 0 0; font-size: var(--t-xs); font-weight: 600; line-height: 1.45; color: var(--ink-soft); }
+.em-destraba .ico { flex: none; margin-top: 2px; color: var(--ink-muted); }
+.em-now.espera { color: var(--ink-muted); }
+.em-now.espera i { background: var(--ink-faint); animation: none; }
+.em-espera { display: flex; align-items: flex-start; gap: 5px; margin-top: 3px; font-size: var(--t-2xs); font-weight: 700; line-height: 1.35; color: var(--ink-muted); }
+.em-espera .ico { flex: none; margin-top: 1px; }
 .em-meet { flex: 0 0 min(76vw, 280px); scroll-snap-align: start; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: var(--s4); }
 .em-meet-h { font-family: var(--serif); font-size: var(--t-2xl); line-height: 1.1; color: var(--em-ink); }
 .em-meet small { font-size: var(--t-3xs); font-weight: 700; color: var(--ink-muted); }

@@ -119,7 +119,10 @@ export type Desliz = { label: string; icon: IconName; color: string; run: () => 
 /** Tarea como tarjeta: el círculo valida con un toque; deslizar a la derecha también la valida y a la
  *  izquierda la pospone un día (con deshacer). Tocarla abre la hoja con todo. `desliz` cambia lo que hace cada
  *  lado (el Tablero la pasa de columna); `null` en un lado = no se desliza hacia allá. */
-export const TaskCard = forwardRef<HTMLDivElement, { task: Task; index?: number; showAssignee?: boolean; desliz?: { der: Desliz | null; izq: Desliz | null } }>(function TaskCard({ task, index = 0, showAssignee = true, desliz }, ref) {
+export const TaskCard = forwardRef<
+  HTMLDivElement,
+  { task: Task; index?: number; showAssignee?: boolean; desliz?: { der: Desliz | null; izq: Desliz | null }; /** «Lo que sigue»: a qué espera (dependencias) */ espera?: string }
+>(function TaskCard({ task, index = 0, showAssignee = true, desliz, espera }, ref) {
   const { memberById, today } = useLookup()
   const { validate, move, update } = useTaskActions()
   const [params, setParams] = useSearchParams()
@@ -243,6 +246,11 @@ export const TaskCard = forwardRef<HTMLDivElement, { task: Task; index?: number;
               </span>
             )}
           </span>
+          {espera && (
+            <span className="em-espera">
+              <Icon name="lock" className="sm" /> Espera a {espera}
+            </span>
+          )}
         </span>
         {showAssignee && (
           <span className="em-who">

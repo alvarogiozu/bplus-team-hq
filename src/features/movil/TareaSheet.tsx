@@ -14,6 +14,7 @@ import { useActivity, useTasks } from '../data/queries'
 import { useTaskActions } from '../tasks/actions'
 import { closeNewTask, newTaskStore, openValidate } from '../tasks/dialogs'
 import { Linkify, useLookup } from '../tasks/bits'
+import { DependenciasEditor } from '../tasks/dependencias'
 import { proofUrl } from '../tasks/proofUpload'
 import { PersonPicker } from '../team/PersonPicker'
 import { presenceStore } from '../team/presence'
@@ -65,6 +66,13 @@ function Cuerpo({ task, onGone }: { task: Task; onGone: () => void }) {
     queryFn: () => proofUrl(task.proof_image_path!),
     staleTime: 50 * 60 * 1000,
   })
+
+  const [params, setParams] = useSearchParams()
+  const abrirOtra = (id: string) => {
+    const next = new URLSearchParams(params)
+    next.set('tarea', id)
+    setParams(next)
+  }
 
   const saveTitle = () => {
     const t = title.trim()
@@ -125,6 +133,9 @@ function Cuerpo({ task, onGone }: { task: Task; onGone: () => void }) {
           </button>
         )}
       </div>
+
+      {/* «Bloqueada por» / «Desbloquea»: lo mismo que en la PC (ordena «Lo que sigue») */}
+      <DependenciasEditor task={task} abrir={abrirOtra} />
 
       <label className="lbl" htmlFor="em-notes">Notas</label>
       <textarea id="em-notes" className="em-notes" value={notes} placeholder="Contexto, links, lo que haga falta…" onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== task.notes && void update(task.id, { notes })} />
