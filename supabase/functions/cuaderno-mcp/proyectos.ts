@@ -135,6 +135,7 @@ export const PROYECTO_INSTRUCCIONES = [
   '- Empieza con ver_proyectos y ver_tareas. Al empezar a trabajar en una tarea, muévela a en_curso (actualizar_tareas);',
   '  al terminarla, a hecho, con una agregar_nota corta de lo que se hizo. Si descubres trabajo nuevo, créalo (crear_tareas).',
   '- Mueve en lote: una sola llamada con varios cambios. No vuelvas a pedir la lista entera después de cada cambio.',
+  '- Las áreas vienen numeradas (1, 2, 3…) y también se eligen por número: si un nombre sale «aún cifrado», usa su número.',
   '- Hecho no es validada: la validación (y su XP) la da una persona en la app. No digas que quedó validada.',
   '- Solo ves los proyectos que su dueño abrió para Claude. Si te pide otro, dile que lo abra en Rockie › Proyectos ›',
   '  Ajustes del proyecto › Claude.',
@@ -143,7 +144,7 @@ export const PROYECTO_INSTRUCCIONES = [
 // ---------- datos ----------
 type Space = { id: string; name: string }
 type Member = { user_id: string; role: string; display_name: string; username: string }
-type Area = { id: string; name: string; color: string; position: number }
+type Area = { id: string; name: string; color: string; position: number; n?: number }
 type Task = {
   id: string
   title: string
@@ -155,7 +156,14 @@ type Task = {
   priority: string
   validation: string | null
   updated_at: string
+  cifrada?: boolean
 }
+
+// Recién abierto para Claude, lo cifrado sigue cifrado hasta que la app del dueño lo lee y lo reescribe en claro
+// (pasa sola al abrir Rockie en cualquier dispositivo). Mientras tanto se muestra legible y no se toca.
+const cifrado = (v: unknown) => typeof v === 'string' && /^c[fj]1\./.test(v)
+const PENDIENTE =
+  'Todavía hay cosas cifradas en este proyecto: se terminan de abrir solas cuando su dueño abre Rockie (rockie.plus) en su teléfono o su PC. Mientras tanto no se pueden leer ni cambiar.'
 
 /** Tus proyectos: los abiertos (con su nombre en claro) y cuántos tienes cerrados. */
 async function misProyectos(ctx: Ctx): Promise<{ abiertos: Space[]; cerrados: number }> {
@@ -164,7 +172,10 @@ async function misProyectos(ctx: Ctx): Promise<{ abiertos: Space[]; cerrados: nu
   if (!ids.length) return { abiertos: [], cerrados: 0 }
   const { data } = await ctx.db.from('spaces').select('id, name, abierto_claude').in('id', ids)
   const all = (data ?? []) as (Space & { abierto_claude: boolean })[]
-  return { abiertos: all.filter((s) => s.abierto_claude).map(({ id, name }) => ({ id, name })), cerrados: all.filter((s) => !s.abierto_claude).length }
+  return {
+    abiertos: all.filter((s) => s.abierto_claude).map(({ id, name }) => ({ id, name: cifrado(name) ? '(nombre todavía cifrado)' : name })),
+    cerrados: all.filter((s) => !s.abierto_claude).length,
+  }
 }
 
 /** Un proyecto abierto del que eres miembro (o el motivo por el que no). */
@@ -185,7 +196,8 @@ async function miembros(ctx: Ctx, sid: string): Promise<Member[]> {
 }
 async function areas(ctx: Ctx, sid: string): Promise<Area[]> {
   const { data } = await ctx.db.from('areas').select('id, name, color, position').eq('space_id', sid).eq('abierta', true).order('position')
-  return (data ?? []) as Area[]
+  // numeradas en su orden (1, 2, 3…): también se eligen por número
+  return ((data ?? []) as Area[]).map((a, i) => ({ ...a, name: cifrado(a.name) ? `Área ${i + 1} (aún cifrada)` : a.name, n: i + 1 }))
 }
 async function tareas(ctx: Ctx, sid: string): Promise<Task[]> {
   const { data } = await ctx.db
@@ -195,7 +207,7 @@ async function tareas(ctx: Ctx, sid: string): Promise<Task[]> {
     .eq('abierta', true)
     .order('position')
     .limit(2000)
-  return (data ?? []) as Task[]
+  return ((data ?? []) as Task[]).map((t) => ({ ...t, cifrada: cifrado(t.title) || cifrado(t.notes), title: cifrado(t.title) ? '(tarea todavía cifrada)' : t.title, notes: cifrado(t.notes) ? '' : t.notes }))
 }
 
 /** La fecha de hoy en la zona horaria de la persona (para «hoy» y «mañana»). */
@@ -225,6 +237,12 @@ function fechaDe(v: string, hoyDia: string): string | null | undefined {
 function areaDe(nombre: string, todas: Area[]): Area | null | undefined {
   const s = fold(nombre)
   if (['ninguna', 'sin area', 'nada'].includes(s)) return null
+  // por número: «3», «área 3», «3. Interfaz móvil»
+  const num = /^(?:area\s*)?(\d{1,2})\b/.exec(s)
+  if (num) {
+    const porNumero = todas.find((a) => a.n === Number(num[1]))
+    if (porNumero) return porNumero
+  }
   return todas.find((a) => a.id === nombre) ?? todas.find((a) => fold(a.name) === s) ?? todas.find((a) => fold(a.name).startsWith(s))
 }
 function personaDe(quien: string, ms: Member[], uid: string): Member | null | undefined {
@@ -270,14 +288,16 @@ async function verProyectos(ctx: Ctx): Promise<Result> {
   if (!abiertos.length) return text(`No tienes proyectos abiertos para Claude.${aviso}`)
   const ids = abiertos.map((s) => s.id)
   const [{ data: ts }, { data: ars }] = await Promise.all([
-    ctx.db.from('tasks').select('space_id, status').in('space_id', ids).eq('abierta', true),
+    ctx.db.from('tasks').select('space_id, status, title').in('space_id', ids).eq('abierta', true),
     ctx.db.from('areas').select('space_id, name, position').in('space_id', ids).eq('abierta', true).order('position'),
   ])
   const lines = abiertos.map((s) => {
-    const mias = ((ts ?? []) as { space_id: string; status: Status }[]).filter((t) => t.space_id === s.id)
+    const mias = ((ts ?? []) as { space_id: string; status: Status; title: string }[]).filter((t) => t.space_id === s.id)
     const n = (st: Status) => mias.filter((t) => t.status === st).length
-    const ar = ((ars ?? []) as { space_id: string; name: string }[]).filter((a) => a.space_id === s.id).map((a) => a.name)
-    return `📁 ${s.name} [${s.id}]\n   ${n('todo')} por hacer · ${n('doing')} en curso · ${n('done')} hechas${ar.length ? ` · áreas: ${ar.join(', ')}` : ' · sin áreas'}`
+    const ar = ((ars ?? []) as { space_id: string; name: string }[]).filter((a) => a.space_id === s.id)
+    const nombres = ar.map((a, i) => `${i + 1}. ${cifrado(a.name) ? '(aún cifrada)' : a.name}`)
+    const pendientes = mias.filter((t) => cifrado(t.title)).length + ar.filter((a) => cifrado(a.name)).length + (s.name.startsWith('(nombre') ? 1 : 0)
+    return `📁 ${s.name} [${s.id}]\n   ${n('todo')} por hacer · ${n('doing')} en curso · ${n('done')} hechas${nombres.length ? `\n   áreas: ${nombres.join(' · ')}` : ' · sin áreas'}${pendientes ? `\n   ⚠️ ${PENDIENTE}` : ''}`
   })
   return text(`${lines.join('\n')}${aviso}`)
 }
@@ -291,7 +311,7 @@ async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
   let lista = ts
   if (args.area) {
     const a = areaDe(asStr(args.area, 60), ar)
-    if (!a) return oops(`No hay un área «${asStr(args.area, 60)}». Las áreas son: ${ar.map((x) => x.name).join(', ') || 'ninguna'}.`)
+    if (!a) return oops(`No hay un área «${asStr(args.area, 60)}». Las áreas son: ${ar.map((x) => `${x.n}. ${x.name}`).join(', ') || 'ninguna'} (también se eligen por número).`)
     lista = lista.filter((t) => t.area_id === a.id)
   }
   const q = fold(asStr(args.buscar, 120))
@@ -301,6 +321,7 @@ async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
   const fila = (t: Task) =>
     `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · vence ${t.due_date}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${t.status === 'done' ? (t.validation ? ' · validada' : ' · por validar') : ''}`
   const out: string[] = [`📁 ${p.name}`]
+  if (ts.some((t) => t.cifrada) || ar.some((a) => a.name.endsWith('(aún cifrada)'))) out.push(`⚠️ ${PENDIENTE}`)
   for (const st of ['doing', 'todo', 'done'] as Status[]) {
     if (soloEstado && st !== soloEstado) continue
     let grupo = lista.filter((t) => t.status === st)
@@ -401,6 +422,11 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
     const t = porId.get(id)
     if (!t || !abiertosId.has(t.space_id) || !t.abierta) {
       errores.push(`${id}: no está en tus proyectos abiertos para Claude`)
+      continue
+    }
+    // recién abierta y todavía cifrada: no se toca (sumarle una nota en claro a un texto cifrado lo rompería)
+    if (cifrado(t.title) || cifrado(t.notes)) {
+      errores.push(`${id}: todavía está cifrada. ${PENDIENTE}`)
       continue
     }
     const patch: Record<string, unknown> = {}

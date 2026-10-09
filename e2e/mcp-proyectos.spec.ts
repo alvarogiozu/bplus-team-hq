@@ -137,3 +137,72 @@ test('Claude ve, crea y mueve tareas de un proyecto abierto para él', async ({ 
     await admin.from('cuaderno_tokens').delete().eq('id', (tok as { id: string }).id)
   }
 })
+
+// El caso real: el proyecto ya estaba todo cifrado (nombre, áreas y tareas) y se abre para Claude. Con solo abrir la
+// app una vez (cualquier pantalla), el Cofre descifra lo abierto y Claude lo lee: áreas numeradas y elegibles por número.
+test('abrir un proyecto ya cifrado: basta abrir la app una vez para que Claude lo lea', async ({ page }) => {
+  test.setTimeout(180_000)
+  page.on('dialog', (d) => void d.accept())
+  await login(page)
+  const { data: users } = await admin.auth.admin.listUsers({ perPage: 1000 })
+  const uid = users.users.find((u) => u.user_metadata?.username === 'qa.alvaro')!.id
+  const { data: m } = await admin.from('space_members').select('space_id').eq('user_id', uid).eq('role', 'owner').limit(1).single()
+  const sid = (m as { space_id: string }).space_id
+  key = `rck_${randomBytes(24).toString('base64url')}`
+  const { data: tok } = await admin
+    .from('cuaderno_tokens')
+    .insert({ user_id: uid, name: 'e2e proyectos 2', token_hash: createHash('sha256').update(key).digest('hex'), hint: key.slice(-4), scope: 'escribir' })
+    .select('id')
+    .single()
+  try {
+    // un área nueva y todo cifrado (como queda un proyecto que se usa en la app sin abrirlo para Claude)
+    await page.goto('/equipo')
+    await page.getByRole('region', { name: 'Áreas del proyecto' }).getByRole('button', { name: /Editar|Crear áreas/ }).click()
+    const hoja = page.getByRole('dialog', { name: 'Áreas del proyecto' })
+    const area = `Diseño ${Date.now() % 10000}`
+    await hoja.getByLabel('Nombre de la nueva área').fill(area)
+    await hoja.getByRole('button', { name: 'Crear' }).click()
+    await expect(hoja.getByLabel(`Nombre del área ${area}`)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await page.goto('/tareas')
+    await expect
+      .poll(async () => {
+        const [{ data: ts }, { data: ar }, { data: sp }] = await Promise.all([
+          admin.from('tasks').select('title').eq('space_id', sid),
+          admin.from('areas').select('name').eq('space_id', sid),
+          admin.from('spaces').select('name').eq('id', sid).single(),
+        ])
+        const todo = [...((ts ?? []) as { title: string }[]).map((t) => t.title), ...((ar ?? []) as { name: string }[]).map((a) => a.name), (sp as { name: string }).name]
+        return todo.length > 2 && todo.every((x) => x.startsWith('cf1.'))
+      }, { timeout: 30000 })
+      .toBe(true)
+
+    // se abre desde fuera de la pantalla de Ajustes (como si lo hubiera abierto otro dispositivo) y la app se vuelve a abrir
+    await admin.from('spaces').update({ abierto_claude: true }).eq('id', sid)
+    const antes = await tool('ver_proyectos')
+    expect(antes.texto).toContain('todavía cifrado')
+    expect(antes.texto).not.toContain('cf1.')
+    await page.goto('/inicio')
+    await expect
+      .poll(async () => {
+        const [{ data: ts }, { data: ar }, { data: sp }] = await Promise.all([
+          admin.from('tasks').select('title').eq('space_id', sid),
+          admin.from('areas').select('name').eq('space_id', sid),
+          admin.from('spaces').select('name').eq('id', sid).single(),
+        ])
+        const todo = [...((ts ?? []) as { title: string }[]).map((t) => t.title), ...((ar ?? []) as { name: string }[]).map((a) => a.name), (sp as { name: string }).name]
+        return todo.every((x) => !x.startsWith('cf1.'))
+      }, { timeout: 30000 })
+      .toBe(true)
+    const despues = await tool('ver_proyectos')
+    expect(despues.texto).not.toContain('todavía cifrado')
+    expect(despues.texto).toContain(area)
+    const n = /(\d+)\. Diseño/.exec(despues.texto)![1]
+    const porNumero = await tool('ver_tareas', { proyecto_id: sid, area: n })
+    expect(porNumero.error).toBe(false)
+    console.log(despues.texto)
+  } finally {
+    await admin.from('spaces').update({ abierto_claude: false }).eq('id', sid)
+    await admin.from('cuaderno_tokens').delete().eq('id', (tok as { id: string }).id)
+  }
+})

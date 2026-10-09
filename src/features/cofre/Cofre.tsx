@@ -80,6 +80,41 @@ async function sellarLoAnterior(uid: string) {
   escribir(ultimoSellado(uid), String(Date.now()))
 }
 
+/** Lo abierto para Claude que todavía está cifrado (se abrió hace poco, o lo cifró otro dispositivo): se descifra y se
+ *  reescribe en claro al leerlo (el fetch del Cofre). Corre cada vez que se abre el Cofre, no una vez al día: si el
+ *  dueño abre un proyecto para Claude, Claude lo tiene que poder leer apenas la app se abra en cualquier dispositivo.
+ *  Solo lee filas marcadas como abiertas y aún cifradas: casi siempre no hay ninguna y no cuesta nada. */
+async function abrirLoDeClaude(uid: string): Promise<boolean> {
+  const { data: mias } = await supabase.from('space_members').select('space_id').eq('user_id', uid)
+  const ids = (mias ?? []).map((m) => m.space_id)
+  if (!ids.length) return false
+  type Consulta = {
+    in: (c: string, v: string[]) => Consulta
+    eq: (c: string, v: boolean) => Consulta
+    like: (c: string, v: string) => Consulta
+    limit: (n: number) => PromiseLike<{ data: unknown }>
+  }
+  const tablas = tablasDeEquipoActivas().filter((t) => t.extra.length)
+  const proyectos = tablas.find((t) => t.tabla === 'spaces')
+  if (!proyectos) return false
+  const { data: abiertos } = await (supabase.from('spaces' as never).select([...new Set([proyectos.pk, ...proyectos.extra, ...proyectos.cifrar])].join(',')) as unknown as Consulta)
+    .in('id', ids)
+    .eq(proyectos.extra[0], true)
+    .limit(100)
+  const sids = ((abiertos ?? []) as { id: string }[]).map((s) => s.id)
+  if (!sids.length) return false
+  for (const t of tablas) {
+    if (t.tabla === 'spaces') continue
+    await (supabase.from(t.tabla as never).select([...new Set([t.pk, t.col, ...t.extra, ...t.cifrar])].join(',')) as unknown as Consulta)
+      .in(t.col, sids)
+      .eq(t.extra[0], true)
+      .like(t.cifrar[0], 'cf1.%')
+      .limit(2000)
+  }
+  await esperarResellados()
+  return true
+}
+
 function Marco({ titulo, lead, children }: { titulo: string; lead?: ReactNode; children: ReactNode }) {
   return (
     <main className="authwrap">
@@ -358,6 +393,16 @@ export function CofreGate({ uid, cargando, children }: { uid: string; cargando: 
     const ultimo = Number(leer(ultimoSellado(uid)) ?? 0)
     if (Date.now() - ultimo > 86_400_000) void sellarLoAnterior(uid)
   }, [estado.fase, uid])
+
+  useEffect(() => {
+    // lo que el dueño abrió para Claude y sigue cifrado: se abre ya (y se refresca lo que se ve)
+    if (estado.fase !== 'abierto') return
+    void abrirLoDeClaude(uid)
+      .then((habia) => {
+        if (habia) void qc.invalidateQueries()
+      })
+      .catch(() => {})
+  }, [estado.fase, uid, qc])
 
   useEffect(() => {
     // Llaves de equipo: entregar las que tengo a quien recién llegó, y recibir las que me entregaron.
