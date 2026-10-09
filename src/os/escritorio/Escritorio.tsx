@@ -464,6 +464,13 @@ export default function Escritorio() {
   }, [])
   // al cambiar de app o volver al Inicio, la barra flotante baja (la conversación sigue)
   useEffect(() => setFlotAbierto(false), [s.vista, s.foco])
+  // bajada, los avisos vuelven a cero: la barra se vuelve a montar al volver del Inicio y repetía el último
+  // (se robaba el foco cerrada, y Alt ← → dejaban de andar)
+  useEffect(() => {
+    if (flotAbierto) return
+    setFlotFoco(0)
+    setFlotVoz(0)
+  }, [flotAbierto])
 
   // cerrar una app la termina de verdad (podría tener el micrófono abierto); luego se vuelve a
   // precargar limpia, así reabrirla sigue siendo instantáneo
