@@ -4,12 +4,17 @@ import { Link } from 'react-router-dom'
 
 const LS_KEY = 'bplus.cookieConsent'
 
+// Solo hay algo que consentir si hay analitica (Google Analytics con ID). Sin ID, Rockie usa solo lo esencial
+// (sesion, llaves del Cofre, preferencias): no hay aviso, ni en la web ni en la ventana de Habitos del escritorio.
+export const HAY_ANALITICA = Boolean(import.meta.env.VITE_GA_MEASUREMENT_ID)
+
 export function cookiesAceptadas() {
   try { return localStorage.getItem(LS_KEY) === '1' } catch { return false }
 }
 
 /** true si el usuario ya eligio (aceptar o solo esenciales) */
 export function cookiesResueltas() {
+  if (!HAY_ANALITICA) return true
   try { return localStorage.getItem(LS_KEY) != null } catch { return false }
 }
 
@@ -25,7 +30,7 @@ export function soloEsencialesCookies() {
 // Banner obligatorio para analytics y cumplimiento basico (UE/LOPD). Solo se
 // muestra hasta que el usuario acepta; enlaza a /legal#privacidad.
 export default function CookieConsent() {
-  const [visible, setVisible] = useState(() => !cookiesResueltas())
+  const [visible, setVisible] = useState(() => HAY_ANALITICA && !cookiesResueltas())
   const [aboveNav, setAboveNav] = useState(false)
   const [phoneEl, setPhoneEl] = useState(null)
   const [enShell, setEnShell] = useState(false)
@@ -34,6 +39,7 @@ export default function CookieConsent() {
   const [conTutorial, setConTutorial] = useState(false)
 
   useEffect(() => {
+    if (!visible) return undefined
     const check = () => {
       const nav = document.querySelector('.navbar-wrap')
       const navVisible = nav && getComputedStyle(nav).display !== 'none'
@@ -46,7 +52,7 @@ export default function CookieConsent() {
     const obs = new MutationObserver(check)
     obs.observe(document.body, { childList: true, subtree: true })
     return () => obs.disconnect()
-  }, [])
+  }, [visible])
 
   if (!visible || conTutorial) return null
 
