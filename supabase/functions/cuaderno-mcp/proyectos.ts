@@ -41,6 +41,10 @@ const DEPENDE_ACTUALIZAR = {
   items: { type: 'string' },
   description: 'La lista COMPLETA de tareas que esta espera (ids); reemplaza la anterior. [] = ya no espera a ninguna',
 }
+const FRENTE = {
+  type: 'string',
+  description: 'Frente (o su número, de ver_proyectos) al que suma la tarea para las metas. Si no lo dices, se toma el del área. «ninguno» lo quita',
+}
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 const EDIT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
 
@@ -49,7 +53,7 @@ export const PROYECTO_TOOLS = [
     name: 'ver_proyectos',
     title: 'Ver mis proyectos',
     description:
-      'Tus proyectos abiertos para Claude: id, cuántas tareas hay por hacer, en curso y hechas, y sus áreas. Empieza por aquí para saber en qué proyecto trabajar.',
+      'Tus proyectos abiertos para Claude: id, cuántas tareas hay por hacer, en curso y hechas, sus áreas, sus frentes (numerados, con hechas/total) y sus metas con su avance en %. Empieza por aquí para saber en qué proyecto trabajar.',
     inputSchema: { type: 'object', properties: {} },
     annotations: READ,
     write: false,
@@ -58,13 +62,14 @@ export const PROYECTO_TOOLS = [
     name: 'ver_tareas',
     title: 'Ver las tareas de un proyecto',
     description:
-      'Las tareas de un proyecto agrupadas por estado (Por hacer, En curso, Hecho), con id, área, responsable, fecha, si es urgente y qué tareas la bloquean (las que espera y aún no están hechas). Filtra por estado, área o palabras.',
+      'Las tareas de un proyecto agrupadas por estado (Por hacer, En curso, Hecho), con id, área, frente, responsable, fecha, si es urgente y qué tareas la bloquean (las que espera y aún no están hechas). Filtra por estado, área, frente o palabras.',
     inputSchema: {
       type: 'object',
       properties: {
         proyecto_id: { type: 'string', description: 'Id del proyecto (de ver_proyectos)' },
         estado: ESTADO,
         area: { type: 'string', description: 'Nombre del área (opcional)' },
+        frente: { type: 'string', description: 'Nombre o número del frente (opcional)' },
         buscar: { type: 'string', description: 'Palabras del título o las notas (opcional)' },
       },
       required: ['proyecto_id'],
@@ -76,7 +81,7 @@ export const PROYECTO_TOOLS = [
     name: 'crear_tareas',
     title: 'Crear tareas',
     description:
-      'Crea una o varias tareas en un proyecto (hasta 30). Cada una con título y, si quieres, notas, estado, área (por nombre), responsable (nombre, usuario o «yo»), fecha (AAAA-MM-DD, «hoy» o «mañana»), urgente y depende_de (las tareas que tiene que esperar).',
+      'Crea una o varias tareas en un proyecto (hasta 30). Cada una con título y, si quieres, notas, estado, área (por nombre), responsable (nombre, usuario o «yo»), fecha (AAAA-MM-DD, «hoy» o «mañana»), urgente, depende_de (las tareas que tiene que esperar) y frente (para que cuente en las metas; si no lo dices, se toma el del área).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -96,6 +101,7 @@ export const PROYECTO_TOOLS = [
               fecha: { type: 'string' },
               urgente: { type: 'boolean' },
               depende_de: DEPENDE_CREAR,
+              frente: FRENTE,
             },
             required: ['titulo'],
           },
@@ -131,6 +137,7 @@ export const PROYECTO_TOOLS = [
               fecha: { type: 'string', description: 'AAAA-MM-DD, «hoy», «mañana» o «ninguna»' },
               urgente: { type: 'boolean' },
               depende_de: DEPENDE_ACTUALIZAR,
+              frente: FRENTE,
             },
             required: ['id'],
           },
@@ -153,6 +160,8 @@ export const PROYECTO_INSTRUCCIONES = [
   '- Hecho no es validada: la validación (y su XP) la da una persona en la app. No digas que quedó validada.',
   '- Dependencias: depende_de dice qué tareas tiene que esperar una tarea. ver_tareas marca «⛔ bloqueada por» mientras',
   '  alguna no esté hecha: empieza por las que no están bloqueadas. Al crear, «#2» apunta a la 2.ª tarea de la misma lista.',
+  '- Frentes: un proyecto puede tener frentes (sus grandes objetivos) que avanzan solos con sus tareas hechas y mueven',
+  '  las metas. Cada tarea nueva va a un frente: dilo con «frente» (nombre o número) o se toma el que corresponde a su área.',
   '- Solo ves los proyectos que su dueño abrió para Claude. Si te pide otro, dile que lo abra en Rockie › Proyectos ›',
   '  Ajustes del proyecto › Claude.',
 ].join('\n')
@@ -161,12 +170,14 @@ export const PROYECTO_INSTRUCCIONES = [
 type Space = { id: string; name: string }
 type Member = { user_id: string; role: string; display_name: string; username: string }
 type Area = { id: string; name: string; color: string; position: number; n?: number }
+type Frente = { id: string; name: string; n: number; hechas: number; total: number }
 type Task = {
   id: string
   title: string
   notes: string
   status: Status
   area_id: string | null
+  project_id: string | null
   assignee_id: string | null
   due_date: string | null
   priority: string
@@ -218,13 +229,56 @@ async function areas(ctx: Ctx, sid: string): Promise<Area[]> {
 async function tareas(ctx: Ctx, sid: string): Promise<Task[]> {
   const { data } = await ctx.db
     .from('tasks')
-    .select('id, title, notes, status, area_id, assignee_id, due_date, priority, validation, updated_at')
+    .select('id, title, notes, status, area_id, project_id, assignee_id, due_date, priority, validation, updated_at')
     .eq('space_id', sid)
     .eq('abierta', true)
     .order('position')
     .limit(2000)
   return ((data ?? []) as Task[]).map((t) => ({ ...t, cifrada: cifrado(t.title) || cifrado(t.notes), title: cifrado(t.title) ? '(tarea todavía cifrada)' : t.title, notes: cifrado(t.notes) ? '' : t.notes }))
 }
+
+/** Los frentes del proyecto (projects abiertos, sin archivar), numerados, con sus tareas hechas / total. */
+async function frentes(ctx: Ctx, sid: string): Promise<Frente[]> {
+  const [{ data: ps }, { data: ts }] = await Promise.all([
+    ctx.db.from('projects').select('id, name, archived, abierta, created_at').eq('space_id', sid).eq('archived', false).order('created_at'),
+    ctx.db.from('tasks').select('project_id, status').eq('space_id', sid).not('project_id', 'is', null).limit(5000),
+  ])
+  const abiertos = ((ps ?? []) as { id: string; name: string; abierta: boolean }[]).filter((p) => p.abierta)
+  return abiertos.map((p, i) => {
+    const mias = ((ts ?? []) as { project_id: string; status: Status }[]).filter((t) => t.project_id === p.id)
+    return { id: p.id, name: cifrado(p.name) ? `Frente ${i + 1} (aún cifrado)` : p.name, n: i + 1, hechas: mias.filter((t) => t.status === 'done').length, total: mias.length }
+  })
+}
+function frenteDe(nombre: string, todos: Frente[]): Frente | null | undefined {
+  const s = fold(nombre)
+  if (['ninguno', 'ninguna', 'sin frente', 'nada'].includes(s)) return null
+  const num = /^(?:frente\s*)?(\d{1,2})\b/.exec(s)
+  if (num) {
+    const porNumero = todos.find((x) => x.n === Number(num[1]))
+    if (porNumero) return porNumero
+  }
+  return todos.find((x) => x.id === nombre) ?? todos.find((x) => fold(x.name) === s) ?? todos.find((x) => fold(x.name).startsWith(s)) ?? todos.find((x) => fold(x.name).includes(s))
+}
+/** Si no dicen el frente, el que corresponde a su área (solo si el proyecto tiene frentes y alguno calza). */
+const AREA_A_FRENTE: [RegExp, RegExp][] = [
+  [/^pagos?\b|cobr/, /cobrar/],
+  [/movil|celular/, /celular/],
+  [/^rockie|\bia\b|voz/, /rockie/],
+  [/interfaz pc|escritorio|\bpc\b/, /organizarse/],
+  [/base de datos|landing|legal/, /seguro|legal/],
+  [/distribucion|tiendas?|app store|play store/, /tienda|app store|play store/],
+]
+function frentePorArea(area: Area | null | undefined, todos: Frente[]): Frente | null {
+  if (!area || !todos.length) return null
+  const a = fold(area.name)
+  for (const [ra, rf] of AREA_A_FRENTE) {
+    if (!ra.test(a)) continue
+    const hit = todos.find((x) => rf.test(fold(x.name)))
+    if (hit) return hit
+  }
+  return null
+}
+const pct = (hechas: number, total: number) => (total ? Math.round((hechas / total) * 100) : 0)
 
 /** Qué espera cada tarea del proyecto: task_id → [depende_de…] (tabla task_dependencies). */
 async function dependencias(ctx: Ctx, sid: string): Promise<Map<string, string[]>> {
@@ -328,25 +382,76 @@ async function verProyectos(ctx: Ctx): Promise<Result> {
     : ''
   if (!abiertos.length) return text(`No tienes proyectos abiertos para Claude.${aviso}`)
   const ids = abiertos.map((s) => s.id)
-  const [{ data: ts }, { data: ars }] = await Promise.all([
+  const [{ data: ts }, { data: ars }, fs, metas] = await Promise.all([
     ctx.db.from('tasks').select('space_id, status, title').in('space_id', ids).eq('abierta', true),
     ctx.db.from('areas').select('space_id, name, position').in('space_id', ids).eq('abierta', true).order('position'),
+    Promise.all(ids.map((id) => frentes(ctx, id))),
+    Promise.all(ids.map((id) => metasDe(ctx, id))),
   ])
-  const lines = abiertos.map((s) => {
+  const lines = abiertos.map((s, k) => {
     const mias = ((ts ?? []) as { space_id: string; status: Status; title: string }[]).filter((t) => t.space_id === s.id)
     const n = (st: Status) => mias.filter((t) => t.status === st).length
     const ar = ((ars ?? []) as { space_id: string; name: string }[]).filter((a) => a.space_id === s.id)
     const nombres = ar.map((a, i) => `${i + 1}. ${cifrado(a.name) ? '(aún cifrada)' : a.name}`)
     const pendientes = mias.filter((t) => cifrado(t.title)).length + ar.filter((a) => cifrado(a.name)).length + (s.name.startsWith('(nombre') ? 1 : 0)
-    return `📁 ${s.name} [${s.id}]\n   ${n('todo')} por hacer · ${n('doing')} en curso · ${n('done')} hechas${nombres.length ? `\n   áreas: ${nombres.join(' · ')}` : ' · sin áreas'}${pendientes ? `\n   ⚠️ ${PENDIENTE}` : ''}`
+    const fr = (fs[k] as Frente[]).map((x) => `${x.n}. ${x.name} ${x.hechas}/${x.total} (${pct(x.hechas, x.total)} %)`)
+    return `📁 ${s.name} [${s.id}]\n   ${n('todo')} por hacer · ${n('doing')} en curso · ${n('done')} hechas${nombres.length ? `\n   áreas: ${nombres.join(' · ')}` : ' · sin áreas'}${fr.length ? `\n   frentes: ${fr.join(' · ')}` : ''}${metas[k].length ? `\n   metas:\n${(metas[k] as string[]).join('\n')}` : ''}${pendientes ? `\n   ⚠️ ${PENDIENTE}` : ''}`
   })
   return text(`${lines.join('\n')}${aviso}`)
+}
+
+/** Las metas del proyecto con su avance (como en la app): número = de inicio a objetivo; frente = hechas/total;
+ *  general = promedio de sus sub-metas. Sus títulos van cifrados con la llave del proyecto: si no se pueden leer, se
+ *  nombran por su frente o por su tipo, y solo se muestran los números. */
+async function metasDe(ctx: Ctx, sid: string): Promise<string[]> {
+  const [{ data }, fs] = await Promise.all([
+    ctx.db.from('goals').select('id, parent_id, title, kind, start_value, target_value, current_value, project_id, position').eq('space_id', sid).order('position'),
+    frentes(ctx, sid),
+  ])
+  type G = { id: string; parent_id: string | null; title: string; kind: string; start_value: number; target_value: number; current_value: number; project_id: string | null }
+  const gs = (data ?? []) as G[]
+  if (!gs.length) return []
+  const porFrente = new Map<string, Frente>((fs as Frente[]).map((x) => [x.id, x]))
+  const hijas = (id: string | null) => gs.filter((g) => (g.parent_id ?? null) === id)
+  const avance = (g: G): number => {
+    if (g.kind === 'project') {
+      const x = g.project_id ? porFrente.get(g.project_id) : undefined
+      return x && x.total ? x.hechas / x.total : 0
+    }
+    if (g.kind === 'children') {
+      const hs = hijas(g.id)
+      return hs.length ? hs.reduce((a, h) => a + avance(h), 0) / hs.length : 0
+    }
+    const span = Number(g.target_value) - Number(g.start_value)
+    return span ? Math.min(1, Math.max(0, (Number(g.current_value) - Number(g.start_value)) / span)) : 0
+  }
+  const nombre = (g: G) => {
+    if (!cifrado(g.title)) return g.title
+    if (g.kind === 'project') return `Meta del frente «${(g.project_id && porFrente.get(g.project_id)?.name) || '?'}»`
+    if (g.kind === 'children') return 'Meta general (título cifrado)'
+    return 'Meta numérica (título cifrado)'
+  }
+  const detalle = (g: G) => {
+    if (g.kind === 'project') {
+      const x = g.project_id ? porFrente.get(g.project_id) : undefined
+      return x ? ` · ${x.hechas}/${x.total} tareas` : ''
+    }
+    if (g.kind === 'children') return ` · promedio de ${hijas(g.id).length}`
+    return ` · ${Number(g.current_value)} de ${Number(g.target_value)}`
+  }
+  const out: string[] = []
+  const pinta = (g: G, nivel: number) => {
+    out.push(`${'   '.repeat(nivel + 1)}- ${nombre(g)}: ${Math.round(avance(g) * 100)} %${detalle(g)}`)
+    for (const h of hijas(g.id)) pinta(h, nivel + 1)
+  }
+  for (const r of hijas(null)) pinta(r, 0)
+  return out.slice(0, 40)
 }
 
 async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
   const p = await proyecto(ctx, asStr(args.proyecto_id, 60))
   if (typeof p === 'string') return oops(p)
-  const [ts, ar, ms, deps] = await Promise.all([tareas(ctx, p.id), areas(ctx, p.id), miembros(ctx, p.id), dependencias(ctx, p.id)])
+  const [ts, ar, ms, deps, fs] = await Promise.all([tareas(ctx, p.id), areas(ctx, p.id), miembros(ctx, p.id), dependencias(ctx, p.id), frentes(ctx, p.id)])
   const soloEstado = args.estado ? estadoDe(args.estado) : null
   if (args.estado && !soloEstado) return oops('El estado es por_hacer, en_curso o hecho.')
   let lista = ts
@@ -355,9 +460,15 @@ async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
     if (!a) return oops(`No hay un área «${asStr(args.area, 60)}». Las áreas son: ${ar.map((x) => `${x.n}. ${x.name}`).join(', ') || 'ninguna'} (también se eligen por número).`)
     lista = lista.filter((t) => t.area_id === a.id)
   }
+  if (args.frente) {
+    const x = frenteDe(asStr(args.frente, 80), fs)
+    if (x === undefined) return oops(`No hay un frente «${asStr(args.frente, 80)}». Los frentes son: ${fs.map((y) => `${y.n}. ${y.name}`).join(', ') || 'ninguno'}.`)
+    lista = lista.filter((t) => (x ? t.project_id === x.id : !t.project_id))
+  }
   const q = fold(asStr(args.buscar, 120))
   if (q) lista = lista.filter((t) => fold(`${t.title} ${t.notes}`).includes(q))
   const areaN = new Map(ar.map((a) => [a.id, a.name]))
+  const frenteN = new Map(fs.map((x) => [x.id, x.name]))
   const quien = new Map(ms.map((m) => [m.user_id, m.display_name || m.username]))
   const porId = new Map(ts.map((t) => [t.id, t]))
   // bloqueada = alguna de las que espera aún no está hecha (las hechas ya no bloquean)
@@ -367,7 +478,7 @@ async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
     return pend.length ? ` · ⛔ bloqueada por: ${pend.map((d) => `«${d.title}» [${d.id}]`).join(', ')}` : ''
   }
   const fila = (t: Task) =>
-    `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · vence ${t.due_date}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${t.status === 'done' ? (t.validation ? ' · validada' : ' · por validar') : ''}${bloqueos(t)}`
+    `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.project_id && frenteN.get(t.project_id) ? ` · ▸ ${frenteN.get(t.project_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · vence ${t.due_date}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${t.status === 'done' ? (t.validation ? ' · validada' : ' · por validar') : ''}${bloqueos(t)}`
   const out: string[] = [`📁 ${p.name}`]
   if (ts.some((t) => t.cifrada) || ar.some((a) => a.name.endsWith('(aún cifrada)'))) out.push(`⚠️ ${PENDIENTE}`)
   for (const st of ['doing', 'todo', 'done'] as Status[]) {
@@ -389,7 +500,7 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
   if (typeof p === 'string') return oops(p)
   const lista = Array.isArray(args.tareas) ? (args.tareas as Args[]).slice(0, 30) : []
   if (!lista.length) return oops('Dime al menos una tarea (tareas: [{ titulo }]).')
-  const [ar, ms, hoyDia] = await Promise.all([areas(ctx, p.id), miembros(ctx, p.id), hoy(ctx)])
+  const [ar, ms, hoyDia, fs] = await Promise.all([areas(ctx, p.id), miembros(ctx, p.id), hoy(ctx), frentes(ctx, p.id)])
   const hechas: string[] = []
   const errores: string[] = []
   const creadas: (string | null)[] = lista.map(() => null) // el id de cada una, en el orden de la lista (para «#N»)
@@ -428,6 +539,15 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
         continue
       }
     }
+    // el frente: el que digan, o el de su área (así la tarea cuenta para las metas)
+    let frente: Frente | null | undefined = null
+    if (t.frente !== undefined && asStr(t.frente, 80).trim()) {
+      frente = frenteDe(asStr(t.frente, 80), fs)
+      if (frente === undefined) {
+        errores.push(`«${titulo}»: no hay un frente «${asStr(t.frente, 80)}» (hay: ${fs.map((x) => `${x.n}. ${x.name}`).join(', ') || 'ninguno'})`)
+        continue
+      }
+    } else frente = frentePorArea(area, fs)
     const { data, error } = await ctx.db.rpc('mcp_crear_tarea', {
       p_uid: ctx.uid,
       p_space: p.id,
@@ -438,11 +558,12 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
       p_assignee: persona?.user_id ?? null,
       p_due: fecha,
       p_priority: t.urgente === true ? 'urgent' : 'normal',
+      p_project: frente?.id ?? null,
     })
     if (error) errores.push(`«${titulo}»: ${error.message}`)
     else {
       creadas[i] = data as string
-      hechas.push(`- ${titulo} [${data}] · ${NOMBRE[estado]}${area ? ` · ${area.name}` : ''}`)
+      hechas.push(`- ${titulo} [${data}] · ${NOMBRE[estado]}${area ? ` · ${area.name}` : ''}${frente ? ` · ▸ ${frente.name}` : fs.length ? ' · sin frente (no suma a ninguna meta)' : ''}`)
     }
   }
   // las dependencias, cuando ya existen todas (así «#3» puede apuntar a una que va más abajo)
@@ -472,12 +593,12 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
   const { abiertos } = await misProyectos(ctx)
   const abiertosId = new Set(abiertos.map((s) => s.id))
   const { data } = ids.length
-    ? await ctx.db.from('tasks').select('id, space_id, title, notes, status, abierta').in('id', ids)
+    ? await ctx.db.from('tasks').select('id, space_id, title, notes, status, abierta, project_id').in('id', ids)
     : { data: [] }
   const porId = new Map(((data ?? []) as (Task & { space_id: string; abierta: boolean })[]).map((t) => [t.id, t]))
-  const cache = new Map<string, { ar: Area[]; ms: Member[] }>()
+  const cache = new Map<string, { ar: Area[]; ms: Member[]; fs: Frente[] }>()
   const datos = async (sid: string) => {
-    if (!cache.has(sid)) cache.set(sid, { ar: await areas(ctx, sid), ms: await miembros(ctx, sid) })
+    if (!cache.has(sid)) cache.set(sid, { ar: await areas(ctx, sid), ms: await miembros(ctx, sid), fs: await frentes(ctx, sid) })
     return cache.get(sid)!
   }
   const hoyDia = await hoy(ctx)
@@ -529,6 +650,14 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
         }
         patch.area_id = a?.id ?? ''
         dice.push(a ? `área ${a.name}` : 'sin área')
+        // sin frente todavía y sin decir cuál: toma el de su nueva área
+        if (c.frente === undefined && !t.project_id) {
+          const x = frentePorArea(a, (await datos(t.space_id)).fs)
+          if (x) {
+            patch.project_id = x.id
+            dice.push(`frente ${x.name}`)
+          }
+        }
       }
       if (c.responsable !== undefined) {
         const m = personaDe(asStr(c.responsable, 80), ms, ctx.uid)
@@ -548,6 +677,18 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
       }
       patch.due_date = f ?? ''
       dice.push(f ? `vence ${f}` : 'sin fecha')
+    }
+    if (c.frente !== undefined) {
+      const { fs } = await datos(t.space_id)
+      const x = frenteDe(asStr(c.frente, 80), fs)
+      if (x === undefined) {
+        errores.push(`«${t.title}»: no hay un frente «${asStr(c.frente, 80)}» (hay: ${fs.map((y) => `${y.n}. ${y.name}`).join(', ') || 'ninguno'})`)
+        continue
+      }
+      if ((x?.id ?? null) !== (t.project_id ?? null)) {
+        patch.project_id = x?.id ?? ''
+        dice.push(x ? `frente ${x.name}` : 'sin frente')
+      }
     }
     if (typeof c.urgente === 'boolean') {
       patch.priority = c.urgente ? 'urgent' : 'normal'
