@@ -236,8 +236,7 @@ export function GoalMap({ roots, mission, onOpen, onEditMission }: { roots: Goal
       <div
         className="gmap card"
         ref={box}
-        // el lienzo se ajusta a lo que hay (sin hueco abajo), con tope en el alto de la pantalla
-        style={{ height: `min(calc(100dvh - 250px), ${Math.round(layout.height * zoom + 48)}px)` }}
+        // el recuadro mide siempre lo mismo (todo el alto disponible, en app.css): el zoom cambia el mapa, no el marco
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
