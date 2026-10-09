@@ -22,6 +22,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- vuelta del login de Google (Custom Tabs): plus.rockie.app://auth#access_token=… → la app (ver PUENTE.md) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="plus.rockie.app" android:host="auth" />
+            </intent-filter>
+
         </activity>
 
         <provider

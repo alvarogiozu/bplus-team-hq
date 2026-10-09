@@ -5,9 +5,13 @@
   "server": {
     "url": "https://rockie.plus/inicio",
     "androidScheme": "https",
-    "allowNavigation": ["rockie.plus", "*.rockie.plus"]
+    "allowNavigation": [
+      "rockie.plus",
+      "*.rockie.plus"
+    ]
   },
   "android": {
     "backgroundColor": "#f0ebe5"
-  }
+  },
+  "appendUserAgent": "RockieApp/1 (Android)"
 }
