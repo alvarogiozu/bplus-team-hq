@@ -120,6 +120,9 @@
 }
 .im-chat.abierto[data-teclado] { padding-bottom: var(--s2); }
 .im-chat.abierto .ini-reposo-sug { display: none; }
+/* atajos sin IA sobre la caja, alineados con ella */
+.im-chat .ini-atajos { padding: 0 12px var(--s2); pointer-events: auto; }
+.im-chat .ini-atajos button { flex: 1; justify-content: center; min-height: var(--tap); background: var(--card); }
 .im-chat.abierto .ini-chat-cab { padding: calc(var(--s2) + env(safe-area-inset-top)) var(--screen-x) var(--s2); }
 .im-chat.abierto .ini-chat-cab button { height: 36px; }
 .im-chat.abierto .ini-chat-cab .ini-bajar { width: var(--tap); height: var(--tap); }

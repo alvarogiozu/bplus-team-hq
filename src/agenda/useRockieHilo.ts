@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '../components/Toasts'
 import { haptic } from '../lib/fx'
 import { supabase } from '../lib/supabase'
@@ -10,12 +11,13 @@ import { applyProposal, askRockie, buildContext, describe, makeLook, summarize, 
 import { APP_META, useRockieChat, type ChatApp, type LifeArea } from '../features/agent/chat'
 import { fmtRelative } from '../lib/dates'
 import { useCalendarMap, type GEvent } from './calendars'
-import { useAgendaActions, useHq, useItems, usePrefs, type Undo } from './data'
+import { akeys, useAgendaActions, useHq, useItems, usePrefs, type HqData, type Undo } from './data'
 import { useGroupActions, useGroups } from './groups'
 import { useHobbies, useHobbyActions } from './hobbies'
 import { useDayActions, useDayMap } from './days'
 import { useReserveActions, useReserves } from './reserves'
 import { localPropose } from './localAgent'
+import { ATAJO_LABEL, limpiar, parecidos, type Atajo } from './atajos'
 
 // El hilo con Rockie (su «cerebro» de conversación): lo que le pides va a la IA con tu día como contexto, y lo que
 // propone llega como tarjetas que confirmas una a una (con deshacer). Lo usan la barra de Rockie de la Agenda y el
@@ -87,6 +89,7 @@ export function useRockieHilo(p: { today: string; nowMin: number; google?: GEven
     [p.today, tz, p.nowMin, prefs, items, hq, cals, groups, hobbies, reserves],
   )
 
+  const qc = useQueryClient()
   const [thread, setThread] = useState<HiloEntry[]>([])
   const [thinking, setThinking] = useState(false)
   const chat = useRockieChat('agenda')
@@ -111,6 +114,17 @@ export function useRockieHilo(p: { today: string; nowMin: number; google?: GEven
       const quien = x.input.assignee_id && x.input.assignee_id !== userId ? hq?.people.find((e) => e.id === x.input.assignee_id)?.name : 'para ti'
       const due = s(x.input.due)
       return { icon: 'task', color: APP_COLOR.equipo, title: s(x.input.title) ?? 'Tarea', detail: [space, quien, due ? fmtRelative(due, p.today) : null].filter(Boolean).join(' · '), team: true }
+    }
+    // el atajo «Hecho» trae el título (la agenda recién cargada puede no estar todavía en look)
+    if (x.tool === 'completar_item' && s(x.input.title) && !look.items.get(String(x.input.item_id))) {
+      return { icon: 'check', color: '#4a7c3f', title: `Completar «${s(x.input.title)}»`, detail: 'Marcar como hecho' }
+    }
+    if (x.tool === 'estado_tarea') {
+      const title = s(x.input.title) ?? look.tasks.get(String(x.input.task_id))?.title ?? 'Tarea'
+      const space = hq?.spaces.find((e) => e.id === x.input.space_id)?.name
+      return x.input.status === 'done'
+        ? { icon: 'check', color: APP_COLOR.equipo, title, detail: [space, 'Marcarla hecha (sin prueba)'].filter(Boolean).join(' · '), team: true }
+        : { icon: 'flag', color: APP_COLOR.equipo, title, detail: [space, 'Pasarla a En curso'].filter(Boolean).join(' · '), team: true }
     }
     return describe(x, look)
   }
@@ -159,8 +173,89 @@ export function useRockieHilo(p: { today: string; nowMin: number; google?: GEven
         ir: `/tareas?vista=lista&equipo=${space_id}&tarea=${data.id}`,
       }
     }
+    if (x.tool === 'estado_tarea') {
+      const id = String(x.input.task_id)
+      const antes = (s(x.input.antes) ?? look.tasks.get(id)?.status ?? 'todo') as 'todo' | 'doing'
+      const space = s(x.input.space_id) ?? look.tasks.get(id)?.space_id
+      const refrescar = () => {
+        for (const k of [['agenda-hq'], ['tasks'], ['os', 'tasks'], ['xp']]) void qc.invalidateQueries({ queryKey: k })
+      }
+      // Hecho = validar sin prueba (lo mismo que «Lo hice» en Proyectos: suma su XP); En curso = solo el estado
+      const { error } =
+        x.input.status === 'done'
+          ? await supabase.rpc('validate_task', { p_task: id, p_mode: 'plain' })
+          : await supabase.from('tasks').update({ status: 'doing' }).eq('id', id)
+      refrescar()
+      if (error) {
+        toast(error.message, { kind: 'err' })
+        return null
+      }
+      return {
+        // deshacer «Hecho» la reabre (su XP se descuenta, como al reabrir en Proyectos)
+        undo: async () => {
+          await supabase.from('tasks').update({ status: antes }).eq('id', id)
+          refrescar()
+        },
+        listo: x.input.status === 'done' ? 'Hecha' : 'En curso',
+        ir: `/tareas?vista=lista${space ? `&equipo=${space}` : ''}&tarea=${id}`,
+      }
+    }
     const undo = await applyProposal(x, actions, look)
+    if (undo && x.tool === 'completar_item') void qc.invalidateQueries({ queryKey: ['os', 'agenda'] })
     return undo ? { undo } : null
+  }
+
+  /** Los botones Hecho / En curso / Agendar de la caja: lo escrito se resuelve aquí, sin IA (al instante y sin
+   *  cupo). Proponen la tarjeta de siempre (confirmar, deshacer); si no encuentran a qué te refieres, lo dicen. */
+  async function atajo(a: Atajo, raw: string) {
+    const t = raw.trim()
+    if (!t || !profile) return
+    setThread((x) => [...x, { id: uid(), who: 'user' as const, text: `${ATAJO_LABEL[a]}: ${t}` }].slice(-24))
+    // recién abierto, tus tareas y tu agenda pueden no haber llegado: se esperan (si no, «no encontré» en falso)
+    let hqA = hq
+    let itemsA = items
+    if (!hq || !itemsData) {
+      await qc.refetchQueries({ queryKey: akeys.hq(userId) })
+      await qc.refetchQueries({ queryKey: akeys.items(userId) })
+      hqA = qc.getQueryData<HqData>(akeys.hq(userId)) ?? hq
+      itemsA = qc.getQueryData<typeof items>(akeys.items(userId)) ?? items
+    }
+    const que = limpiar(t, a)
+    let props: Proposal[] = []
+    let say = ''
+    if (a === 'agendar') {
+      const people = (hqA?.people ?? []).map((x) => ({ id: x.id, name: x.name, username: x.username }))
+      const x = localPropose(que, { today: p.today, defaultDuration: prefs?.default_duration ?? 15, people })
+      // sin día ni hora, «Agendar» es para hoy (como pendiente del día), no el Inbox
+      if (x) props = [{ ...x, input: { ...x.input, day: x.input.day ?? p.today } }]
+      else say = 'No entendí qué agendar. Prueba con «estudiar mañana a las 4».'
+    } else {
+      const tareas = (hqA?.tasks ?? []).filter((x) => x.status !== 'done' && (a === 'hecho' || x.status !== 'doing'))
+      // el tiempo reservado para una tarea no es otro pendiente: la que cuenta es la tarea
+      const conTarea = new Set(tareas.map((x) => x.id))
+      const pendientes = a === 'hecho' ? itemsA.filter((i) => !i.done_at && !i.is_reserve && !(i.hq_task_id && conTarea.has(i.hq_task_id))) : []
+      const halladas = parecidos<{ tarea?: (typeof tareas)[number]; item?: (typeof items)[number] }>(
+        que,
+        [...tareas.map((tarea) => ({ tarea })), ...pendientes.map((item) => ({ item }))],
+        (x) => x.tarea?.title ?? x.item?.title ?? '',
+      )
+      props = halladas.map((x) =>
+        x.tarea
+          ? { tool: 'estado_tarea', input: { task_id: x.tarea.id, status: a === 'hecho' ? 'done' : 'doing', title: x.tarea.title, space_id: x.tarea.space_id, antes: x.tarea.status } }
+          : { tool: 'completar_item', input: { item_id: x.item!.id, title: x.item!.title } },
+      )
+      if (props.length > 1) say = 'Encontré varias parecidas. Confirma la que es:'
+      else if (!props.length && a === 'hecho') {
+        // no es una tarea ni un pendiente: quizá un hábito (Hábitos lo marca con su Rockie)
+        say = `No encontré «${que}» entre tus tareas ni tu agenda. ¿Era un hábito?`
+        props = [{ tool: 'habito', input: { accion: 'hecho', nombre: que } }]
+      } else if (!props.length) say = `No encontré «${que}» entre tus tareas por hacer.`
+    }
+    agregar({ id: uid(), who: 'rockie', say, props: props.map((x) => ({ p: x, card: tarjeta(x), st: 'pending' as const })), handoffs: [] })
+    void chat.append([
+      { role: 'user', text: `${ATAJO_LABEL[a]}: ${t}` },
+      { role: 'assistant', text: [say, ...props.map((x) => tarjeta(x).title)].filter(Boolean).join(' · ') || '…' },
+    ])
   }
 
   /** Este hilo como historia para la IA (lo que se acaba de decir todavía no está en el ref: va como la orden). */
@@ -300,5 +395,5 @@ export function useRockieHilo(p: { today: string; nowMin: number; google?: GEven
 
   const refTitle = (id: string) => look.items.get(id)?.title ?? look.events.get(id)?.title ?? look.tasks.get(id)?.title ?? look.projects.get(id)?.name
 
-  return { look, thread, setThread, thinking, chat, send, elegir, ultimo, descartar, patchProp, confirm, confirmAll, refTitle }
+  return { look, thread, setThread, thinking, chat, send, atajo, elegir, ultimo, descartar, patchProp, confirm, confirmAll, refTitle }
 }

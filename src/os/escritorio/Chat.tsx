@@ -5,6 +5,7 @@ import { Icon } from '../../components/Icon'
 import { AIcon } from '../../agenda/icons'
 import { pistaVoz, useMicPress, useVoice } from '../../agenda/voice'
 import { useRockieHilo, type PropState, type RockieDice, type Tipo } from '../../agenda/useRockieHilo'
+import { ATAJO_LABEL, type Atajo } from '../../agenda/atajos'
 import { APP_META, AREA_LABEL, type ChatApp } from '../../features/agent/chat'
 import { APPS, type AppId, type OsApp } from '../apps'
 import './inicio.css'
@@ -34,6 +35,12 @@ const TIPO: Record<Tipo, { titulo: string; sub: string; icon: OsApp['icon']; col
   tarea: { titulo: 'Tarea del equipo', sub: 'en tus proyectos', icon: APP.equipo.icon, color: APP.equipo.color, edge: APP.equipo.edge },
 }
 
+const ATAJOS: [Atajo, 'check' | 'flag' | 'calendar'][] = [
+  ['hecho', 'check'],
+  ['en_curso', 'flag'],
+  ['agendar', 'calendar'],
+]
+
 /** Lo que dice el botón de cada propuesta de la Agenda (si no está aquí: «Confirmar»). */
 const VERBO_AGENDA: Record<string, string> = {
   crear_item: 'Guardar en la Agenda',
@@ -57,6 +64,7 @@ function destinoDe(ps: PropState): { app: OsApp; verbo: string } {
   if (t === 'anotar') return { app: APP.cuaderno, verbo: 'Anotar en el Cuaderno' }
   if (t === 'habito') return { app: APP.habitos, verbo: ps.p.input.accion === 'hecho' ? 'Marcar hecho' : 'Crear el hábito' }
   if (t === 'crear_tarea_equipo') return { app: APP.equipo, verbo: 'Crear la tarea' }
+  if (t === 'estado_tarea') return { app: APP.equipo, verbo: ps.p.input.status === 'done' ? 'Marcar hecha' : 'Pasar a En curso' }
   return { app: APP.agenda, verbo: VERBO_AGENDA[t] ?? 'Confirmar' }
 }
 
@@ -205,6 +213,26 @@ export function ChatPanel(p: {
         )}
       </div>
       <div className="ini-reposo-sug">{chips}</div>
+
+      {/* atajos sin IA: con algo escrito, Hecho / En curso / Agendar lo resuelven al instante y sin gastar cupo */}
+      {text.trim() && !voice.listening && (
+        <div className="ini-atajos" role="group" aria-label="Atajos sin IA">
+          {ATAJOS.map(([a, icon]) => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => {
+                const t = text
+                setText('')
+                p.onActivo?.()
+                hilo.atajo(a, t)
+              }}
+            >
+              <Icon name={icon} className="sm" /> {ATAJO_LABEL[a]}
+            </button>
+          ))}
+        </div>
+      )}
 
       <form className={`ini-comp${voice.listening ? ' oyendo' : ''}`} onSubmit={submit} data-guia="caja">
         <Icon name="search" className="sm ini-lupa" />

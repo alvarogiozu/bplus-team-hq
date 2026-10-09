@@ -119,13 +119,17 @@
 .ini-nuevo h1 { margin: 0; font-family: var(--serif); font-size: 38px; font-weight: 700; line-height: 1.05; letter-spacing: -1px; color: var(--ink); }
 .ini-nuevo p { margin: 0; font-size: var(--t-md); font-weight: 600; color: var(--ink-soft); max-width: 52ch; }
 .ini-sug { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.ini-sug button, .ini-chips button {
+.ini-sug button, .ini-chips button, .ini-atajos button {
   display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border-radius: 999px; white-space: nowrap;
   border: 1.5px solid var(--card-line); background: var(--card-2); box-shadow: 0 3px 0 var(--card-edge);
   font: inherit; font-size: var(--t-s); font-weight: 700; color: var(--ink); cursor: pointer; transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide);
 }
-.ini-sug button:hover, .ini-chips button:hover { border-color: var(--accent); }
-.ini-sug button:active, .ini-chips button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-edge); }
+.ini-sug button:hover, .ini-chips button:hover, .ini-atajos button:hover { border-color: var(--accent); }
+.ini-sug button:active, .ini-chips button:active, .ini-atajos button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-edge); }
+/* atajos sin IA (Hecho / En curso / Agendar): aparecen sobre la caja al escribir */
+.ini-atajos { display: flex; gap: 8px; padding: 0 20px 10px; }
+.ini-atajos button { min-height: 40px; }
+.ini-atajos button .ico { color: var(--accent); }
 
 /* lo que dices y lo que responde: tú en burbuja; Rockie con la letra de la casa (Fraunces), como un texto */
 .ini-yo { align-self: flex-end; max-width: 78%; padding: 10px 16px; border-radius: 20px 20px 6px 20px; background: var(--accent); color: var(--on-color); box-shadow: 0 3px 0 var(--accent-edge); font-size: var(--t-base); font-weight: 600; line-height: 1.4; display: inline-flex; align-items: center; gap: 6px; }
@@ -248,7 +252,7 @@
 .osc.con-dock .osc-panel { bottom: 112px; }
 .osc.oculto .osc-panel { translate: -50% 150%; opacity: 0; pointer-events: none; }
 .osc.abierto .osc-panel { height: min(660px, calc(100% - 110px)); width: min(760px, calc(100% - 96px)); border-radius: 28px; }
-.osc:not(.abierto) .ini-chat-cab, .osc:not(.abierto) .ini-hilo, .osc:not(.abierto) .ini-teclas, .osc:not(.abierto) .ini-err, .osc .ini-reposo-sug { display: none; }
+.osc:not(.abierto) .ini-chat-cab, .osc:not(.abierto) .ini-hilo, .osc:not(.abierto) .ini-teclas, .osc:not(.abierto) .ini-err, .osc .ini-reposo-sug, .osc:not(.abierto) .ini-atajos { display: none; }
 .osc:not(.abierto) .ini-comp { margin: 9px; border-width: 1.5px; box-shadow: none; }
 .osc.abierto .ini-chat-cab, .osc.abierto .ini-hilo { animation: ini-entra 0.42s var(--resorte) 0.06s both; }
 .osc-panel.vacio .ini-hilo { justify-content: center; }
