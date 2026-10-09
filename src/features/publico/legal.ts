@@ -82,7 +82,7 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
           h: 'Tu contenido',
           p: [
             'Lo que escribes y subes es tuyo. Tus notas, tu agenda y tus proyectos se cifran en tu dispositivo (el Cofre): nadie, ni el equipo de Rockie, puede leerlos. Lo que compartes con un equipo lo pueden ver sus miembros.',
-            'La excepción la decides tú: un cuaderno o un proyecto que abres para Claude deja de estar cifrado mientras siga abierto (ver «Conectar tu asistente de IA»).',
+            'La excepción la decides tú: lo que abres para Claude puede leerlo nuestro servidor mientras siga abierto (ver «Conectar tu asistente de IA» y la Política de privacidad).',
           ],
         },
         {
@@ -95,7 +95,7 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
         {
           h: 'Conectar tu asistente de IA',
           p: [
-            'Desde el Cuaderno puedes conectar tu cuenta de Rockie con un asistente de IA externo: hoy, Claude (de Anthropic). Si más adelante sumamos otros, en Rockie también se llamará «abrir para Claude», sea cual sea el asistente. Solo ve los cuadernos que abres para él y los proyectos cuyo dueño los abrió; todo lo demás sigue cifrado y no puede verlo.',
+            'Desde el Cuaderno puedes conectar tu cuenta de Rockie con un asistente de IA externo: hoy, Claude (de Anthropic). Si más adelante sumamos otros, en Rockie también se llamará «abrir para Claude», sea cual sea el asistente. Solo ve lo que abres para él (un cuaderno, un proyecto que es tuyo o, si lo eliges, todo tu Rockie) y los proyectos cuyo dueño los abrió; todo lo demás sigue cifrado y no puede verlo.',
             'Lo que el asistente crea o cambia (páginas, tarjetas, tareas) queda a tu nombre, como si lo hubieras hecho tú: revisa lo que le pides. Cada asistente es un servicio de su empresa y se rige por sus propias condiciones; Rockie no controla lo que responde.',
             'Puedes cerrar un cuaderno o un proyecto (vuelve a cifrarse) o desconectar el asistente en cualquier momento desde el Cuaderno.',
           ],
@@ -194,10 +194,12 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
       {
         h: 'Si conectas tu asistente de IA',
         p: [
-          'Cuando abres un cuaderno o un proyecto para Claude (o el asistente que conectaste), su contenido (en un proyecto: su nombre, sus áreas y sus tareas) deja de estar cifrado y se guarda en claro en nuestros servidores, para que el asistente pueda leerlo y escribir en él. Para buscar por significado en esos cuadernos, calculamos una huella de cada página con Google (Gemini) y la guardamos junto a ella.',
+          'Hay dos formas de abrirle algo a Claude (o al asistente que conectaste), y en las dos el riesgo es el mismo: mientras esté abierto, nuestro servidor puede leerlo. Para eso que eliges, ya no es cifrado de extremo a extremo puro: si alguien tomara el control de nuestro servidor en ese tiempo, podría leerlo. Lo que no eliges sigue cifrado de extremo a extremo.',
+          'Abrir un cuaderno o un proyecto: su contenido (en un proyecto: su nombre, sus áreas y sus tareas) deja de estar cifrado y se guarda en claro en nuestros servidores, para que el asistente pueda leerlo y escribir en él. Para buscar por significado en esos cuadernos, calculamos una huella de cada página con Google (Gemini) y la guardamos junto a ella. Si lo cierras, vuelve a cifrarse en tu dispositivo.',
+          'Con una llave temporal (la app te la irá ofreciendo): tu proyecto o tus notas siguen siempre cifrados en la base. Tu dispositivo le entrega a nuestro servidor una llave temporal solo de lo que eliges (un proyecto o todo tu Rockie), protegida con una llave del servidor que no está en la base ni en sus respaldos. Con ella, el servidor lo abre solo en memoria cuando Claude lo usa; nada se guarda en claro ni en los registros. Vence en 1, 7 o 30 días, como elijas (se renueva cuando abres la app), y la revocas cuando quieras desde Ajustes, donde ves cuántas veces y cuándo entró Claude por última vez.',
           'Lo que el asistente lee de ahí, y lo que le escribes en su app, lo recibe su empresa (Anthropic, si es Claude) y lo trata según su propia política de privacidad y la configuración de tu cuenta con ella (por ejemplo, si permites que use tus conversaciones para entrenar sus modelos). Rockie no controla eso: revísalo en tu asistente.',
           'De nuestro lado, para reconocer la conexión guardamos el nombre de la app conectada, una llave de acceso y cuándo se usó por última vez. No guardamos tus conversaciones con el asistente: solo lo que él crea o cambia en Rockie, que queda a tu nombre.',
-          'Si cierras el cuaderno o el proyecto, vuelve a cifrarse en tu dispositivo. Si desconectas el asistente, su llave deja de servir al instante.',
+          'Si desconectas el asistente, su llave de acceso deja de servir al instante.',
         ],
       },
       {
