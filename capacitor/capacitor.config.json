@@ -1,0 +1,13 @@
+{
+  "appId": "plus.rockie.app",
+  "appName": "Rockie",
+  "webDir": "www",
+  "server": {
+    "url": "https://rockie.plus/inicio",
+    "androidScheme": "https",
+    "allowNavigation": ["rockie.plus", "*.rockie.plus"]
+  },
+  "android": {
+    "backgroundColor": "#f0ebe5"
+  }
+}

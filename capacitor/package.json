@@ -1,0 +1,18 @@
+{
+  "name": "rockie-android",
+  "private": true,
+  "description": "Rockie para Android (Capacitor): abre rockie.plus dentro de una app instalable. Ver README.md.",
+  "type": "module",
+  "scripts": {
+    "iconos": "node iconos.mjs",
+    "sync": "cap sync android",
+    "abrir": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}
