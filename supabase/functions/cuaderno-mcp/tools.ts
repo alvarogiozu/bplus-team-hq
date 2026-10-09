@@ -42,7 +42,7 @@ const TOOLS = [
     name: 'ver_cuaderno',
     title: 'Ver mi cuaderno',
     description:
-      'Muestra cómo está organizado el cuaderno: carpetas y cuadernos (con su id) y las páginas de cada uno. Sin carpeta_id da el panorama; con carpeta_id, todo lo de esa carpeta o cuaderno. Úsala para saber dónde guardar algo.',
+      'Muestra cómo está organizado el cuaderno del usuario: carpetas y cuadernos (cada uno con su id entre corchetes) y las páginas de cada uno. Úsala ANTES de crear algo, para elegir dónde va. Sin carpeta_id devuelve el panorama; con carpeta_id, todo lo de esa carpeta o cuaderno. Solo de lectura.',
     inputSchema: { type: 'object', properties: { carpeta_id: str('Id de una carpeta o cuaderno para ver todo su contenido (opcional)') } },
     annotations: READ,
     write: false,
@@ -50,7 +50,7 @@ const TOOLS = [
   {
     name: 'buscar',
     title: 'Buscar en el cuaderno',
-    description: 'Busca páginas por significado y por palabras (título y contenido). Devuelve título, id, dónde está y un fragmento.',
+    description: 'Busca páginas del usuario por significado y por palabras (título y contenido). Úsala antes de crear una página, para no duplicar, y para encontrar el id de una página. Devuelve por cada resultado: título, id entre corchetes, dónde está, un fragmento y el enlace para abrirla. Solo de lectura.',
     inputSchema: {
       type: 'object',
       properties: { consulta: str('Qué buscar (una idea, un tema o palabras exactas)'), limite: { type: 'integer', minimum: 1, maximum: 20, description: 'Cuántos resultados (8 por defecto)' } },
@@ -62,7 +62,7 @@ const TOOLS = [
   {
     name: 'leer_pagina',
     title: 'Leer una página',
-    description: 'Lee una página completa en Markdown: su contenido, dónde está, su tema y subnotas, sus conexiones y cuántas tarjetas tiene.',
+    description: 'Lee una página completa por su id (sácalo de buscar o ver_cuaderno). Devuelve su contenido en Markdown, dónde está, su tema y subnotas, las páginas con que está conectada y cuántas tarjetas de repaso tiene. Solo de lectura.',
     inputSchema: { type: 'object', properties: { id: str('Id de la página') }, required: ['id'] },
     annotations: READ,
     write: false,
@@ -71,7 +71,7 @@ const TOOLS = [
     name: 'crear_pagina',
     title: 'Crear una página',
     description:
-      'Crea una página en Markdown. Elige dónde con cuaderno_id, o con "cuaderno" por nombre o ruta ("Idiomas/Alemán"; lo que falte se crea). Con "tema" (título) o tema_id queda como subnota de esa página. [[Título]] enlaza otras páginas.',
+      'Crea UNA página nueva en Markdown. Dónde: cuaderno_id, o "cuaderno" por nombre o ruta ("Idiomas/Alemán"; lo que falte se crea); sin ninguno va a «Desde Claude». Con tema_id o "tema" (título) queda como subnota de esa página. Para conectarla con otras páginas en la misma llamada usa "relacionadas" (ids o títulos exactos) o escribe [[Título exacto]] en el contenido. Devuelve el id y el enlace de la página creada y qué conexiones quedaron hechas y cuáles no se encontraron. Para varias páginas usa crear_paginas.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -81,6 +81,7 @@ const TOOLS = [
         cuaderno: str('Nombre o ruta del cuaderno, p. ej. "Idiomas/Alemán" (opcional; se crea si no existe)'),
         tema_id: str('Id de la página de la que esta es subnota (opcional)'),
         tema: str('Título de la página de la que esta es subnota (opcional)'),
+        relacionadas: { type: 'array', maxItems: 20, items: { type: 'string' }, description: 'Ids o títulos exactos de páginas existentes con las que conectarla (opcional)' },
       },
       required: ['titulo'],
     },
@@ -91,7 +92,7 @@ const TOOLS = [
     name: 'crear_paginas',
     title: 'Crear varias páginas',
     description:
-      'Crea hasta 30 páginas de una vez en el mismo cuaderno (vocabulario, los temas de un curso…). Cada una puede ser subnota de otra del mismo lote o ya existente ("tema" = su título). [[Título]] enlaza páginas, también del mismo lote.',
+      'Crea hasta 30 páginas de una vez en el mismo cuaderno (vocabulario, los temas de un curso…). Cada una puede ser subnota de otra del mismo lote o ya existente ("tema" = su título) y conectarse con otras ("relacionadas": ids o títulos exactos, también del mismo lote). [[Título exacto]] en el contenido también conecta. Devuelve el id y el enlace de cada página creada y qué conexiones quedaron hechas.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -101,7 +102,12 @@ const TOOLS = [
           maxItems: 30,
           items: {
             type: 'object',
-            properties: { titulo: str('Título', { maxLength: 160 }), contenido: str('Contenido en Markdown'), tema: str('Título de la página madre (opcional)') },
+            properties: {
+              titulo: str('Título', { maxLength: 160 }),
+              contenido: str('Contenido en Markdown'),
+              tema: str('Título de la página madre (opcional)'),
+              relacionadas: { type: 'array', maxItems: 20, items: { type: 'string' }, description: 'Ids o títulos exactos de páginas con las que conectarla (opcional)' },
+            },
             required: ['titulo'],
           },
         },
@@ -117,7 +123,7 @@ const TOOLS = [
     name: 'editar_pagina',
     title: 'Editar una página',
     description:
-      'Suma contenido al final de una página (modo "agregar", lo normal) o reemplaza todo su contenido (modo "reemplazar": solo si el usuario pidió reescribirla; conserva lo que ya tenía que siga valiendo). También puede cambiar el título.',
+      'Cambia una página existente por su id. Modo "agregar" (por defecto) suma el contenido al final; modo "reemplazar" borra el contenido anterior y pone el nuevo: úsalo solo si el usuario pidió reescribirla, y conserva lo que siga valiendo. También puede cambiar el título. [[Título exacto]] conecta con otras páginas. Devuelve qué se cambió y el enlace.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -135,7 +141,7 @@ const TOOLS = [
     name: 'crear_carpeta',
     title: 'Crear carpeta o cuaderno',
     description:
-      'Crea una carpeta (agrupa cuadernos) o un cuaderno (tiene páginas). Un cuaderno puede ir dentro de otro como sección; una carpeta no va dentro de un cuaderno. Máximo 4 niveles.',
+      'Crea una carpeta (agrupa cuadernos) o un cuaderno (tiene páginas). Un cuaderno puede ir dentro de otro como sección; una carpeta no va dentro de un cuaderno. Máximo 4 niveles. Si ya existe uno con ese nombre en el mismo lugar, no crea otro y devuelve el existente. Devuelve el id.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -151,7 +157,7 @@ const TOOLS = [
   {
     name: 'conectar_paginas',
     title: 'Conectar dos páginas',
-    description: 'Une dos páginas en el mapa del cuaderno, con el motivo de la conexión.',
+    description: 'Conecta dos páginas existentes (por sus ids) en el mapa del cuaderno, con el motivo en una frase. Si ya estaban conectadas, lo dice y no duplica. Para conectar una página nueva al crearla, usa "relacionadas" en crear_pagina.',
     inputSchema: {
       type: 'object',
       properties: { a_id: str('Id de una página'), b_id: str('Id de la otra'), motivo: str('Por qué se conectan (una frase)', { maxLength: 300 }) },
@@ -164,7 +170,7 @@ const TOOLS = [
     name: 'crear_tarjetas',
     title: 'Crear tarjetas de repaso',
     description:
-      'Crea tarjetas de repaso espaciado (pregunta → respuesta) atadas a una página; aparecen hoy en Repaso y vuelven cada vez más espaciadas. Ideal para vocabulario y exámenes. Hasta 40 por vez.',
+      'Crea tarjetas de repaso espaciado (pregunta → respuesta) atadas a una página existente (pagina_id); aparecen hoy en Repaso y vuelven cada vez más espaciadas. Ideal para vocabulario y exámenes. Hasta 40 por vez. Devuelve cuántas se crearon.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -188,7 +194,7 @@ const TOOLS = [
   {
     name: 'tarjetas_para_hoy',
     title: 'Tarjetas para repasar hoy',
-    description: 'Las tarjetas que tocan hoy (primero las más atrasadas). Para tomarle examen: pregunta de a una y no muestres la respuesta antes.',
+    description: 'Devuelve las tarjetas de repaso que tocan hoy (primero las más atrasadas), con su id, pregunta y respuesta. Para tomarle examen al usuario: pregunta de a una, no muestres la respuesta antes y registra cada resultado con registrar_repaso. Solo de lectura.',
     inputSchema: { type: 'object', properties: { limite: { type: 'integer', minimum: 1, maximum: 30, description: 'Cuántas (10 por defecto)' } } },
     annotations: READ,
     write: false,
@@ -196,7 +202,7 @@ const TOOLS = [
   {
     name: 'registrar_repaso',
     title: 'Registrar un repaso',
-    description: 'Anota si el usuario se acordó de una tarjeta: si se acordó sube de caja y vuelve más tarde; si no, vuelve a empezar. Cuenta para su racha.',
+    description: 'Registra si el usuario se acordó de una tarjeta (tarjeta_id de tarjetas_para_hoy): si se acordó sube de caja y vuelve más tarde; si no, vuelve a empezar. Cuenta para su racha. Llámala una vez por tarjeta respondida.',
     inputSchema: {
       type: 'object',
       properties: { tarjeta_id: str('Id de la tarjeta'), me_acorde: { type: 'boolean', description: 'true si se acordó' } },
@@ -282,16 +288,20 @@ function plain(md: string) {
 /** El Markdown de Claude, listo para el editor: títulos hasta ###, y [[Título]] → enlace a esa página. */
 function prepare(md: string, byTitle: Map<string, { id: string; title: string }>) {
   const targets = new Set<string>()
+  const missing = new Set<string>()
   const body = md
     .replace(/\r\n/g, '\n')
     .replace(/^#{4,6}\s/gm, '### ')
     .replace(/\[\[([^[\]|\n]{1,160})(?:\|([^[\]\n]{1,160}))?\]\]/g, (m, t: string, alias?: string) => {
       const hit = byTitle.get(fold(t))
-      if (!hit) return m
+      if (!hit) {
+        missing.add(t.trim())
+        return m
+      }
       targets.add(hit.id)
       return `[${(alias ?? hit.title).replace(/[[\]]/g, '')}](${NOTE_HREF}${hit.id})`
     })
-  return { body, targets: [...targets] }
+  return { body, targets: [...targets], missing: [...missing] }
 }
 /** Al revés, para leer: los enlaces a tus páginas se muestran como [[Título]]. */
 function toWiki(md: string, byId: Map<string, string>) {
@@ -309,12 +319,17 @@ const titleMap = (all: NoteRow[]) => {
   return m
 }
 
-async function linkAll(ctx: Ctx, from: string, targets: string[]) {
-  for (const b of targets) {
+/** Conecta from con cada destino y cuenta lo que de verdad pasó (las ya conectadas no se duplican). */
+async function linkAll(ctx: Ctx, from: string, targets: string[], reason = 'Enlazadas con [[…]] (desde Claude)') {
+  const r = { nuevas: [] as string[], ya: [] as string[], fallidas: [] as string[] }
+  for (const b of new Set(targets)) {
     if (b === from) continue
-    // el índice único evita duplicados: si ya estaban conectadas, no pasa nada
-    await ctx.db.from('cuaderno_links').insert({ user_id: ctx.uid, a_id: from, b_id: b, reason: 'Enlazadas con [[…]] (desde Claude)' })
+    const { error } = await ctx.db.from('cuaderno_links').insert({ user_id: ctx.uid, a_id: from, b_id: b, reason })
+    if (!error) r.nuevas.push(b)
+    else if (error.code === '23505') r.ya.push(b)
+    else r.fallidas.push(b)
   }
+  return r
 }
 
 async function embedNotes(ctx: Ctx, ids: string[]) {
@@ -411,7 +426,7 @@ export async function callTool(name: string, args: Args, ctx: Ctx): Promise<Resu
       case 'leer_pagina':
         return await leerPagina(ctx, args)
       case 'crear_pagina':
-        return await crearPaginas(ctx, { ...args, paginas: [{ titulo: args.titulo, contenido: args.contenido, tema: args.tema, tema_id: args.tema_id }] })
+        return await crearPaginas(ctx, { ...args, paginas: [{ titulo: args.titulo, contenido: args.contenido, tema: args.tema, tema_id: args.tema_id, relacionadas: args.relacionadas }] })
       case 'crear_paginas':
         return await crearPaginas(ctx, args)
       case 'editar_pagina':
@@ -563,7 +578,13 @@ async function leerPagina(ctx: Ctx, args: Args) {
 
 async function crearPaginas(ctx: Ctx, args: Args) {
   const raw = Array.isArray(args.paginas) ? (args.paginas as Args[]).slice(0, 30) : []
-  const items = raw.map((p) => ({ titulo: asStr(p.titulo, 160).trim(), contenido: asStr(p.contenido, MAX_BODY), tema: asStr(p.tema, 160).trim(), tema_id: asStr(p.tema_id, 60) }))
+  const items = raw.map((p) => ({
+    titulo: asStr(p.titulo, 160).trim(),
+    contenido: asStr(p.contenido, MAX_BODY),
+    tema: asStr(p.tema, 160).trim(),
+    tema_id: asStr(p.tema_id, 60),
+    relacionadas: (Array.isArray(p.relacionadas) ? p.relacionadas : []).map((x) => asStr(x, 160).trim()).filter(Boolean).slice(0, 20),
+  }))
   if (!items.length || items.some((p) => !p.titulo)) return oops('Cada página necesita un título.')
   const [bs, ns] = await Promise.all([books(ctx), notes(ctx)])
   const where = await bookFor(ctx, args, bs)
@@ -611,17 +632,35 @@ async function crearPaginas(ctx: Ctx, args: Args) {
     titles.set(fold(p.titulo), { id: data.id, title: data.title })
   }
   // el contenido va después: así [[…]] puede enlazar también páginas del mismo lote
+  // cada línea cuenta lo que de verdad quedó: contenido guardado, conexiones hechas y lo que no se encontró
+  const nombre = (id: string) => made.find((m) => m.id === id)?.title ?? ns.find((m) => m.id === id)?.title ?? id
+  let avisos = 0
   for (let i = 0; i < made.length; i++) {
-    const { body, targets } = prepare(items[i].contenido, titles)
-    if (body.trim()) await ctx.db.from('cuaderno_notes').update({ body: body.slice(0, MAX_BODY) }).eq('id', made[i].id).eq('user_id', ctx.uid)
-    await linkAll(ctx, made[i].id, targets)
-    lines.push(`- ${made[i].title} [${made[i].id}]${made[i].parent_note_id ? ` (subnota de ${made.find((m) => m.id === made[i].parent_note_id)?.title ?? ns.find((m) => m.id === made[i].parent_note_id)?.title})` : ''}\n  ${linkOf(ctx, made[i].id)}`)
+    const { body, targets, missing } = prepare(items[i].contenido, titles)
+    const notas: string[] = []
+    if (body.trim()) {
+      const { error } = await ctx.db.from('cuaderno_notes').update({ body: body.slice(0, MAX_BODY) }).eq('id', made[i].id).eq('user_id', ctx.uid)
+      if (error) notas.push('⚠️ la página quedó creada pero SIN contenido (no se pudo guardar): reintenta con editar_pagina')
+    }
+    const rel = items[i].relacionadas.map((r) => (UUID.test(r) ? (made.find((m) => m.id === r) ?? ns.find((m) => m.id === r))?.id : titles.get(fold(r))?.id))
+    const noHallo = items[i].relacionadas.filter((_, k) => !rel[k])
+    const enlaces = await linkAll(ctx, made[i].id, [...targets, ...rel.filter((x): x is string => Boolean(x))])
+    if (enlaces.nuevas.length) notas.push(`conectada con: ${enlaces.nuevas.map(nombre).join(', ')}`)
+    if (enlaces.ya.length) notas.push(`ya estaba conectada con: ${enlaces.ya.map(nombre).join(', ')}`)
+    if (enlaces.fallidas.length) notas.push(`⚠️ no pude conectarla con: ${enlaces.fallidas.map(nombre).join(', ')}`)
+    if (noHallo.length) notas.push(`⚠️ no encontré (no quedaron conectadas): ${noHallo.join(', ')}`)
+    if (missing.length) notas.push(`⚠️ [[…]] sin página con ese título (quedó como texto): ${missing.join(', ')}`)
+    avisos += notas.filter((n) => n.startsWith('⚠️')).length
+    lines.push(
+      `- ${made[i].title} [${made[i].id}]${made[i].parent_note_id ? ` (subnota de ${nombre(made[i].parent_note_id!)})` : ''}\n  ${linkOf(ctx, made[i].id)}${notas.map((n) => `\n  ${n}`).join('')}`,
+    )
   }
   await embedNotes(ctx, made.map((m) => m.id))
   const all = [...bs]
   const place = pathOf(made[0].book_id, all)
   const extra = where.created.length ? `\nCreé también: ${where.created.join(', ')}.` : ''
-  return text(`${made.length === 1 ? 'Creé la página' : `Creé ${made.length} páginas`} en ${place}:${extra}\n${lines.join('\n')}`)
+  const ojo = avisos ? `\n\nOjo: ${avisos === 1 ? 'hay 1 aviso' : `hay ${avisos} avisos`} (⚠️). Cuéntaselo al usuario tal cual; no digas que se hizo lo que no se hizo.` : ''
+  return text(`${made.length === 1 ? 'Creé la página' : `Creé ${made.length} páginas`} en ${place}:${extra}\n${lines.join('\n')}${ojo}`)
 }
 
 async function editarPagina(ctx: Ctx, args: Args) {
@@ -633,17 +672,24 @@ async function editarPagina(ctx: Ctx, args: Args) {
   const titulo = asStr(args.titulo, 160).trim()
   const add = asStr(args.contenido, MAX_BODY)
   if (!add.trim() && !titulo) return oops('No hay nada que cambiar.')
-  const { body, targets } = prepare(add, titleMap(await notes(ctx)))
+  const all = await notes(ctx)
+  const { body, targets, missing } = prepare(add, titleMap(all))
   const next = !add.trim() ? n.body : mode === 'agregar' ? `${n.body.trimEnd()}${n.body.trim() ? '\n\n' : ''}${body.trim()}` : body.trim()
   if (next.length > MAX_BODY) return oops(`La página quedaría demasiado larga (máximo ${MAX_BODY} caracteres). Crea una subnota con crear_pagina y "tema".`)
   const patch: Record<string, string> = { body: next }
   if (titulo) patch.title = titulo
   const { error } = await ctx.db.from('cuaderno_notes').update(patch).eq('id', id).eq('user_id', ctx.uid)
   if (error) return oops('No pude guardar el cambio.')
-  await linkAll(ctx, id, targets)
+  const enlaces = await linkAll(ctx, id, targets)
   await embedNotes(ctx, [id])
+  const nombre = (x: string) => all.find((m) => m.id === x)?.title ?? x
   const what = !add.trim() ? 'Le cambié el título' : mode === 'agregar' ? 'Agregué el contenido al final de' : 'Reescribí'
-  return text(`${what} «${titulo || n.title}».\n${linkOf(ctx, id)}`)
+  const notas = [
+    enlaces.nuevas.length ? `conectada ahora con: ${enlaces.nuevas.map(nombre).join(', ')}` : '',
+    enlaces.fallidas.length ? `⚠️ no pude conectarla con: ${enlaces.fallidas.map(nombre).join(', ')}` : '',
+    missing.length ? `⚠️ [[…]] sin página con ese título (quedó como texto): ${missing.join(', ')}` : '',
+  ].filter(Boolean)
+  return text(`${what} «${titulo || n.title}».\n${linkOf(ctx, id)}${notas.map((x) => `\n${x}`).join('')}`)
 }
 
 async function crearCarpeta(ctx: Ctx, args: Args) {
