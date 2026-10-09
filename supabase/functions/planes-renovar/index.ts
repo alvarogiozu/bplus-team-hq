@@ -193,9 +193,9 @@ Deno.serve(async (req) => {
     for (const a of (data ?? []) as Aviso[]) {
       const { data: ren } = await admin.from('planes_renovacion').select('periodo').eq('user_id', a.usuario).is('space_id', null).maybeSingle()
       const { data: sus } = await admin.from('planes_suscripciones').select('tarifa').eq('user_id', a.usuario).maybeSingle()
-      const precio =
-        precios?.find((x) => x.plan === a.plan_id && x.tarifa === (sus?.tarifa === 'estudiante' ? 'estudiante' : 'normal') && x.periodo === (ren?.periodo ?? 'mes'))
-          ?.centimos ?? null
+      // su tarifa (estudiante o fundador) si tiene precio; si no, la normal
+      const de = (t: string) => precios?.find((x) => x.plan === a.plan_id && x.tarifa === t && x.periodo === (ren?.periodo ?? 'mes'))?.centimos
+      const precio = de(sus?.tarifa ?? 'normal') ?? de('normal') ?? null
       const t = textoAviso(a, precio)
       const r = await fetch('https://api.resend.com/emails', {
         method: 'POST',

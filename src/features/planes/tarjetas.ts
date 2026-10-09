@@ -1,20 +1,33 @@
-import { PRECIOS, soles, type PlanId } from '../../lib/planes'
+import { soles, type PlanId } from '../../lib/planes'
+import { precioDe, type Precio } from '../../lib/precios'
 
 // Lo que incluye cada plan, como se le cuenta a la persona (Tu plan y la página pública de rockie.plus).
 // «pronto» = todavía no existe: se muestra como «muy pronto», nunca como si ya estuviera.
+// Los precios salen de la base (planes_precios), así cambian solos el día que se activan los precios nuevos.
 
 export type Tarjeta = {
   id: PlanId | 'club'
-  precio: string
-  nota?: string
   lema: string
   incluye: { t: string; pronto?: boolean }[]
+}
+
+/** «S/ 24.90 al mes» y su nota (estudiantes, por equipo) con los precios de la base. */
+export function precioTarjeta(id: Tarjeta['id'], precios: Precio[]): { precio: string; nota?: string } {
+  if (id === 'gratis') return { precio: 'S/ 0' }
+  const s = (p: Precio | undefined) => (p ? soles(p.centimos / 100) : '—')
+  const precio = `${s(precioDe(precios, id, 'normal', 'mes'))} al mes`
+  if (id === 'club') return { precio, nota: 'por equipo' }
+  if (id === 'plus') {
+    const mes = precioDe(precios, 'plus', 'estudiante', 'mes')
+    const ciclo = precioDe(precios, 'plus', 'estudiante', 'ciclo')
+    return { precio, nota: mes && ciclo ? `Estudiantes: ${s(mes)} al mes o ${s(ciclo)} el ciclo` : undefined }
+  }
+  return { precio }
 }
 
 export const TARJETAS: Tarjeta[] = [
   {
     id: 'gratis',
-    precio: 'S/ 0',
     lema: 'Lo esencial, para siempre',
     incluye: [
       { t: 'Agenda y Cuaderno completos' },
@@ -27,8 +40,6 @@ export const TARJETAS: Tarjeta[] = [
   },
   {
     id: 'plus',
-    precio: `${soles(PRECIOS.plus.normal)} al mes`,
-    nota: `Estudiantes: ${soles(PRECIOS.plus.estudiante)} al mes o ${soles(PRECIOS.plus.ciclo)} el ciclo`,
     lema: 'Sin límites para tu día a día',
     incluye: [
       { t: 'Hábitos y pizarras sin límite' },
@@ -44,7 +55,6 @@ export const TARJETAS: Tarjeta[] = [
   },
   {
     id: 'pro',
-    precio: `${soles(PRECIOS.pro.normal)} al mes`,
     lema: 'Para quien lo usa todo',
     incluye: [
       { t: 'Todo lo de Plus' },
@@ -56,8 +66,6 @@ export const TARJETAS: Tarjeta[] = [
   },
   {
     id: 'club',
-    precio: `${soles(PRECIOS.club.normal)} al mes`,
-    nota: 'por equipo',
     lema: 'Para clubes y organizaciones',
     incluye: [
       { t: 'Personas sin límite en el equipo' },

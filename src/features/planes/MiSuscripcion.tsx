@@ -4,9 +4,10 @@ import { Icon } from '../../components/Icon'
 import { Sheet } from '../../components/Sheet'
 import { toast, toastError } from '../../components/Toasts'
 import { NOMBRE_PLAN, PLAN_KEY, soles, usePlan, type Renovacion } from '../../lib/planes'
-import { CADA, precioDe, usePrecios, type Periodo, type PlanPago } from '../../lib/precios'
+import { CADA, usePrecios, type Periodo, type PlanPago } from '../../lib/precios'
 import { humanError, supabase } from '../../lib/supabase'
 import { linkDeInvitacion } from './referidos'
+import { precioTarifa, useMiTarifa } from './tarifa'
 
 // Lo de tu suscripción en «Tu plan»: renovación automática, pausa, tus clubes, avisos por correo e invitar amigos.
 // Todo se cambia con un clic y nada castiga: cancelar la renovación no te quita lo que ya pagaste.
@@ -65,10 +66,12 @@ export function RenovacionCard({ plan, pedir }: { plan: Plan; pedir: PedirCompra
   const r = plan.renovacion
   const acc = useRenovacion()
   const [confirmar, setConfirmar] = useState(false)
+  const planR = (r?.plan ?? s?.plan ?? 'plus') as PlanPago
+  // la renovación cobra con tu tarifa de hoy (estudiante, fundador o normal), igual que planes-renovar
+  const tarifa = useMiTarifa(planR, Boolean(plan.estudiante_hasta))
   const vigente = s?.hasta && ['activo', 'por_vencer', 'gracia'].includes(plan.estado)
   if (!r && !(vigente && s && (s.origen === 'culqi' || s.origen === 'regalo'))) return null
-  const tarifa = s?.tarifa === 'estudiante' ? 'estudiante' : 'normal'
-  const precio = r ? precioDe(precios, (r.plan ?? s?.plan ?? 'plus') as PlanPago, tarifa, r.periodo) ?? precioDe(precios, (r.plan ?? 'plus') as PlanPago, tarifa, 'mes') : null
+  const precio = r ? precioTarifa(precios, planR, tarifa, r.periodo) ?? precioTarifa(precios, planR, tarifa, 'mes') : null
 
   return (
     <section className="cuenta-card pl-seccion" aria-label="Renovación automática">

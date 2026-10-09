@@ -156,9 +156,12 @@ async function atender(req: Request): Promise<Response> {
     }
   }
 
-  // ——— el precio: el de estudiante solo si está verificado; el ciclo es solo para estudiantes ———
+  // ——— el precio: estudiante verificado > fundador (cuando hay precios nuevos) > normal; el ciclo es solo para estudiantes ———
   let tarifa = 'normal'
-  if (plan === 'plus') {
+  const { data: suya, error: te } = await admin.rpc('planes_tarifa_de', { p_user: user.id, p_plan: plan })
+  if (!te && typeof suya === 'string') tarifa = suya
+  else if (plan === 'plus') {
+    // respaldo si la base todavía no tiene planes_tarifa_de (migración 20261016120500)
     const { data: est } = await admin.from('planes_estudiantes').select('hasta').eq('user_id', user.id).maybeSingle()
     if (est && new Date(est.hasta).getTime() > Date.now()) tarifa = 'estudiante'
   }

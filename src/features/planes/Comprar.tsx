@@ -6,10 +6,11 @@ import { Sheet } from '../../components/Sheet'
 import { toast } from '../../components/Toasts'
 import { huella3DS, modoPrueba, tarjetaConCulqi, tokenYape, verificar3DS, type Resultado3DS } from '../../lib/culqi'
 import { NOMBRE_PLAN, PLAN_KEY, soles, usePlan } from '../../lib/planes'
-import { CADA, DURACION, precioDe, usePrecios, type Periodo, type PlanPago } from '../../lib/precios'
+import { CADA, DURACION, usePrecios, type Periodo, type PlanPago } from '../../lib/precios'
 import { supabase } from '../../lib/supabase'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { guardarRecuerdo, leerRecuerdo } from './recuerdo'
+import { precioTarifa, preciosNuevos, useMiTarifa } from './tarifa'
 
 // Suscribirte (o renovar) Plus, Pro o Club: mensual, por ciclo (estudiantes) o anual, con Yape o tarjeta.
 // - Yape se paga aquí mismo: celular + código de aprobación de la app Yape (el token se pide a Culqi desde aquí).
@@ -79,12 +80,14 @@ export function ComprarPlan({
   const qc = useQueryClient()
   const precios = usePrecios()
   const rec = useMemo(leerRecuerdo, [])
-  const tarifa = plan === 'plus' && estudiante ? 'estudiante' : 'normal'
-  const de = (p: Periodo) => precioDe(precios, plan, tarifa, p)
+  const tarifa = useMiTarifa(plan, estudiante)
+  const de = (p: Periodo) => precioTarifa(precios, plan, tarifa, p)
   const opciones = (['mes', 'ciclo', 'anio'] as Periodo[]).filter((p) => de(p))
   const mes = de('mes')
-  // el anual va primero elegido (es lo que más conviene); al renovar, lo mismo que la última vez
-  const [periodo, setPeriodo] = useState<Periodo>(periodoInicial && de(periodoInicial) ? periodoInicial : de('anio') ? 'anio' : 'mes')
+  // el anual va primero elegido (es lo que más conviene); con los precios nuevos, el estudiante ve primero el ciclo;
+  // al renovar, lo mismo que la última vez
+  const primero: Periodo = tarifa === 'estudiante' && preciosNuevos(precios) && de('ciclo') ? 'ciclo' : de('anio') ? 'anio' : 'mes'
+  const [periodo, setPeriodo] = useState<Periodo>(periodoInicial && de(periodoInicial) ? periodoInicial : primero)
   const [metodo, setMetodo] = useState<'yape' | 'tarjeta'>(metodoInicial ?? rec.metodo ?? 'yape')
   const [celular, setCelular] = useState(rec.celular ?? '')
   const [codigo, setCodigo] = useState('')
@@ -240,6 +243,11 @@ export function ComprarPlan({
         {tarifa === 'estudiante' && (
           <p className="pl-est-ok">
             <Icon name="check" className="sm" /> Precio de estudiante{opciones.includes('ciclo') ? ' · el ciclo dura un semestre' : ''}
+          </p>
+        )}
+        {tarifa === 'fundador' && (
+          <p className="pl-est-ok">
+            <Icon name="check" className="sm" /> Precio fundador: el de antes, para siempre
           </p>
         )}
 

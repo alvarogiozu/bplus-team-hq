@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Select } from '../../components/Select'
 import { toast, toastError } from '../../components/Toasts'
-import { NOMBRE_PLAN, PLAN_KEY, PRECIOS, soles, usePlan, type Clave, type PlanId } from '../../lib/planes'
-import type { Periodo, PlanPago } from '../../lib/precios'
+import { NOMBRE_PLAN, PLAN_KEY, soles, usePlan, type Clave, type PlanId } from '../../lib/planes'
+import { precioDe, usePrecios, type Periodo, type PlanPago, type Precio } from '../../lib/precios'
 import { humanError, supabase } from '../../lib/supabase'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { Marco } from '../cuenta/CuentaPages'
@@ -13,7 +13,7 @@ import { pagoEnLinea } from '../../lib/culqi'
 import { esAppNativa, plataformaNativa, TEXTO_PLAN_NATIVO } from '../../lib/appNativa'
 import { ComprarPlan } from './Comprar'
 import { AvisosCard, ClubesCard, InvitarCard, PausaCard, RenovacionCard, type PedirCompra } from './MiSuscripcion'
-import { TARJETAS } from './tarjetas'
+import { precioTarjeta, TARJETAS } from './tarjetas'
 import './planes.css'
 
 // Tus planes: cuál tienes, cuánto llevas usado, qué trae cada uno y cómo activarlo o renovarlo (Yape o tarjeta,
@@ -34,6 +34,9 @@ const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-PE', { day: 
 
 export default function PlanesPage() {
   const plan = usePlan()
+  // los montos salen de la base (planes_precios): cambian solos el día que se activan los precios nuevos
+  const precios = usePrecios()
+  const sol = (p: Precio | undefined) => (p ? soles(p.centimos / 100) : '—')
   const { userId } = useMe()
   const { session } = useAuth()
   const qc = useQueryClient()
@@ -231,14 +234,15 @@ export default function PlanesPage() {
       {!nativa && <div className="pl-grid">
         {TARJETAS.map((t) => {
           const es = t.id === actual
+          const pt = precioTarjeta(t.id, precios)
           return (
             <article key={t.id} className={`pl-card pl-${t.id}${es ? ' es' : ''}`} aria-label={`Plan ${NOMBRE_PLAN[t.id]}`}>
               {es && <span className="pl-tuyo">Tu plan</span>}
               <h2>{NOMBRE_PLAN[t.id]}</h2>
               <p className="pl-lema">{t.lema}</p>
               <p className="pl-precio">
-                <b>{t.precio}</b>
-                {t.nota && <small>{t.nota}</small>}
+                <b>{pt.precio}</b>
+                {pt.nota && <small>{pt.nota}</small>}
               </p>
               <ul>
                 {t.incluye.map((x) => (
@@ -329,14 +333,14 @@ export default function PlanesPage() {
         <h2>Precio de estudiante</h2>
         {estudiante ? (
           <p className="hint">
-            Ya estás verificado: Plus te cuesta <b>{soles(PRECIOS.plus.estudiante)} al mes</b> o <b>{soles(PRECIOS.plus.ciclo)} por ciclo</b> (4 meses, un solo
+            Ya estás verificado: Plus te cuesta <b>{sol(precioDe(precios, 'plus', 'estudiante', 'mes'))} al mes</b> o <b>{sol(precioDe(precios, 'plus', 'estudiante', 'ciclo'))} por ciclo</b> (4 meses, un solo
             pago). Se renueva cada año con tu correo de la universidad.
           </p>
         ) : (
           <>
             <p className="hint">
-              Con el correo de tu universidad, Plus te cuesta <b>{soles(PRECIOS.plus.estudiante)} al mes</b> en lugar de {soles(PRECIOS.plus.normal)}, o{' '}
-              <b>{soles(PRECIOS.plus.ciclo)} por todo el ciclo</b>. Solo guardamos que eres estudiante y hasta cuándo.
+              Con el correo de tu universidad, Plus te cuesta <b>{sol(precioDe(precios, 'plus', 'estudiante', 'mes'))} al mes</b> en lugar de{' '}
+              {sol(precioDe(precios, 'plus', 'normal', 'mes'))}, o <b>{sol(precioDe(precios, 'plus', 'estudiante', 'ciclo'))} por todo el ciclo</b>. Solo guardamos que eres estudiante y hasta cuándo.
             </p>
             <button className="btn ghost sm" disabled={verificando} onClick={() => void verificar()}>
               <Icon name="check" className="sm" /> {verificando ? 'Revisando…' : 'Verificar con mi correo'}
