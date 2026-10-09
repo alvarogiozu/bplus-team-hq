@@ -24,6 +24,29 @@ export const cargoOk = (r: Respuesta) => r.status === 201 && r.j?.object === 'ch
 export const mensajeCulqi = (j: Record<string, any> | undefined) =>
   (j?.user_message as string | undefined) || (j?.outcome?.user_message as string | undefined) || (j?.merchant_message as string | undefined) || ''
 
+/**
+ * Borrar en Culqi lo que guardó para renovar (al borrar la cuenta): cada tarjeta y, si nadie más lo usa, su cliente
+ * (que tiene nombre, celular, ciudad y correo). Mejor esfuerzo: lo que falle se cuenta, no corta el borrado.
+ * `otrosUsan(cliente)` dice si otra cuenta de Rockie sigue renovando con ese cliente (Culqi lo reusa por correo).
+ */
+export async function olvidarEnCulqi(
+  secreta: string,
+  filas: { culqi_cliente: string; culqi_tarjeta: string }[],
+  otrosUsan: (cliente: string) => Promise<boolean>,
+): Promise<{ tarjetas: number; clientes: number; fallos: number }> {
+  const r = { tarjetas: 0, clientes: 0, fallos: 0 }
+  const borrar = async (ruta: string) => {
+    const x = await culqi(secreta, ruta, undefined, 'DELETE').catch(() => null)
+    return Boolean(x && x.status >= 200 && x.status < 300)
+  }
+  for (const f of filas) (await borrar(`/cards/${f.culqi_tarjeta}`)) ? r.tarjetas++ : r.fallos++
+  for (const c of new Set(filas.map((f) => f.culqi_cliente))) {
+    if (await otrosUsan(c).catch(() => true)) continue
+    ;(await borrar(`/customers/${c}`)) ? r.clientes++ : r.fallos++
+  }
+  return r
+}
+
 /** Lo que devuelve Culqi3DS en el navegador, limpio (solo cadenas cortas y las claves que espera Culqi). */
 export function limpiar3DS(x: unknown): Record<string, string> | undefined {
   if (!x || typeof x !== 'object') return undefined

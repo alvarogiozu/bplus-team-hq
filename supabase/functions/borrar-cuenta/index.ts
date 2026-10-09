@@ -4,11 +4,12 @@
 //      todas sus cuentas de Hábitos, también las duplicadas viejas del puente).
 //   2. Sus equipos: si hay más gente, el dueño pasa al miembro más antiguo; si estaba solo, el equipo se borra entero
 //      (preparar_borrado_cuenta) con sus archivos de materiales y pruebas.
-//   3. Sus archivos del Cuaderno (carpeta suya en el bucket cuaderno).
+//   3. Sus archivos del Cuaderno (carpeta suya en el bucket cuaderno), y en Culqi su tarjeta guardada y su cliente.
 //   4. Su usuario: la base borra en cascada todo lo suyo (Agenda, Cuaderno, Cofre, planes, chat con Rockie…).
 //      Los pagos se conservan sin dueño (SUNAT); lo que hizo en equipos queda sin autor.
 // Lo de afuera (Hábitos, archivos) es «mejor esfuerzo»: si falla, se sigue igual hasta borrar el usuario.
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { olvidarEnCulqi } from '../_shared/culqi.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -76,6 +77,17 @@ Deno.serve(async (req) => {
   // 3. Cuaderno
   archivos += await borrarCarpeta(admin, 'cuaderno', uid).catch(() => 0)
   hecho.archivos = archivos
+
+  // 3b. Culqi: la tarjeta guardada para renovar y su cliente (nombre, celular, ciudad, correo) se borran allá;
+  //     planes_renovacion se va en la cascada. Mejor esfuerzo, como Hábitos y los archivos.
+  const secreta = Deno.env.get('CULQI_SECRET_KEY')
+  const { data: renov } = await admin.from('planes_renovacion').select('culqi_cliente, culqi_tarjeta').eq('user_id', uid)
+  if (secreta && renov?.length) {
+    hecho.culqi = await olvidarEnCulqi(secreta, renov, async (c) => {
+      const { count } = await admin.from('planes_renovacion').select('id', { count: 'exact', head: true }).eq('culqi_cliente', c).neq('user_id', uid)
+      return (count ?? 0) > 0
+    }).catch((e) => `error ${(e as Error).message}`)
+  }
 
   // 4. el usuario (cascada en la base)
   const { error } = await admin.auth.admin.deleteUser(uid)
