@@ -5,6 +5,7 @@
 //   embed     -> huellas de significado para "parecidas"
 import Anthropic from 'npm:@anthropic-ai/sdk'
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { anotarUso, tokensClaude, tokensGemini } from './ia-uso.ts'
 
 export type Tool = { name: string; description: string; strict?: boolean; input_schema: Record<string, unknown> }
 export type Call = { name: string; args: Record<string, unknown> }
@@ -140,6 +141,7 @@ async function gemini(
   const attempts = p.models.flatMap((m) => [m, m]) // cada modelo, dos veces: el 503 "saturado" suele pasar en 1-2 s
   // Supabase corta la función a los ~150 s: mejor rendirse a tiempo y responder con un error claro
   const deadline = p.deadline ?? Date.now() + 140_000
+  const t0 = Date.now()
   let outOfTime = false
   for (let i = 0; i < attempts.length; i++) {
     const model = attempts[i]
@@ -188,6 +190,7 @@ async function gemini(
     console.error('gemini next', model, res.status, t)
     trail.push(`${model}: ${res.status} ${t}`)
   }
+  if (!res?.ok) anotarUso({ proveedor: 'gemini', modelo: used, entrada: 0, salida: 0, cache: 0, ms: Date.now() - t0, ok: false })
   if (outOfTime && !res?.ok) return { ok: false, status: 504, error: SLOW, detail: trail.join(' | ') }
   if (!res) return { ok: false, status: 502, error: CANT, detail: trail.join(' | ') }
   if (res.status === 429) return { ok: false, status: 429, error: SATURATED }
@@ -203,12 +206,14 @@ async function gemini(
   }
   if (!res.ok) return { ok: false, status: 502, error: CANT, detail: trail.join(' | ') }
   const data = await res.json()
+  anotarUso({ proveedor: 'gemini', modelo: used, ...tokensGemini(data), ms: Date.now() - t0, ok: true })
   const parts: GPart[] = data?.candidates?.[0]?.content?.parts ?? []
   return { ok: true, parts, model: used }
 }
 
 async function claudeTools(apiKey: string, p: { system: string; prompt: string; tools: Tool[] }): Promise<LlmResult> {
   const client = new Anthropic({ apiKey })
+  const t0 = Date.now()
   try {
     const params = {
       model: MODEL,
@@ -222,6 +227,7 @@ async function claudeTools(apiKey: string, p: { system: string; prompt: string; 
       messages: [{ role: 'user', content: p.prompt }],
     }
     const res = await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
+    anotarUso({ proveedor: 'claude', modelo: res.model, ...tokensClaude(res.usage), ms: Date.now() - t0, ok: true })
     if (res.stop_reason === 'refusal') return { ok: true, say: 'Eso prefiero no procesarlo. Quedó guardado en tu diario.', calls: [] }
     let say = ''
     const calls: Call[] = []
@@ -237,6 +243,7 @@ async function claudeTools(apiKey: string, p: { system: string; prompt: string; 
 
 async function claudeText(apiKey: string, system: string, turns: Turn[], maxTokens = 1200): Promise<TextResult> {
   const client = new Anthropic({ apiKey })
+  const t0 = Date.now()
   try {
     const params = {
       model: MODEL,
@@ -248,6 +255,7 @@ async function claudeText(apiKey: string, system: string, turns: Turn[], maxToke
       messages: turns.map((t) => ({ role: t.role === 'model' ? 'assistant' : 'user', content: t.text })),
     }
     const res = await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
+    anotarUso({ proveedor: 'claude', modelo: res.model, ...tokensClaude(res.usage), ms: Date.now() - t0, ok: true })
     const text = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('').trim()
     return text ? { ok: true, text, model: MODEL } : { ok: false, status: 502, error: CANT }
   } catch (e) {
@@ -270,6 +278,7 @@ export async function embed(texts: string[]): Promise<number[][] | null> {
   const key = Deno.env.get('GEMINI_API_KEY')
   if (!key || !texts.length) return null
   const model = Deno.env.get('GEMINI_EMBED_MODEL') || 'gemini-embedding-001'
+  const t0 = Date.now()
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents`, {
       method: 'POST',
@@ -289,6 +298,8 @@ export async function embed(texts: string[]): Promise<number[][] | null> {
       return null
     }
     const data = await res.json()
+    // embeddings no devuelve tokens: ~4 caracteres por token
+    anotarUso({ proveedor: 'gemini', modelo: model, entrada: texts.reduce((n, t) => n + Math.min(t.length, 8000), 0) / 4, salida: 0, cache: 0, ms: Date.now() - t0, ok: true })
     const out: number[][] = (data?.embeddings ?? []).map((e: { values: number[] }) => {
       const n = Math.hypot(...e.values) || 1
       return e.values.map((v) => v / n)

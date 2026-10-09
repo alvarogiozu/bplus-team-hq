@@ -584,6 +584,44 @@
         "clave": "qué cupo se contó (p. ej. buscar_hueco_mes): solo la cantidad, nunca el contenido"
       }
     },
+    "ia_uso": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "funcion": "qué función de Rockie usó la IA (chat, cuaderno_preguntar…): para medir el costo, nunca el contenido",
+        "plan": "plan de la persona en ese momento (costo por plan)",
+        "tarifa": "tarifa del plan en ese momento (costo por plan)",
+        "proveedor": "gemini o claude (costo por proveedor)",
+        "modelo": "nombre del modelo (para su precio)"
+      }
+    },
+    "ia_precios": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "patron": "nombre de modelo (precio público del proveedor)",
+        "nota": "nota interna sobre el precio"
+      }
+    },
+    "ia_margen_plan": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "plan": "nombre del plan (precio público)",
+        "tarifa": "nombre de la tarifa (precio público)"
+      }
+    },
+    "ia_config": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "clave": "nombre de un parámetro interno (tipo de cambio, margen mínimo)"
+      }
+    },
     "planes_precios": {
       "llave": "ninguna",
       "estado": "activo",

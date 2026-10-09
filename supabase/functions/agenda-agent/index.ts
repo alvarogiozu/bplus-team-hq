@@ -4,6 +4,7 @@
 // la RLS del HQ y de la agenda sigue mandando.
 import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { anotarUso, quienIA, tokensClaude, tokensGemini } from '../_shared/ia-uso.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -486,7 +487,8 @@ Deno.serve(async (req) => {
     content: `<contexto>\n${JSON.stringify(ctx)}\n</contexto>\n\nOrden: ${text}`,
   })
 
-  const respuesta = await (async (): Promise<Response> => {
+  const funcion = body.scope === 'os' ? 'chat' : body.scope === 'hq' ? 'equipo' : 'agenda'
+  const respuesta = await quienIA.run({ user: user.id, funcion }, async (): Promise<Response> => {
   if (PROVIDER === 'gemini') return askGemini(apiKey, history, `<contexto>
 ${JSON.stringify(ctx)}
 </contexto>
@@ -494,6 +496,7 @@ ${JSON.stringify(ctx)}
 Orden: ${text}`, ctx, kit, ligero)
 
   const client = new Anthropic({ apiKey })
+  const t0 = Date.now()
   try {
     // Parámetros armados aparte: `fallbacks: "default"` puede no estar tipado en la versión del SDK.
     const params = {
@@ -508,6 +511,7 @@ Orden: ${text}`, ctx, kit, ligero)
       messages,
     }
     const res = await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
+    anotarUso({ proveedor: 'claude', modelo: res.model, ...tokensClaude(res.usage), ms: Date.now() - t0, ok: true })
 
     if (res.stop_reason === 'refusal') {
       return json({ say: 'Eso no lo puedo hacer. ¿Probamos con otra cosa de tu agenda?', proposals: [] })
@@ -537,7 +541,7 @@ Orden: ${text}`, ctx, kit, ligero)
     console.error(e)
     return json({ error: 'Algo salió mal en Rockie.' }, 500)
   }
-  })()
+  })
   if (respuesta.status === 429 || respuesta.status >= 500) {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     await admin.rpc('devolver_cupo', { p_user: user.id, p_clave: 'ia_rockie_mes' })
@@ -570,6 +574,7 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx,
   // Google a veces responde 503 (saturado), 429 (cuota del modelo) o tarda: se prueba el siguiente
   // modelo, y si todos fallan, una segunda vuelta tras una pausa corta (los 503 duran segundos).
   let res: Response | null = null
+  let usado = ''
   const trace: string[] = []
   const t0 = Date.now()
   const sinCuota = new Set<string>()
@@ -582,6 +587,7 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx,
     for (const model of MODELOS) {
       if (sinCuota.has(model)) continue
       if (Date.now() - t0 > 14000) break vueltas
+      usado = model
       try {
         res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
           method: 'POST',
@@ -608,6 +614,7 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx,
     }
   }
   if (trace.length) console.error('gemini trace', trace.join(' '))
+  if (!res?.ok) anotarUso({ proveedor: 'gemini', modelo: usado, entrada: 0, salida: 0, cache: 0, ms: Date.now() - t0, ok: false })
   if (!res) return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.', trace }, 502)
   if (res.status === 429) return json({ error: 'Rockie está saturado (límite gratuito). Intenta en un minuto.' }, 429)
   if (res.status === 400 || res.status === 401 || res.status === 403) {
@@ -619,6 +626,7 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx,
     return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.', trace }, 502)
   }
   const data = await res.json()
+  anotarUso({ proveedor: 'gemini', modelo: usado, ...tokensGemini(data), ms: Date.now() - t0, ok: true })
   const parts: { text?: string; functionCall?: { name: string; args?: Record<string, unknown> } }[] = data?.candidates?.[0]?.content?.parts ?? []
   if (!parts.length) return json({ say: 'Eso no lo puedo hacer. ¿Probamos con otra cosa de tu agenda?', proposals: [] })
   const say = parts.map((p) => p.text ?? '').join('')

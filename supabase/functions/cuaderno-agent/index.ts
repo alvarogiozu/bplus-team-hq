@@ -13,6 +13,7 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import { callText, callTools, embed, nivelIA, providerKey, S, type Call, type Nivel, type Part, type Tool, type Turn } from '../_shared/rockie-llm.ts'
+import { quienIA } from '../_shared/ia-uso.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -337,7 +338,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Solicitud inválida' }, 400)
   }
 
-  if (body.action === 'vectores') return vectores(body)
+  if (body.action === 'vectores') return quienIA.run({ user: user.id, funcion: 'cuaderno_vectores' }, () => vectores(body))
   if (!providerKey()) return json({ error: 'voz-sin-configurar' }, 503)
   const { data: used, error: bumpErr } = await supa.rpc('agenda_agent_bump')
   if (bumpErr) return json({ error: 'No se pudo verificar tu uso' }, 500)
@@ -362,7 +363,7 @@ Deno.serve(async (req) => {
     const { data: pro } = await supa.rpc('usar_cupo', { p_clave: 'ia_pro_mes' })
     if (pro?.ok) nivel = 'pro'
   }
-  const resp = await nivelIA.run(nivel, () => despachar(supa, user.id, body))
+  const resp = await quienIA.run({ user: user.id, funcion: `cuaderno_${accion}` }, () => nivelIA.run(nivel, () => despachar(supa, user.id, body)))
   if (resp.status === 429 || resp.status >= 500) {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     await admin.rpc('devolver_cupo', { p_user: user.id, p_clave: clave })

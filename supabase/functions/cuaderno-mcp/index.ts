@@ -10,6 +10,7 @@
 // Solo se guarda el hash de cada llave; cada conexión se revoca en Cuaderno → Ajustes.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { INSTRUCTIONS, toolsFor, callTool, type Ctx, type Scope } from './tools.ts'
+import { quienIA } from '../_shared/ia-uso.ts'
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -133,7 +134,8 @@ async function handle(m: Rpc, ctx: Ctx) {
       const name = typeof p.name === 'string' ? p.name : ''
       const args = p.arguments && typeof p.arguments === 'object' ? (p.arguments as Record<string, unknown>) : {}
       if (!toolsFor('escribir').some((t) => t.name === name)) return fail(m.id, -32602, `No existe la herramienta ${name}`)
-      return ok(m.id, await callTool(name, args, ctx))
+      // el costo de IA del conector (búsqueda por significado) se anota a su nombre (ia_uso)
+      return ok(m.id, await quienIA.run({ user: ctx.uid, funcion: `conector_${name}` }, () => callTool(name, args, ctx)))
     }
     case 'resources/list':
       return ok(m.id, { resources: [] })
