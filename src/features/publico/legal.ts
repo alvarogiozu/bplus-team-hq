@@ -20,6 +20,7 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
           h: 'Qué es Rockie',
           p: [
             'Rockie es una app web para organizar tu día: hábitos con prueba (una foto que revisa la IA), agenda, notas (el Cuaderno) y proyectos con tu equipo o club, con un asistente con inteligencia artificial (Rockie).',
+            'Si quieres, puedes conectar Rockie con Claude (el asistente de Anthropic) para que lea y escriba en lo que tú le abras, y con tu Google Calendar para ver tus eventos en la agenda. Las dos conexiones son opcionales y las quitas cuando quieras.',
             'Hay un plan Gratis con límites y planes de pago (Plus, Pro y Club) que los amplían. Lo que incluye cada plan está en la página de planes.',
           ],
         },
@@ -74,6 +75,7 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
           h: 'Tu contenido',
           p: [
             'Lo que escribes y subes es tuyo. Tus notas, tu agenda y tus proyectos se cifran en tu dispositivo (el Cofre): nadie, ni el equipo de Rockie, puede leerlos. Lo que compartes con un equipo lo pueden ver sus miembros.',
+            'La excepción la decides tú: un cuaderno o un proyecto que abres para Claude deja de estar cifrado mientras siga abierto (ver «El conector de Claude»).',
           ],
         },
         {
@@ -81,6 +83,14 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
           p: [
             'Rockie usa IA para entender lo que le pides, revisar las fotos de tus hábitos y ayudarte con tus notas. La IA puede equivocarse: revisa lo importante. No es consejo médico, legal ni financiero.',
             'Cada plan tiene un cupo mensual de IA; está en la página de planes y en «Tu plan».',
+          ],
+        },
+        {
+          h: 'El conector de Claude',
+          p: [
+            'Puedes conectar tu cuenta de Rockie con Claude, el asistente de Anthropic, desde el Cuaderno. Claude solo ve los cuadernos que abres para él y los proyectos cuyo dueño los abrió para Claude; todo lo demás sigue cifrado y Claude no puede verlo.',
+            'Lo que Claude crea o cambia (páginas, tarjetas, tareas) queda a tu nombre, como si lo hubieras hecho tú: revisa lo que le pides. Claude es un servicio de Anthropic y se rige por sus propias condiciones; Rockie no controla lo que Claude responde.',
+            'Puedes cerrar un cuaderno o un proyecto (vuelve a cifrarse) o desconectar Claude en cualquier momento desde el Cuaderno.',
           ],
         },
         {
@@ -163,6 +173,7 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
         h: 'Lo que ni nosotros podemos leer',
         p: [
           'Tus notas, tu agenda y tus proyectos se cifran en tu dispositivo antes de salir (el Cofre): en nuestros servidores solo hay datos cifrados que nadie del equipo de Rockie puede abrir.',
+          'La única excepción la decides tú: lo que abres para Claude (ver «Si conectas Claude»).',
           'Hábitos se está pasando al Cofre. Mientras tanto, sus datos se guardan en servidores con acceso restringido y no los usamos para nada más que darte el servicio.',
         ],
       },
@@ -171,6 +182,20 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
         p: [
           'Para responderte, el contenido de tu pedido (y la foto, cuando validas un hábito) se envía a nuestro proveedor de IA, Google (Gemini). Rockie no lo guarda.',
           'Según las condiciones de Google, en la modalidad gratuita de su servicio Google puede usar ese contenido para mejorar sus productos; estamos pasando a la modalidad de pago, en la que no lo usa. Actualizaremos esta política cuando ocurra.',
+        ],
+      },
+      {
+        h: 'Si conectas Claude',
+        p: [
+          'Cuando abres un cuaderno o un proyecto para Claude, su contenido (en un proyecto: su nombre, sus áreas y sus tareas) deja de estar cifrado y se guarda en claro en nuestros servidores, para que Claude pueda leerlo y escribir en él. Para buscar por significado en esos cuadernos, calculamos una huella de cada página con Google (Gemini) y la guardamos junto a ella.',
+          'Lo que Claude lee de ahí lo recibe Anthropic, que lo trata según su propia política de privacidad. Para reconocer la conexión guardamos el nombre de la app conectada y una llave de acceso.',
+          'Si cierras el cuaderno o el proyecto, vuelve a cifrarse en tu dispositivo. Si desconectas Claude, su llave deja de servir al instante.',
+        ],
+      },
+      {
+        h: 'Si conectas Google Calendar',
+        p: [
+          'Si conectas tu Google Calendar a la agenda, leemos tus eventos para mostrártelos y, si nos das permiso, creamos un calendario «Rockie» en tu cuenta de Google para escribir solo ahí. Guardamos tu correo de Google y una llave de acceso cifrada. Al desconectarlo, la borramos.',
         ],
       },
       {

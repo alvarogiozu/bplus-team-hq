@@ -16,7 +16,7 @@ export const COMERCIO = {
   /** días desde el primer pago de un plan en los que se devuelve todo, sin preguntas */
   diasReembolso: 7,
   /** fecha de la última actualización de los textos legales */
-  actualizado: '5 de octubre de 2026',
+  actualizado: '9 de octubre de 2026',
 }
 
 export const contactoTexto = () =>
