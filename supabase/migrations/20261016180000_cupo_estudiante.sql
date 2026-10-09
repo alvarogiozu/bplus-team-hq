@@ -1,10 +1,10 @@
 -- Cupos de IA por plan (docs/negocio/precios-y-margenes.md §4, decidido el 9 oct): Gratis 30 (100 la primera
 -- semana), Plus 200, Pro 400 (ya en planes_limites) y bajar un poco el del ESTUDIANTE MENSUAL, el único plan que
--- pierde plata en el peor caso. Queda en 160 mensajes con Rockie al mes (−20 %); se cambia sin redesplegar en
+-- pierde plata en el peor caso. Queda en 150 mensajes con Rockie al mes (decisión de Álvaro, 9 oct); se cambia sin redesplegar en
 -- ia_config ('ia_rockie_estudiante_mes'). El estudiante por ciclo (4 meses) y el anual siguen con los 200 de Plus.
 -- Mensual = su último pago de tarifa estudiante fue de un mes (o no hay pago: código o manual, se trata como mensual).
 
-insert into public.ia_config (clave, valor) values ('ia_rockie_estudiante_mes', 160)
+insert into public.ia_config (clave, valor) values ('ia_rockie_estudiante_mes', 150)
   on conflict (clave) do nothing;
 
 create or replace function public.limite_efectivo(uid uuid, p_clave text) returns integer
@@ -19,7 +19,7 @@ language sql stable security definer set search_path = public as $$
                         where pg.user_id = uid and pg.space_id is null and pg.estado = 'pagado' and pg.tarifa = 'estudiante'
                         order by pg.created_at desc limit 1), 'mes') = 'mes'
       then least(coalesce(public.limite_de(uid, p_clave), 200),
-                 coalesce((select valor::integer from ia_config where clave = 'ia_rockie_estudiante_mes'), 160))
+                 coalesce((select valor::integer from ia_config where clave = 'ia_rockie_estudiante_mes'), 150))
     else public.limite_de(uid, p_clave)
   end
 $$;
