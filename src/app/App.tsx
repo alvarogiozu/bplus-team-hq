@@ -37,6 +37,7 @@ const PlanesPage = lazy(pantallas.planes)
 const RaizPublica = lazy(() => pantallas.publico().then((m) => ({ default: m.Raiz })))
 const LegalPage = lazy(() => pantallas.publico().then((m) => ({ default: m.LegalPage })))
 const ReclamacionesPage = lazy(pantallas.reclamaciones)
+const BorrarCuentaPage = lazy(() => import('../features/publico/BorrarCuenta').then((m) => ({ default: m.BorrarCuentaPage })))
 
 const Escritorio = lazy(pantallas.escritorio)
 
@@ -142,6 +143,8 @@ export function App() {
         <Route path="/reembolsos" element={<Suspense fallback={<Splash />}><LegalPage slug="reembolsos" /></Suspense>} />
         <Route path="/privacidad" element={<Suspense fallback={<Splash />}><LegalPage slug="privacidad" /></Suspense>} />
         <Route path="/libro-de-reclamaciones" element={<Suspense fallback={<Splash />}><ReclamacionesPage /></Suspense>} />
+        {/* Google Play y Apple: borrar la cuenta desde una página web, con o sin sesión */}
+        <Route path="/borrar-cuenta" element={<Suspense fallback={<Splash />}><BorrarCuentaPage /></Suspense>} />
         <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
         <Route path="/registro" element={<PublicOnly><RegisterPage /></PublicOnly>} />
         <Route path="/invitacion/:code" element={<InviteRoute />} />

@@ -229,8 +229,8 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
       {
         h: 'Cuánto tiempo',
         p: [
-          'Mientras tengas tu cuenta. Si la borras, se borran tus datos; solo conservamos los registros de pago el tiempo que exige la ley tributaria.',
-          `Tus datos de Hábitos (hábitos, fotos, rachas, metas y amistades) los borras tú mismo en Hábitos › Ajustes › Eliminar cuenta, al instante y para siempre. Para borrar tu cuenta completa de Rockie, pídelo ${contacto} y lo hacemos en un máximo de 10 días hábiles.`,
+          'Mientras tengas tu cuenta. Si la borras, se borran tus datos al instante; solo conservamos los comprobantes de pago, sin tu nombre, los 5 años que exige la ley tributaria. Lo que hiciste en equipos con más personas se queda en el equipo, sin autor.',
+          `Puedes borrar tu cuenta completa tú mismo en ${COMERCIO.web.replace('https://', '')}/borrar-cuenta. Si no puedes entrar, pídelo ${contacto} y lo hacemos en un máximo de 10 días hábiles.`,
         ],
       },
       {

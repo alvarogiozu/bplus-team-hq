@@ -84,6 +84,7 @@ function Pie() {
         <Link to="/terminos">Términos y condiciones</Link>
         <Link to="/reembolsos">Cambios y devoluciones</Link>
         <Link to="/privacidad">Política de privacidad</Link>
+        <Link to="/borrar-cuenta">Borrar tu cuenta</Link>
       </nav>
       <div className="pub-pie-col">
         <Link to="/libro-de-reclamaciones" className="pub-libro">

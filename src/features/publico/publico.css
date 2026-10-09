@@ -112,3 +112,11 @@
   background: var(--amber-soft); color: var(--ink); font-size: var(--t-sm); box-shadow: 0 3px 0 var(--amber-edge);
 }
 .pub-invitado .ico { flex: none; color: var(--amber-ink); }
+
+/* /borrar-cuenta */
+.pub-borrar ul { margin: 0 0 var(--s2); padding-left: 1.2em; line-height: 1.6; }
+.pub-borrar-accion { margin-top: var(--s4); padding: var(--s4); border: 2px solid var(--card-line); border-radius: var(--r-lg); background: var(--card); }
+.pub-borrar-accion .btn { margin-top: var(--s2); }
+.pub-borrar-nota { margin-top: var(--s4) !important; color: var(--ink-soft); font-size: var(--t-sm); }
+.pub-borrar-error { margin: 0 !important; color: var(--coral-ink); font-weight: 700; }
+.pub-borrar-btns { display: flex; flex-wrap: wrap; gap: var(--s2); }
