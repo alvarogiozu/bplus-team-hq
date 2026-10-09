@@ -418,13 +418,15 @@ function EntryCard(p: {
 }
 
 function Empty({ isToday }: { isToday: boolean }) {
+  // en el celular no hay barra abajo: se le habla o escribe a Rockie, el de la esquina
+  const mobile = useIsMobile()
   return (
     <div className="cu-empty">
       <Rockie color="#2a82ad" size={84} />
       <h2>{isToday ? 'Cuéntame tu día' : 'Ese día no escribiste'}</h2>
       {isToday && (
         <p>
-          Mantén el micrófono y habla, o escríbelo abajo. Lo guardo tal cual en tu diario y te propongo qué
+          {mobile ? 'Mantén a Rockie y habla, o tócalo para escribir.' : 'Mantén el micrófono y habla, o escríbelo abajo.'} Lo guardo tal cual en tu diario y te propongo qué
           convertir en nota, con qué conectarlo y qué repasar. Tú decides.
         </p>
       )}

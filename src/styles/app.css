@@ -938,6 +938,11 @@ button.mission:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ca
 .gnode-kids .ico { transition: transform 0.2s; }
 .gnode-kids.shut .ico { transform: rotate(-90deg); }
 .gnode-kids:hover { background: var(--accent-soft); color: var(--accent-ink); }
+/* con el dedo: el mapa se achica (zoom 40% en el celular) y el botón quedaba de 16×9 px; el área táctil crece al
+   revés del zoom para quedar en ~32 px de verdad, sin cambiar cómo se ve */
+@media (pointer: coarse) {
+  .gnode-kids::after { content: ''; position: absolute; inset: calc(-12px / var(--z, 1)) calc(-8px / var(--z, 1)); }
+}
 .gnode-add { position: absolute; z-index: 1; left: 50%; bottom: -15px; width: 28px; height: 28px; margin-left: -14px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: var(--on-color); box-shadow: 0 3px 0 var(--accent-edge); opacity: 0; transform: scale(0.7); transition: opacity 0.15s, transform 0.15s; }
 .gnode:hover .gnode-add, .gnode-add:focus-visible { opacity: 1; transform: scale(1); }
 .gmap-zoom { position: absolute; right: 14px; bottom: 14px; z-index: 5; display: flex; align-items: center; gap: 6px; padding: 5px; border-radius: 999px; background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge), var(--shadow-soft); }

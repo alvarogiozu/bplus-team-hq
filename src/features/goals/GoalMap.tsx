@@ -244,7 +244,7 @@ export function GoalMap({ roots, mission, onOpen, onEditMission }: { roots: Goal
         onPointerCancel={onUp}
       >
         <div className="gmap-canvas" ref={lienzo} style={{ width: layout.width * zoom, height: layout.height * zoom }}>
-          <div className="gmap-scale" ref={escala} style={{ width: layout.width, height: layout.height, transform: `scale(${zoom})` }}>
+          <div className="gmap-scale" ref={escala} style={{ width: layout.width, height: layout.height, transform: `scale(${zoom})`, ['--z' as string]: zoom } as CSSProperties}>
             <svg className="gmap-lines" width={layout.width} height={layout.height} aria-hidden="true">
               {layout.edges.map((e, i) => (
                 <motion.path

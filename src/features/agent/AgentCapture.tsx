@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
 import { toast } from '../../components/Toasts'
 import { haptic } from '../../lib/fx'
+import { useIsMobile } from '../../lib/useMedia'
 import { supabase } from '../../lib/supabase'
 import { pistaVoz, useHandsFree, useMicPress, useVoice } from '../../agenda/voice'
 import { Escuchando } from '../../components/Escuchando'
@@ -35,6 +36,7 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
   const { userId, profile } = useAuth()
   const { spaceId } = useSpace()
   const qc = useQueryClient()
+  const mobile = useIsMobile()
   const { members, memberById, areas, projectById, areaById, today } = useLookup()
   const tasksQ = useTasks()
   const membersQ = useMembers()
@@ -320,7 +322,8 @@ export const AgentCapture = forwardRef<HTMLInputElement, { onDone?: () => void; 
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 150)}
           onKeyDown={(e) => e.key === 'Escape' && reset()}
-          placeholder={voice.listening ? 'Te escucho…' : 'Pídele algo a Rockie…'}
+          // en el celular el campo queda entre tres botones (~130 px) y la hoja ya se titula «Pídele algo a Rockie»
+          placeholder={voice.listening ? 'Te escucho…' : mobile ? 'Escríbeme…' : 'Pídele algo a Rockie…'}
           aria-label="Pídele algo a Rockie"
           enterKeyHint="send"
           readOnly={voice.listening}

@@ -850,11 +850,22 @@ h2.ag-ph-title { border: 0; font-size: 24px; line-height: 1.2; color: var(--on-c
   .pv > .pv-bar .pv-title { display: none; }
   .pv > .pv-bar { flex-wrap: nowrap; gap: 6px; }
   .pv-seg button { min-height: 34px; padding: 0 10px; }
+  /* las sugerencias de un hueco, en una fila que se desliza: apiladas, la segunda quedaba cortada a media altura
+     por el alto del hueco; así la siguiente asoma por la derecha */
+  .tl-sugs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
+  .tl-sugs::-webkit-scrollbar { display: none; }
+  .tl-sug { flex: none; max-width: 82%; }
+  /* el segmentado no se encoge (se encogía bajo su contenido y quedaba montado bajo «‹»): cede el rango de fechas */
+  .pv-seg { flex: none; }
+  /* y el spacer no le quita la mitad del hueco a «‹ ›» (se quedaba con 58 px para 80 de botones y se montaba) */
+  .pv > .pv-bar > .spacer { display: none; }
   .pv-nav { flex: 1; justify-content: center; min-width: 0; }
   .pv-range { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--t-2xs); }
   .pv-people { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -12px; padding: 0 12px 2px; }
   .pv-people::-webkit-scrollbar { display: none; }
   .pv-people > * { flex: none; }
+  /* el buscador toma lo que queda junto a los chips (con width: 100% se sumaba a «Tú» y se salía por la derecha) */
+  .pv-people > .ag-people-box.compact { flex: 1 0 160px; width: auto; }
   .pv-chip { min-height: 38px; }
   .pv-chip .ag-pav { width: 26px; height: 26px; }
   .ag-nudge.pv-nudge { flex-wrap: nowrap; gap: 8px; padding: 6px 6px 6px 10px; }

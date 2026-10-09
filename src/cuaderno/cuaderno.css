@@ -497,7 +497,8 @@
   font-weight: 600;
   color: var(--ink-soft);
 }
-.cu-rockie-say > span {
+/* el texto (Rockie también es un span: con flex 1 se estiraba a media fila) */
+.cu-rockie-say > span:not(.rockie) {
   flex: 1;
   min-width: 0;
 }
@@ -1304,8 +1305,14 @@
 .cu.is-mobile .cu-center.cu-mapwrap {
   padding-bottom: 0;
 }
+/* fija y de borde a borde: con el ancho del contenido, su fondo quedaba como una franja con el título pegado */
 .cu.is-mobile .cu-head {
-  padding: var(--s4) 0 var(--s3);
+  margin: 0 calc(var(--screen-x) * -1);
+  padding: var(--s4) var(--screen-x) var(--s3);
+}
+/* «Rockie todavía no lo leyó.» no se aprieta en tres líneas junto al botón: si no caben, el botón baja */
+.cu.is-mobile .cu-rockie-say > span:not(.rockie) {
+  flex-basis: 10em;
 }
 .cu.is-mobile .cu-titles h1 {
   font-size: var(--t-2xl);
@@ -1988,6 +1995,11 @@ textarea.cu-input { resize: none; }
 .cu-mapsearch small { font-size: var(--t-3xs); font-weight: 800; color: var(--accent-ink); }
 .cu-mapchips { max-width: 100%; display: flex; gap: var(--s1); overflow-x: auto; scrollbar-width: none; }
 .cu-mapchips::-webkit-scrollbar { display: none; }
+/* en el celular la fila llega al borde de la pantalla: el último chip se pierde por el borde (se nota que sigue)
+   en vez de cortarse en seco a 20 px del borde */
+@media (max-width: 767px) {
+  .cu-mapchips { max-width: none; margin-right: calc(-1 * var(--screen-x)); padding-right: var(--screen-x); }
+}
 .cu-mapchip { flex: none; min-height: calc(var(--s8) + 2px); display: inline-flex; align-items: center; gap: var(--s1); padding: 0 var(--s3); border-radius: var(--r-pill); border: 1.5px solid var(--card-line); background: var(--card); font-size: var(--t-2xs); font-weight: 700; color: var(--ink-soft); transition: background 0.15s, color 0.15s, border-color 0.15s; }
 .cu-mapchip.on { border-color: transparent; background: var(--accent-soft); color: var(--accent-ink); }
 .cu-mapchip.accent.on { background: var(--accent); color: var(--on-color); box-shadow: 0 3px 0 var(--accent-edge); }

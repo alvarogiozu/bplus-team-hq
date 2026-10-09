@@ -16,7 +16,8 @@
   color: var(--ink);
 }
 .guia-tarjeta.centrada { text-align: center; }
-.guia-tarjeta.foco { position: fixed; z-index: 302; left: 16px; right: 16px; margin: 0 auto; max-width: 420px; }
+/* width: auto: con el width: 100% de arriba, en el celular medía todo el ancho, el right se ignoraba y se salía */
+.guia-tarjeta.foco { position: fixed; z-index: 302; left: 16px; right: 16px; width: auto; margin: 0 auto; max-width: 420px; }
 .guia-tarjeta.foco.abajo { bottom: calc(16px + env(safe-area-inset-bottom)); }
 .guia-tarjeta.foco.arriba { top: calc(16px + env(safe-area-inset-top)); }
 .guia-tarjeta h2 { margin: 0; font-family: var(--serif); font-size: var(--t-xl); line-height: 1.15; color: var(--ink); }
