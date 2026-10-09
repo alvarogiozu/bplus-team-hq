@@ -100,12 +100,23 @@ function Pie() {
   )
 }
 
+const DESCRIPCION =
+  'Hábitos con prueba, agenda, apuntes y los proyectos de tu equipo en una sola app, con Rockie. Gratis para siempre; ni nosotros leemos lo tuyo.'
+
 function Inicio() {
   // llegó con el link de un amigo (rockie.plus/?ref=CODIGO): se guarda hasta que cree su cuenta
   const [invitado] = useState(() => {
     capturarReferido(location.search)
     return Boolean(referidoPendiente())
   })
+  useEffect(() => {
+    // lo que ve Google (las vistas previas de WhatsApp y redes salen de index.html)
+    document.title = 'Rockie · Todas tus herramientas, en una sola mochila'
+    document.querySelector('meta[name="description"]')?.setAttribute('content', DESCRIPCION)
+    return () => {
+      document.title = 'Rockie'
+    }
+  }, [])
   return (
     <MarcoPublico>
       {invitado && (

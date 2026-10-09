@@ -1,7 +1,23 @@
 User-agent: *
 Allow: /
-Disallow: /device
-Disallow: /familia
-Disallow: /onboarding
+# lo de adentro de la cuenta no se indexa (pide sesión)
+Disallow: /inicio
+Disallow: /habitos
+Disallow: /agenda
+Disallow: /cuaderno
+Disallow: /tareas
+Disallow: /ajustes
+Disallow: /planes
+Disallow: /mcp
+Disallow: /perfil
+Disallow: /cofre
+Disallow: /bienvenida
+Disallow: /cambiar-clave
+Disallow: /equipos
+Disallow: /equipo
+Disallow: /hoy
+Disallow: /metas
+Disallow: /materiales
+Disallow: /teams
 
-Sitemap: /sitemap.xml
+Sitemap: https://rockie.plus/sitemap.xml
