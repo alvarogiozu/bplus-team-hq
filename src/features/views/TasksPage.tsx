@@ -19,11 +19,13 @@ const BoardView = lazy(() => import('./BoardView').then((m) => ({ default: m.Boa
 const WeekView = lazy(() => import('./WeekView').then((m) => ({ default: m.WeekView })))
 const GanttView = lazy(() => import('./GanttView').then((m) => ({ default: m.GanttView })))
 const DashboardView = lazy(() => import('./DashboardView').then((m) => ({ default: m.DashboardView })))
+const SigueView = lazy(() => import('./SigueView').then((m) => ({ default: m.SigueView })))
 
 // Vistas fijas de los mismos datos, con los mismos filtros. Cambiar de vista no pide configurar nada.
 // Arriba, siempre, de qué equipo son (una persona puede estar en varios) y desde ahí se cambia.
-export type ViewKey = 'lista' | 'tablero' | 'calendario' | 'gantt' | 'panel'
+export type ViewKey = 'sigue' | 'lista' | 'tablero' | 'calendario' | 'gantt' | 'panel'
 const VIEWS: { key: ViewKey; label: string; icon: IconName; color: string }[] = [
+  { key: 'sigue', label: 'Lo que sigue', icon: 'arrow', color: 'var(--title)' },
   { key: 'lista', label: 'Lista', icon: 'tasks', color: 'var(--accent-ink)' },
   { key: 'tablero', label: 'Tablero', icon: 'board', color: 'var(--amber-ink)' },
   { key: 'calendario', label: 'Calendario', icon: 'calendar', color: 'var(--coral-ink)' },
@@ -118,6 +120,7 @@ function Tareas({ spaceId }: { spaceId: string }) {
         <Suspense fallback={<ListSkeleton />}>
           {/* la vista nueva entra ya (sin esperar a que la anterior salga) */}
           <motion.div key={view} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.12, ease: [0.2, 0.8, 0.2, 1] }}>
+              {view === 'sigue' && <SigueView tasks={shown} />}
               {view === 'lista' && <ListView tasks={shown} />}
               {view === 'tablero' && <BoardView tasks={shown} />}
               {view === 'calendario' && <WeekView tasks={shown} />}
