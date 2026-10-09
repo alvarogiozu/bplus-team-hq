@@ -51,26 +51,20 @@ export async function sincronizarSesionHq(bplusSession) {
     if (cur?.session) {
       return cur.session
     }
-    const bplusUid = bplusSession.user.id
-    const email = `bplus.${bplusUid.replace(/-/g, '')}@${domain}`
-    const password = `Bp!us_SSO_${bplusUid}`
+    // una sesión anónima de Hábitos no es una persona: no se le crea cuenta de Rockie OS (bucle de las cuentas «rockie»)
+    if (bplusSession.user.is_anonymous) return null
 
+    // su cuenta de Rockie OS la da la función puente-google (verifica el token de Hábitos en el servidor); antes se
+    // entraba con una contraseña predecible derivada del id de Hábitos. Igual que syncHqSessionFromBplus (credentials.ts).
     if (syncPromise) return syncPromise
     syncPromise = (async () => {
       try {
-        const signRes = await c.auth.signInWithPassword({ email, password })
-        if (signRes.data?.session) return signRes.data.session
-        const meta = bplusSession.user.user_metadata || {}
-        const displayName = String(meta.display_name || meta.full_name || meta.name || bplusSession.user.email?.split('@')[0] || 'Usuario').trim().slice(0, 40)
-        const baseUser = (bplusSession.user.email?.split('@')[0] || 'rockie').toLowerCase().replace(/[^a-z0-9._]/g, '').slice(0, 16) || 'rockie'
-        const upRes = await c.auth.signUp({
-          email,
-          password,
-          options: { data: { username: baseUser, display_name: displayName, full_name: displayName, bplus_uid: bplusUid, color: '#2a82ad' } },
+        const { data, error } = await c.functions.invoke('puente-google', {
+          headers: { Authorization: `Bearer ${bplusSession.access_token}` },
         })
-        if (upRes.data?.session) return upRes.data.session
-        const retry = await c.auth.signInWithPassword({ email, password })
-        return retry.data?.session || null
+        if (error || !data?.access_token) return null
+        const { data: s } = await c.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token })
+        return s?.session || null
       } finally {
         syncPromise = null
       }

@@ -83,7 +83,11 @@ export async function signInWithGoogle(path = '/inicio') {
 
 let syncPromise: Promise<Session | null> | null = null
 
-/** Sincroniza de forma transparente la sesión de Google de Hábitos (B+) hacia el cliente de Rockie OS / HQ. */
+/**
+ * Quien entra con Google (sesión de Hábitos, B+) recibe la sesión de SU cuenta de Rockie OS. La da la función
+ * puente-google de Rockie OS, que verifica el token de Hábitos en el servidor. Antes se entraba con una contraseña
+ * predecible (derivada del id de Hábitos) que cualquiera que viera ese id podía usar.
+ */
 export async function syncHqSessionFromBplus(bplusSession: Session): Promise<Session | null> {
   const { data: current } = await supabase.auth.getSession()
   if (current.session) {
@@ -93,10 +97,6 @@ export async function syncHqSessionFromBplus(bplusSession: Session): Promise<Ses
   // 10 cuentas «rockie» vacías el 1 oct). Quien no tiene sesión de Rockie OS entra por el login.
   if (bplusSession.user.is_anonymous) return null
 
-  const bplusUid = bplusSession.user.id
-  const email = `bplus.${bplusUid.replace(/-/g, '')}@${env.authEmailDomain}`
-  const password = `Bp!us_SSO_${bplusUid}`
-
   if (syncPromise) return syncPromise
 
   syncPromise = conCandadoPuente(async () => {
@@ -104,38 +104,14 @@ export async function syncHqSessionFromBplus(bplusSession: Session): Promise<Ses
       const { data: ya } = await supabase.auth.getSession()
       if (ya.session) return ya.session
       setKeepSession(true)
-      const signRes = await supabase.auth.signInWithPassword({ email, password })
-      if (signRes.data.session) return signRes.data.session
-
-      const meta = (bplusSession.user.user_metadata ?? {}) as Record<string, unknown>
-      const displayName = String(
-        meta.display_name || meta.username || meta.name || bplusSession.user.email?.split('@')[0] || 'Usuario',
-      )
-        .trim()
-        .slice(0, 40)
-      const baseUser =
-        (bplusSession.user.email?.split('@')[0] || 'rockie')
-          .toLowerCase()
-          .replace(/[^a-z0-9._]/g, '')
-          .slice(0, 16) || 'rockie'
-
-      const upRes = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username: baseUser,
-            display_name: displayName,
-            full_name: displayName,
-            bplus_uid: bplusUid,
-            color: '#2a82ad',
-          },
-        },
+      const { data, error } = await supabase.functions.invoke<{ access_token: string; refresh_token: string }>('puente-google', {
+        headers: { Authorization: `Bearer ${bplusSession.access_token}` },
       })
-      if (upRes.data.session) return upRes.data.session
-
-      const retry = await supabase.auth.signInWithPassword({ email, password })
-      return retry.data.session ?? null
+      if (error || !data?.access_token) return null
+      const { data: s } = await supabase.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token })
+      return s.session
+    } catch {
+      return null
     } finally {
       syncPromise = null
     }
