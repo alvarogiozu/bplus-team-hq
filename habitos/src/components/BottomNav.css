@@ -116,6 +116,8 @@
 .nav-rockie-face { display: flex; line-height: 0; will-change: transform; backface-visibility: hidden; }
 /* el micrófono: su propio botón, pegado a Rockie (abajo a la derecha). Se ve de 34 px y se toca en 44. */
 .nav-rockie { position: relative; flex: none; }
+/* dentro de una ventana del escritorio (pantalla dividida) Rockie es el del sistema: este se esconde (src/os/ventana.css) */
+html[data-ventana] .nav-rockie { display: none !important; }
 .nav-rockie-mic {
   position: absolute;
   right: -6px;

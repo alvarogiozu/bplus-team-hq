@@ -26,7 +26,10 @@ html[data-sin-der] .cu-page > .cu-panel { display: none; }
 html[data-sin-der] .cu-main.has-panel .cu-rk { right: 0; }
 
 /* Rockie es UNO en el escritorio: la barra flotante del sistema (escritorio/Chat.tsx), la misma del Inicio. Dentro
-   de una ventana se esconden las barras propias de Rockie de cada app (siguen recibiendo los pedidos ?rockie=). */
-html[data-ventana] .rk:not(.mobile),
+   de una ventana se esconden las barras propias de Rockie de cada app (siguen recibiendo los pedidos ?rockie=),
+   también las de celular que salen cuando la ventana es angosta (pantalla dividida) y la cara con micrófono del
+   celular (os/movil/MovilShell). Decisión de Álvaro, 9 oct. Hábitos esconde la suya en su BottomNav.css. */
+html[data-ventana] .rk,
 html[data-ventana] .agentbar.desktop,
-html[data-ventana] .cu-rk:not(.mobile) { display: none !important; }
+html[data-ventana] .cu-rk,
+html[data-ventana] .m-rockie-wrap { display: none !important; }
