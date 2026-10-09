@@ -87,6 +87,7 @@
       "llave": "personal",
       "estado": "activo",
       "dueno": "user_id",
+      "pk": "user_id",
       "cifrar": [
         "routine"
       ],
