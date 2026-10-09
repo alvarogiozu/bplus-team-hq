@@ -1,11 +1,16 @@
 {
+  "id": "/",
   "name": "Rockie — hábitos, agenda, equipo y cuaderno",
   "short_name": "Rockie",
   "description": "Tus hábitos, tu agenda, tu equipo y tu cuaderno, con un solo Rockie.",
+  "lang": "es-PE",
+  "dir": "ltr",
   "start_url": "/inicio",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f0ebe5",
   "theme_color": "#f0ebe5",
+  "categories": ["productivity", "lifestyle"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -26,5 +31,10 @@
       "purpose": "maskable"
     }
   ],
-  "scope": "/"
+  "shortcuts": [
+    { "name": "Hoy", "url": "/hoy", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Hábitos", "url": "/habitos", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Agenda", "url": "/agenda", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Cuaderno", "url": "/cuaderno", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
 }

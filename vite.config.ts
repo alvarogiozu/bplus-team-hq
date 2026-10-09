@@ -27,8 +27,44 @@ function habitosPage(): Plugin {
   }
 }
 
+// PWA: solo en el build (no en dev ni en los e2e, que corren con dev) cada página registra /sw.js (public/sw.js:
+// sin red → public/offline.html) y, abierta como app instalada, muestra a Rockie mientras baja el JavaScript
+// (React lo reemplaza al dibujar; aparece con un pequeño retraso para que una carga rápida no parpadee).
+// Dentro de las ventanas del escritorio (iframes) no hay pantalla de carga: el escritorio ya tiene la suya.
+const PWA_CARGA =
+  '<div class="pwa-carga" aria-busy="true" aria-label="Cargando"><img src="/icon-192.png" alt="" width="96" height="96" /></div>'
+function pwa(): Plugin {
+  return {
+    name: 'rockie-pwa',
+    apply: 'build',
+    transformIndexHtml(html) {
+      return {
+        html: html.replace('<div id="root"></div>', `<div id="root">${PWA_CARGA}</div>`),
+        tags: [
+          {
+            tag: 'style',
+            injectTo: 'head',
+            children:
+              '.pwa-carga{display:none;min-height:100dvh;place-items:center}' +
+              '.pwa-carga img{border-radius:24px;animation:pwa-respira 3.2s ease-in-out infinite}' +
+              '@media (display-mode: standalone){html:not([data-pwa-ventana]) .pwa-carga{display:grid;animation:pwa-entra .3s .2s both}}' +
+              '@keyframes pwa-entra{from{opacity:0}}@keyframes pwa-respira{50%{transform:scale(1.04)}}',
+          },
+          {
+            tag: 'script',
+            injectTo: 'head',
+            children:
+              "try{if(self!==top)document.documentElement.setAttribute('data-pwa-ventana','')}catch(e){}" +
+              "if('serviceWorker' in navigator&&self===top)addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})",
+          },
+        ],
+      }
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), habitosPage()],
+  plugins: [react(), habitosPage(), pwa()],
   // versión del build: el caché de datos guardado en el navegador no sobrevive a un despliegue nuevo
   define: { __BUILD_ID__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 10) ?? String(Date.now())) },
   build: {
