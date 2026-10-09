@@ -230,7 +230,7 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
         h: 'Cuánto tiempo',
         p: [
           'Mientras tengas tu cuenta. Si la borras, se borran tus datos al instante; solo conservamos los comprobantes de pago, sin tu nombre, los 5 años que exige la ley tributaria. Lo que hiciste en equipos con más personas se queda en el equipo, sin autor.',
-          `Puedes borrar tu cuenta completa tú mismo en ${COMERCIO.web.replace('https://', '')}/borrar-cuenta. Si no puedes entrar, pídelo ${contacto} y lo hacemos en un máximo de 10 días hábiles.`,
+          `Puedes borrar tu cuenta completa tú mismo, al instante: en la app, en Ajustes › Tu cuenta › Eliminar cuenta (o en Hábitos › Ajustes › Eliminar cuenta), o en ${COMERCIO.web.replace('https://', '')}/borrar-cuenta. Si no puedes entrar, pídelo ${contacto} y lo hacemos en un máximo de 10 días hábiles.`,
         ],
       },
       {

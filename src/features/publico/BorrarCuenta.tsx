@@ -82,7 +82,10 @@ export function BorrarCuentaPage() {
           ) : loading ? null : !session ? (
             <>
               <h2>Para borrarla</h2>
-              <p>Entra con tu cuenta y vuelve a esta página: aquí mismo la borras.</p>
+              <p>
+                Entra con tu cuenta y vuelve a esta página: aquí mismo la borras. En la app también puedes, en Ajustes › Tu cuenta ›
+                Eliminar cuenta.
+              </p>
               <Link className="btn" to="/login?next=%2Fborrar-cuenta">
                 Entrar y borrar mi cuenta
               </Link>
