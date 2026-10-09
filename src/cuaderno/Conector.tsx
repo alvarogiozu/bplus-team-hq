@@ -122,7 +122,7 @@ export default function AutorizarPage() {
         ) : sinPlan && !done ? (
           <>
             <h1>Conectar {asker.name} es parte de Plus</h1>
-            <p className="lead">Con Plus conectas tu Claude o ChatGPT a tu cuaderno y trabaja con tus notas usando tu propia suscripción: para ti es prácticamente ilimitado.</p>
+            <p className="lead">Con Plus conectas tu Claude a tu cuaderno y trabaja con tus notas usando tu propia suscripción: para ti es prácticamente ilimitado.</p>
             <div className="cu-oauth-btns">
               <button className="btn ghost" onClick={() => void decide(false)} disabled={Boolean(busy)}>
                 {busy === 'no' ? 'Cancelando…' : 'Ahora no'}
@@ -161,6 +161,12 @@ export default function AutorizarPage() {
                 <input type="checkbox" checked={write} onChange={(e) => setWrite(e.target.checked)} /> Que también pueda escribir en tu cuaderno
               </label>
             )}
+            <p className="cu-muted" role="note">
+              Lo que abras para {asker.name} deja de estar cifrado y lo recibe la empresa de esa app (Anthropic, si es Claude), según tu cuenta con ellos. Lo cierras o desconectas cuando quieras.{' '}
+              <a href="/privacidad" target="_blank" rel="noreferrer">
+                Más en la Política de privacidad
+              </a>
+            </p>
             {asker.loopback && (
               <p className="cu-oauth-warn" role="note">
                 <CIcon name="alert" size={16} /> La conexión vuelve a {asker.redirect_host}. Permite solo si tú acabas de conectar una app aquí, como Claude Code.
@@ -309,7 +315,7 @@ export function ClaudeSection() {
       </p>
       {sinPlan ? (
         <div className="cu-plan-lock">
-          <p className="pl-lim-mejora">Conectar tu Claude o ChatGPT es parte de Plus. Usa tu propia suscripción, así que para ti es prácticamente ilimitado.</p>
+          <p className="pl-lim-mejora">Conectar tu Claude es parte de Plus. Usa tu propia suscripción, así que para ti es prácticamente ilimitado.</p>
           <button type="button" className="btn sm" onClick={irAPlanes}>
             Ver planes
           </button>
@@ -333,6 +339,12 @@ export function ClaudeSection() {
           Toca <b>Conectar</b> y luego <b>Permitir</b>. Listo: pídele «busca en mi cuaderno…» o «crea tarjetas de estas palabras».
         </li>
       </ol>
+      <p className="cu-muted" role="note">
+        Lo que abras para Claude deja de estar cifrado y lo recibe Anthropic, según tu cuenta con ellos. Lo cierras o desconectas cuando quieras.{' '}
+        <a href="/privacidad" target="_blank" rel="noreferrer">
+          Más en la Política de privacidad
+        </a>
+      </p>
       <div className="cu-set-btns">
         <a className="btn sm" href="https://claude.ai/customize/connectors" target="_blank" rel="noreferrer">
           <CIcon name="open" size={15} /> Abrir Claude

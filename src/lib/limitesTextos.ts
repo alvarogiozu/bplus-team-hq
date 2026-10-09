@@ -43,7 +43,7 @@ export const TEXTOS: Record<Clave, Texto> = {
   conector_ia: {
     titulo: () => 'Conectar tu IA es parte de Plus',
     cuerpo: () =>
-      'Conecta tu Claude o ChatGPT al Cuaderno para que trabaje con tus notas. Usa tu propia suscripción, así que para ti es prácticamente ilimitado.',
+      'Conecta tu Claude al Cuaderno para que trabaje con tus notas. Usa tu propia suscripción, así que para ti es prácticamente ilimitado.',
     mejora: 'Disponible en Plus y Pro.',
   },
   buscar_hueco_mes: {
@@ -68,7 +68,7 @@ export const TEXTOS: Record<Clave, Texto> = {
   ia_notas_mes: {
     titulo: (n) => `Usaste tus ${n} pedidos a Rockie sobre tus notas`,
     cuerpo: () => 'Preguntar, conversar, ordenar o revisar con Rockie vuelve el 1 del mes que viene. Tus notas siguen completas.',
-    mejora: 'Con Plus, 100 al mes. O conecta tu Claude o ChatGPT: con tu propia suscripción, prácticamente sin límite.',
+    mejora: 'Con Plus, 100 al mes. O conecta tu Claude: con tu propia suscripción, prácticamente sin límite.',
   },
   ia_aprender_mes: {
     titulo: (n) => (n === 1 ? 'Ya usaste tu «Aprender» de este mes' : `Ya usaste tus ${n} «Aprender» de este mes`),
