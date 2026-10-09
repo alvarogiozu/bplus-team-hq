@@ -13,8 +13,9 @@ import { useAuth } from '../auth/AuthProvider'
 import { useActivity, useTasks } from '../data/queries'
 import { useTaskActions } from '../tasks/actions'
 import { closeNewTask, newTaskStore, openValidate } from '../tasks/dialogs'
-import { Linkify, useLookup } from '../tasks/bits'
+import { useLookup } from '../tasks/bits'
 import { DependenciasEditor } from '../tasks/dependencias'
+import { NotasTarea } from '../tasks/NotasTarea'
 import { proofUrl } from '../tasks/proofUpload'
 import { PersonPicker } from '../team/PersonPicker'
 import { presenceStore } from '../team/presence'
@@ -137,13 +138,8 @@ function Cuerpo({ task, onGone }: { task: Task; onGone: () => void }) {
       {/* «Bloqueada por» / «Desbloquea»: lo mismo que en la PC (ordena «Lo que sigue») */}
       <DependenciasEditor task={task} abrir={abrirOtra} />
 
-      <label className="lbl" htmlFor="em-notes">Notas</label>
-      <textarea id="em-notes" className="em-notes" value={notes} placeholder="Contexto, links, lo que haga falta…" onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== task.notes && void update(task.id, { notes })} />
-      {/https?:\/\//.test(notes) && (
-        <p className="notesview hint" style={{ marginTop: 6 }}>
-          <Linkify text={notes} />
-        </p>
-      )}
+      {/* crece con el texto y se abre en grande (a pantalla completa): el mismo de la hoja de la PC */}
+      <NotasTarea id="em-notes" className="em-notes" value={notes} onChange={setNotes} onGuardar={() => notes !== task.notes && void update(task.id, { notes })} titulo={task.title} />
 
       {(task.proof_url || task.proof_image_path) && (
         <>
