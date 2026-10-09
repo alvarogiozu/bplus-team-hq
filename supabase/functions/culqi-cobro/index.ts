@@ -72,7 +72,15 @@ async function esQa(admin: SupabaseClient, uid: string) {
   return Boolean(data?.username?.startsWith('qa.'))
 }
 
-Deno.serve(async (req) => {
+// si Culqi o la red fallan a medio camino, la app recibe un mensaje claro (con CORS) en vez de un error sin cuerpo
+Deno.serve((req) =>
+  atender(req).catch((e) => {
+    console.error('culqi-cobro', e instanceof Error ? e.message : e)
+    return json({ error: 'No pudimos hablar con Culqi. Si te llegó el cobro, escríbenos y activamos tu plan; si no, inténtalo de nuevo.' }, 502)
+  }),
+)
+
+async function atender(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
 
@@ -115,6 +123,12 @@ Deno.serve(async (req) => {
   if (!['plus', 'pro', 'club'].includes(plan) || !['mes', 'ciclo', 'anio'].includes(periodo)) return json({ error: 'Plan o periodo inválido' }, 400)
   if (!/^(tkn|ype)_(live|test)_[a-zA-Z0-9]{6,}$/.test(token)) return json({ error: 'El pago no llegó bien. Inténtalo de nuevo.' }, 400)
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 120) return json({ error: 'Falta un correo válido para el comprobante.' }, 400)
+  // llaves cruzadas (pk_test en la app con sk_live aquí, o al revés): Culqi rechazaría el token con un mensaje confuso
+  const prueba = secreta.startsWith('sk_test_')
+  if (token.includes('_test_') !== prueba) {
+    console.error('culqi-cobro: llaves cruzadas', prueba ? 'token live con sk_test' : 'token test con sk_live')
+    return json({ error: 'El pago en línea está en mantenimiento unos minutos. Usa un código o inténtalo más tarde.' }, 503)
+  }
   const metodo = token.startsWith('ype_') ? 'yape' : 'tarjeta'
   const renovar = p.renovar === true && metodo === 'tarjeta'
   const device = typeof p.device === 'string' && /^[\w-]{6,100}$/.test(p.device) ? p.device : undefined
@@ -158,7 +172,6 @@ Deno.serve(async (req) => {
     .maybeSingle()
   if (!precio) return json({ error: 'Ese plan no tiene precio todavía.' }, 400)
 
-  const prueba = secreta.startsWith('sk_test_')
   const qa = prueba ? await esQa(admin, user.id) : false
   const pago = { user_id: user.id, space_id: spaceId, plan, tarifa, periodo, centimos: precio.centimos, metodo }
 
@@ -290,4 +303,4 @@ Deno.serve(async (req) => {
   }
 
   return json({ ok: true, plan, tarifa, periodo, hasta: hastaFinal, centimos: precio.centimos, renovacion: Boolean(guardada), regalo })
-})
+}

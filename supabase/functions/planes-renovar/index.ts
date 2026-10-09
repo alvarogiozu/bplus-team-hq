@@ -129,42 +129,49 @@ Deno.serve(async (req) => {
         metodo: 'renovacion',
         prueba,
       }
-      // el correo del comprobante lo tiene Culqi (es el de su cliente): Rockie no lo guarda
-      const cli = await culqi(secreta, `/customers/${f.cliente}`)
-      const email = typeof cli.j?.email === 'string' ? cli.j.email : null
-      const cobro = email
-        ? await culqi(secreta, '/charges', {
-            amount: f.monto,
-            currency_code: 'PEN',
-            email,
-            source_id: f.tarjeta,
-            description: `Rockie ${NOMBRE[f.plan_id]} (renovación, ${DURA[f.periodo_id]})`.slice(0, 80),
-            metadata: { user_id: f.usuario, plan: f.plan_id, periodo: f.periodo_id, tarifa: f.tarifa_id, metodo: 'renovacion' },
+      // si la red con Culqi se cae en una, cuenta como intento fallido y se sigue con las demás
+      try {
+        // el correo del comprobante lo tiene Culqi (es el de su cliente): Rockie no lo guarda
+        const cli = await culqi(secreta, `/customers/${f.cliente}`)
+        const email = typeof cli.j?.email === 'string' ? cli.j.email : null
+        const cobro = email
+          ? await culqi(secreta, '/charges', {
+              amount: f.monto,
+              currency_code: 'PEN',
+              email,
+              source_id: f.tarjeta,
+              description: `Rockie ${NOMBRE[f.plan_id]} (renovación, ${DURA[f.periodo_id]})`.slice(0, 80),
+              metadata: { user_id: f.usuario, plan: f.plan_id, periodo: f.periodo_id, tarifa: f.tarifa_id, metodo: 'renovacion' },
+            })
+          : null
+        if (cobro && cargoOk(cobro)) {
+          const { data: hasta, error: ae } = await admin.rpc('aplicar_pago', {
+            p_user: f.usuario,
+            p_plan: f.plan_id,
+            p_tarifa: f.tarifa_id,
+            p_meses: f.meses_n,
+            p_space: f.equipo,
           })
-        : null
-      if (cobro && cargoOk(cobro)) {
-        const { data: hasta, error: ae } = await admin.rpc('aplicar_pago', {
-          p_user: f.usuario,
-          p_plan: f.plan_id,
-          p_tarifa: f.tarifa_id,
-          p_meses: f.meses_n,
-          p_space: f.equipo,
-        })
-        await admin.from('planes_pagos').insert({ ...pago, culqi_cargo: cobro.j.id, estado: 'pagado', hasta: ae ? null : hasta })
-        if (ae) console.error('aplicar_pago (renovación)', ae.message)
-        await admin
-          .from('planes_renovacion')
-          .update({ intentos: 0, ultimo_error: null, periodo: f.periodo_id, updated_at: new Date().toISOString() })
-          .eq('id', f.renovacion)
-        hecho.renovados++
-      } else {
-        const msg = !cobro
-          ? 'Culqi no encontró los datos de tu tarjeta guardada.'
-          : pideVerificar(cobro)
-            ? 'Tu banco pidió confirmar el pago.'
-            : mensajeCulqi(cobro.j) || 'El banco no aprobó el cobro.'
-        await admin.from('planes_pagos').insert({ ...pago, estado: 'fallido' })
-        await admin.rpc('planes_renovacion_fallo', { p_id: f.renovacion, p_error: msg })
+          await admin.from('planes_pagos').insert({ ...pago, culqi_cargo: cobro.j.id, estado: 'pagado', hasta: ae ? null : hasta })
+          if (ae) console.error('aplicar_pago (renovación)', ae.message)
+          await admin
+            .from('planes_renovacion')
+            .update({ intentos: 0, ultimo_error: null, periodo: f.periodo_id, updated_at: new Date().toISOString() })
+            .eq('id', f.renovacion)
+          hecho.renovados++
+        } else {
+          const msg = !cobro
+            ? 'Culqi no encontró los datos de tu tarjeta guardada.'
+            : pideVerificar(cobro)
+              ? 'Tu banco pidió confirmar el pago.'
+              : mensajeCulqi(cobro.j) || 'El banco no aprobó el cobro.'
+          await admin.from('planes_pagos').insert({ ...pago, estado: 'fallido' })
+          await admin.rpc('planes_renovacion_fallo', { p_id: f.renovacion, p_error: msg })
+          hecho.fallidos++
+        }
+      } catch (e) {
+        console.error('renovación', f.renovacion, e instanceof Error ? e.message : e)
+        await admin.rpc('planes_renovacion_fallo', { p_id: f.renovacion, p_error: 'No pudimos hablar con Culqi; lo intentamos de nuevo mañana.' })
         hecho.fallidos++
       }
     }
