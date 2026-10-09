@@ -203,7 +203,10 @@
 
 /* ---------- la hoja del día ---------- */
 .ag-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 0 20px 160px; overscroll-behavior: contain; touch-action: pan-y; }
-.ag-sheet { background: var(--card); border: 1.5px solid var(--card-line); border-radius: 28px; box-shadow: 0 5px 0 var(--card-edge), var(--shadow-card); min-height: 100%; overflow: hidden; }
+/* position: relative a propósito: al cambiar de día, el día que sale queda en position: absolute (AnimatePresence
+   popLayout) y su caja contenedora tiene que ser ESTA hoja, para que su overflow lo recorte. Si no, se posiciona contra
+   .ag-main y se pinta encima del Inbox o de Calendarios mientras se desliza. */
+.ag-sheet { position: relative; background: var(--card); border: 1.5px solid var(--card-line); border-radius: 28px; box-shadow: 0 5px 0 var(--card-edge), var(--shadow-card); min-height: 100%; overflow: hidden; }
 
 .tl { position: relative; margin: 0 auto; max-width: 880px; --tl-time: 70px; --tl-axis: 106px; --tl-body: 152px; --tl-ring: 18px; }
 .tl-hit { position: absolute; inset: 0 0 0 var(--tl-body); cursor: copy; }
