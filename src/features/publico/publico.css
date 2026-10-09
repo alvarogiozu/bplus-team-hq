@@ -53,6 +53,11 @@
 .pub-pie-col { display: grid; gap: var(--s2); align-content: start; }
 .pub-pie-col p { margin: 0; color: var(--ink-soft); }
 .pub-pie-col a { color: var(--ink); }
+/* con el dedo: cada link del pie y del menú es un blanco de 44px (se ven igual, solo crece la zona táctil) */
+@media (pointer: coarse) {
+  nav.pub-pie-col { row-gap: 0; }
+  .pub-pie-col > a:not(.pub-libro), .pub-pie-col p > a, .pub-nav a { display: inline-flex; align-items: center; min-height: var(--tap); }
+}
 .pub-pie-marca { display: inline-flex; align-items: center; gap: 8px; font: 700 var(--t-lg) var(--serif); color: var(--title); }
 .pub-libro {
   display: flex; gap: var(--s3); align-items: center; padding: var(--s3); text-decoration: none;
