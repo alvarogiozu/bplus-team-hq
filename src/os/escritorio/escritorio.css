@@ -109,6 +109,8 @@
 }
 :root[data-theme='dark'] .esc-win { box-shadow: 0 0 0 1.5px var(--card-line), 0 10px 26px rgba(0, 0, 0, 0.35); }
 .esc-win.foco { box-shadow: 0 0 0 2.5px var(--app), 0 12px 30px rgba(87, 82, 121, 0.18); }
+/* en oscuro la regla de arriba le ganaba al borde de la enfocada (no se sabía cuál era) */
+:root[data-theme='dark'] .esc-win.foco { box-shadow: 0 0 0 2.5px var(--app), 0 12px 30px rgba(0, 0, 0, 0.45); }
 .esc-win.oculta:not([data-saliendo]) { visibility: hidden; pointer-events: none; }
 .esc-win[data-saliendo] { z-index: 0; pointer-events: none; }
 .esc-win iframe { flex: 1; width: 100%; min-height: 0; border: 0; background: transparent; opacity: 0; transition: opacity 0.25s; }
@@ -247,6 +249,8 @@
 
 /* ---------- la barra de Rockie (Ctrl/⌘ K) ---------- */
 .esc-cmd-capa { position: fixed; inset: 0; z-index: 100; display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; background: color-mix(in srgb, var(--ink) 26%, transparent); }
+/* en oscuro la tinta es clara: el velo aclaraba todo en vez de oscurecerlo */
+:root[data-theme='dark'] .esc-cmd-capa { background: var(--overlay); }
 .esc-cmd {
   width: min(660px, calc(100vw - 40px)); overflow: hidden; background: var(--paper-clean); border: 1.5px solid var(--card-line);
   border-radius: 22px; box-shadow: var(--shadow-lift), 0 6px 0 var(--card-edge);
