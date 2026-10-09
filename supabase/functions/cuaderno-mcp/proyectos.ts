@@ -106,6 +106,7 @@ export const PROYECTO_TOOLS = [
               frente: FRENTE,
               hora: HORA,
               minutos: MINUTOS,
+              nota: { type: 'string', description: 'Markdown de la nota del proyecto de la tarea (opcional): se crea en Materiales, en la carpeta de su frente' },
             },
             required: ['titulo'],
           },
@@ -154,6 +155,22 @@ export const PROYECTO_TOOLS = [
     annotations: EDIT,
     write: true,
   },
+  {
+    name: 'crear_nota_tarea',
+    title: 'Crear la nota de una tarea',
+    description:
+      'Crea la nota del proyecto de una tarea que ya existe: una página (Markdown) compartida con el equipo, en Materiales, en la carpeta de su frente. Cada tarea tiene UNA nota: si ya la tenía, devuelve su id (para sumarle, usa editar_pagina con ese id). Devuelve el id de la página y el enlace.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tarea_id: { type: 'string', description: 'Id de la tarea (de ver_tareas)' },
+        contenido: { type: 'string', description: 'Markdown de la nota (opcional)' },
+      },
+      required: ['tarea_id'],
+    },
+    annotations: EDIT,
+    write: true,
+  },
 ] as const
 
 export const PROYECTO_INSTRUCCIONES = [
@@ -169,7 +186,7 @@ export const PROYECTO_INSTRUCCIONES = [
   '- Frentes: un proyecto puede tener frentes (sus grandes objetivos) que avanzan solos con sus tareas hechas y mueven',
   '  las metas. Cada tarea nueva va a un frente: dilo con «frente» (nombre o número) o se toma el que corresponde a su área.',
   '- «📝 nota [id]» en una tarea es su nota del proyecto: léela con leer_pagina y súmale con editar_pagina (ese id).',
-  '  Las notas se crean en la app (Rockie › Proyectos › la tarea › Crear nota), no desde aquí.',
+  '  Si no tiene, créala con crear_nota_tarea (o «nota» al crearla en crear_tareas): queda en Materiales, en la carpeta de su frente.',
   '- Solo ves los proyectos que su dueño abrió para Claude. Si te pide otro, dile que lo abra en Rockie › Proyectos ›',
   '  Ajustes del proyecto › Claude.',
 ].join('\n')
@@ -412,6 +429,8 @@ export async function callProyecto(name: string, args: Args, ctx: Ctx): Promise<
         return await crearTareas(ctx, args)
       case 'actualizar_tareas':
         return await actualizarTareas(ctx, args)
+      case 'crear_nota_tarea':
+        return await crearNotaTarea(ctx, args)
     }
     return null
   } catch (e) {
@@ -629,6 +648,14 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
       hechas.push(`- ${titulo} [${data}] · ${NOMBRE[estado]}${hora ? ` · ${hora}` : ''}${minutos ? ` · ${fmtMin(minutos)}` : ''}${area ? ` · ${area.name}` : ''}${frente ? ` · ▸ ${frente.name}` : fs.length ? ' · sin frente (no suma a ninguna meta)' : ''}`)
     }
   }
+  // la nota del proyecto de las que la traen (mcp_crear_nota_tarea: una por tarea, en la carpeta de su frente)
+  for (const [i, t] of lista.entries()) {
+    if (!creadas[i] || typeof t.nota !== 'string' || !t.nota.trim()) continue
+    const { data, error } = await ctx.db.rpc('mcp_crear_nota_tarea', { p_uid: ctx.uid, p_task: creadas[i], p_body: t.nota.slice(0, 60_000) })
+    const k = hechas.findIndex((h) => h.includes(`[${creadas[i]}]`))
+    if (error) errores.push(`«${asStr(t.titulo, 200).trim()}» se creó, pero sin nota: ${error.message}`)
+    else if (k >= 0) hechas[k] += ` · 📝 nota [${(data as { note_id: string }).note_id}]`
+  }
   // las dependencias, cuando ya existen todas (así «#3» puede apuntar a una que va más abajo)
   for (const [i, t] of lista.entries()) {
     if (!creadas[i] || t.depende_de === undefined) continue
@@ -647,6 +674,24 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
   if (errores.length) out.push(`\nNo pude con:\n${errores.map((e) => `- ${e}`).join('\n')}`)
   out.push(`\n${enlace(ctx, p.id)}`)
   return hechas.length ? text(out.join('\n')) : oops(out.join('\n'))
+}
+
+async function crearNotaTarea(ctx: Ctx, args: Args): Promise<Result> {
+  const id = asStr(args.tarea_id, 60)
+  if (!UUID.test(id)) return oops('Ese id de tarea no es válido. Míralo con ver_tareas.')
+  const { data: t } = await ctx.db.from('tasks').select('id, space_id, title, abierta').eq('id', id).maybeSingle()
+  const { abiertos } = await misProyectos(ctx)
+  const tarea = t as { id: string; space_id: string; title: string; abierta: boolean } | null
+  if (!tarea || !tarea.abierta || !abiertos.some((s) => s.id === tarea.space_id)) return oops('Esa tarea no está en tus proyectos abiertos para Claude.')
+  if (cifrado(tarea.title)) return oops(`Esa tarea todavía está cifrada. ${PENDIENTE}`)
+  const { data, error } = await ctx.db.rpc('mcp_crear_nota_tarea', { p_uid: ctx.uid, p_task: id, p_body: asStr(args.contenido, 60_000) })
+  if (error) return oops(`No pude crear la nota: ${error.message}`)
+  const r = data as { note_id: string; ya_existia: boolean; carpeta?: boolean }
+  const link = `${ctx.origin}/cuaderno/nota/${r.note_id}`
+  if (r.ya_existia) {
+    return text(`«${tarea.title}» ya tenía su nota [${r.note_id}]: no creé otra${asStr(args.contenido, 10).trim() ? ' ni le sumé el contenido (hazlo con editar_pagina)' : ''}.\n${link}`)
+  }
+  return text(`Creé la nota de «${tarea.title}» [${r.note_id}] en Materiales${r.carpeta ? ', en la carpeta de su frente' : ''}.\n${link}`)
 }
 
 async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
