@@ -47,6 +47,15 @@ export const PROVIDER = Deno.env.get('AGENT_PROVIDER') || (Deno.env.get('GEMINI_
 
 export const providerKey = () => Deno.env.get(PROVIDER === 'gemini' ? 'GEMINI_API_KEY' : 'ANTHROPIC_API_KEY')
 
+// Respaldo cuando Gemini falla o está saturado: Claude con un modelo rápido y barato. AGENT_RESPALDO=no lo apaga.
+// PDFs y videos no tienen respaldo (solo Gemini los lee).
+const RESPALDO_MODEL = Deno.env.get('ANTHROPIC_RESPALDO_MODEL') || 'claude-haiku-5-5'
+function claveRespaldo(r: { ok: boolean; status?: number }) {
+  if (r.ok || Deno.env.get('AGENT_RESPALDO') === 'no') return null
+  const st = (r as { status: number }).status
+  return st === 429 || st >= 500 ? (Deno.env.get('ANTHROPIC_API_KEY') ?? null) : null
+}
+
 const str = { type: 'string' }
 const nul = { type: 'null' }
 export const S = {
@@ -88,7 +97,14 @@ export async function callTools(p: { system: string; prompt: string; tools: Tool
     media: Boolean(p.parts?.length),
     deadline: p.deadline,
   })
-  if (!r.ok) return r
+  if (!r.ok) {
+    const clave = p.parts?.length ? null : claveRespaldo(r)
+    if (clave) {
+      const c = await claudeTools(clave, p, RESPALDO_MODEL)
+      if (c.ok) return c
+    }
+    return r
+  }
   const say = r.parts.map((x) => x.text ?? '').join('').trim()
   const calls = r.parts.filter((x) => x.functionCall).map((x) => ({ name: x.functionCall!.name, args: unescapeNl(x.functionCall!.args ?? {}) as Record<string, unknown> }))
   return { ok: true, say, calls, model: r.model }
@@ -110,7 +126,14 @@ export async function callText(p: { system: string; history: Turn[]; timeoutMs?:
     maxTokens: p.maxTokens,
     deadline: p.deadline,
   })
-  if (!r.ok) return r
+  if (!r.ok) {
+    const clave = claveRespaldo(r)
+    if (clave) {
+      const c = await claudeText(clave, p.system, turns, p.maxTokens, RESPALDO_MODEL)
+      if (c.ok) return c
+    }
+    return r
+  }
   const text = r.parts.map((x) => x.text ?? '').join('').trim()
   return text ? { ok: true, text, model: r.model } : { ok: false, status: 502, error: CANT }
 }
@@ -211,22 +234,22 @@ async function gemini(
   return { ok: true, parts, model: used }
 }
 
-async function claudeTools(apiKey: string, p: { system: string; prompt: string; tools: Tool[] }): Promise<LlmResult> {
+async function claudeTools(apiKey: string, p: { system: string; prompt: string; tools: Tool[] }, respaldo?: string): Promise<LlmResult> {
   const client = new Anthropic({ apiKey })
   const t0 = Date.now()
   try {
     const params = {
-      model: MODEL,
-      max_tokens: 16000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'low' },
+      ...(respaldo
+        ? { model: respaldo, max_tokens: 8000 }
+        : { model: MODEL, max_tokens: 16000, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default', output_config: { effort: 'low' } }),
       tools: p.tools,
       tool_choice: { type: 'any' },
       system: [{ type: 'text', text: p.system, cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: p.prompt }],
     }
-    const res = await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
+    const res = respaldo
+      ? await client.messages.create(params as unknown as Anthropic.MessageCreateParamsNonStreaming)
+      : await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
     anotarUso({ proveedor: 'claude', modelo: res.model, ...tokensClaude(res.usage), ms: Date.now() - t0, ok: true })
     if (res.stop_reason === 'refusal') return { ok: true, say: 'Eso prefiero no procesarlo. Quedó guardado en tu diario.', calls: [] }
     let say = ''
@@ -235,29 +258,29 @@ async function claudeTools(apiKey: string, p: { system: string; prompt: string; 
       if (b.type === 'text') say += b.text
       if (b.type === 'tool_use') calls.push({ name: b.name, args: (typeof b.input === 'object' && b.input ? b.input : {}) as Record<string, unknown> })
     }
-    return { ok: true, say: say.trim(), calls, model: MODEL }
+    return { ok: true, say: say.trim(), calls, model: res.model }
   } catch (e) {
     return claudeError(e)
   }
 }
 
-async function claudeText(apiKey: string, system: string, turns: Turn[], maxTokens = 1200): Promise<TextResult> {
+async function claudeText(apiKey: string, system: string, turns: Turn[], maxTokens = 1200, respaldo?: string): Promise<TextResult> {
   const client = new Anthropic({ apiKey })
   const t0 = Date.now()
   try {
     const params = {
-      model: MODEL,
-      max_tokens: maxTokens,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'low' },
+      ...(respaldo
+        ? { model: respaldo, max_tokens: maxTokens }
+        : { model: MODEL, max_tokens: maxTokens, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default', output_config: { effort: 'low' } }),
       system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
       messages: turns.map((t) => ({ role: t.role === 'model' ? 'assistant' : 'user', content: t.text })),
     }
-    const res = await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
+    const res = respaldo
+      ? await client.messages.create(params as unknown as Anthropic.MessageCreateParamsNonStreaming)
+      : await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
     anotarUso({ proveedor: 'claude', modelo: res.model, ...tokensClaude(res.usage), ms: Date.now() - t0, ok: true })
     const text = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('').trim()
-    return text ? { ok: true, text, model: MODEL } : { ok: false, status: 502, error: CANT }
+    return text ? { ok: true, text, model: res.model } : { ok: false, status: 502, error: CANT }
   } catch (e) {
     return claudeError(e)
   }

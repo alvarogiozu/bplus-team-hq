@@ -26,6 +26,9 @@ function geminiThinking(model: string) {
 }
 // Proveedor: AGENT_PROVIDER=gemini|claude. Si no se dice, Gemini cuando hay su clave.
 const PROVIDER = Deno.env.get('AGENT_PROVIDER') || (Deno.env.get('GEMINI_API_KEY') ? 'gemini' : 'claude')
+// Respaldo cuando Gemini falla: Claude con un modelo rápido y barato (ANTHROPIC_RESPALDO_MODEL). AGENT_RESPALDO=no lo apaga.
+const RESPALDO = Deno.env.get('AGENT_RESPALDO') !== 'no'
+const RESPALDO_MODEL = Deno.env.get('ANTHROPIC_RESPALDO_MODEL') || 'claude-haiku-5-5'
 const LIMIT_PER_HOUR = 60
 
 export const ICONS = [
@@ -454,6 +457,9 @@ Deno.serve(async (req) => {
   }
   const text = typeof body.text === 'string' ? body.text.trim().slice(0, 600) : ''
   if (!text) return json({ error: 'No escuché ninguna orden' }, 400)
+  // anti-abuso: el contexto lo arma la app (~20-40 mil caracteres en un día lleno); uno inflado a mano gastaría
+  // tokens de más. Se corta antes de contar el cupo.
+  if (JSON.stringify(body.context ?? {}).length > 150_000) return json({ error: 'Tu día trae demasiadas cosas para Rockie. Prueba desde una vista con menos días.' }, 413)
 
   // tu plan: los mensajes con Rockie tienen cupo al mes (Gratis 30, 100 la primera semana; Plus 200; Pro 400).
   // Si la IA falla o está saturada, el mensaje se devuelve (abajo).
@@ -489,28 +495,53 @@ Deno.serve(async (req) => {
 
   const funcion = body.scope === 'os' ? 'chat' : body.scope === 'hq' ? 'equipo' : 'agenda'
   const respuesta = await quienIA.run({ user: user.id, funcion }, async (): Promise<Response> => {
-  if (PROVIDER === 'gemini') return askGemini(apiKey, history, `<contexto>
+  if (PROVIDER === 'gemini') {
+    const g = await askGemini(apiKey, history, `<contexto>
 ${JSON.stringify(ctx)}
 </contexto>
 
 Orden: ${text}`, ctx, kit, ligero)
+    // Respaldo: si Gemini está saturado o falló, contesta Claude (un modelo rápido y barato) en vez de dejar a la
+    // persona sin respuesta. AGENT_RESPALDO=no lo apaga.
+    const clave = Deno.env.get('ANTHROPIC_API_KEY')
+    if ((g.status === 429 || g.status >= 500) && clave && RESPALDO) {
+      const c = await askClaude(clave, messages, ctx, kit, true)
+      if (c.ok) return c
+      // sin contenido: solo el estado de Claude, para saber por qué no hubo respaldo
+      const detalle = await c.json().catch(() => ({}))
+      const base = await g.json().catch(() => ({}))
+      return json({ ...base, respaldo: detalle.claude ?? c.status }, g.status)
+    }
+    return g
+  }
 
+  return askClaude(apiKey, messages, ctx, kit, false)
+  })
+  if (respuesta.status === 429 || respuesta.status >= 500) {
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    await admin.rpc('devolver_cupo', { p_user: user.id, p_clave: 'ia_rockie_mes' })
+  }
+  return respuesta
+})
+
+/** Claude: el proveedor principal (AGENT_PROVIDER=claude) o el respaldo de Gemini (un modelo rápido, sin extras). */
+async function askClaude(apiKey: string, messages: Anthropic.MessageParam[], ctx: Ctx, kit: Kit, respaldo: boolean): Promise<Response> {
   const client = new Anthropic({ apiKey })
   const t0 = Date.now()
   try {
     // Parámetros armados aparte: `fallbacks: "default"` puede no estar tipado en la versión del SDK.
     const params = {
-      model: MODEL,
-      max_tokens: 16000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'low' },
+      ...(respaldo
+        ? { model: RESPALDO_MODEL, max_tokens: 4000 }
+        : { model: MODEL, max_tokens: 16000, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default', output_config: { effort: 'low' } }),
       tools: kit.tools,
       tool_choice: { type: 'auto' },
       system: [{ type: 'text', text: kit.system, cache_control: { type: 'ephemeral' } }],
       messages,
     }
-    const res = await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
+    const res = respaldo
+      ? await client.messages.create(params as unknown as Anthropic.MessageCreateParamsNonStreaming)
+      : await client.beta.messages.create(params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming)
     anotarUso({ proveedor: 'claude', modelo: res.model, ...tokensClaude(res.usage), ms: Date.now() - t0, ok: true })
 
     if (res.stop_reason === 'refusal') {
@@ -532,22 +563,18 @@ Orden: ${text}`, ctx, kit, ligero)
     }
     return json({ say: say.trim(), proposals: resolverAclarar(proposals, ctx), dropped })
   } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) return json({ error: 'Rockie está saturado. Intenta en unos segundos.' }, 429)
-    if (e instanceof Anthropic.AuthenticationError) return json({ error: 'voz-sin-configurar' }, 503)
+    anotarUso({ proveedor: 'claude', modelo: respaldo ? RESPALDO_MODEL : MODEL, entrada: 0, salida: 0, cache: 0, ms: Date.now() - t0, ok: false })
+    const claude = { estado: e instanceof Anthropic.APIError ? e.status : 0, tipo: e instanceof Error ? e.constructor.name : 'error' }
+    if (e instanceof Anthropic.RateLimitError) return json({ error: 'Rockie está saturado. Intenta en unos segundos.', claude }, 429)
+    if (e instanceof Anthropic.AuthenticationError) return json({ error: 'voz-sin-configurar', claude }, 503)
     if (e instanceof Anthropic.APIError) {
       console.error('anthropic', e.status, e.message)
-      return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.' }, 502)
+      return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.', claude }, 502)
     }
     console.error(e)
-    return json({ error: 'Algo salió mal en Rockie.' }, 500)
+    return json({ error: 'Algo salió mal en Rockie.', claude }, 500)
   }
-  })
-  if (respuesta.status === 429 || respuesta.status >= 500) {
-    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-    await admin.rpc('devolver_cupo', { p_user: user.id, p_clave: 'ia_rockie_mes' })
-  }
-  return respuesta
-})
+}
 
 // ---------- Gemini (plan gratuito de Google AI Studio) ----------
 function pack(say: string, calls: { name: string; args: Record<string, unknown> }[], ctx: Ctx) {

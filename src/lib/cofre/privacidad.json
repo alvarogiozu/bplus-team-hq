@@ -603,6 +603,14 @@
         "modelo": "nombre del modelo (para su precio)"
       }
     },
+    "ia_topes": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "clave": "qué tope se contó y su ventana (conector:h): solo la cantidad, nunca el contenido"
+      }
+    },
     "ia_precios": {
       "llave": "ninguna",
       "estado": "activo",

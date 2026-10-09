@@ -53,6 +53,9 @@ const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '
 const hashOf = async (s: string) => hex(await sha256(s))
 
 // ---------- MCP ----------
+// Acciones del conector por persona: una sesión intensa con Claude o ChatGPT hace decenas por hora.
+const TOPE_HORA = 300
+const TOPE_MES = 8000
 type Rpc = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> }
 const ok = (id: Rpc['id'], result: unknown) => ({ jsonrpc: '2.0', id, result })
 const fail = (id: Rpc['id'], code: number, message: string) => ({ jsonrpc: '2.0', id: id ?? null, error: { code, message } })
@@ -134,6 +137,12 @@ async function handle(m: Rpc, ctx: Ctx) {
       const name = typeof p.name === 'string' ? p.name : ''
       const args = p.arguments && typeof p.arguments === 'object' ? (p.arguments as Record<string, unknown>) : {}
       if (!toolsFor('escribir').some((t) => t.name === name)) return fail(m.id, -32602, `No existe la herramienta ${name}`)
+      // tope anti-abuso (ia_tope): de sobra para una persona, corta a un script. Si la base no responde, se deja pasar.
+      const { data: tope } = await admin.rpc('ia_tope', { p_user: ctx.uid, p_clave: 'conector', p_por_hora: TOPE_HORA, p_por_mes: TOPE_MES })
+      if (tope && tope.ok === false) {
+        const cuando = tope.ventana === 'hora' ? 'esta hora' : 'este mes'
+        return ok(m.id, { content: [{ type: 'text', text: `Llegaste al tope del conector de Rockie (${tope.limite} acciones ${cuando}). Es un freno contra el abuso; si lo necesitas para algo real, escríbenos a contacto@rockie.plus.` }], isError: true })
+      }
       // el costo de IA del conector (búsqueda por significado) se anota a su nombre (ia_uso)
       return ok(m.id, await quienIA.run({ user: ctx.uid, funcion: `conector_${name}` }, () => callTool(name, args, ctx)))
     }
