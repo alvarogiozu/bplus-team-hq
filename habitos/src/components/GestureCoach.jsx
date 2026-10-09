@@ -69,15 +69,15 @@ function buildSteps(vidaMode, compania, desk = false) {
     {
       id: 'hola', tipo: 'card', cara: { eyes: 4, mouth: 6 }, color: 'var(--amber)',
       titulo: 'Hola, soy Rockie',
-      texto: 'Te acompaño a armar tu primer plan haciendolo TU. Yo ilumino el camino y espero: nada avanza hasta que tu lo toques. Tomate tu tiempo.',
+      texto: 'Te acompaño a armar tu primer plan haciéndolo TÚ. Yo ilumino el camino y espero: nada avanza hasta que tú lo toques. Tómate tu tiempo.',
       cta: 'Vamos',
     },
     {
       id: 'vida', tipo: 'spot', targets: ['nav-vida'], color: 'var(--olive)',
       titulo: `Toca ${vidaLabel}`,
       texto: soloMetas
-        ? 'En esa pestana viven tus metas y tus habitos.'
-        : 'En esa pestana vive tu mapa: Areas, Metas y Habitos.',
+        ? 'En esa pestaña viven tus metas y tus hábitos.'
+        : 'En esa pestaña vive tu mapa: Áreas, Metas y Hábitos.',
       done: (ctx) => ctx.pathname.startsWith('/metas'),
     },
     // Celular y PC muestran el mapa y las metas en la misma pagina: sin paso
@@ -86,20 +86,20 @@ function buildSteps(vidaMode, compania, desk = false) {
       {
         id: 'areas', tipo: 'spot', targets: ['rueda-areas'], route: '/metas/areas', color: 'var(--olive)',
         titulo: 'Tu rueda de la vida',
-        texto: 'Cuerpo, Mente y Alma son tus areas. Cada meta alimentara una, y aqui veras como florece cada pedazo de tu vida.',
+        texto: 'Cuerpo, Mente y Alma son tus áreas. Cada meta alimentará una, y aquí verás cómo florece cada pedazo de tu vida.',
         cta: 'Entendido',
       },
     ] : []),
     {
       id: 'meta', tipo: 'spot', targets: ['crear-meta', 'crear'], route: '/metas', color: 'var(--olive)',
       titulo: 'Crea tu primera meta',
-      texto: 'Algo que quieras lograr, en una frase. Adentro eliges tambien los habitos que te llevan ahi. Yo te espero aqui afuera.',
+      texto: 'Algo que quieras lograr, en una frase. Adentro eliges también los hábitos que te llevan ahí. Yo te espero aquí afuera.',
       done: (ctx) => ctx.metas > ctx.metasBase,
     },
     {
       id: 'meta-ok', tipo: 'card', cara: { eyes: 6, mouth: 7 }, color: 'var(--olive)',
-      titulo: '¡Tu plan esta vivo!',
-      texto: 'Meta declarada y habitos enlazados. Cada vez que cumplas un habito, tu meta avanza sola.',
+      titulo: '¡Tu plan está vivo!',
+      texto: 'Meta declarada y hábitos enlazados. Cada vez que cumplas un hábito, tu meta avanza sola.',
       cta: 'Siguiente',
     },
     {
@@ -107,20 +107,20 @@ function buildSteps(vidaMode, compania, desk = false) {
       titulo: 'Toca Hoy',
       texto: desk
         ? 'En el menú de la izquierda. Ahí vive la mesa de tu día: tus hábitos en orden y el que toca ahora, en grande.'
-        : 'El boton redondo. Ahi aparecen las cartas de tus habitos de cada dia.',
+        : 'Abajo, la primera del pie. Ahí aparecen las cartas de tus hábitos de cada día.',
       done: (ctx) => ctx.pathname.startsWith('/hoy'),
     },
     {
       id: 'gestos', tipo: 'card', route: '/hoy', cara: { eyes: 1, mouth: 6 }, color: 'var(--green)',
-      titulo: 'Asi se vive Hoy',
+      titulo: 'Así se vive Hoy',
       gestos: desk ? [
         { icon: 'ti-camera', color: 'var(--green)', txt: 'Valida con un clic. Con foto vale más (la IA la confirma): también puedes soltarla o pegarla con Ctrl+V' },
         { icon: 'ti-hand-stop', color: 'var(--coral)', txt: '«Hoy no puede ser» la aplaza sin romper tu racha' },
         { icon: 'ti-keyboard', color: 'var(--berry)', txt: 'Atajos: flechas para moverte, F foto, H hecho, A aplazar' },
       ] : [
-        { icon: 'ti-arrow-big-up', color: 'var(--green)', txt: 'Desliza la carta hacia ARRIBA para validar (con foto vale mas: la IA la confirma)' },
+        { icon: 'ti-arrow-big-up', color: 'var(--green)', txt: 'Desliza la carta hacia ARRIBA para validar (con foto vale más: la IA la confirma)' },
         { icon: 'ti-arrow-big-down', color: 'var(--coral)', txt: 'Hacia ABAJO la aplazas sin romper tu racha' },
-        { icon: 'ti-hand-click', color: 'var(--berry)', txt: 'MANTEN presionada la carta para editarla' },
+        { icon: 'ti-hand-click', color: 'var(--berry)', txt: 'MANTÉN presionada la carta para editarla' },
       ],
       cta: 'Entendido',
     },
@@ -128,7 +128,7 @@ function buildSteps(vidaMode, compania, desk = false) {
       {
         id: 'juntos', tipo: 'spot', targets: ['nav-juntos'], color: 'var(--berry)',
         titulo: 'Toca Juntos',
-        texto: 'Dijiste que esto va en equipo: aqui viven tus amigos, grupos y retos. Si todos cumplen, todos ganan.',
+        texto: 'Dijiste que esto va en equipo: aquí viven tus amigos, grupos y retos. Si todos cumplen, todos ganan.',
         done: (ctx) => ctx.pathname.startsWith('/juntos'),
       },
     ] : []),
@@ -141,7 +141,7 @@ function buildSteps(vidaMode, compania, desk = false) {
     {
       id: 'fin', tipo: 'card', route: '/progreso', cara: { eyes: 6, mouth: 7 }, color: 'var(--amber)',
       titulo: 'Es todo tuyo',
-      texto: 'Cumple, sube tu prueba y mirame crecer contigo. En Ajustes puedes repetir este tutorial y cambiar entre modo Areas y modo Metas cuando quieras.',
+      texto: 'Cumple, sube tu prueba y mírame crecer contigo. En Ajustes puedes repetir este tutorial y cambiar entre modo Áreas y modo Metas cuando quieras.',
       cta: '¡A darle!',
     },
   ]
