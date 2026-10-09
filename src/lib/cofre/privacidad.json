@@ -422,6 +422,27 @@
       "publico": {},
       "_por_que": "solo ids (task_id espera a depende_de, del proyecto space_id) y fechas: no hay texto de nadie que cifrar; el servidor los lee para impedir ciclos y para que el conector diga «bloqueada por»"
     },
+    "claude_llaves": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "ambito": "proyecto o todo su Rockie",
+        "kids": "ids de las llaves entregadas (no las llaves)"
+      },
+      "servidor": {
+        "envuelto": "las llaves que la persona le dio a Claude, cerradas con la llave del servidor (CLAUDE_KEK), que no está en la base ni en sus respaldos; la app no la puede leer"
+      }
+    },
+    "claude_llaves_historial": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "ambito": "proyecto o todo su Rockie",
+        "evento": "creada, renovada, revocada o vencida"
+      }
+    },
     "habitos.challenges": {
       "llave": "personal",
       "estado": "pendiente",
