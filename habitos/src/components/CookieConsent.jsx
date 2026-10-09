@@ -29,6 +29,9 @@ export default function CookieConsent() {
   const [aboveNav, setAboveNav] = useState(false)
   const [phoneEl, setPhoneEl] = useState(null)
   const [enShell, setEnShell] = useState(false)
+  // Con el tutorial abierto el aviso quedaba debajo de su velo: tapado, sin poder tocarse y encima de lo que el
+  // tutorial apunta. Espera a que el tutorial termine (o se salte) y sale despues.
+  const [conTutorial, setConTutorial] = useState(false)
 
   useEffect(() => {
     const check = () => {
@@ -37,6 +40,7 @@ export default function CookieConsent() {
       setAboveNav(Boolean(navVisible))
       setPhoneEl(document.querySelector('.app-phone'))
       setEnShell(Boolean(document.querySelector('.app-root.desktop-shell')))
+      setConTutorial(Boolean(document.querySelector('[data-gesture-coach]')))
     }
     check()
     const obs = new MutationObserver(check)
@@ -44,7 +48,7 @@ export default function CookieConsent() {
     return () => obs.disconnect()
   }, [])
 
-  if (!visible) return null
+  if (!visible || conTutorial) return null
 
   const aceptar = () => {
     aceptarCookies()
@@ -81,9 +85,9 @@ export default function CookieConsent() {
         padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)',
       }}>
         <p className="q" style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--ink-soft)', lineHeight: 1.55 }}>
-          Usamos cookies esenciales para tu sesion y, si aceptas, analiticas anonimas para mejorar B+.
+          Usamos cookies esenciales para tu sesión y, si aceptas, analíticas anónimas para mejorar Rockie.
           Lee nuestra{' '}
-          <Link to="/legal#privacidad" style={{ color: 'var(--brand)', fontWeight: 700 }}>politica de privacidad</Link>.
+          <Link to="/legal#privacidad" style={{ color: 'var(--brand)', fontWeight: 700 }}>política de privacidad</Link>.
         </p>
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           <button type="button" className="gbtn q" onClick={aceptar} style={{

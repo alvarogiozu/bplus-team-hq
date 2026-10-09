@@ -86,6 +86,9 @@
 .em-pills[hidden] { display: none; }
 .em-pill { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 2px 10px; border-radius: 999px; background: var(--paper-alt); color: var(--ink-soft); font-size: var(--t-2xs); font-weight: 700; text-decoration: none; }
 .em-pill.flame { background: var(--amber-soft); color: var(--amber-ink); }
+/* la píldora que lleva a Tareas mide 28 px: el dedo la toca con 44 sin agrandarla */
+a.em-pill { position: relative; }
+a.em-pill::after { content: ''; position: absolute; inset: -8px -2px; }
 .em-now { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: var(--t-2xs); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--em-ink); }
 .em-now i { width: 8px; height: 8px; border-radius: 999px; background: var(--em); animation: emnow 2s ease-in-out infinite; }
 .em-now.late { color: var(--coral-ink); }

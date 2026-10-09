@@ -251,7 +251,7 @@ export default function GestureCoach({ onClose }) {
   if (fueraDeRuta) {
     return createPortal(
       <motion.div
-        ref={rootRef}
+        ref={rootRef} data-gesture-coach
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
         style={{ position: 'fixed', left: 0, right: 0, bottom: desk ? 'var(--space-6)' : 'calc(96px + env(safe-area-inset-bottom))', paddingLeft: desk ? 240 : 0, zIndex: 200, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}
       >
@@ -286,7 +286,7 @@ export default function GestureCoach({ onClose }) {
   if (step.tipo === 'card') {
     return createPortal(
       <motion.div
-        ref={rootRef}
+        ref={rootRef} data-gesture-coach
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}
         style={{ position: 'fixed', inset: 0, zIndex: 200, background: SCRIM, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-5) var(--screen-x)', touchAction: 'none' }}
       >
@@ -346,7 +346,7 @@ export default function GestureCoach({ onClose }) {
 
   return createPortal(
     <motion.div
-      ref={rootRef}
+      ref={rootRef} data-gesture-coach
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}
       style={{ position: 'fixed', inset: 0, zIndex: 200, pointerEvents: 'none' }}
     >

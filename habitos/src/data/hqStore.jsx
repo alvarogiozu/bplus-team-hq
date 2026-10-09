@@ -63,8 +63,6 @@ const DEFAULT_COLUMNS = [
 
 // ---------- Seed: el equipo B+ como primer espacio ----------
 function seedData() {
-  const doneId = uid()
-  const dueHoy = today()
   return {
     space: {
       name: 'B+',
@@ -100,12 +98,9 @@ function seedData() {
       { id: 'fabricio',  name: 'Fabricio',  color: '#eaa545', role: 'Comunidad', job: 'Contarle esto al mundo: video, copy, campana.' },
       { id: 'angel',     name: 'Angel',     color: '#a573a5', role: 'Diseno',    job: 'La siguiente invencion del sistema de objetos.' },
     ],
-    tasks: [
-      { id: uid(), title: 'Definir flujo de audio → tareas', col: 'doing', area: 'app',      assignee: 'alvaro',    priority: 'urgente', due: dueHoy },
-      { id: uid(), title: 'Revision de esquematico PCB v3',  col: 'todo',  area: 'hardware', assignee: 'mariana',   priority: 'normal',  due: null },
-      { id: uid(), title: 'Storyboard del video de pitch',   col: 'todo',  area: 'comunidad',assignee: 'fabricio',  priority: 'urgente', due: null },
-      { id: doneId, title: 'Tokens CSS en HQ integrado',     col: 'done',  area: 'diseno',   assignee: 'angel',     priority: 'normal',  due: dueHoy, proofMode: 'proof', note: 'tokens.css compartidos entre B+ y HQ' },
-    ],
+    // Sin tareas de demo: Hoy cruzaba a la persona por su nombre con estos miembros de ejemplo y a cualquier
+    // «Álvaro» le salia una tarea ajena. Las tareas reales viven en Proyectos.
+    tasks: [],
     milestones: [
       { id: 'alpha',  title: 'Alpha cerrada',    desc: '20 usuarios, 21 dias, datos reales.', target: 'Oct 2026', pct: 25, color: 'var(--azure)',  sort_order: 0 },
       { id: 'hw',     title: 'Hardware v1',       desc: 'Placa + firmware encendido.',          target: 'Nov 2026', pct: 40, color: 'var(--olive)', sort_order: 1 },
@@ -114,9 +109,7 @@ function seedData() {
     notes: [
       { id: uid(), title: 'Links utiles', color: 'var(--azure)', body: 'Supabase: https://app.supabase.com\nFigma: [pendiente]' },
     ],
-    xpLog: [
-      { id: uid(), taskId: doneId, memberId: 'angel', mode: 'proof', points: 100, day: dueHoy },
-    ],
+    xpLog: [],
     achievements: [],
   }
 }

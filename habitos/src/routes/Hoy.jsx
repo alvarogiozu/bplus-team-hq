@@ -982,7 +982,7 @@ export default function Hoy() {
               }}>💎</div>
               <div className="s" style={{ fontSize: 'var(--text-xl)', color: 'var(--ink)' }}>Hoy no tienes acciones</div>
               <div className="q" style={{ fontSize: 'var(--text-sm)', color: 'var(--ink-muted)', marginTop: 6, lineHeight: 1.5 }}>
-                Crea un hábito o tarea de proyecto y Rockie te acompañará aquí.
+                Crea un hábito y Rockie te acompañará aquí.
               </div>
               <motion.button
                 whileTap={{ y: 4 }}
