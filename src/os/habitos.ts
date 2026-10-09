@@ -83,6 +83,32 @@ export async function fetchPerfilHabitos(): Promise<PerfilHabitos> {
   return { signedIn: true, friendCode: prof?.friend_code || null, level: prof?.level ?? 1, streak, best: s?.best ?? 0 }
 }
 
+// ---------- las preferencias de Hábitos que el sistema también toca ----------
+// Hábitos guarda sus preferencias en localStorage (bplus.prefs) y las lee al cargar: el tema ya se sincroniza así
+// (app/theme.ts). «Tu mapa» es la misma pregunta de su onboarding: 'areas' = Cuerpo/Mente/Alma con sus metas (la
+// pestaña se llama Vida y Progreso dibuja el mapa); 'metas' = solo la lista de metas (la pestaña se llama Metas).
+export type VidaMode = 'areas' | 'metas'
+const PREFS_HABITOS = 'bplus.prefs'
+
+function prefsHabitos(): Record<string, unknown> {
+  try {
+    const p = JSON.parse(localStorage.getItem(PREFS_HABITOS) || '{}') as unknown
+    return p && typeof p === 'object' ? (p as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
+}
+export function leerVidaMode(): VidaMode {
+  return prefsHabitos().vidaMode === 'metas' ? 'metas' : 'areas'
+}
+export function guardarVidaMode(m: VidaMode) {
+  try {
+    localStorage.setItem(PREFS_HABITOS, JSON.stringify({ ...prefsHabitos(), vidaMode: m }))
+  } catch {
+    /* sin almacenamiento */
+  }
+}
+
 // ---------- tus hábitos en la Agenda: en sus días y a su hora ----------
 export type HabitPlan = { id: string; name: string; time: string; type: string; icon: string | null; color: string | null; /** lunes = 0, como en Hábitos */ days: number[] }
 export type HabitosRango = { signedIn: false } | { signedIn: true; habits: HabitPlan[]; /** día → hábitos cumplidos */ done: Record<string, string[]> }

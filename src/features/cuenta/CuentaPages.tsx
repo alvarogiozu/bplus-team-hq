@@ -11,7 +11,7 @@ import { useIsMobile } from '../../lib/useMedia'
 import { NOMBRE_PLAN, usePlan } from '../../lib/planes'
 import { humanError, supabase } from '../../lib/supabase'
 import { APPS } from '../../os/apps'
-import { fetchPerfilHabitos, rockieLook } from '../../os/habitos'
+import { fetchPerfilHabitos, guardarVidaMode, leerVidaMode, rockieLook, type VidaMode } from '../../os/habitos'
 import { RockieArt } from '../../os/RockieArt'
 import { MovilTop } from '../../os/movil/MovilShell'
 import { useAuth, useMe } from '../auth/AuthProvider'
@@ -207,6 +207,27 @@ export function AjustesPage() {
     qc.invalidateQueries({ queryKey: ['profile'] })
   }
 
+  // Hábitos · tu mapa: la misma pregunta de su onboarding, también desde aquí (Hábitos la lee al cargar)
+  const [vida, setVida] = useState<VidaMode>(leerVidaMode)
+  const elegirVida = (m: VidaMode) => {
+    guardarVidaMode(m)
+    setVida(m)
+    toast(m === 'metas' ? 'Hábitos mostrará solo tus metas' : 'Hábitos mostrará tus áreas con sus metas', { kind: 'ok', icon: 'check' })
+  }
+  const MAPAS: { id: VidaMode; icon: IconName; titulo: string; sub: string; color: string; edge: string }[] = [
+    { id: 'areas', icon: 'apps', titulo: 'Áreas y metas', sub: 'Cuerpo, Mente y Alma · la pestaña se llama Vida', color: '#4a7c3f', edge: '#3a622f' },
+    { id: 'metas', icon: 'goal', titulo: 'Solo metas', sub: 'Directo al grano · la pestaña se llama Metas', color: '#2e88aa', edge: '#216b87' },
+  ]
+  const verTutorialHabitos = () => {
+    try {
+      localStorage.removeItem('bplus.seenGestureCoach')
+      localStorage.removeItem('bplus.coachStep')
+    } catch {
+      /* sin almacenamiento */
+    }
+    location.assign('/habitos/hoy')
+  }
+
   const app = (id: string) => APPS.find((a) => a.id === id)!
   const deApp: { app: ReturnType<typeof app>; to: string; label: string; page?: boolean }[] = [
     { app: app('habitos'), to: '/habitos/ajustes', label: 'Recordatorios, sonidos y tu Rockie', page: true },
@@ -223,6 +244,30 @@ export function AjustesPage() {
         <ThemeChoice />
         <label className="lbl">Tu color principal</label>
         <AccentPicker />
+      </section>
+
+      <section className="cuenta-card">
+        <h2>Hábitos · tu mapa</h2>
+        <p className="hint">Lo que te preguntamos al empezar. Cambiarlo no borra nada: tus metas guardan su área.</p>
+        <div className="cuenta-opciones" role="group" aria-label="Tu mapa en Hábitos">
+          {MAPAS.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              className="cuenta-opcion"
+              aria-pressed={vida === o.id}
+              onClick={() => elegirVida(o.id)}
+              style={{ ['--k' as string]: o.color, ['--ke' as string]: o.edge } as CSSProperties}
+            >
+              <Icon name={o.icon} />
+              <b>{o.titulo}</b>
+              <small>{o.sub}</small>
+            </button>
+          ))}
+        </div>
+        <nav className="cuenta-lista" aria-label="Tutorial" style={{ marginTop: 8 }}>
+          <Fila onClick={verTutorialHabitos} icon="sparkle" titulo="Volver a ver el tutorial de Hábitos" sub="Rockie te guía paso a paso por Hoy, Vida, Juntos y Progreso" />
+        </nav>
       </section>
 
       <section className="cuenta-card">

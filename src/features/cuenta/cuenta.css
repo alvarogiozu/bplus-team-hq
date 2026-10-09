@@ -96,3 +96,18 @@
 .cuenta-codigo code { flex: 1 1 100%; padding: var(--s3); border-radius: var(--r-md); background: var(--paper-alt); font-family: var(--mono, ui-monospace, monospace); font-size: var(--t-lg); font-weight: 800; letter-spacing: 0.16em; text-align: center; color: var(--ink); }
 .cuenta-codigo .btn { flex: 1; justify-content: center; }
 .cuenta-salir { align-self: flex-start; }
+
+/* dos (o tres) opciones grandes para elegir con el pulgar (Hábitos · Tu mapa) */
+.cuenta-opciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s2); }
+.cuenta-opcion {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 88px; padding: var(--s3); box-sizing: border-box;
+  border-radius: var(--r-lg); background: var(--card); border: 2px solid var(--card-line); box-shadow: 0 2px 0 var(--card-edge);
+  color: var(--ink-soft); font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s var(--glide);
+}
+.cuenta-opcion:active { transform: translateY(1px); }
+.cuenta-opcion .ico { width: 24px; height: 24px; color: var(--ink-faint); transition: color 0.15s; }
+.cuenta-opcion b { font-size: var(--t-xs); color: var(--ink); }
+.cuenta-opcion small { font-size: var(--t-3xs); font-weight: 600; color: var(--ink-muted); }
+.cuenta-opcion[aria-pressed='true'] { border-color: var(--k, var(--accent)); box-shadow: 0 3px 0 var(--ke, var(--accent-edge)); }
+.cuenta-opcion[aria-pressed='true'] .ico { color: var(--k, var(--accent)); }
