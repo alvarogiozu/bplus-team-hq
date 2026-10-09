@@ -28,10 +28,11 @@ Es un mini-proyecto aparte: tiene su propio `package.json` y no toca el build de
    Sin cable: Build › Build App Bundle(s)/APK(s) › Build APK(s), y pasa el `.apk` al teléfono para instalarlo.
 
 ## Cosas que hay que saber
-- **Google bloquea iniciar sesión con Google dentro de una app así** (error `disallowed_useragent`). Hasta resolverlo
-  (abrir el login en el navegador del sistema o usar el inicio de sesión nativo de Google), dentro de la app se entra
-  con correo y clave.
-- Para publicar en Play Store hace falta firmar (una keystore que se guarda fuera del repo) y una ficha con capturas.
+- **Entrar con Google:** Google no deja iniciar sesión dentro de un WebView (error `disallowed_useragent`), así que en
+  la app se abre en Chrome (Custom Tab) y vuelve por `plus.rockie.app://auth` (ver PUENTE.md). Esa dirección tiene que
+  estar en Supabase › Authentication › URL Configuration › Redirect URLs (proyectos de Hábitos y de Rockie OS).
+- **Sin compras dentro de la app** (precios-y-margenes.md §6): la web lo resuelve con `src/lib/appNativa.ts`.
+- Para publicar en Play Store hace falta firmar (llave fuera del repo, abajo) y una ficha con capturas.
 
 ## Llave de firma (Play Store)
 La llave vive **fuera del repo**, en `%USERPROFILE%\.rockie\firma\`. `android/app/build.gradle` la usa sola si existe
