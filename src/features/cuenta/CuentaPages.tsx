@@ -1,6 +1,6 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon, type IconName } from '../../components/Icon'
 import { AccentPicker } from '../../components/AccentPicker'
 import { ThemeChoice } from '../../components/ThemeChoice'
@@ -11,13 +11,16 @@ import { useIsMobile } from '../../lib/useMedia'
 import { NOMBRE_PLAN, usePlan } from '../../lib/planes'
 import { humanError, supabase } from '../../lib/supabase'
 import { APPS } from '../../os/apps'
+import { fetchPerfilHabitos, rockieLook } from '../../os/habitos'
+import { RockieArt } from '../../os/RockieArt'
 import { MovilTop } from '../../os/movil/MovilShell'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { signOut } from '../auth/credentials'
 import { Avatar, CuentaBoton } from './Cuenta'
 
 // Perfil y Ajustes: los de tu cuenta, iguales desde cualquier app (no hay unos por app).
-// Lo propio de cada app (rutina de la Agenda, bóveda del Cuaderno, áreas del proyecto…) se abre desde aquí.
+// En el celular son listas de filas grandes (una cosa por fila, 56 px, chevron): se leen de un vistazo y se tocan
+// con el pulgar. Lo propio de cada app (rutina de la Agenda, bóveda del Cuaderno, áreas del proyecto…) se abre desde aquí.
 
 export function Marco({ titulo, children }: { titulo: string; children: ReactNode }) {
   const mobile = useIsMobile()
@@ -41,11 +44,54 @@ export function Marco({ titulo, children }: { titulo: string; children: ReactNod
   )
 }
 
+/** Una fila de la lista: ícono con su color, título, detalle y chevron (o lo que va a la derecha). */
+function Fila(p: {
+  to?: string
+  /** otra página del sitio (Hábitos): carga completa */
+  href?: string
+  onClick?: () => void
+  icon: IconName
+  /** color del ícono (una app); sin color, va suave */
+  color?: string
+  edge?: string
+  titulo: string
+  sub?: ReactNode
+  derecha?: ReactNode
+  peligro?: boolean
+}) {
+  const cls = `cuenta-fila${p.peligro ? ' peligro' : ''}`
+  const inner = (
+    <>
+      <span className={`cuenta-fila-ic${p.color ? '' : ' suave'}`} style={p.color ? ({ ['--app' as string]: p.color, ['--app-edge' as string]: p.edge } as CSSProperties) : undefined}>
+        <Icon name={p.icon} className="sm" />
+      </span>
+      <span className="cuenta-fila-t">
+        <b>{p.titulo}</b>
+        {p.sub && <small>{p.sub}</small>}
+      </span>
+      {p.derecha ?? <Icon name="chevron" className="sm cuenta-fila-go" />}
+    </>
+  )
+  if (p.href) return <a href={p.href} className={cls}>{inner}</a>
+  if (p.to) return <Link to={p.to} className={cls}>{inner}</Link>
+  return (
+    <button type="button" className={cls} onClick={p.onClick}>
+      {inner}
+    </button>
+  )
+}
+
 export function PerfilPage() {
   const { userId, profile } = useMe()
   const { session } = useAuth()
   const qc = useQueryClient()
+  const plan = usePlan()
   const [nombre, setNombre] = useState(profile.display_name)
+  // tu Rockie, tu racha y tu código de amigo viven en Hábitos (misma sesión en este navegador)
+  const hab = useQuery({ queryKey: ['os', 'perfil-habitos'], queryFn: fetchPerfilHabitos, staleTime: 60_000 })
+  const look = useMemo(() => rockieLook(), [])
+  const h = hab.data?.signedIn ? hab.data : null
+  const enlace = h?.friendCode ? `${location.origin}/invita/${h.friendCode}` : ''
 
   async function guardar(patch: { display_name?: string; color?: string }) {
     const { error } = await supabase.from('profiles').update(patch).eq('id', userId)
@@ -53,17 +99,52 @@ export function PerfilPage() {
     qc.invalidateQueries({ queryKey: ['profile'] })
     toast('Perfil guardado', { kind: 'ok', icon: 'check' })
   }
+  const copiar = async (texto: string, aviso: string) => {
+    try {
+      await navigator.clipboard.writeText(texto)
+      toast(aviso, { kind: 'ok', icon: 'check' })
+    } catch {
+      toastError('No se pudo copiar')
+    }
+  }
+  const compartir = async () => {
+    const texto = `Súmate a mis hábitos en Rockie: ${enlace}`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Rockie', text: texto, url: enlace })
+      } catch {
+        /* lo cerró */
+      }
+    } else void copiar(enlace, 'Enlace copiado')
+  }
 
   return (
     <Marco titulo="Perfil">
-      <section className="cuenta-card cuenta-yo">
-        <Avatar size={72} />
-        <div>
+      <section className="cuenta-card cuenta-hero">
+        <Avatar size={64} />
+        <div className="cuenta-hero-t">
           <b>{profile.display_name}</b>
           <small>@{profile.username}</small>
           {session?.user.email && <small>{session.user.email}</small>}
+          <span className="cuenta-plan">{NOMBRE_PLAN[plan.plan]}</span>
         </div>
+        <span className="cuenta-rockie" aria-label="Tu Rockie">
+          <RockieArt size={70} stone={look.stone} equipped={look.equipped} />
+        </span>
       </section>
+      {h && (
+        <div className="cuenta-chips" aria-label="Tus números en Hábitos">
+          <span>
+            <Icon name="flame" /> {h.streak === 1 ? '1 día de racha' : `${h.streak} días de racha`}
+          </span>
+          <span>
+            <Icon name="trophy" /> mejor {h.best}
+          </span>
+          <span>
+            <Icon name="star" /> Nv {h.level}
+          </span>
+        </div>
+      )}
 
       <section className="cuenta-card">
         <h2>Cómo te ven</h2>
@@ -76,6 +157,40 @@ export function PerfilPage() {
         </div>
         <label className="lbl">Tu color (tu inicial y tu Rockie en los proyectos)</label>
         <ColorPick value={profile.color} onChange={(c) => void guardar({ color: c })} palette={PALETTE} label="Tu color" size={32} />
+      </section>
+
+      <section className="cuenta-card">
+        <h2>Tu código de amigo</h2>
+        {h?.friendCode ? (
+          <>
+            <p className="hint">Con él tus amigos te agregan en Hábitos: comparte el enlace o muéstrales tu QR.</p>
+            <div className="cuenta-codigo">
+              <code>{h.friendCode}</code>
+              <button type="button" className="btn ghost sm" onClick={() => void copiar(h.friendCode!, 'Código copiado')}>
+                <Icon name="copy" className="sm" /> Copiar
+              </button>
+              <button type="button" className="btn sm" onClick={() => void compartir()}>
+                <Icon name="link" className="sm" /> Compartir
+              </button>
+            </div>
+            <nav className="cuenta-lista" aria-label="Tu QR">
+              <Fila href="/habitos/ajustes" icon="apps" titulo="Mi QR" sub="Para que te escaneen desde Hábitos" />
+            </nav>
+          </>
+        ) : (
+          <nav className="cuenta-lista">
+            <Fila href="/habitos/hoy" icon="flame" color={APPS[0].color} edge={APPS[0].edge} titulo="Entra a Hábitos" sub={hab.isPending ? 'Buscando tu código…' : 'Ahí nace tu código de amigo y tu Rockie'} />
+          </nav>
+        )}
+      </section>
+
+      <section className="cuenta-card">
+        <nav className="cuenta-lista" aria-label="Tu cuenta">
+          <Fila to="/planes" icon="sparkle" titulo="Tu plan" sub={`Tienes ${NOMBRE_PLAN[plan.plan]}${plan.plan === 'gratis' ? ' · mira qué trae Plus' : ''}`} />
+          <Fila to="/cofre" icon="lock" titulo="Tu Cofre" sub="Tu código de recuperación y tus otros dispositivos" />
+          <Fila to="/ajustes" icon="settings" titulo="Ajustes" sub="Tema, color, zona horaria y lo de cada app" />
+          <Fila onClick={() => signOut()} icon="logout" titulo="Cerrar sesión" peligro derecha={<span />} />
+        </nav>
       </section>
     </Marco>
   )
@@ -122,58 +237,20 @@ export function AjustesPage() {
           onChange={setTimezone}
           options={Array.from(new Set([profile.timezone, ...TIMEZONES])).map((tz) => ({ value: tz, label: tz.replace(/_/g, ' ') }))}
         />
-        <div className="row" style={{ flexWrap: 'wrap', marginTop: 16 }}>
-          <Link className="btn ghost sm" to="/cambiar-clave">
-            <Icon name="key" className="sm" /> Cambiar contraseña
-          </Link>
-        </div>
-      </section>
-
-      <section className="cuenta-card">
-        <h2>Tu plan</h2>
-        <p className="hint">
-          Tienes el plan <b>{NOMBRE_PLAN[plan.plan]}</b>.{' '}
-          {plan.plan === 'gratis' ? 'Mira qué trae Plus y cómo activarlo.' : 'Aquí ves hasta cuándo y lo que incluye.'}
-        </p>
-        <Link className="btn ghost sm" to="/planes">
-          <Icon name="sparkle" className="sm" /> Ver planes
-        </Link>
-      </section>
-
-      <section className="cuenta-card">
-        <h2>Privacidad</h2>
-        <p className="hint">Lo que guardas en Rockie se cifra en tu dispositivo antes de salir. En tu Cofre está tu código de recuperación y cómo abrirlo en otro dispositivo.</p>
-        <Link className="btn ghost sm" to="/cofre">
-          <Icon name="lock" className="sm" /> Tu Cofre
-        </Link>
+        <nav className="cuenta-lista" aria-label="Tu cuenta" style={{ marginTop: 12 }}>
+          <Fila to="/perfil" icon="user" titulo="Perfil" sub="Tu nombre, tu color y tu código de amigo" />
+          <Fila to="/cambiar-clave" icon="key" titulo="Cambiar contraseña" />
+          <Fila to="/planes" icon="sparkle" titulo="Tu plan" sub={`Tienes ${NOMBRE_PLAN[plan.plan]}${plan.plan === 'gratis' ? ' · mira qué trae Plus y cómo activarlo' : ' · hasta cuándo y lo que incluye'}`} />
+          <Fila to="/cofre" icon="lock" titulo="Tu Cofre" sub="Lo que guardas se cifra en tu dispositivo. Aquí está tu código de recuperación" />
+        </nav>
       </section>
 
       <section className="cuenta-card">
         <h2>De cada app</h2>
-        <nav className="cuenta-apps" aria-label="Ajustes de cada app">
-          {deApp.map(({ app: a, to, label, page }) => {
-            const inner = (
-              <>
-                <span className="os-tile sm" style={{ ['--app' as string]: a.color, ['--app-edge' as string]: a.edge } as CSSProperties}>
-                  <Icon name={a.icon as IconName} />
-                </span>
-                <span className="cuenta-app-t">
-                  <b>{a.name}</b>
-                  <small>{label}</small>
-                </span>
-                <Icon name="chevron" className="sm cuenta-app-go" />
-              </>
-            )
-            return page ? (
-              <a key={a.id} href={to} className="cuenta-app">
-                {inner}
-              </a>
-            ) : (
-              <Link key={a.id} to={to} className="cuenta-app">
-                {inner}
-              </Link>
-            )
-          })}
+        <nav className="cuenta-lista" aria-label="Ajustes de cada app">
+          {deApp.map(({ app: a, to, label, page }) => (
+            <Fila key={a.id} to={page ? undefined : to} href={page ? to : undefined} icon={a.icon as IconName} color={a.color} edge={a.edge} titulo={a.name} sub={label} />
+          ))}
         </nav>
       </section>
 

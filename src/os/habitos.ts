@@ -59,6 +59,30 @@ export async function fetchHabitosHoy(): Promise<HabitosHoy> {
   return { signedIn: true, habits, streak, best: s?.best ?? 0 }
 }
 
+// ---------- tu perfil de Hábitos (para el Perfil del sistema): código de amigo y rachas ----------
+export type PerfilHabitos = { signedIn: false } | { signedIn: true; friendCode: string | null; level: number; streak: number; best: number }
+
+export async function fetchPerfilHabitos(): Promise<PerfilHabitos> {
+  const c = bplus()
+  if (!c) return { signedIn: false }
+  const { data } = await c.auth.getSession()
+  const uid = data.session?.user.id
+  if (!uid) return { signedIn: false }
+  const now = new Date()
+  const today = isoLocal(now)
+  const y = new Date(now)
+  y.setDate(y.getDate() - 1)
+  const yesterday = isoLocal(y)
+  const [p, st] = await Promise.all([
+    c.from('profiles').select('friend_code, level').eq('id', uid).maybeSingle(),
+    c.from('streaks').select('current, best, last_date').eq('user_id', uid).maybeSingle(),
+  ])
+  const s = st.data as { current: number; best: number; last_date: string | null } | null
+  const prof = (p.data ?? null) as { friend_code?: string | null; level?: number | null } | null
+  const streak = s && (s.last_date === today || s.last_date === yesterday) ? s.current : 0
+  return { signedIn: true, friendCode: prof?.friend_code || null, level: prof?.level ?? 1, streak, best: s?.best ?? 0 }
+}
+
 // ---------- tus hábitos en la Agenda: en sus días y a su hora ----------
 export type HabitPlan = { id: string; name: string; time: string; type: string; icon: string | null; color: string | null; /** lunes = 0, como en Hábitos */ days: number[] }
 export type HabitosRango = { signedIn: false } | { signedIn: true; habits: HabitPlan[]; /** día → hábitos cumplidos */ done: Record<string, string[]> }
