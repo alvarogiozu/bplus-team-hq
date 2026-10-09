@@ -89,6 +89,9 @@ export async function syncHqSessionFromBplus(bplusSession: Session): Promise<Ses
   if (current.session) {
     return current.session
   }
+  // una sesión anónima de Hábitos no es una persona: no se le crea cuenta de Rockie OS (eso armaba un bucle que dejó
+  // 10 cuentas «rockie» vacías el 1 oct). Quien no tiene sesión de Rockie OS entra por el login.
+  if (bplusSession.user.is_anonymous) return null
 
   const bplusUid = bplusSession.user.id
   const email = `bplus.${bplusUid.replace(/-/g, '')}@${env.authEmailDomain}`
@@ -143,55 +146,45 @@ export async function syncHqSessionFromBplus(bplusSession: Session): Promise<Ses
 
 let syncBpPromise: Promise<Session | null> | null = null
 
-/** Sincroniza la sesión de Rockie OS (Usuario + Contraseña) hacia el cliente de Hábitos (B+) para mantener un acceso único. */
-export async function syncBplusSessionFromHq(hqSession: Session, rawPassword?: string): Promise<Session | null> {
+/**
+ * La sesión de Hábitos (B+) de esta persona de Rockie OS: SIEMPRE su misma cuenta, en todos sus aparatos.
+ * La da la función puente-hq de Hábitos (verifica el token de Rockie OS en el servidor). Antes se creaba una cuenta
+ * anónima nueva en cada navegador sin sesión y los hábitos no seguían a la persona (0031 + fusion-cuentas.mjs).
+ */
+export async function syncBplusSessionFromHq(hqSession: Session, _rawPassword?: string): Promise<Session | null> {
   const bp = bplus()
   if (!bp) return null
 
   const { data: current } = await bp.auth.getSession()
-  if (current.session) {
-    return current.session
-  }
+  // ya es su cuenta de siempre (lo confirmó el puente en este aparato)
+  if (current.session && cuentaDelPuente(hqSession.user.id) === current.session.user.id) return current.session
 
   if (syncBpPromise) return syncBpPromise
 
   syncBpPromise = conCandadoPuente(async () => {
     try {
-      // otra app (otro iframe) pudo crearla mientras esperábamos el candado
+      // otra app (otro iframe) pudo resolverlo mientras esperábamos el candado
       const { data: ya } = await bp.auth.getSession()
-      if (ya.session) return ya.session
-      if (puenteEnPausa()) return null
-
-      if (hqSession.user.email && rawPassword) {
-        const signRes = await bp.auth.signInWithPassword({ email: hqSession.user.email, password: rawPassword })
-        if (signRes.data.session) return signRes.data.session
-      }
+      if (ya.session && cuentaDelPuente(hqSession.user.id) === ya.session.user.id) return ya.session
+      if (puenteEnPausa()) return ya.session ?? null
 
       const meta = (hqSession.user.user_metadata ?? {}) as Record<string, unknown>
-      const displayName = String(
-        meta.display_name || meta.username || meta.name || hqSession.user.email?.split('@')[0] || 'Usuario',
-      )
+      const nombre = String(meta.display_name || meta.username || meta.name || hqSession.user.email?.split('@')[0] || '')
         .trim()
         .slice(0, 40)
-
-      const anonRes = await bp.auth.signInAnonymously({
-        options: {
-          data: {
-            full_name: displayName,
-            name: displayName,
-            display_name: displayName,
-            hq_uid: hqSession.user.id,
-          },
-        },
+      // con Google la cuenta de Hábitos ya existe: su token prueba que es suya y el puente las une
+      const habitos_token = ya.session && !ya.session.user.is_anonymous ? ya.session.access_token : undefined
+      const { data, error } = await bp.functions.invoke<{ access_token: string; refresh_token: string; user_id: string }>('puente-hq', {
+        headers: { Authorization: `Bearer ${hqSession.access_token}` },
+        body: { nombre, habitos_token },
       })
-      if (anonRes.error?.status === 429) pausarPuente()
-      if (anonRes.data.session) {
-        // el perfil ya lo creó el trigger de Hábitos al registrar la sesión (handle_new_user): solo se le pone el
-        // nombre. Un upsert pedía INSERT, que la RLS de profiles no da → 403 y el perfil quedaba como «Tu».
-        await bp.from('profiles').update({ name: displayName }).eq('id', anonRes.data.session.user.id)
-        return anonRes.data.session
+      if (error || !data?.access_token) {
+        if ((error as { context?: Response } | null)?.context?.status === 429) pausarPuente()
+        return ya.session ?? null
       }
-      return null
+      const { data: s } = await bp.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token })
+      if (s.session) guardarCuentaDelPuente(hqSession.user.id, data.user_id)
+      return s.session
     } catch {
       return null
     } finally {
@@ -200,6 +193,22 @@ export async function syncBplusSessionFromHq(hqSession: Session, rawPassword?: s
   })
 
   return syncBpPromise
+}
+
+/** Qué cuenta de Hábitos le dio el puente a esta persona en este aparato (para no volver a llamarlo). */
+function cuentaDelPuente(hqUid: string): string | null {
+  try {
+    return localStorage.getItem(`rockie.puente.${hqUid}`)
+  } catch {
+    return null
+  }
+}
+function guardarCuentaDelPuente(hqUid: string, bpUid: string) {
+  try {
+    localStorage.setItem(`rockie.puente.${hqUid}`, bpUid)
+  } catch {
+    /* sin almacenamiento */
+  }
 }
 
 // El puente a Hábitos se arma UNA vez para todas las apps: en el escritorio cada app es un iframe con su propia memoria

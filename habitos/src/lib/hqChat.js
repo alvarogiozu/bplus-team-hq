@@ -97,53 +97,54 @@ export async function sincronizarDesdeHq(bplusClient) {
   return locks ? locks.request('rockie:puente-habitos', () => puenteDesdeHq(bplusClient)) : puenteDesdeHq(bplusClient)
 }
 
+// Su cuenta de Hábitos de siempre, en todos sus aparatos: la da la función puente-hq (verifica el token de Rockie OS en
+// el servidor). Antes se creaba una cuenta anónima nueva en cada navegador sin sesión. Igual que
+// syncBplusSessionFromHq en src/features/auth/credentials.ts (misma marca rockie.puente.<hq_uid> en este navegador).
 async function puenteDesdeHq(bplusClient) {
   try {
     const c = hq()
     if (!c || !bplusClient) return null
     const { data: bpData } = await bplusClient.auth.getSession()
-    if (bpData?.session) {
-      return bpData.session
-    }
+    const { data: hqData } = await c.auth.getSession()
+    const hqSess = hqData?.session
+    if (!hqSess?.user?.id) return bpData?.session ?? null
+    const marca = `rockie.puente.${hqSess.user.id}`
+    let suya = null
     try {
-      if (Number(localStorage.getItem('rockie.puente.pausa') || 0) > Date.now()) return null
+      suya = localStorage.getItem(marca)
+      if (Number(localStorage.getItem('rockie.puente.pausa') || 0) > Date.now()) return bpData?.session ?? null
     } catch {
       /* sin almacenamiento */
     }
-    const { data: hqData } = await c.auth.getSession()
-    const hqSess = hqData?.session
-    if (!hqSess?.user?.id) return null
+    if (bpData?.session && suya === bpData.session.user.id) return bpData.session
 
     const meta = hqSess.user.user_metadata || {}
-    const displayName = String(
-      meta.display_name || meta.username || meta.name || hqSess.user.email?.split('@')[0] || 'Usuario',
-    )
+    const nombre = String(meta.display_name || meta.username || meta.name || hqSess.user.email?.split('@')[0] || '')
       .trim()
       .slice(0, 40)
-
-    const anonRes = await bplusClient.auth.signInAnonymously({
-      options: {
-        data: {
-          full_name: displayName,
-          name: displayName,
-          display_name: displayName,
-          hq_uid: hqSess.user.id,
-        },
-      },
+    // con Google la cuenta de Hábitos ya existe: su token prueba que es suya y el puente las une
+    const habitos_token = bpData?.session && !bpData.session.user.is_anonymous ? bpData.session.access_token : undefined
+    const { data, error } = await bplusClient.functions.invoke('puente-hq', {
+      headers: { Authorization: `Bearer ${hqSess.access_token}` },
+      body: { nombre, habitos_token },
     })
-    if (anonRes.error?.status === 429) {
-      try {
-        localStorage.setItem('rockie.puente.pausa', String(Date.now() + 120_000))
-      } catch {
-        /* sin almacenamiento */
+    if (error || !data?.access_token) {
+      if (error?.context?.status === 429) {
+        try {
+          localStorage.setItem('rockie.puente.pausa', String(Date.now() + 120_000))
+        } catch {
+          /* sin almacenamiento */
+        }
       }
+      return bpData?.session ?? null
     }
-    if (anonRes.data?.session) {
-      // el perfil lo crea el trigger de Hábitos (handle_new_user); un upsert pide INSERT y la RLS lo rechaza (403)
-      await bplusClient.from('profiles').update({ name: displayName }).eq('id', anonRes.data.session.user.id)
-      return anonRes.data.session
+    const { data: s } = await bplusClient.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token })
+    try {
+      if (s?.session) localStorage.setItem(marca, data.user_id)
+    } catch {
+      /* sin almacenamiento */
     }
-    return null
+    return s?.session ?? null
   } catch {
     return null
   }
