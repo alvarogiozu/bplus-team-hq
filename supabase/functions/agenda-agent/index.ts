@@ -335,8 +335,8 @@ type Prop = { tool: string; input: Record<string, unknown> }
  *  (el modelo a veces se salta la regla de app_abierta). Equipo solo si hay un único espacio. */
 function resolverAclarar(proposals: Prop[], ctx: Ctx): Prop[] {
   const app = ctx.app_abierta
-  if (!app) return proposals
-  return proposals.map((p) => {
+  if (!app) return preguntarEquipo(proposals, ctx)
+  return preguntarEquipo(proposals.map((p) => {
     if (p.tool !== 'aclarar') return p
     const pedido = String(p.input.pedido).trim()
     const titulo = pedido[0].toUpperCase() + pedido.slice(1)
@@ -349,7 +349,28 @@ function resolverAclarar(proposals: Prop[], ctx: Ctx): Prop[] {
       return { tool: 'crear_tarea_equipo', input: { space_id: ctx.spaces[0].id, title: titulo, assignee_id: null, due: null } }
     }
     return p
-  })
+  }), ctx)
+}
+
+/** La orden de cada pedido, aparte del contexto (el contexto va entero al modelo). */
+const pedidoDe = new WeakMap<Ctx, { orden: string; historia: boolean }>()
+const fold = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+const GENERICAS = new Set(['equipo', 'grupo', 'proyecto', 'proyectos', 'tarea', 'tareas'])
+
+/** Con varios equipos, si la orden no nombra ninguno, se pregunta en cuál (el modelo a veces elige uno al azar).
+ *  Si ya hay conversación, la respuesta a esa pregunta manda. */
+function preguntarEquipo(proposals: Prop[], ctx: Ctx): Prop[] {
+  const p = pedidoDe.get(ctx)
+  const equipos = (ctx.spaces ?? []) as { id: string; name?: string }[]
+  if (!p || p.historia || equipos.length < 2 || !proposals.some((x) => x.tool === 'crear_tarea_equipo')) return proposals
+  const orden = fold(p.orden)
+  const nombra = (e: { name?: string }) => {
+    const n = fold(e.name ?? '').trim()
+    return Boolean(n) && (orden.includes(n) || n.split(/\s+/).some((w) => w.length >= 4 && !GENERICAS.has(w) && orden.includes(w)))
+  }
+  if (equipos.some(nombra)) return proposals
+  const opciones = equipos.map((e) => e.name ?? '').filter(Boolean).slice(0, 6)
+  return [...proposals.filter((x) => x.tool !== 'crear_tarea_equipo'), { tool: 'preguntar', input: { question: '¿En qué equipo va?', options: opciones } }]
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -467,8 +488,12 @@ Deno.serve(async (req) => {
   if (cupo && cupo.ok === false) {
     return json({ error: `Usaste tus ${cupo.limite} mensajes con Rockie de este mes.`, limite: 'ia_rockie_mes' }, 429)
   }
-  const ligero = cupo?.plan === 'gratis'
+  // Flash-Lite primero (un tercio del precio por token de entrada) en Gratis y, en todos los planes, para lo simple:
+  // una orden corta, sin conversación previa y de una sola cosa. Lo largo o encadenado va al modelo de siempre.
+  const simple = !body.history?.length && text.length <= 90 && !/\b(y luego|despu[eé]s|tambi[eé]n|adem[aá]s|y que|y p[oó]n|y an[oó]ta|y mueve)\b/i.test(text)
+  const ligero = cupo?.plan === 'gratis' || simple
   const ctx: Ctx = body.context ?? {}
+  pedidoDe.set(ctx, { orden: text, historia: Array.isArray(body.history) && body.history.length > 0 })
   const base: Kit =
     body.scope === 'hq'
       ? { tools: TOOLS_HQ as typeof TOOLS, system: SYSTEM_HQ }
