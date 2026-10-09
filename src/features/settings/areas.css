@@ -1,0 +1,39 @@
+/* Áreas del proyecto (settings/AreasEditor): el editor y la tarjeta de Equipo. Todo con tokens. */
+.areas-ed { display: flex; flex-direction: column; gap: 12px; }
+.areas-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.areas-fila {
+  display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 8px; padding: 6px 6px 6px 8px;
+  border-radius: 16px; background: var(--card); border: 1.5px solid var(--card-line); box-shadow: inset 4px 0 0 var(--ac);
+}
+.areas-fila input, .areas-nueva input { min-width: 0; min-height: 40px; }
+.areas-n { font-size: var(--t-2xs); font-weight: 700; color: var(--ink-muted); white-space: nowrap; }
+.areas-acc { display: inline-flex; gap: 2px; }
+.areas-btn { min-width: 36px; height: 36px; padding: 0 8px; display: inline-grid; place-items: center; border-radius: 10px; color: var(--ink-muted); font-size: var(--t-2xs); font-weight: 800; }
+.areas-btn:hover:not(:disabled) { background: var(--paper-alt); color: var(--ink); }
+.areas-btn:disabled { opacity: 0.35; }
+.areas-btn .sube { transform: rotate(180deg); }
+.areas-btn.peligro:hover { color: var(--coral-ink); }
+.areas-btn.peligro.si { background: var(--coral); color: var(--on-color); box-shadow: 0 2px 0 var(--coral-edge); }
+.areas-nueva { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border-radius: 16px; border: 1.5px dashed var(--card-line); }
+.areas-aviso { margin: 0; }
+@media (max-width: 520px) {
+  .areas-fila { grid-template-columns: auto 1fr auto; }
+  .areas-n { display: none; }
+}
+
+.areas-card { display: flex; flex-direction: column; gap: 12px; padding: var(--s4); margin-top: var(--s4); }
+.areas-card-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.areas-card-cab > span { display: flex; flex-direction: column; min-width: 0; }
+.areas-card-cab b { font-size: var(--t-md); }
+.areas-card-cab small { font-size: var(--t-2xs); font-weight: 600; color: var(--ink-muted); }
+.areas-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.areas-chip {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px 0 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ac) 12%, var(--card)); border: 1.5px solid color-mix(in srgb, var(--ac) 35%, var(--card-line));
+  font-size: var(--t-xs); font-weight: 700; color: var(--ink); cursor: pointer; transition: transform 0.15s var(--spring);
+}
+.areas-chip:active { transform: scale(0.96); }
+.areas-chip i { width: 10px; height: 10px; border-radius: 999px; background: var(--ac); }
+.areas-chip small { font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); }
+.areas-chip.mas { padding: 0; width: 36px; justify-content: center; background: var(--paper-alt); border-style: dashed; color: var(--ink-muted); }
+.eq > .areas-card { margin-bottom: var(--s4); }

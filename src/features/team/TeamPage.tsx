@@ -22,6 +22,7 @@ import { usePersonas, type Persona } from './personas'
 import { TeamAchievements } from './TeamAchievements'
 import { MemberStatus, TeamAvailability } from './TeamAvailability'
 import './equipo.css'
+import { AreasCard } from '../settings/AreasEditor'
 
 /** Lo que el dueño puede hacer con cada persona (lo comparten la computadora y el celular). */
 export function useMemberAdmin() {
@@ -117,6 +118,8 @@ export default function TeamPage() {
           </button>
         )}
       </header>
+
+      <AreasCard className="card" />
 
       {solo ? (
         <>

@@ -17,6 +17,7 @@ import { ProyectoSolo } from '../team/ProyectoSolo'
 import { usePersonas } from '../team/personas'
 import { TeamAchievements } from '../team/TeamAchievements'
 import { InviteBox, ProfileSheet, TempPasswordSheet, useMemberAdmin } from '../team/TeamPage'
+import { AreasCard } from '../settings/AreasEditor'
 import { HeadBtn, MHead, Sec } from './bits'
 
 // El equipo en el celular: quiénes somos (caras, XP, racha), accesos a lo que tenemos
@@ -113,9 +114,11 @@ export default function EquipoMovil() {
             <Icon name="settings" />
           </span>
           <b>Ajustes</b>
-          <small>Nombre, áreas y datos</small>
+          <small>Nombre, lema y datos</small>
         </Link>
       </div>
+
+      <AreasCard className="em-card" />
 
       <Sec title={solo ? 'Lo tuyo' : 'Quién hace qué'} count={personas.length} />
       {cargando ? (

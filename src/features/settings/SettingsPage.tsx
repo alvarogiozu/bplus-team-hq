@@ -2,14 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Sheet } from '../../components/Sheet'
-import { ColorPick } from '../../components/Select'
 import { toast, toastError } from '../../components/Toasts'
-import { PALETTE } from '../../lib/colors'
 import { todayIn } from '../../lib/dates'
 import { humanError, supabase } from '../../lib/supabase'
 import type { Json } from '../../lib/database.types'
 import { useSpace } from '../spaces/SpaceProvider'
-import { keys, useAreas, useSpaceRow } from '../data/queries'
+import { keys, useSpaceRow } from '../data/queries'
+import { AreasEditor } from './AreasEditor'
 
 // Ajustes del proyecto (los de tu cuenta —tema, color, zona horaria, contraseña— son globales: /ajustes).
 // Ajustes mínimos. Si algo necesita un menú para entenderse, está mal.
@@ -17,7 +16,6 @@ export default function SettingsPage() {
   const { spaceId, isOwner } = useSpace()
   const qc = useQueryClient()
   const space = useSpaceRow().data
-  const areas = useAreas().data ?? []
   const [name, setName] = useState('')
   const [tagline, setTagline] = useState('')
   const [about, setAbout] = useState('')
@@ -37,12 +35,6 @@ export default function SettingsPage() {
     toast('Espacio guardado', { kind: 'ok', icon: 'check' })
   }
 
-  async function saveArea(id: string, patch: { name?: string; color?: string }) {
-    const { error } = await supabase.from('areas').update(patch).eq('id', id)
-    if (error) return toastError(humanError(error))
-    qc.invalidateQueries({ queryKey: keys.areas(spaceId) })
-  }
-
   return (
     <div className="content settings">
       <header className="pagehead"><h1>Ajustes del proyecto</h1></header>
@@ -58,17 +50,10 @@ export default function SettingsPage() {
         <div style={{ marginTop: 12 }}><button className="btn sm" onClick={saveSpace}>Guardar</button></div>
       </section>
 
-      <section className="card pad">
+      <section className="card pad" id="areas">
         <div className="sectionh"><h2>Áreas</h2></div>
-        <p className="hint">La franja de color de cada tarea. Solo se cambian nombre y color.</p>
-        <div className="arealist">
-          {areas.map((a) => (
-            <div className="arow" key={a.id}>
-              <ColorPick value={a.color} onChange={(c) => saveArea(a.id, { color: c })} palette={PALETTE} label={`Color de ${a.name}`} size={28} />
-              <input defaultValue={a.name} aria-label={`Nombre del área ${a.name}`} onBlur={(e) => e.target.value.trim() && e.target.value !== a.name && saveArea(a.id, { name: e.target.value.trim() })} />
-            </div>
-          ))}
-        </div>
+        <p className="hint">Cómo se divide el proyecto: la franja de color de cada tarea y el equipo de cada meta.</p>
+        <AreasEditor />
       </section>
 
 
