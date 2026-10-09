@@ -1146,6 +1146,8 @@ export default function Escritorio() {
         <nav
           className={`esc-dock${dockVisible ? ' ver' : ''}`}
           aria-label="Dock"
+          // escondido no se alcanza con Tab (el foco lo buscaba fuera de la pantalla)
+          {...(dockVisible ? {} : { inert: '' })}
           data-guia="dock"
           onContextMenu={(e) => {
             e.preventDefault()

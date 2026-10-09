@@ -3,7 +3,8 @@
    Pestañas arriba, ventanas en mosaico con huecos y esquinas redondas, dock flotante abajo y la
    barra de Rockie (Ctrl/⌘ K). Todo con los tokens de B+: funciona igual en claro y oscuro.
    ============================================================ */
-.esc { position: fixed; inset: 0; overflow: hidden; background: var(--paper); }
+/* clip (no hidden): nada puede desplazarlo, ni el foco ni scrollIntoView, aunque algo quede fuera de la pantalla */
+.esc { position: fixed; inset: 0; overflow: clip; background: var(--paper); }
 .esc kbd {
   display: inline-block; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--card-line); background: var(--card-2);
   font-family: var(--sans); font-size: 11px; font-weight: 700; line-height: 1.5; color: var(--ink-muted); white-space: nowrap;
