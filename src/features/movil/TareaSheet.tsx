@@ -16,6 +16,7 @@ import { closeNewTask, newTaskStore, openValidate } from '../tasks/dialogs'
 import { useLookup } from '../tasks/bits'
 import { DependenciasEditor } from '../tasks/dependencias'
 import { NotasTarea } from '../tasks/NotasTarea'
+import { NotaDeTarea } from '../tasks/NotaDeTarea'
 import { proofUrl } from '../tasks/proofUpload'
 import { PersonPicker } from '../team/PersonPicker'
 import { presenceStore } from '../team/presence'
@@ -140,6 +141,7 @@ function Cuerpo({ task, onGone }: { task: Task; onGone: () => void }) {
 
       {/* crece con el texto y se abre en grande (a pantalla completa): el mismo de la hoja de la PC */}
       <NotasTarea id="em-notes" className="em-notes" value={notes} onChange={setNotes} onGuardar={() => notes !== task.notes && void update(task.id, { notes })} titulo={task.title} />
+      <NotaDeTarea task={task} />
 
       {(task.proof_url || task.proof_image_path) && (
         <>

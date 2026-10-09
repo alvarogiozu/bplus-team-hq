@@ -17,6 +17,7 @@ import { Select } from '../../components/Select'
 import { PersonPicker } from '../team/PersonPicker'
 import { BloqueadaPill, DependenciasEditor } from './dependencias'
 import { NotasTarea } from './NotasTarea'
+import { NotaDeTarea } from './NotaDeTarea'
 
 // Panel de tarea compartido por todas las vistas. La URL manda: ?tarea=<id>
 export function TaskPanel() {
@@ -135,6 +136,7 @@ function TaskBody({ task, onGone }: { task: Task; onGone: () => void }) {
       <DependenciasEditor task={task} abrir={abrirOtra} />
 
       <NotasTarea id="tp-notes" value={notes} onChange={setNotes} onGuardar={() => notes !== task.notes && update(task.id, { notes })} titulo={task.title} />
+      <NotaDeTarea task={task} />
 
       {(task.proof_url || task.proof_image_path) && (
         <>

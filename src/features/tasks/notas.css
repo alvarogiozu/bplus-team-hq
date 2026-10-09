@@ -27,6 +27,12 @@
 .notas-ed .cu-prose table { font-size: var(--t-xs); }
 .notas-ed .ProseMirror { outline: none; }
 
+/* la nota del proyecto de la tarea (NotaDeTarea.tsx): una fila de botones bajo las notas; abierta, al frente de la
+   hoja de la tarea (la hoja va en z 70-71; la nota compartida suele ir en 65) */
+.nota-tarea { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
+.nota-tarea .hint { font-size: var(--t-2xs); }
+.nota-tarea-capa .mnote { z-index: 80; }
+
 /* la ventana grande: al centro y amplia en la PC; en el celular es la página completa (Sheet drawer) */
 .dialog:has(.notas-grande) { width: min(780px, calc(100vw - 32px)); height: min(86dvh, 920px); max-height: none; }
 .dialog:has(.notas-grande) .dbody, .drawer:has(.notas-grande) .dbody { display: flex; flex-direction: column; }
