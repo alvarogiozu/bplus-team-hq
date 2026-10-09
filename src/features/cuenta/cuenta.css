@@ -96,6 +96,11 @@
 .cuenta-codigo code { flex: 1 1 100%; padding: var(--s3); border-radius: var(--r-md); background: var(--paper-alt); font-family: var(--mono, ui-monospace, monospace); font-size: var(--t-lg); font-weight: 800; letter-spacing: 0.16em; text-align: center; color: var(--ink); }
 .cuenta-codigo .btn { flex: 1; justify-content: center; }
 .cuenta-salir { align-self: flex-start; }
+/* eliminar la cuenta: el aviso y los dos botones a lo ancho */
+.cuenta-borrar { display: flex; flex-direction: column; gap: var(--s3); }
+.cuenta-borrar p { margin: 0; font-size: var(--t-sm); line-height: 1.55; color: var(--ink-soft); }
+.cuenta-borrar p b { color: var(--ink); }
+.cuenta-borrar .btn { width: 100%; justify-content: center; min-height: var(--tap); }
 
 /* dos (o tres) opciones grandes para elegir con el pulgar (Hábitos · Tu mapa) */
 .cuenta-opciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s2); }

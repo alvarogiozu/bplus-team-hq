@@ -19,6 +19,8 @@ import { useAuth, useMe } from '../auth/AuthProvider'
 import { signOut } from '../auth/credentials'
 import { Avatar, CuentaBoton } from './Cuenta'
 import { esAppNativa } from '../../lib/appNativa'
+import { Sheet } from '../../components/Sheet'
+import { borrarCuentaCompleta } from './borrarCuenta'
 
 // Perfil y Ajustes: los de tu cuenta, iguales desde cualquier app (no hay unos por app).
 // En el celular son listas de filas grandes (una cosa por fila, 56 px, chevron): se leen de un vistazo y se tocan
@@ -202,6 +204,20 @@ export function AjustesPage() {
   const { userId, profile } = useMe()
   const plan = usePlan()
   const qc = useQueryClient()
+  const [borrar, setBorrar] = useState(false)
+  const [borrando, setBorrando] = useState(false)
+  async function eliminar() {
+    if (borrando) return
+    setBorrando(true)
+    const r = await borrarCuentaCompleta()
+    if (!r.ok) {
+      setBorrando(false)
+      toastError('No se pudo eliminar la cuenta. Revisa tu conexión e intenta de nuevo.')
+      return
+    }
+    // la sesión ya se cerró: vuelve a la portada, de cero
+    location.assign('/')
+  }
 
   async function setTimezone(tz: string) {
     const { error } = await supabase.from('profiles').update({ timezone: tz }).eq('id', userId)
@@ -290,8 +306,27 @@ export function AjustesPage() {
           <Fila to="/cambiar-clave" icon="key" titulo="Cambiar contraseña" />
           <Fila to="/planes" icon="sparkle" titulo="Tu plan" sub={`Tienes ${NOMBRE_PLAN[plan.plan]}${plan.plan !== 'gratis' ? ' · hasta cuándo y lo que incluye' : esAppNativa() ? '' : ' · mira qué trae Plus y cómo activarlo'}`} />
           <Fila to="/cofre" icon="lock" titulo="Tu Cofre" sub="Lo que guardas se cifra en tu dispositivo. Aquí está tu código de recuperación" />
+          <Fila onClick={() => setBorrar(true)} icon="trash" titulo="Eliminar cuenta" sub="Borra tu cuenta de Rockie y todos tus datos" peligro />
         </nav>
       </section>
+
+      {/* eliminar la cuenta: acción irreversible, se confirma aquí (doble paso: la fila y este botón) */}
+      <Sheet open={borrar} onClose={() => !borrando && setBorrar(false)} variant="dialog" title="Eliminar tu cuenta">
+        <div className="cuenta-borrar">
+          <p>
+            Esto borra <b>para siempre</b> tu cuenta de Rockie y todo lo tuyo: tus hábitos, racha y fotos; tu agenda; tus
+            notas del Cuaderno; tu Cofre y tu plan. Los proyectos que compartes pasan a otra persona del equipo; los que son
+            solo tuyos se borran. <b>No se puede deshacer.</b>
+          </p>
+          <p className="hint">Los comprobantes de lo que pagaste se guardan sin tu nombre, como pide la ley.</p>
+          <button type="button" className="btn danger" disabled={borrando} onClick={() => void eliminar()}>
+            <Icon name="trash" className="sm" /> {borrando ? 'Eliminando…' : 'Sí, eliminar mi cuenta'}
+          </button>
+          <button type="button" className="btn ghost" disabled={borrando} onClick={() => setBorrar(false)}>
+            Cancelar
+          </button>
+        </div>
+      </Sheet>
 
       <section className="cuenta-card">
         <h2>De cada app</h2>

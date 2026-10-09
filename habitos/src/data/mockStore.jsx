@@ -13,7 +13,7 @@ import { itemById } from './shop.js'
 import { claveMes } from './fechas.js'
 import { haceISO } from './habitHistory.js'
 import { supabase } from './supabase.js'
-import { sincronizarSesionHq, cerrarSesionHq, sincronizarDesdeHq, iniciarSesionCredenciales } from '../lib/hqChat.js'
+import { sincronizarSesionHq, cerrarSesionHq, sincronizarDesdeHq, iniciarSesionCredenciales, borrarCuentaHq } from '../lib/hqChat.js'
 import { cabeEnPlan } from '../lib/planHq.js'
 import { abrirLimite } from '../../../src/lib/limites'
 import { abrirLoginNativo, loginGoogleNativo, VUELTA_NATIVA } from '../../../src/lib/appNativa'
@@ -2529,11 +2529,20 @@ export function StoreProvider({ children }) {
     await Promise.allSettled([supabase.auth.signOut(), cerrarSesionHq()])
   }, [])
 
-  // Eliminar cuenta (Apple Guideline 5.1.1(v)): la edge function borra los datos
-  // del usuario en cascada + Storage + calendario Google y elimina el usuario de
-  // auth. Al terminar cerramos sesion: el listener SIGNED_OUT vuelve al login.
+  // Eliminar cuenta (Apple 5.1.1(v), Google Play): dentro de Rockie OS se borra la cuenta COMPLETA (borrar-cuenta de
+  // Rockie OS: Hábitos, Cuaderno, Agenda, Cofre y planes); Hábitos suelto (sin sesión de Rockie OS) usa su
+  // delete-account. Al terminar cerramos sesión en los dos: el listener SIGNED_OUT vuelve al login.
   const deleteAccount = useCallback(async () => {
     if (!supabase) return { ok: false, error: 'sin_backend' }
+    const completa = await borrarCuentaHq()
+    if (completa) {
+      if (!completa.ok) {
+        console.warn('[bplus] No se pudo eliminar la cuenta:', completa.error)
+        return completa
+      }
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+      return { ok: true }
+    }
     const { data, error } = await supabase.functions.invoke('delete-account', { body: {} })
     if (error || data?.error) {
       const msg = error?.message || data?.error || 'error'

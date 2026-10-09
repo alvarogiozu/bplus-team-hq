@@ -787,8 +787,9 @@ export default function Ajustes() {
               <i className="ti ti-alert-triangle" />
             </span>
             <div className="q" style={{ fontSize: 'var(--text-base)', color: 'var(--ink-soft)', textAlign: 'center', lineHeight: 1.5, maxWidth: 320 }}>
-              Esto borra <b style={{ color: 'var(--ink)' }}>para siempre</b> tu cuenta y todos tus datos:
-              habitos, racha, fotos, metas y amistades. <b style={{ color: 'var(--ink)' }}>No se puede deshacer.</b>
+              Esto borra <b style={{ color: 'var(--ink)' }}>para siempre</b> tu cuenta de Rockie y todo lo tuyo:
+              hábitos, racha, fotos, metas y amistades; tu agenda, tus notas del Cuaderno, tu Cofre y tu plan.
+              Los proyectos que compartes pasan a otra persona del equipo. <b style={{ color: 'var(--ink)' }}>No se puede deshacer.</b>
             </div>
           </div>
 
@@ -806,7 +807,7 @@ export default function Ajustes() {
             }}
           >
             <i className={`ti ${borrando ? 'ti-loader-2' : 'ti-trash'}`} />
-            {borrando ? 'Eliminando...' : 'Si, eliminar mi cuenta'}
+            {borrando ? 'Eliminando…' : 'Sí, eliminar mi cuenta'}
           </button>
 
           <button

@@ -81,6 +81,29 @@ export async function sincronizarSesionHq(bplusSession) {
   }
 }
 
+/** Borra la cuenta COMPLETA de Rockie (Hábitos, Cuaderno, Agenda, Cofre, planes) con la función borrar-cuenta de
+ *  Rockie OS y su token. null si no hay sesión de Rockie OS (Hábitos suelto: se usa delete-account de Hábitos). */
+export async function borrarCuentaHq() {
+  try {
+    const c = hq()
+    if (!c) return null
+    const { data: s } = await c.auth.getSession()
+    if (!s?.session) return null
+    const { data, error } = await c.functions.invoke('borrar-cuenta', { body: {} })
+    if (error || !data?.ok) return { ok: false, error: error?.message || data?.error || 'error' }
+    // el usuario ya no existe: cerrar solo en este navegador
+    await c.auth.signOut({ scope: 'local' }).catch(() => {})
+    try {
+      for (const k of Object.keys(localStorage)) if (k.startsWith('rockie.puente.')) localStorage.removeItem(k)
+    } catch {
+      /* sin almacenamiento */
+    }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: String(e?.message || e) }
+  }
+}
+
 export async function cerrarSesionHq() {
   try {
     const c = hq()
