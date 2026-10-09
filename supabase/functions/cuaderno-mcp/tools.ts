@@ -14,85 +14,48 @@ type Args = Record<string, unknown>
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean }
 
 export const INSTRUCTIONS = [
-  'Rockie Cuaderno es el cuaderno personal del usuario (su "segundo cerebro"): carpetas → cuadernos → páginas',
-  '(una página puede tener subnotas), conexiones entre páginas y tarjetas de repaso espaciado.',
-  '- Antes de crear, mira dónde va (ver_cuaderno) y si ya existe algo parecido (buscar). Si existe, suma a esa',
-  '  página (editar_pagina, modo "agregar") en vez de duplicarla.',
-  '- Escribe en Markdown: títulos # a ###, listas, casillas "- [ ]", tablas, **negrita**, ==resaltado==.',
-  '  Para enlazar otra página escribe [[Título exacto]]: queda conectada en su mapa.',
-  '- Para muchas páginas a la vez (vocabulario, los temas de un curso) usa crear_paginas; un tema grande puede',
-  '  tener subnotas (parámetro "tema").',
-  '- Para aprender (idiomas, exámenes) crea tarjetas de repaso con crear_tarjetas: pregunta corta, respuesta corta.',
-  '  Para tomarle examen usa tarjetas_para_hoy, pregunta de a una y registra cada respuesta con registrar_repaso.',
-  '- Escribe en el idioma del usuario. Nunca borres: no hay herramienta para borrar; si lo pide, que lo haga en la app.',
-  '- Cada resultado trae el enlace para abrir la página en la app: compártelo cuando crees o cambies algo.',
-  '- Privacidad: solo ves los cuadernos que el usuario abrió para Claude; el resto está cifrado y no lo puedes ver.',
-  '  Si te pide algo de otro cuaderno, dile que lo abra para Claude en Rockie › Cuaderno › Conectar con Claude.',
-  '  Las páginas nuevas sin cuaderno van a «Desde Claude».',
+  'Rockie: el Cuaderno (carpetas → cuadernos → páginas Markdown, subnotas, conexiones, tarjetas de repaso) y Proyectos.',
+  '- Antes de crear, busca (buscar) y mira dónde va (ver_cuaderno); si ya existe, suma con editar_pagina.',
+  '- [[Título exacto]] en el contenido conecta páginas. Sin cuaderno, van a «Desde Claude». Nunca borra.',
+  '- Para estudiar: crear_tarjetas; para tomar examen: tarjetas_para_hoy de a una y registrar_repaso por respuesta.',
+  '- Comparte el enlace de lo que crees. Solo ves lo abierto para Claude; lo demás está cifrado.',
   PROYECTO_INSTRUCCIONES,
 ].join('\n')
 
-// ---------- las herramientas ----------
-const str = (description: string, extra: Record<string, unknown> = {}) => ({ type: 'string', description, ...extra })
-const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
-const ADD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+// ---------- las herramientas (cortas y estables: van en cada mensaje del usuario) ----------
+const S = { type: 'string' }
+const READ = { readOnlyHint: true, openWorldHint: false }
+const ADD = { destructiveHint: false, openWorldHint: false }
 
 const TOOLS = [
   {
     name: 'ver_cuaderno',
-    title: 'Ver mi cuaderno',
-    description:
-      'Muestra cómo está organizado el cuaderno del usuario: carpetas y cuadernos (cada uno con su id entre corchetes) y las páginas de cada uno. Úsala ANTES de crear algo, para elegir dónde va. Sin carpeta_id devuelve el panorama; con carpeta_id, todo lo de esa carpeta o cuaderno. Solo de lectura.',
-    inputSchema: { type: 'object', properties: { carpeta_id: str('Id de una carpeta o cuaderno para ver todo su contenido (opcional)') } },
+    title: 'Ver el cuaderno',
+    description: 'Carpetas y cuadernos (con id) y sus páginas. Con carpeta_id, todo lo de esa carpeta.',
+    inputSchema: { type: 'object', properties: { carpeta_id: S } },
     annotations: READ,
     write: false,
   },
   {
     name: 'buscar',
-    title: 'Buscar en el cuaderno',
-    description: 'Busca páginas del usuario por significado y por palabras (título y contenido). Úsala antes de crear una página, para no duplicar, y para encontrar el id de una página. Devuelve por cada resultado: título, id entre corchetes, dónde está, un fragmento y el enlace para abrirla. Solo de lectura.',
-    inputSchema: {
-      type: 'object',
-      properties: { consulta: str('Qué buscar (una idea, un tema o palabras exactas)'), limite: { type: 'integer', minimum: 1, maximum: 20, description: 'Cuántos resultados (8 por defecto)' } },
-      required: ['consulta'],
-    },
+    title: 'Buscar',
+    description: 'Busca páginas por significado y palabras: título, id, dónde está y un fragmento.',
+    inputSchema: { type: 'object', properties: { consulta: S, limite: { type: 'integer', minimum: 1, maximum: 20 } }, required: ['consulta'] },
     annotations: READ,
     write: false,
   },
   {
     name: 'leer_pagina',
-    title: 'Leer una página',
-    description: 'Lee una página completa por su id (sácalo de buscar o ver_cuaderno). Devuelve su contenido en Markdown, dónde está, su tema y subnotas, las páginas con que está conectada y cuántas tarjetas de repaso tiene. Solo de lectura.',
-    inputSchema: { type: 'object', properties: { id: str('Id de la página') }, required: ['id'] },
+    title: 'Leer página',
+    description: 'Una página en Markdown, por partes: desde (carácter, 0) y cuanto (6000 por defecto, máx. 20000).',
+    inputSchema: { type: 'object', properties: { id: S, desde: { type: 'integer', minimum: 0 }, cuanto: { type: 'integer', minimum: 500, maximum: 20000 } }, required: ['id'] },
     annotations: READ,
     write: false,
   },
   {
-    name: 'crear_pagina',
-    title: 'Crear una página',
-    description:
-      'Crea UNA página nueva en Markdown. Dónde: cuaderno_id, o "cuaderno" por nombre o ruta ("Idiomas/Alemán"; lo que falte se crea); sin ninguno va a «Desde Claude». Con tema_id o "tema" (título) queda como subnota de esa página. Para conectarla con otras páginas en la misma llamada usa "relacionadas" (ids o títulos exactos) o escribe [[Título exacto]] en el contenido. Devuelve el id y el enlace de la página creada y qué conexiones quedaron hechas y cuáles no se encontraron. Para varias páginas usa crear_paginas.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        titulo: str('Título de la página', { maxLength: 160 }),
-        contenido: str('Contenido en Markdown'),
-        cuaderno_id: str('Id del cuaderno o carpeta donde va (opcional)'),
-        cuaderno: str('Nombre o ruta del cuaderno, p. ej. "Idiomas/Alemán" (opcional; se crea si no existe)'),
-        tema_id: str('Id de la página de la que esta es subnota (opcional)'),
-        tema: str('Título de la página de la que esta es subnota (opcional)'),
-        relacionadas: { type: 'array', maxItems: 20, items: { type: 'string' }, description: 'Ids o títulos exactos de páginas existentes con las que conectarla (opcional)' },
-      },
-      required: ['titulo'],
-    },
-    annotations: ADD,
-    write: true,
-  },
-  {
     name: 'crear_paginas',
-    title: 'Crear varias páginas',
-    description:
-      'Crea hasta 30 páginas de una vez en el mismo cuaderno (vocabulario, los temas de un curso…). Cada una puede ser subnota de otra del mismo lote o ya existente ("tema" = su título) y conectarse con otras ("relacionadas": ids o títulos exactos, también del mismo lote). [[Título exacto]] en el contenido también conecta. Devuelve el id y el enlace de cada página creada y qué conexiones quedaron hechas.',
+    title: 'Crear páginas',
+    description: 'Crea 1 a 30 páginas en un cuaderno (cuaderno_id, o «cuaderno» por nombre o ruta «A/B»). tema = página madre; relacionadas = ids o títulos a conectar.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -100,19 +63,10 @@ const TOOLS = [
           type: 'array',
           minItems: 1,
           maxItems: 30,
-          items: {
-            type: 'object',
-            properties: {
-              titulo: str('Título', { maxLength: 160 }),
-              contenido: str('Contenido en Markdown'),
-              tema: str('Título de la página madre (opcional)'),
-              relacionadas: { type: 'array', maxItems: 20, items: { type: 'string' }, description: 'Ids o títulos exactos de páginas con las que conectarla (opcional)' },
-            },
-            required: ['titulo'],
-          },
+          items: { type: 'object', properties: { titulo: S, contenido: S, tema: S, tema_id: S, relacionadas: { type: 'array', maxItems: 20, items: S } }, required: ['titulo'] },
         },
-        cuaderno_id: str('Id del cuaderno o carpeta donde van (opcional)'),
-        cuaderno: str('Nombre o ruta del cuaderno, p. ej. "Idiomas/Alemán" (opcional; se crea si no existe)'),
+        cuaderno_id: S,
+        cuaderno: S,
       },
       required: ['paginas'],
     },
@@ -121,70 +75,37 @@ const TOOLS = [
   },
   {
     name: 'editar_pagina',
-    title: 'Editar una página',
-    description:
-      'Cambia una página existente por su id. Modo "agregar" (por defecto) suma el contenido al final; modo "reemplazar" borra el contenido anterior y pone el nuevo: úsalo solo si el usuario pidió reescribirla, y conserva lo que siga valiendo. También puede cambiar el título. [[Título exacto]] conecta con otras páginas. Devuelve qué se cambió y el enlace.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: str('Id de la página'),
-        contenido: str('Markdown a sumar o el contenido nuevo completo'),
-        modo: { type: 'string', enum: ['agregar', 'reemplazar'], description: '"agregar" (por defecto) o "reemplazar"' },
-        titulo: str('Título nuevo (opcional)', { maxLength: 160 }),
-      },
-      required: ['id'],
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    title: 'Editar página',
+    description: 'Suma al final (modo agregar) o reescribe (modo reemplazar: solo si lo pidió). También cambia el título.',
+    inputSchema: { type: 'object', properties: { id: S, contenido: S, modo: { type: 'string', enum: ['agregar', 'reemplazar'] }, titulo: S }, required: ['id'] },
+    annotations: { destructiveHint: true, openWorldHint: false },
     write: true,
   },
   {
     name: 'crear_carpeta',
-    title: 'Crear carpeta o cuaderno',
-    description:
-      'Crea una carpeta (agrupa cuadernos) o un cuaderno (tiene páginas). Un cuaderno puede ir dentro de otro como sección; una carpeta no va dentro de un cuaderno. Máximo 4 niveles. Si ya existe uno con ese nombre en el mismo lugar, no crea otro y devuelve el existente. Devuelve el id.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        nombre: str('Nombre', { maxLength: 80 }),
-        tipo: { type: 'string', enum: ['carpeta', 'cuaderno'], description: '"cuaderno" por defecto' },
-        dentro_de_id: str('Id de la carpeta o cuaderno donde va (opcional)'),
-      },
-      required: ['nombre'],
-    },
+    title: 'Crear carpeta',
+    description: 'Crea una carpeta o un cuaderno (tipo), dentro de otro si se da dentro_de_id. Si ya existe, devuelve ese.',
+    inputSchema: { type: 'object', properties: { nombre: S, tipo: { type: 'string', enum: ['carpeta', 'cuaderno'] }, dentro_de_id: S }, required: ['nombre'] },
     annotations: ADD,
     write: true,
   },
   {
     name: 'conectar_paginas',
-    title: 'Conectar dos páginas',
-    description: 'Conecta dos páginas existentes (por sus ids) en el mapa del cuaderno, con el motivo en una frase. Si ya estaban conectadas, lo dice y no duplica. Para conectar una página nueva al crearla, usa "relacionadas" en crear_pagina.',
-    inputSchema: {
-      type: 'object',
-      properties: { a_id: str('Id de una página'), b_id: str('Id de la otra'), motivo: str('Por qué se conectan (una frase)', { maxLength: 300 }) },
-      required: ['a_id', 'b_id', 'motivo'],
-    },
+    title: 'Conectar páginas',
+    description: 'Conecta dos páginas en el mapa, con el motivo en una frase.',
+    inputSchema: { type: 'object', properties: { a_id: S, b_id: S, motivo: S }, required: ['a_id', 'b_id', 'motivo'] },
     annotations: ADD,
     write: true,
   },
   {
     name: 'crear_tarjetas',
-    title: 'Crear tarjetas de repaso',
-    description:
-      'Crea tarjetas de repaso espaciado (pregunta → respuesta) atadas a una página existente (pagina_id); aparecen hoy en Repaso y vuelven cada vez más espaciadas. Ideal para vocabulario y exámenes. Hasta 40 por vez. Devuelve cuántas se crearon.',
+    title: 'Crear tarjetas',
+    description: 'Hasta 40 tarjetas de repaso (pregunta → respuesta cortas) de una página.',
     inputSchema: {
       type: 'object',
       properties: {
-        pagina_id: str('Id de la página de la que salen'),
-        tarjetas: {
-          type: 'array',
-          minItems: 1,
-          maxItems: 40,
-          items: {
-            type: 'object',
-            properties: { pregunta: str('Pregunta corta', { maxLength: 300 }), respuesta: str('Respuesta corta', { maxLength: 600 }) },
-            required: ['pregunta', 'respuesta'],
-          },
-        },
+        pagina_id: S,
+        tarjetas: { type: 'array', minItems: 1, maxItems: 40, items: { type: 'object', properties: { pregunta: S, respuesta: S }, required: ['pregunta', 'respuesta'] } },
       },
       required: ['pagina_id', 'tarjetas'],
     },
@@ -193,22 +114,18 @@ const TOOLS = [
   },
   {
     name: 'tarjetas_para_hoy',
-    title: 'Tarjetas para repasar hoy',
-    description: 'Devuelve las tarjetas de repaso que tocan hoy (primero las más atrasadas), con su id, pregunta y respuesta. Para tomarle examen al usuario: pregunta de a una, no muestres la respuesta antes y registra cada resultado con registrar_repaso. Solo de lectura.',
-    inputSchema: { type: 'object', properties: { limite: { type: 'integer', minimum: 1, maximum: 30, description: 'Cuántas (10 por defecto)' } } },
+    title: 'Tarjetas de hoy',
+    description: 'Las tarjetas que tocan hoy (id, pregunta, respuesta). No muestres la respuesta antes de tiempo.',
+    inputSchema: { type: 'object', properties: { limite: { type: 'integer', minimum: 1, maximum: 30 } } },
     annotations: READ,
     write: false,
   },
   {
     name: 'registrar_repaso',
-    title: 'Registrar un repaso',
-    description: 'Registra si el usuario se acordó de una tarjeta (tarjeta_id de tarjetas_para_hoy): si se acordó sube de caja y vuelve más tarde; si no, vuelve a empezar. Cuenta para su racha. Llámala una vez por tarjeta respondida.',
-    inputSchema: {
-      type: 'object',
-      properties: { tarjeta_id: str('Id de la tarjeta'), me_acorde: { type: 'boolean', description: 'true si se acordó' } },
-      required: ['tarjeta_id', 'me_acorde'],
-    },
-    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    title: 'Registrar repaso',
+    description: 'Si se acordó de una tarjeta: sube de caja; si no, vuelve a empezar. Cuenta para su racha.',
+    inputSchema: { type: 'object', properties: { tarjeta_id: S, me_acorde: { type: 'boolean' } }, required: ['tarjeta_id', 'me_acorde'] },
+    annotations: ADD,
     write: true,
   },
 ] as const
@@ -440,8 +357,6 @@ export async function callTool(name: string, args: Args, ctx: Ctx): Promise<Resu
         return await buscar(ctx, args)
       case 'leer_pagina':
         return await leerPagina(ctx, args)
-      case 'crear_pagina':
-        return await crearPaginas(ctx, { ...args, paginas: [{ titulo: args.titulo, contenido: args.contenido, tema: args.tema, tema_id: args.tema_id, relacionadas: args.relacionadas }] })
       case 'crear_paginas':
         return await crearPaginas(ctx, args)
       case 'editar_pagina':
@@ -515,7 +430,7 @@ async function verCuaderno(ctx: Ctx, args: Args) {
 async function buscar(ctx: Ctx, args: Args) {
   const q = asStr(args.consulta, 300).trim()
   if (!q) return oops('Dime qué buscar.')
-  const k = Math.min(20, Math.max(1, Number(args.limite) || 8))
+  const k = Math.min(20, Math.max(1, Number(args.limite) || 6))
   const like = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`
   const [byTitle, byBody, semantic, bs] = await Promise.all([
     ctx.db.from('cuaderno_notes').select('id, title, body, book_id').eq('user_id', ctx.uid).eq('abierta', true).ilike('title', like).limit(k),
@@ -544,10 +459,10 @@ async function buscar(ctx: Ctx, args: Args) {
   const lines = hits.map((n) => {
     const p = plain(n.body)
     const at = fold(p).indexOf(fold(q))
-    const frag = at > 40 ? `…${p.slice(at - 40, at + 160)}` : p.slice(0, 200)
-    return `- ${n.title} [${n.id}] · ${pathOf(n.book_id, bs)}\n  ${frag || '(vacía)'}${p.length > 200 ? '…' : ''}\n  ${linkOf(ctx, n.id)}`
+    const frag = at > 30 ? `…${p.slice(at - 30, at + 110)}` : p.slice(0, 140)
+    return `- ${n.title} [${n.id}] · ${pathOf(n.book_id, bs)}\n  ${frag || '(vacía)'}${p.length > 140 ? '…' : ''}`
   })
-  return text(lines.join('\n'))
+  return text(`${lines.join('\n')}\nAbrir: ${ctx.origin}/cuaderno/nota/<id> · leer entera: leer_pagina`)
 }
 
 async function leerPagina(ctx: Ctx, args: Args) {
@@ -585,8 +500,18 @@ async function leerPagina(ctx: Ctx, args: Args) {
     `abrir: ${linkOf(ctx, n.id)}`,
   ].filter(Boolean)
   const body = toWiki(n.body || '', byId)
-  const cut = body.length > 40_000 ? `${body.slice(0, 40_000)}\n\n[… la página sigue; es muy larga]` : body
-  return text(`${head.join('\n')}\n\n---\n\n${cut || '(la página está vacía)'}`)
+  // por partes: lo que pidieron (6000 caracteres por defecto), cortando en un salto de línea si queda cerca
+  const desde = Math.max(0, Math.min(Number(args.desde) || 0, body.length))
+  const cuanto = Math.min(20_000, Math.max(500, Number(args.cuanto) || 6000))
+  let hasta = Math.min(body.length, desde + cuanto)
+  if (hasta < body.length) {
+    const salto = body.lastIndexOf('\n', hasta)
+    if (salto > desde + cuanto * 0.7) hasta = salto + 1
+  }
+  const parte = body.slice(desde, hasta)
+  const sigue = hasta < body.length ? `\n\n[sigue: leer_pagina con desde=${hasta} · quedan ${body.length - hasta} caracteres]` : ''
+  const cabeza = desde ? `# ${n.title} [${n.id}] · desde ${desde}` : head.join('\n')
+  return text(`${cabeza}\n\n---\n\n${parte || '(la página está vacía)'}${sigue}`)
 }
 
 async function crearPaginas(ctx: Ctx, args: Args) {

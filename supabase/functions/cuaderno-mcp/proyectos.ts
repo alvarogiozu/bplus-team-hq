@@ -28,52 +28,40 @@ function estadoDe(v: unknown): Status | null {
   return null
 }
 
-const ESTADO = { type: 'string', enum: ['por_hacer', 'en_curso', 'hecho'], description: 'por_hacer, en_curso o hecho' }
-const DEPENDE_CREAR = {
-  type: 'array',
-  maxItems: 20,
-  items: { type: 'string' },
-  description: 'Las tareas que esta tiene que esperar: ids de tareas que ya existen, o «#2» para la 2.ª tarea de esta misma lista',
+// Esquemas cortos y estables (van en cada mensaje del usuario): los formatos se explican una vez en las instrucciones.
+const ESTADO = { type: 'string', enum: ['por_hacer', 'en_curso', 'hecho'] }
+const S = { type: 'string' }
+const DEPENDE = { type: 'array', maxItems: 20, items: S, description: 'ids de las tareas que espera' }
+const CAMPOS = {
+  notas: S,
+  estado: ESTADO,
+  area: S,
+  responsable: S,
+  fecha: S,
+  hora: S,
+  minutos: { type: 'integer', minimum: 0, maximum: 1440 },
+  urgente: { type: 'boolean' },
+  frente: S,
 }
-const DEPENDE_ACTUALIZAR = {
-  type: 'array',
-  maxItems: 20,
-  items: { type: 'string' },
-  description: 'La lista COMPLETA de tareas que esta espera (ids); reemplaza la anterior. [] = ya no espera a ninguna',
-}
-const FRENTE = {
-  type: 'string',
-  description: 'Frente (o su número, de ver_proyectos) al que suma la tarea para las metas. Si no lo dices, se toma el del área. «ninguno» lo quita',
-}
-const HORA = { type: 'string', description: 'Hora del día en que se hace, HH:MM (24 h); «ninguna» la quita' }
-const MINUTOS = { type: 'integer', minimum: 0, maximum: 1440, description: 'Minutos estimados (5 a 1440); 0 los quita' }
-const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
-const EDIT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+const READ = { readOnlyHint: true, openWorldHint: false }
+const EDIT = { destructiveHint: false, openWorldHint: false }
 
 export const PROYECTO_TOOLS = [
   {
     name: 'ver_proyectos',
-    title: 'Ver mis proyectos',
-    description:
-      'Tus proyectos abiertos para Claude: id, cuántas tareas hay por hacer, en curso y hechas, sus áreas, sus frentes (numerados, con hechas/total) y sus metas con su avance en %. Empieza por aquí para saber en qué proyecto trabajar.',
+    title: 'Ver proyectos',
+    description: 'Proyectos abiertos para Claude: id, tareas por estado, áreas y frentes numerados, metas con su %.',
     inputSchema: { type: 'object', properties: {} },
     annotations: READ,
     write: false,
   },
   {
     name: 'ver_tareas',
-    title: 'Ver las tareas de un proyecto',
-    description:
-      'Las tareas de un proyecto agrupadas por estado (Por hacer, En curso, Hecho), con id, área, frente, responsable, fecha, si es urgente y qué tareas la bloquean (las que espera y aún no están hechas). Filtra por estado, área, frente o palabras.',
+    title: 'Ver tareas',
+    description: 'Tareas de un proyecto por estado (máx. 30 por estado; filtra para ver más), con id, área, frente, responsable, fecha, hora, bloqueos y nota.',
     inputSchema: {
       type: 'object',
-      properties: {
-        proyecto_id: { type: 'string', description: 'Id del proyecto (de ver_proyectos)' },
-        estado: ESTADO,
-        area: { type: 'string', description: 'Nombre del área (opcional)' },
-        frente: { type: 'string', description: 'Nombre o número del frente (opcional)' },
-        buscar: { type: 'string', description: 'Palabras del título o las notas (opcional)' },
-      },
+      properties: { proyecto_id: S, estado: ESTADO, area: S, frente: S, buscar: S },
       required: ['proyecto_id'],
     },
     annotations: READ,
@@ -82,34 +70,16 @@ export const PROYECTO_TOOLS = [
   {
     name: 'crear_tareas',
     title: 'Crear tareas',
-    description:
-      'Crea una o varias tareas en un proyecto (hasta 30). Cada una con título y, si quieres, notas, estado, área (por nombre), responsable (nombre, usuario o «yo»), fecha (AAAA-MM-DD, «hoy» o «mañana»), urgente, hora (HH:MM) y minutos estimados, depende_de (las tareas que tiene que esperar) y frente (para que cuente en las metas; si no lo dices, se toma el del área).',
+    description: 'Crea hasta 30 tareas en un proyecto. depende_de acepta «#2» (la 2.ª de esta lista); nota crea su página en Materiales.',
     inputSchema: {
       type: 'object',
       properties: {
-        proyecto_id: { type: 'string', description: 'Id del proyecto' },
+        proyecto_id: S,
         tareas: {
           type: 'array',
           minItems: 1,
           maxItems: 30,
-          items: {
-            type: 'object',
-            properties: {
-              titulo: { type: 'string', description: 'Qué hay que hacer (máx. 200 caracteres)' },
-              notas: { type: 'string' },
-              estado: ESTADO,
-              area: { type: 'string' },
-              responsable: { type: 'string' },
-              fecha: { type: 'string' },
-              urgente: { type: 'boolean' },
-              depende_de: DEPENDE_CREAR,
-              frente: FRENTE,
-              hora: HORA,
-              minutos: MINUTOS,
-              nota: { type: 'string', description: 'Markdown de la nota del proyecto de la tarea (opcional): se crea en Materiales, en la carpeta de su frente' },
-            },
-            required: ['titulo'],
-          },
+          items: { type: 'object', properties: { titulo: S, ...CAMPOS, depende_de: DEPENDE, nota: S }, required: ['titulo'] },
         },
       },
       required: ['proyecto_id', 'tareas'],
@@ -119,9 +89,8 @@ export const PROYECTO_TOOLS = [
   },
   {
     name: 'actualizar_tareas',
-    title: 'Mover o actualizar tareas',
-    description:
-      'Mueve tareas entre Por hacer, En curso y Hecho, y cambia lo que haga falta (hasta 50 de una vez). Úsala al empezar una tarea (en_curso) y al terminarla (hecho). «agregar_nota» suma una línea con la fecha a sus notas (avance, lo que falta). Pasar a Hecho no la valida: eso lo hace una persona en la app.',
+    title: 'Mover o cambiar tareas',
+    description: 'Mueve (en_curso al empezar, hecho al terminar) y cambia hasta 50 tareas. agregar_nota suma una línea fechada; notas las reemplaza.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -129,25 +98,7 @@ export const PROYECTO_TOOLS = [
           type: 'array',
           minItems: 1,
           maxItems: 50,
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string', description: 'Id de la tarea' },
-              estado: ESTADO,
-              agregar_nota: { type: 'string', description: 'Una línea de avance que se suma a sus notas' },
-              titulo: { type: 'string' },
-              notas: { type: 'string', description: 'Reemplaza todas las notas' },
-              area: { type: 'string', description: 'Nombre del área, o «ninguna»' },
-              responsable: { type: 'string', description: 'Nombre, usuario, «yo» o «nadie»' },
-              fecha: { type: 'string', description: 'AAAA-MM-DD, «hoy», «mañana» o «ninguna»' },
-              urgente: { type: 'boolean' },
-              depende_de: DEPENDE_ACTUALIZAR,
-              frente: FRENTE,
-              hora: HORA,
-              minutos: MINUTOS,
-            },
-            required: ['id'],
-          },
+          items: { type: 'object', properties: { id: S, titulo: S, agregar_nota: S, ...CAMPOS, depende_de: DEPENDE }, required: ['id'] },
         },
       },
       required: ['cambios'],
@@ -157,38 +108,21 @@ export const PROYECTO_TOOLS = [
   },
   {
     name: 'crear_nota_tarea',
-    title: 'Crear la nota de una tarea',
-    description:
-      'Crea la nota del proyecto de una tarea que ya existe: una página (Markdown) compartida con el equipo, en Materiales, en la carpeta de su frente. Cada tarea tiene UNA nota: si ya la tenía, devuelve su id (para sumarle, usa editar_pagina con ese id). Devuelve el id de la página y el enlace.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        tarea_id: { type: 'string', description: 'Id de la tarea (de ver_tareas)' },
-        contenido: { type: 'string', description: 'Markdown de la nota (opcional)' },
-      },
-      required: ['tarea_id'],
-    },
+    title: 'Crear nota de tarea',
+    description: 'Crea la nota (Markdown) de una tarea en Materiales, en la carpeta de su frente. Una por tarea: si ya existe, devuelve su id.',
+    inputSchema: { type: 'object', properties: { tarea_id: S, contenido: S }, required: ['tarea_id'] },
     annotations: EDIT,
     write: true,
   },
 ] as const
 
 export const PROYECTO_INSTRUCCIONES = [
-  '',
-  'Rockie también tiene Proyectos: cada proyecto tiene áreas (Diseño, Ventas…) y tareas que pasan por Por hacer → En curso → Hecho.',
-  '- Empieza con ver_proyectos y ver_tareas. Al empezar a trabajar en una tarea, muévela a en_curso (actualizar_tareas);',
-  '  al terminarla, a hecho, con una agregar_nota corta de lo que se hizo. Si descubres trabajo nuevo, créalo (crear_tareas).',
-  '- Mueve en lote: una sola llamada con varios cambios. No vuelvas a pedir la lista entera después de cada cambio.',
-  '- Las áreas vienen numeradas (1, 2, 3…) y también se eligen por número: si un nombre sale «aún cifrado», usa su número.',
-  '- Hecho no es validada: la validación (y su XP) la da una persona en la app. No digas que quedó validada.',
-  '- Dependencias: depende_de dice qué tareas tiene que esperar una tarea. ver_tareas marca «⛔ bloqueada por» mientras',
-  '  alguna no esté hecha: empieza por las que no están bloqueadas. Al crear, «#2» apunta a la 2.ª tarea de la misma lista.',
-  '- Frentes: un proyecto puede tener frentes (sus grandes objetivos) que avanzan solos con sus tareas hechas y mueven',
-  '  las metas. Cada tarea nueva va a un frente: dilo con «frente» (nombre o número) o se toma el que corresponde a su área.',
-  '- «📝 nota [id]» en una tarea es su nota del proyecto: léela con leer_pagina y súmale con editar_pagina (ese id).',
-  '  Si no tiene, créala con crear_nota_tarea (o «nota» al crearla en crear_tareas): queda en Materiales, en la carpeta de su frente.',
-  '- Solo ves los proyectos que su dueño abrió para Claude. Si te pide otro, dile que lo abra en Rockie › Proyectos ›',
-  '  Ajustes del proyecto › Claude.',
+  'Proyectos: áreas y frentes numerados (se eligen por nombre o número); tareas Por hacer → En curso → Hecho.',
+  '- Al empezar una tarea, en_curso; al terminarla, hecho + agregar_nota corta. Mueve en lote, sin volver a listar todo.',
+  '- fecha AAAA-MM-DD, «hoy» o «mañana»; hora HH:MM; minutos 5-1440; responsable nombre, usuario o «yo»; «ninguna» quita.',
+  '- Sin frente, la tarea toma el de su área. depende_de al actualizar es la lista completa. «⛔» = bloqueada.',
+  '- «📝 nota [id]»: léela con leer_pagina y súmale con editar_pagina. Hecho no es validada (eso es en la app).',
+  '- Solo ves los proyectos abiertos para Claude (Rockie › Proyectos › Ajustes › Claude).',
 ].join('\n')
 
 // ---------- datos ----------
@@ -549,11 +483,12 @@ async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
     if (soloEstado && st !== soloEstado) continue
     let grupo = lista.filter((t) => t.status === st)
     const total = grupo.length
-    // las hechas pesan poco: las 15 más recientes, salvo que las pidan
-    if (st === 'done' && !soloEstado) grupo = grupo.sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 15)
+    // compacto: 30 por estado (las hechas, las 10 más recientes) salvo que filtren por estado
+    if (st === 'done') grupo = grupo.sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    grupo = grupo.slice(0, soloEstado ? 200 : st === 'done' ? 10 : 30)
     out.push(`\n${NOMBRE[st]} (${total})`)
-    out.push(...(grupo.length ? grupo.slice(0, 200).map(fila) : ['  (ninguna)']))
-    if (total > grupo.length) out.push(`  … y ${total - grupo.length} más (ver_tareas con estado)`)
+    out.push(...(grupo.length ? grupo.map(fila) : ['  (ninguna)']))
+    if (total > grupo.length) out.push(`  … y ${total - grupo.length} más (filtra por estado, área, frente o buscar)`)
   }
   out.push(`\nÁbrelo en la app: ${enlace(ctx, p.id)}`)
   return text(out.join('\n').slice(0, 40_000))
