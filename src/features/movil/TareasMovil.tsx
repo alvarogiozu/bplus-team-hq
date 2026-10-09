@@ -16,7 +16,7 @@ import { useEvents, useTasks } from '../data/queries'
 import { useTaskActions } from '../tasks/actions'
 import { openNewTask, openValidate } from '../tasks/dialogs'
 import { useLookup } from '../tasks/bits'
-import { applyFilters, EMPTY_FILTERS, type Filters } from '../views/filters'
+import { applyFilters, EMPTY_FILTERS, guardarPrefs, hechasOcultas, leerPrefs, type Filters } from '../views/filters'
 import { HeadBtn, MHead, Sec, Seg, TaskCard, type Desliz } from './bits'
 
 const GanttView = lazy(() => import('../views/GanttView').then((m) => ({ default: m.GanttView })))
@@ -57,9 +57,25 @@ function Tareas({ spaceId }: { spaceId: string }) {
   const [params, setParams] = useSearchParams()
   // mismas claves que la computadora: la vista y los filtros te siguen de un lado a otro
   const fk = `hq.filters.${userId}.${spaceId}`
-  const [filters, setFilters] = useState<Filters>(() => ({ ...loadFilters(fk), project: '' }))
+  // «Mías» y «Mostrar hechas» son de la persona (se recuerdan, igual que en la PC); lo demás, de esta visita
+  const [filters, setFiltersRaw] = useState<Filters>(() => {
+    const p = leerPrefs(userId)
+    const f = { ...loadFilters(fk), project: '' }
+    return { ...f, mine: p.mine ?? f.mine, hideDone: p.hideDone ?? true }
+  })
+  // sin elección guardada: «Mías» viene puesto si tienes tareas abiertas aquí
+  const cargadas = Boolean(q.data)
+  useEffect(() => {
+    if (!cargadas || leerPrefs(userId).mine !== undefined) return
+    const tengo = (q.data ?? []).some((t) => t.assignee_id === userId && t.status !== 'done')
+    setFiltersRaw((f) => (f.people.length ? f : { ...f, mine: tengo }))
+  }, [cargadas, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const setFilters = (f: Filters) => {
+    if (f.mine !== filters.mine) guardarPrefs(userId, { mine: f.mine })
+    if (f.hideDone !== filters.hideDone) guardarPrefs(userId, { hideDone: f.hideDone })
+    setFiltersRaw(f)
+  }
   const [searching, setSearching] = useState(Boolean(filters.q))
-  const [showDone, setShowDone] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
   const vk = `hq.view.${userId}`
@@ -85,6 +101,9 @@ function Tareas({ spaceId }: { spaceId: string }) {
   }, [searching])
 
   const shown = useMemo(() => applyFilters(q.data ?? [], filters, userId), [q.data, filters, userId])
+  // el Panel mide al equipo: «Mías» y las hechas ocultas le quitarían el avance real (como en la PC)
+  const paraPanel = useMemo(() => applyFilters(q.data ?? [], { ...filters, mine: false, hideDone: false }, userId), [q.data, filters, userId])
+  const ocultas = hechasOcultas(q.data ?? [], filters, userId)
   const groups = useMemo(() => groupTasks(shown, today), [shown, today])
   const open = shown.filter((t) => t.status !== 'done').length
   const set = (patch: Partial<Filters>) => setFilters({ ...filters, ...patch })
@@ -118,12 +137,17 @@ function Tareas({ spaceId }: { spaceId: string }) {
 
       {/* filtros en pastillas: de quién y de qué proyecto */}
       <div className="em-chips" role="group" aria-label="Filtros">
-        <button className="em-chip" aria-pressed={!filters.mine && !filters.people.length && !filters.area} onClick={() => setFilters({ ...EMPTY_FILTERS, q: filters.q })}>
+        <button className="em-chip" aria-pressed={!filters.mine && !filters.people.length && !filters.area} onClick={() => setFilters({ ...EMPTY_FILTERS, q: filters.q, hideDone: filters.hideDone })}>
           Todo
         </button>
         <button className="em-chip" aria-pressed={filters.mine} onClick={() => set({ mine: !filters.mine, people: [] })}>
           <Rockie color={profile.color} size={20} still /> Mías
         </button>
+        {(ocultas > 0 || !filters.hideDone) && (
+          <button className="em-chip" aria-pressed={!filters.hideDone} onClick={() => set({ hideDone: !filters.hideDone })}>
+            <Icon name="check" className="sm" /> {filters.hideDone ? `Mostrar hechas (${ocultas})` : 'Ocultar hechas'}
+          </button>
+        )}
       </div>
 
       {q.isLoading ? (
@@ -143,7 +167,7 @@ function Tareas({ spaceId }: { spaceId: string }) {
       ) : vista === 'panel' ? (
         <Suspense fallback={<ListSkeleton />}>
           <div className="em-vista em-panel">
-            <DashboardView tasks={shown} filtered={shown.length !== (q.data ?? []).length} />
+            <DashboardView tasks={paraPanel} filtered={paraPanel.length !== (q.data ?? []).length} />
           </div>
         </Suspense>
       ) : (
@@ -169,18 +193,15 @@ function Tareas({ spaceId }: { spaceId: string }) {
               </section>
             ) : null,
           )}
+          {/* las hechas: se muestran u ocultan con la pastilla de arriba (se recuerda, como en la PC) */}
           {groups.done.length > 0 && (
-            <section aria-label="Validadas">
-              <button className="em-donebtn" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
-                <Icon name="check" className="sm" /> {showDone ? 'Ocultar validadas' : `Ver validadas (${groups.done.length})`}
-              </button>
-              {showDone && (
-                <div className="em-list">
-                  {groups.done.slice(0, 40).map((t, i) => (
-                    <TaskCard key={t.id} task={t} index={i} />
-                  ))}
-                </div>
-              )}
+            <section aria-label="Hechas">
+              <Sec title="Hechas" count={groups.done.length} />
+              <div className="em-list">
+                {groups.done.slice(0, 40).map((t, i) => (
+                  <TaskCard key={t.id} task={t} index={i} />
+                ))}
+              </div>
             </section>
           )}
         </>
