@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test'
 import { login } from './helpers'
 
+/** Tareas abre con «Mías» (si tienes tareas) y las hechas ocultas: para ver todo el equipo, se apaga «Mías». */
+async function verTodas(p: import('@playwright/test').Page) {
+  const mias = p.getByRole('button', { name: 'Mías', exact: true })
+  await expect(mias).toBeVisible()
+  // «Mías» se decide cuando llegan las tareas: primero que haya filas
+  await expect(p.locator('.trow, .card').first()).toBeVisible({ timeout: 20_000 })
+  if ((await mias.getAttribute('aria-pressed')) === 'true') await mias.click()
+}
+
 test('sin sesión todo redirige a /login', async ({ page }) => {
   await page.goto('/tareas?vista=tablero')
   await expect(page).toHaveURL(/\/login\?next=/)
@@ -27,6 +36,7 @@ test('dos personas ven el mismo tablero y los cambios llegan en vivo', async ({ 
 
   // Mariana abre la tarea y la pasa a "En curso" desde el panel
   await m.goto('/tareas?vista=lista')
+  await verTodas(m)
   await m.getByText(card).click()
   const t0 = Date.now()
   await m.getByRole('dialog').getByRole('combobox', { name: 'Estado' }).click()
@@ -43,6 +53,8 @@ test('validar con un toque suma XP y la tarea pasa a Validadas', async ({ page }
   const row = page.getByRole('button', { name: 'Abrir Integrar firmware con la placa nueva' })
   await row.getByRole('button', { name: /Validar/ }).click()
   await expect(page.getByText(/Racha del equipo|Validado · \+/)).toBeVisible()
+  // las hechas vienen ocultas: «Mostrar hechas (N)» las trae, al final
+  await page.getByRole('button', { name: /Mostrar hechas/ }).click()
   await page.getByRole('button', { name: /Validadas/ }).click()
   await expect(page.getByRole('region', { name: 'Validadas' }).getByText('Integrar firmware con la placa nueva')).toBeVisible()
 })
@@ -109,6 +121,8 @@ test('Rockie con IA: varias propuestas, confirmar todo y reasignar', async ({ pa
   })
   await login(page, 'qa.alvaro')
   await page.goto('/tareas?vista=lista')
+  // lo que se reasigna a Mariana deja de ser de Álvaro: se mira todo el equipo
+  await verTodas(page)
   const bar = page.getByRole('textbox', { name: 'Pídele algo a Rockie' })
   await bar.fill('tarea urgente para Mariana: probar la batería, y pásale lo del firmware')
   await bar.press('Enter')

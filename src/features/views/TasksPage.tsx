@@ -55,26 +55,25 @@ function Tareas({ spaceId }: { spaceId: string }) {
   const fromUrl = params.get('vista') as ViewKey | null
   const view: ViewKey = fromUrl && VIEWS.some((v) => v.key === fromUrl) ? fromUrl : (lsGet(viewKey) as ViewKey) || 'lista'
   // «Mías» y «Mostrar hechas» son de la persona (se recuerdan); lo demás, de esta visita a este proyecto
-  const [filters, setFiltersRaw] = useState<Filters>(() => {
+  const [base, setBase] = useState<Filters>(() => {
     const p = leerPrefs(userId ?? '')
     const f = { ...load(`hq.filters.${userId}.${spaceId}`, EMPTY_FILTERS), project: '' }
-    return { ...f, mine: p.mine ?? f.mine, hideDone: p.hideDone ?? true }
+    return { ...f, hideDone: p.hideDone ?? true }
   })
+  // «Mías»: lo que elegiste; sin elección, viene puesto si tienes tareas abiertas aquí. Se decide en el mismo
+  // render en que llegan las tareas (con un efecto, la lista mostraba a todos y se achicaba un instante después)
+  const [mineElegido, setMineElegido] = useState<boolean | undefined>(() => leerPrefs(userId ?? '').mine)
   const q = useTasks()
-  // sin elección guardada: «Mías» viene puesto si tienes tareas abiertas aquí
-  const cargadas = Boolean(q.data)
-  useEffect(() => {
-    if (!cargadas || !userId || leerPrefs(userId).mine !== undefined) return
-    const tengo = (q.data ?? []).some((t) => t.assignee_id === userId && t.status !== 'done')
-    setFiltersRaw((f) => (f.people.length ? f : { ...f, mine: tengo }))
-  }, [cargadas, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const tengo = useMemo(() => (q.data ?? []).some((t) => t.assignee_id === userId && t.status !== 'done'), [q.data, userId])
+  const filters = useMemo<Filters>(() => ({ ...base, mine: base.people.length ? false : (mineElegido ?? tengo) }), [base, mineElegido, tengo])
   const setFilters = (f: Filters) => {
-    if (userId) {
+    if (f.mine !== filters.mine) {
+      setMineElegido(f.mine)
       // elegir a otra persona apaga «Mías» sin que eso quede como tu preferencia
-      if (f.mine !== filters.mine && f.people.length === filters.people.length) guardarPrefs(userId, { mine: f.mine })
-      if (f.hideDone !== filters.hideDone) guardarPrefs(userId, { hideDone: f.hideDone })
+      if (userId && f.people.length === filters.people.length) guardarPrefs(userId, { mine: f.mine })
     }
-    setFiltersRaw(f)
+    if (userId && f.hideDone !== filters.hideDone) guardarPrefs(userId, { hideDone: f.hideDone })
+    setBase(f)
   }
   const [colorsOpen, setColorsOpen] = useState(false)
 
@@ -89,11 +88,11 @@ function Tareas({ spaceId }: { spaceId: string }) {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(`hq.filters.${userId}.${spaceId}`, JSON.stringify(filters))
+      sessionStorage.setItem(`hq.filters.${userId}.${spaceId}`, JSON.stringify(base))
     } catch {
       /* sin almacenamiento */
     }
-  }, [filters, userId, spaceId])
+  }, [base, userId, spaceId])
 
   const shown = useMemo(() => applyFilters(q.data ?? [], filters, userId ?? ''), [q.data, filters, userId])
   // el Panel mide al equipo: «Mías» y las hechas ocultas le quitarían el avance real

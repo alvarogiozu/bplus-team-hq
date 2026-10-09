@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import type { Activity, Area, EventRow, Member, Project, Space, Task, XpEntry } from '../../lib/types'
 import { useSpace } from '../spaces/SpaceProvider'
@@ -69,9 +69,19 @@ export function useProjects() {
 
 export function useTasks() {
   const { spaceId } = useSpace()
+  const qc = useQueryClient()
   return useQuery({
     queryKey: keys.tasks(spaceId),
-    queryFn: async () => must(await supabase.from('tasks').select('*').eq('space_id', spaceId)) as Task[],
+    queryFn: async () => {
+      const filas = must(await supabase.from('tasks').select('*').eq('space_id', spaceId)) as Task[]
+      // una recarga que salió antes de que guardaras trae la versión vieja: lo más nuevo que ya está en caché
+      // se queda (si no, la nota o el título recién escritos se vaciaban un momento)
+      const ahora = new Map((qc.getQueryData<Task[]>(keys.tasks(spaceId)) ?? []).map((t) => [t.id, t]))
+      return filas.map((t) => {
+        const c = ahora.get(t.id)
+        return c && Date.parse(c.updated_at) > Date.parse(t.updated_at) ? c : t
+      })
+    },
   })
 }
 
