@@ -121,7 +121,7 @@ async function handle(m: Rpc, ctx: Ctx) {
       return ok(m.id, {
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[1],
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: 'rockie-cuaderno', title: 'Rockie Cuaderno', version: '1.0.0', websiteUrl: `${ctx.origin}/cuaderno` },
+        serverInfo: { name: 'rockie-cuaderno', title: 'Rockie', version: '1.1.0', websiteUrl: `${ctx.origin}/inicio` },
         instructions: INSTRUCTIONS,
       })
     }

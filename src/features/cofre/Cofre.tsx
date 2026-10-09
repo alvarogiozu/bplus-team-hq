@@ -72,7 +72,8 @@ async function sellarLoAnterior(uid: string) {
   const equipos = (mias ?? []).map((m) => m.space_id)
   if (equipos.length) {
     for (const t of tablasDeEquipoActivas()) {
-      await leerTodo(t.tabla, [...new Set([t.pk, t.col, ...t.cifrar])], (q) => q.in(t.col, equipos))
+      // con la marca de «abierto para Claude»: así se sabe sin otra consulta si cada fila va en claro
+      await leerTodo(t.tabla, [...new Set([t.pk, t.col, ...t.extra, ...t.cifrar])], (q) => q.in(t.col, equipos))
     }
   }
   await esperarResellados()

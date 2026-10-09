@@ -9,6 +9,7 @@ import type { Json } from '../../lib/database.types'
 import { useSpace } from '../spaces/SpaceProvider'
 import { keys, useSpaceRow } from '../data/queries'
 import { AreasEditor } from './AreasEditor'
+import { ClaudeProyecto } from './ClaudeProyecto'
 
 // Ajustes del proyecto (los de tu cuenta —tema, color, zona horaria, contraseña— son globales: /ajustes).
 // Ajustes mínimos. Si algo necesita un menú para entenderse, está mal.
@@ -56,6 +57,8 @@ export default function SettingsPage() {
         <AreasEditor />
       </section>
 
+
+      <ClaudeProyecto />
 
       <DataSection isOwner={isOwner} />
     </div>

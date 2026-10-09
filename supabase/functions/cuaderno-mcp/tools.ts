@@ -6,6 +6,7 @@
 // Todo lo demás no existe para este servidor: no puede leerlo.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { embed } from '../_shared/rockie-llm.ts'
+import { callProyecto, PROYECTO_INSTRUCCIONES, PROYECTO_TOOLS } from './proyectos.ts'
 
 export type Scope = 'leer' | 'escribir'
 export type Ctx = { db: SupabaseClient; uid: string; scope: Scope; origin: string }
@@ -28,6 +29,7 @@ export const INSTRUCTIONS = [
   '- Privacidad: solo ves los cuadernos que el usuario abrió para Claude; el resto está cifrado y no lo puedes ver.',
   '  Si te pide algo de otro cuaderno, dile que lo abra para Claude en Rockie › Cuaderno › Conectar con Claude.',
   '  Las páginas nuevas sin cuaderno van a «Desde Claude».',
+  PROYECTO_INSTRUCCIONES,
 ].join('\n')
 
 // ---------- las herramientas ----------
@@ -207,7 +209,7 @@ const TOOLS = [
 
 /** Las herramientas que ve esta conexión (una de solo lectura no ve las que escriben). */
 export function toolsFor(scope: Scope) {
-  return TOOLS.filter((t) => scope === 'escribir' || !t.write).map(({ write: _w, ...t }) => t)
+  return [...TOOLS, ...PROYECTO_TOOLS].filter((t) => scope === 'escribir' || !t.write).map(({ write: _w, ...t }) => t)
 }
 
 // ---------- utilidades ----------
@@ -396,6 +398,8 @@ async function makeBook(ctx: Ctx, name: string, kind: Book['kind'], parentId: st
 
 // ---------- cada herramienta ----------
 export async function callTool(name: string, args: Args, ctx: Ctx): Promise<Result> {
+  const deProyectos = await callProyecto(name, args, ctx)
+  if (deProyectos) return deProyectos
   const tool = TOOLS.find((t) => t.name === name)
   if (tool?.write && ctx.scope !== 'escribir') return oops('Esta conexión es de solo lectura. El usuario puede darle permiso de escribir reconectando el cuaderno.')
   try {

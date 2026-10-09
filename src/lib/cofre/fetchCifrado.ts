@@ -46,10 +46,10 @@ export function tablasPersonalesActivas(): { tabla: string; cifrar: string[]; du
 }
 
 /** Tablas de equipo que ya se cifran, con la columna que dice de qué equipo es cada fila. */
-export function tablasDeEquipoActivas(): { tabla: string; cifrar: string[]; col: string; pk: string }[] {
+export function tablasDeEquipoActivas(): { tabla: string; cifrar: string[]; col: string; pk: string; extra: string[] }[] {
   return Object.entries(TABLAS)
     .filter(([, r]) => r.estado === 'activo' && r.llave.startsWith('espacio:') && r.cifrar.length)
-    .map(([tabla, r]) => ({ tabla, cifrar: r.cifrar, col: r.llave.split(':')[1], pk: r.pk ?? 'id' }))
+    .map(([tabla, r]) => ({ tabla, cifrar: r.cifrar, col: r.llave.split(':')[1], pk: r.pk ?? 'id', extra: [r.enClaroSi].filter((x): x is string => Boolean(x)) }))
 }
 
 /** Huella de lo que se cifra hoy: cuando cambia (una tanda nueva), se vuelve a barrer lo viejo. */
@@ -291,9 +291,13 @@ function resellar(envuelto: typeof fetch, c: Contexto, filas: Fila[]) {
             // En un filtro eq. el valor va tal cual: las comillas solo se usan dentro de in.(…) y or=(…)
             if (typeof f[col] === 'string' && (f[col] as string).length <= 200) q.set(col, `eq.${f[col] as string}`)
           }
+          // y solo si sigue cerrada: si la abrieron para Claude mientras tanto, no se vuelve a cifrar
+          if (c.regla.enClaroSi) q.set(c.regla.enClaroSi, 'eq.false')
         } else {
           // libreta abierta para Claude: lo cifrado se guarda abierto (la persona lo eligió)
           if (!cifradas.length) return true
+          // y solo si sigue abierta (si la cerraron mientras tanto, no se deja en claro)
+          if (c.regla.enClaroSi) q.set(c.regla.enClaroSi, 'eq.true')
           for (const col of cifradas) {
             const v = await abrirSobre(c.l, f[col] as string, 0)
             if (v === null || v === BLOQUEADO) return false
