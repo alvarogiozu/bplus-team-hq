@@ -45,6 +45,8 @@ const FRENTE = {
   type: 'string',
   description: 'Frente (o su número, de ver_proyectos) al que suma la tarea para las metas. Si no lo dices, se toma el del área. «ninguno» lo quita',
 }
+const HORA = { type: 'string', description: 'Hora del día en que se hace, HH:MM (24 h); «ninguna» la quita' }
+const MINUTOS = { type: 'integer', minimum: 0, maximum: 1440, description: 'Minutos estimados (5 a 1440); 0 los quita' }
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 const EDIT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
 
@@ -81,7 +83,7 @@ export const PROYECTO_TOOLS = [
     name: 'crear_tareas',
     title: 'Crear tareas',
     description:
-      'Crea una o varias tareas en un proyecto (hasta 30). Cada una con título y, si quieres, notas, estado, área (por nombre), responsable (nombre, usuario o «yo»), fecha (AAAA-MM-DD, «hoy» o «mañana»), urgente, depende_de (las tareas que tiene que esperar) y frente (para que cuente en las metas; si no lo dices, se toma el del área).',
+      'Crea una o varias tareas en un proyecto (hasta 30). Cada una con título y, si quieres, notas, estado, área (por nombre), responsable (nombre, usuario o «yo»), fecha (AAAA-MM-DD, «hoy» o «mañana»), urgente, hora (HH:MM) y minutos estimados, depende_de (las tareas que tiene que esperar) y frente (para que cuente en las metas; si no lo dices, se toma el del área).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -102,6 +104,8 @@ export const PROYECTO_TOOLS = [
               urgente: { type: 'boolean' },
               depende_de: DEPENDE_CREAR,
               frente: FRENTE,
+              hora: HORA,
+              minutos: MINUTOS,
             },
             required: ['titulo'],
           },
@@ -138,6 +142,8 @@ export const PROYECTO_TOOLS = [
               urgente: { type: 'boolean' },
               depende_de: DEPENDE_ACTUALIZAR,
               frente: FRENTE,
+              hora: HORA,
+              minutos: MINUTOS,
             },
             required: ['id'],
           },
@@ -180,6 +186,8 @@ type Task = {
   status: Status
   area_id: string | null
   project_id: string | null
+  start_time: string | null
+  estimate_min: number | null
   assignee_id: string | null
   due_date: string | null
   priority: string
@@ -231,7 +239,7 @@ async function areas(ctx: Ctx, sid: string): Promise<Area[]> {
 async function tareas(ctx: Ctx, sid: string): Promise<Task[]> {
   const { data } = await ctx.db
     .from('tasks')
-    .select('id, title, notes, status, area_id, project_id, assignee_id, due_date, priority, validation, updated_at')
+    .select('id, title, notes, status, area_id, project_id, start_time, estimate_min, assignee_id, due_date, priority, validation, updated_at')
     .eq('space_id', sid)
     .eq('abierta', true)
     .order('position')
@@ -350,6 +358,22 @@ function fechaDe(v: string, hoyDia: string): string | null | undefined {
   if (s === 'pasado manana') return sumarDias(hoyDia, 2)
   return /^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : undefined
 }
+/** «14», «14:30», «9:05», «ninguna» → «HH:MM» (null = quitarla; undefined = no se entiende) */
+function horaDe(v: unknown): string | null | undefined {
+  const s = fold(asStr(v, 20))
+  if (['ninguna', 'sin hora', 'nada', 'quitar'].includes(s)) return null
+  const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(s)
+  if (!m || Number(m[1]) > 23 || Number(m[2] ?? 0) > 59) return undefined
+  return `${m[1].padStart(2, '0')}:${m[2] ?? '00'}`
+}
+/** minutos estimados: 5 a 1440; 0, «ninguno» o null los quitan (null) · undefined = no se entiende */
+function minutosDe(v: unknown): number | null | undefined {
+  if (v === null || v === 0 || ['ninguno', 'ninguna', 'nada'].includes(fold(asStr(v, 20)))) return null
+  const n = typeof v === 'number' ? v : Number(asStr(v, 10))
+  return Number.isInteger(n) && n >= 5 && n <= 1440 ? n : undefined
+}
+const fmtMin = (n: number) => (n >= 60 ? `${Math.floor(n / 60)} h${n % 60 ? ` ${n % 60} min` : ''}` : `${n} min`)
+
 function areaDe(nombre: string, todas: Area[]): Area | null | undefined {
   const s = fold(nombre)
   if (['ninguna', 'sin area', 'nada'].includes(s)) return null
@@ -499,7 +523,7 @@ async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
     return pend.length ? ` · ⛔ bloqueada por: ${pend.map((d) => `«${d.title}» [${d.id}]`).join(', ')}` : ''
   }
   const fila = (t: Task) =>
-    `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.project_id && frenteN.get(t.project_id) ? ` · ▸ ${frenteN.get(t.project_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · vence ${t.due_date}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${notas.get(t.id) ? ` · 📝 nota${notas.get(t.id)!.estado === 'abierta' ? ` [${notas.get(t.id)!.id}]` : NOTA_TXT[notas.get(t.id)!.estado]}` : ''}${t.status === 'done' ? (t.validation ? ' · validada' : ' · por validar') : ''}${bloqueos(t)}`
+    `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.project_id && frenteN.get(t.project_id) ? ` · ▸ ${frenteN.get(t.project_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · vence ${t.due_date}` : ''}${t.start_time ? ` · ${t.start_time.slice(0, 5)}` : ''}${t.estimate_min ? ` · ${fmtMin(t.estimate_min)}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${notas.get(t.id) ? ` · 📝 nota${notas.get(t.id)!.estado === 'abierta' ? ` [${notas.get(t.id)!.id}]` : NOTA_TXT[notas.get(t.id)!.estado]}` : ''}${t.status === 'done' ? (t.validation ? ' · validada' : ' · por validar') : ''}${bloqueos(t)}`
   const out: string[] = [`📁 ${p.name}`]
   if (ts.some((t) => t.cifrada) || ar.some((a) => a.name.endsWith('(aún cifrada)'))) out.push(`⚠️ ${PENDIENTE}`)
   for (const st of ['doing', 'todo', 'done'] as Status[]) {
@@ -560,6 +584,22 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
         continue
       }
     }
+    let hora: string | null | undefined = null
+    if (t.hora !== undefined && t.hora !== null && asStr(t.hora, 20).trim()) {
+      hora = horaDe(t.hora)
+      if (hora === undefined) {
+        errores.push(`«${titulo}»: la hora va como HH:MM (por ejemplo 14:30)`)
+        continue
+      }
+    }
+    let minutos: number | null | undefined = null
+    if (t.minutos !== undefined) {
+      minutos = minutosDe(t.minutos)
+      if (minutos === undefined) {
+        errores.push(`«${titulo}»: los minutos van de 5 a 1440`)
+        continue
+      }
+    }
     // el frente: el que digan, o el de su área (así la tarea cuenta para las metas)
     let frente: Frente | null | undefined = null
     if (t.frente !== undefined && asStr(t.frente, 80).trim()) {
@@ -580,11 +620,13 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
       p_due: fecha,
       p_priority: t.urgente === true ? 'urgent' : 'normal',
       p_project: frente?.id ?? null,
+      p_start_time: hora,
+      p_estimate_min: minutos,
     })
     if (error) errores.push(`«${titulo}»: ${error.message}`)
     else {
       creadas[i] = data as string
-      hechas.push(`- ${titulo} [${data}] · ${NOMBRE[estado]}${area ? ` · ${area.name}` : ''}${frente ? ` · ▸ ${frente.name}` : fs.length ? ' · sin frente (no suma a ninguna meta)' : ''}`)
+      hechas.push(`- ${titulo} [${data}] · ${NOMBRE[estado]}${hora ? ` · ${hora}` : ''}${minutos ? ` · ${fmtMin(minutos)}` : ''}${area ? ` · ${area.name}` : ''}${frente ? ` · ▸ ${frente.name}` : fs.length ? ' · sin frente (no suma a ninguna meta)' : ''}`)
     }
   }
   // las dependencias, cuando ya existen todas (así «#3» puede apuntar a una que va más abajo)
@@ -710,6 +752,24 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
         patch.project_id = x?.id ?? ''
         dice.push(x ? `frente ${x.name}` : 'sin frente')
       }
+    }
+    if (c.hora !== undefined) {
+      const h = horaDe(c.hora ?? 'ninguna')
+      if (h === undefined) {
+        errores.push(`«${t.title}»: la hora va como HH:MM (por ejemplo 14:30)`)
+        continue
+      }
+      patch.start_time = h ?? ''
+      dice.push(h ? `a las ${h}` : 'sin hora')
+    }
+    if (c.minutos !== undefined) {
+      const m = minutosDe(c.minutos)
+      if (m === undefined) {
+        errores.push(`«${t.title}»: los minutos van de 5 a 1440`)
+        continue
+      }
+      patch.estimate_min = m ?? ''
+      dice.push(m ? fmtMin(m) : 'sin estimado')
     }
     if (typeof c.urgente === 'boolean') {
       patch.priority = c.urgente ? 'urgent' : 'normal'
