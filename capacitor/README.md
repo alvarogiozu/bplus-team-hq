@@ -35,22 +35,14 @@ Es un mini-proyecto aparte: tiene su propio `package.json` y no toca el build de
 - Para publicar en Play Store hace falta firmar (llave fuera del repo, abajo) y una ficha con capturas.
 
 ## Llave de firma (Play Store)
-La llave vive **fuera del repo**, en `%USERPROFILE%\.rockie\firma\`. `android/app/build.gradle` la usa sola si existe
-`keystore.properties` ahí; si no, el release sale sin firmar. Crearla (una vez; la contraseña la escribes tú, nunca
-en un chat):
-```powershell
-New-Item -ItemType Directory -Force "$HOME\.rockie\firma" | Out-Null
-& "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -genkeypair -v -keystore "$HOME\.rockie\firma\rockie-upload.jks" -alias rockie -keyalg RSA -keysize 2048 -validity 10000
-notepad "$HOME\.rockie\firma\keystore.properties"
-```
-Contenido de `keystore.properties`:
-```
-storeFile=rockie-upload.jks
-storePassword=LA_CONTRASEÑA_QUE_ELEGISTE
-keyAlias=rockie
-keyPassword=LA_CONTRASEÑA_QUE_ELEGISTE
-```
-Guarda una copia del `.jks` y su contraseña fuera de la PC (gestor de contraseñas o USB). Play Store usa «Play App
-Signing»: esta es la llave de **subida**; si se pierde, se puede pedir otra a Google, pero tarda días.
+**Ya existe** (9 oct, la generó Claude): `%USERPROFILE%DownloadsRespaldos-Rockieandroidockie-upload.jks` y, al lado,
+`keystore.properties` con su contraseña (aleatoria; nunca en el repo, chats ni tareas). `android/app/build.gradle` la usa
+sola si encuentra ese archivo (o uno en `%USERPROFILE%.rockieirma`); si no, el release sale sin firmar.
+- Alias `rockie`, RSA 2048, PKCS12, válida 10 000 días. Huella SHA-256 del certificado (pública; sirve para
+  `assetlinks.json` y para un cliente OAuth Android de Google):
+  `B5:BE:D0:24:3B:4C:A3:7E:F0:4D:2A:3A:CE:59:59:9F:6E:79:D6:8A:60:BD:07:D1:00:F4:3B:3E:49:A1:B2:76`
+- **Respáldala** (los dos archivos) fuera de la PC: gestor de contraseñas o USB. Es la llave de **subida** de «Play App
+  Signing»: si se pierde, Google puede cambiarla, pero tarda días y mientras no se puede actualizar la app.
+- No se borra con el respaldo diario (ese solo rota carpetas con nombre de fecha).
 Para el archivo que se sube: Android Studio › Build › Generate Signed App Bundle(s)/APK(s) › Android App Bundle, o
 `cd android && .\gradlew.bat bundleRelease` → `android/app/build/outputs/bundle/release/app-release.aab`.

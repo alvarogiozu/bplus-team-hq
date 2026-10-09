@@ -16,10 +16,12 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    // Llave de firma de Play Store: vive FUERA del repo, en ~/.rockie/firma/ (ver capacitor/README.md).
-    // keystore.properties trae storeFile, storePassword, keyAlias y keyPassword. Sin ese archivo, el release
-    // sale sin firmar (y Android Studio lo avisa); el debug no la necesita.
-    def firmaProps = new File(System.getProperty('user.home'), '.rockie/firma/keystore.properties')
+    // Llave de firma de Play Store: vive FUERA del repo, en ~/Downloads/Respaldos-Rockie/android/ (o ~/.rockie/firma/;
+    // ver capacitor/README.md). keystore.properties trae storeFile, storePassword, keyAlias y keyPassword. Sin ese
+    // archivo, el release sale sin firmar (y Android Studio lo avisa); el debug no la necesita.
+    def casa = System.getProperty('user.home')
+    def firmaProps = [new File(casa, 'Downloads/Respaldos-Rockie/android/keystore.properties'),
+                      new File(casa, '.rockie/firma/keystore.properties')].find { it.exists() } ?: new File(casa, '.rockie/firma/keystore.properties')
     signingConfigs {
         if (firmaProps.exists()) {
             release {
