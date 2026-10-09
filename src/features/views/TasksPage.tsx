@@ -8,7 +8,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useTasks } from '../data/queries'
 import { openNewTask } from '../tasks/dialogs'
 import { FilterBar } from './FilterBar'
-import { applyFilters, EMPTY_FILTERS, type Filters } from './filters'
+import { applyFilters, EMPTY_FILTERS, guardarPrefs, hechasOcultas, leerPrefs, type Filters } from './filters'
 import { ListView } from './ListView'
 import { ListSkeleton, LoadError } from '../../components/States'
 import { lsGet, lsSet } from '../../lib/storage'
@@ -54,8 +54,28 @@ function Tareas({ spaceId }: { spaceId: string }) {
   const viewKey = `hq.view.${userId}`
   const fromUrl = params.get('vista') as ViewKey | null
   const view: ViewKey = fromUrl && VIEWS.some((v) => v.key === fromUrl) ? fromUrl : (lsGet(viewKey) as ViewKey) || 'lista'
-  const [filters, setFilters] = useState<Filters>(() => ({ ...load(`hq.filters.${userId}.${spaceId}`, EMPTY_FILTERS), project: '' }))
+  // «Mías» y «Mostrar hechas» son de la persona (se recuerdan); lo demás, de esta visita a este proyecto
+  const [filters, setFiltersRaw] = useState<Filters>(() => {
+    const p = leerPrefs(userId ?? '')
+    const f = { ...load(`hq.filters.${userId}.${spaceId}`, EMPTY_FILTERS), project: '' }
+    return { ...f, mine: p.mine ?? f.mine, hideDone: p.hideDone ?? true }
+  })
   const q = useTasks()
+  // sin elección guardada: «Mías» viene puesto si tienes tareas abiertas aquí
+  const cargadas = Boolean(q.data)
+  useEffect(() => {
+    if (!cargadas || !userId || leerPrefs(userId).mine !== undefined) return
+    const tengo = (q.data ?? []).some((t) => t.assignee_id === userId && t.status !== 'done')
+    setFiltersRaw((f) => (f.people.length ? f : { ...f, mine: tengo }))
+  }, [cargadas, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const setFilters = (f: Filters) => {
+    if (userId) {
+      // elegir a otra persona apaga «Mías» sin que eso quede como tu preferencia
+      if (f.mine !== filters.mine && f.people.length === filters.people.length) guardarPrefs(userId, { mine: f.mine })
+      if (f.hideDone !== filters.hideDone) guardarPrefs(userId, { hideDone: f.hideDone })
+    }
+    setFiltersRaw(f)
+  }
   const [colorsOpen, setColorsOpen] = useState(false)
 
   useEffect(() => {
@@ -76,6 +96,8 @@ function Tareas({ spaceId }: { spaceId: string }) {
   }, [filters, userId, spaceId])
 
   const shown = useMemo(() => applyFilters(q.data ?? [], filters, userId ?? ''), [q.data, filters, userId])
+  // el Panel mide al equipo: «Mías» y las hechas ocultas le quitarían el avance real
+  const paraPanel = useMemo(() => applyFilters(q.data ?? [], { ...filters, mine: false, hideDone: false }, userId ?? ''), [q.data, filters, userId])
 
   const setView = (v: ViewKey) => {
     const next = new URLSearchParams(params)
@@ -111,7 +133,7 @@ function Tareas({ spaceId }: { spaceId: string }) {
           </button>
         </div>
       </header>
-      <FilterBar value={filters} onChange={setFilters} />
+      <FilterBar value={filters} onChange={setFilters} hechas={hechasOcultas(q.data ?? [], filters, userId ?? '')} />
       {q.isLoading ? (
         <ListSkeleton />
       ) : q.isError ? (
@@ -125,7 +147,7 @@ function Tareas({ spaceId }: { spaceId: string }) {
               {view === 'tablero' && <BoardView tasks={shown} />}
               {view === 'calendario' && <WeekView tasks={shown} />}
               {view === 'gantt' && <GanttView tasks={shown} />}
-              {view === 'panel' && <DashboardView tasks={shown} filtered={shown.length !== (q.data ?? []).length} />}
+              {view === 'panel' && <DashboardView tasks={paraPanel} filtered={paraPanel.length !== (q.data ?? []).length} />}
           </motion.div>
         </Suspense>
       )}

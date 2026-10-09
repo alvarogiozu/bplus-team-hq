@@ -13,6 +13,31 @@ export type Filters = {
 
 export const EMPTY_FILTERS: Filters = { people: [], area: '', project: '', mine: false, hideDone: false, q: '' }
 
+/** Los dos interruptores de siempre («Mías» y «Mostrar hechas»): son de la persona, no del proyecto, y se
+ *  recuerdan en este equipo. De entrada: las hechas ocultas; «Mías» lo decide TasksPage según si tienes tareas. */
+export type Prefs = { mine?: boolean; hideDone?: boolean }
+const prefsKey = (userId: string) => `hq.tareas.prefs.${userId}`
+export function leerPrefs(userId: string): Prefs {
+  try {
+    return (JSON.parse(localStorage.getItem(prefsKey(userId)) || '{}') as Prefs) ?? {}
+  } catch {
+    return {}
+  }
+}
+export function guardarPrefs(userId: string, p: Prefs) {
+  try {
+    localStorage.setItem(prefsKey(userId), JSON.stringify({ ...leerPrefs(userId), ...p }))
+  } catch {
+    /* sin almacenamiento */
+  }
+}
+
+/** Cuántas hechas quedan escondidas por «Mostrar hechas» (con los demás filtros puestos). */
+export function hechasOcultas(tasks: Task[], f: Filters, me: string): number {
+  if (!f.hideDone) return 0
+  return applyFilters(tasks, { ...f, hideDone: false }, me).filter((t) => t.status === 'done').length
+}
+
 export function applyFilters(tasks: Task[], f: Filters, me: string): Task[] {
   const q = fold(f.q.trim())
   return tasks.filter((t) => {
@@ -26,6 +51,7 @@ export function applyFilters(tasks: Task[], f: Filters, me: string): Task[] {
   })
 }
 
+/** Filtros puestos (los dos interruptores no cuentan: son cómo prefieres ver, no un filtro que olvidar quitar). */
 export function activeCount(f: Filters) {
-  return f.people.length + (f.area ? 1 : 0) + (f.project ? 1 : 0) + (f.mine ? 1 : 0) + (f.hideDone ? 1 : 0) + (f.q ? 1 : 0)
+  return f.people.length + (f.area ? 1 : 0) + (f.project ? 1 : 0) + (f.q ? 1 : 0)
 }

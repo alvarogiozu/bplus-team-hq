@@ -4,7 +4,8 @@ import { Select } from '../../components/Select'
 import { MemberAvatar, useLookup } from '../tasks/bits'
 import { activeCount, EMPTY_FILTERS, type Filters } from './filters'
 
-export function FilterBar({ value, onChange }: { value: Filters; onChange: (f: Filters) => void }) {
+/** `hechas`: cuántas hechas esconde «Mostrar hechas» ahora mismo. */
+export function FilterBar({ value, onChange, hechas = 0 }: { value: Filters; onChange: (f: Filters) => void; hechas?: number }) {
   const { members, areas } = useLookup()
   const [open, setOpen] = useState(false)
   const n = activeCount(value) - (value.q ? 1 : 0)
@@ -48,7 +49,7 @@ export function FilterBar({ value, onChange }: { value: Filters; onChange: (f: F
           aria-pressed={value.mine}
           onClick={() => set({ mine: !value.mine, people: [] })}
         >
-          Solo mías
+          Mías
         </button>
         <Select
           label="Área"
@@ -59,13 +60,14 @@ export function FilterBar({ value, onChange }: { value: Filters; onChange: (f: F
         />
         <button
           className="chip plain"
-          aria-pressed={value.hideDone}
+          aria-pressed={!value.hideDone}
           onClick={() => set({ hideDone: !value.hideDone })}
         >
-          Ocultar validadas
+          {value.hideDone ? `Mostrar hechas${hechas ? ` (${hechas})` : ''}` : 'Ocultar hechas'}
         </button>
         {activeCount(value) > 0 && (
-          <button className="chip plain" onClick={() => onChange(EMPTY_FILTERS)}>
+          // los dos interruptores se quedan como los dejaste
+          <button className="chip plain" onClick={() => onChange({ ...EMPTY_FILTERS, mine: value.mine, hideDone: value.hideDone })}>
             <Icon name="close" className="sm" /> Limpiar
           </button>
         )}

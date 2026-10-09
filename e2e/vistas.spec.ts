@@ -35,7 +35,10 @@ test('Gantt: mover una barra cambia sus fechas y se puede deshacer', async ({ pa
   await page.getByRole('button', { name: 'Deshacer' }).last().click()
   await expect(bar).toHaveAttribute('aria-label', before!)
 
-  // agrupar por persona y cambiar el zoom
+  // de entrada se ven tus tareas («Mías»); sin él, todo el equipo agrupado por persona, y cambiar el zoom
+  const mias = page.getByRole('button', { name: 'Mías', exact: true })
+  await expect(mias).toHaveAttribute('aria-pressed', 'true')
+  await mias.click()
   await page.getByRole('combobox', { name: 'Agrupar por' }).click()
   await page.getByRole('option', { name: 'Por persona' }).click()
   await expect(page.getByRole('region', { name: 'Mariana' })).toBeVisible()

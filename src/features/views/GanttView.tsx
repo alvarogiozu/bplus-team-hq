@@ -12,7 +12,8 @@ import type { Task } from '../../lib/types'
 import { useAuth } from '../auth/AuthProvider'
 import { useTaskActions } from '../tasks/actions'
 import { MemberAvatar, useLookup } from '../tasks/bits'
-import { BloqueadaPill, useDeps } from '../tasks/dependencias'
+import { BloqueadaPill, useBloqueo, useDeps } from '../tasks/dependencias'
+import { useLoQueSigue } from '../tasks/loQueSigue'
 
 // Gantt: cada tarea es una barra de su inicio a su fecha límite, agrupadas por proyecto,
 // persona o área. Se arrastra para mover, se estira de las puntas para cambiar inicio o fin,
@@ -86,16 +87,24 @@ export function GanttView({ tasks }: { tasks: Task[] }) {
     const out = [...map.values()]
     for (const g of out) {
       g.tasks.sort((a, b) => {
+        // las hechas bajan al final de su grupo (ya no te tocan)
+        const hecha = Number(a.status === 'done') - Number(b.status === 'done')
+        if (hecha) return hecha
         const x = span(a)
         const y = span(b)
         if (!x || !y) return x ? -1 : y ? 1 : a.position - b.position
         return x.s.localeCompare(y.s) || x.e.localeCompare(y.e)
       })
     }
-    // los grupos con algo que empieza antes van primero; "sin ..." al final
+    // tus tareas primero; después, los grupos con algo que empieza antes; "sin ..." al final
     const first = (g: Group) => g.start ?? g.tasks.map(span).find(Boolean)?.s ?? '9999'
-    return out.sort((a, b) => (a.key === 'none' ? 1 : b.key === 'none' ? -1 : first(a).localeCompare(first(b))))
-  }, [tasks, groupBy, memberById, areaById])
+    return out.sort((a, b) =>
+      a.key === userId ? -1 : b.key === userId ? 1 : a.key === 'none' ? 1 : b.key === 'none' ? -1 : first(a).localeCompare(first(b)),
+    )
+  }, [tasks, groupBy, memberById, areaById, userId])
+  // la próxima tarea que puedes hacer (la de «Lo que sigue»): se destaca
+  const sigueId = useLoQueSigue().siguiente?.task.id
+  const bloqueo = useBloqueo()
 
   const xOf = (iso: string) => daysBetween(from, iso) * dw
   const todayX = xOf(today) + dw / 2
@@ -222,7 +231,7 @@ export function GanttView({ tasks }: { tasks: Task[] }) {
                     {!isClosed &&
                       g.tasks.map((t) => (
                         <motion.div key={t.id} layout="position" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
-                          <TaskLine task={t} from={from} days={days} dw={dw} today={today} />
+                          <TaskLine task={t} from={from} days={days} dw={dw} today={today} sigue={t.id === sigueId} bloqueada={bloqueo.bloqueada(t)} />
                         </motion.div>
                       ))}
                   </AnimatePresence>
@@ -269,7 +278,7 @@ function GroupRow({ group, closed, onToggle, xOf, dw, showSpan }: { group: Group
 
 type Drag = { mode: 'move' | 'start' | 'end'; x0: number; delta: number; moved: boolean }
 
-function TaskLine({ task, from, days, dw, today }: { task: Task; from: string; days: number; dw: number; today: string }) {
+function TaskLine({ task, from, days, dw, today, sigue, bloqueada }: { task: Task; from: string; days: number; dw: number; today: string; sigue?: boolean; bloqueada?: boolean }) {
   const { memberById, areaById, projectById } = useLookup()
   const { update } = useTaskActions()
   const [params, setParams] = useSearchParams()
@@ -380,10 +389,11 @@ function TaskLine({ task, from, days, dw, today }: { task: Task; from: string; d
   const labelOutside = w < Math.min(160, task.title.length * 7 + 40)
 
   return (
-    <div className={`gantt-row${done ? ' done' : ''}`} data-tid={task.id}>
-      <button className="gantt-name task" onClick={open} title={task.title}>
+    <div className={`gantt-row${done ? ' done' : ''}${sigue ? ' siguiente' : ''}`} data-tid={task.id}>
+      <button className="gantt-name task" onClick={open} title={sigue ? `Lo que sigue: ${task.title}` : task.title}>
         <MemberAvatar member={member} size={20} />
         <span className="gname">{task.title}</span>
+        {sigue && <span className="pill siguiente">Sigue</span>}
         <BloqueadaPill task={task} corta />
         {late && <span className="pill late">se pasó</span>}
       </button>
@@ -411,7 +421,7 @@ function TaskLine({ task, from, days, dw, today }: { task: Task; from: string; d
             role="button"
             tabIndex={0}
             aria-label={`${task.title}: ${single ? fmtDay(shown.e) : `${fmtDay(shown.s)} a ${fmtDay(shown.e)}`}`}
-            className={`gbar${single ? ' single' : ''}${done ? ' done' : ''}${late ? ' late' : ''}${drag?.moved ? ' dragging' : ''}${task.priority === 'urgent' && !done ? ' urgent' : ''}`}
+            className={`gbar${single ? ' single' : ''}${done ? ' done' : ''}${late ? ' late' : ''}${sigue ? ' siguiente' : ''}${bloqueada ? ' bloq' : ''}${drag?.moved ? ' dragging' : ''}${task.priority === 'urgent' && !done ? ' urgent' : ''}`}
             style={{ left, width: w, ['--bc' as string]: color } as CSSProperties}
             initial={false}
             animate={{ scale: drag?.moved ? 1.03 : 1 }}
@@ -484,7 +494,8 @@ function Flechas({ cuerpo, tasks, from, dw, left, width, cambio }: { cuerpo: Ref
       const y1 = filas.y.get(dep.depende_de)
       const a = antes && span(antes)
       const s = sigue && span(sigue)
-      if (!a || !s || y1 == null || y2 == null) continue
+      // lo ya hecho no necesita flecha (solo ensucia)
+      if (!a || !s || y1 == null || y2 == null || sigue.status === 'done') continue
       const x1 = (daysBetween(from, a.e) + 1) * dw
       const x2 = daysBetween(from, s.s) * dw
       const G = 8
