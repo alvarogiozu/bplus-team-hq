@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate } from 'react-router'
 import { Icon } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
+import { soles } from '../../lib/planes'
+import { precioDe, usePrecios } from '../../lib/precios'
 import { useAuth } from '../auth/AuthProvider'
 import { capturarReferido, referidoPendiente } from '../planes/referidos'
 import { COMERCIO } from './comercio'
@@ -109,6 +111,9 @@ function Inicio() {
     capturarReferido(location.search)
     return Boolean(referidoPendiente())
   })
+  const precios = usePrecios()
+  const ciclo = precioDe(precios, 'plus', 'estudiante', 'ciclo')
+  const mesEst = precioDe(precios, 'plus', 'estudiante', 'mes')
   useEffect(() => {
     // lo que ve Google (las vistas previas de WhatsApp y redes salen de index.html)
     document.title = 'Rockie · Todas tus herramientas, en una sola mochila'
@@ -158,8 +163,24 @@ function Inicio() {
         </details>
         <details>
           <summary>¿Hay precio de estudiante?</summary>
-          <p>Sí: Plus te cuesta menos si verificas el correo de tu universidad, y puedes pagar 4 meses (un semestre) de una vez.</p>
+          {COMERCIO.preciosNuevos && ciclo && mesEst ? (
+            <p>
+              Sí: con el correo de tu universidad, Plus te cuesta {soles(ciclo.centimos / 100)} por ciclo de 4 meses (unos {soles(Math.round(ciclo.centimos / 4) / 100)} al
+              mes) o {soles(mesEst.centimos / 100)} al mes.
+            </p>
+          ) : (
+            <p>Sí: Plus te cuesta menos si verificas el correo de tu universidad, y puedes pagar 4 meses (un semestre) de una vez.</p>
+          )}
         </details>
+        {COMERCIO.preciosNuevos && (
+          <details>
+            <summary>Ya tenía mi cuenta antes del cambio de precios, ¿cuánto pago?</summary>
+            <p>
+              Lo de antes, para siempre: es tu precio de fundador. Plus a {COMERCIO.fundador.plus} y Pro a {COMERCIO.fundador.pro} al mes (o su precio anual
+              de siempre).
+            </p>
+          </details>
+        )}
         <details>
           <summary>¿Qué es el plan Club?</summary>
           <p>Es para el equipo de un club u organización: lo paga el club y sus miembros usan todo lo del club gratis, sin límite de personas.</p>

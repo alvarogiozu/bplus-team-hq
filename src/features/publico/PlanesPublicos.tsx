@@ -4,6 +4,7 @@ import { NOMBRE_PLAN, soles } from '../../lib/planes'
 import { DURACION, precioDe, usePrecios, type Periodo, type PlanPago, type Precio } from '../../lib/precios'
 import { useAuth } from '../auth/AuthProvider'
 import { TARJETAS } from '../planes/tarjetas'
+import { COMERCIO } from './comercio'
 import './planes-publicos.css'
 
 // Los planes de rockie.plus, en UN solo lugar: cada plan con su imagen, qué incluye y sus opciones de compra
@@ -14,7 +15,8 @@ import './planes-publicos.css'
 type Opcion = { plan: PlanPago; tarifa: Precio['tarifa']; periodo: Periodo }
 
 const OPCIONES: Record<PlanPago, { normal: Periodo[]; estudiante?: Periodo[] }> = {
-  plus: { normal: ['mes', 'anio'], estudiante: ['mes', 'ciclo'] },
+  // con los precios nuevos, el estudiante ve primero el ciclo (el mejor precio por mes)
+  plus: { normal: ['mes', 'anio'], estudiante: COMERCIO.preciosNuevos ? ['ciclo', 'mes'] : ['mes', 'ciclo'] },
   pro: { normal: ['mes', 'anio'] },
   club: { normal: ['mes', 'anio'] },
 }

@@ -36,7 +36,7 @@ export const TARJETAS: Tarjeta[] = [
       { t: 'Tu historial completo' },
       { t: 'Pantalla dividida de hasta 6 paneles' },
       { t: 'Comparte todas tus páginas' },
-      { t: 'Conecta tu Claude o ChatGPT al Cuaderno' },
+      { t: 'Conecta tu Claude al Cuaderno' },
       { t: '3 equipos de hasta 10 personas' },
       { t: 'Rockie más listo: 200 mensajes al mes' },
       { t: '100 pedidos sobre tus notas y 8 «Aprender» al mes' },

@@ -20,7 +20,7 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
           h: 'Qué es Rockie',
           p: [
             'Rockie es una app web para organizar tu día: hábitos con prueba (una foto que revisa la IA), agenda, notas (el Cuaderno) y proyectos con tu equipo o club, con un asistente con inteligencia artificial (Rockie).',
-            'Si quieres, puedes conectar Rockie con tu asistente de IA (Claude, ChatGPT u otro compatible) para que lea y escriba en lo que tú le abras, y con tu Google Calendar para ver tus eventos en la agenda. Las dos conexiones son opcionales y las quitas cuando quieras.',
+            'Si quieres, puedes conectar Rockie con tu asistente de IA (hoy, Claude) para que lea y escriba en lo que tú le abras, y con tu Google Calendar para ver tus eventos en la agenda. Las dos conexiones son opcionales y las quitas cuando quieras.',
             'Hay un plan Gratis con límites y planes de pago (Plus, Pro y Club) que los amplían. Lo que incluye cada plan está en la página de planes.',
           ],
         },
@@ -88,7 +88,7 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
         {
           h: 'Conectar tu asistente de IA',
           p: [
-            'Desde el Cuaderno puedes conectar tu cuenta de Rockie con un asistente de IA externo, como Claude (de Anthropic) o ChatGPT (de OpenAI). En Rockie esto se llama «abrir para Claude», sea cual sea el asistente. Solo ve los cuadernos que abres para él y los proyectos cuyo dueño los abrió; todo lo demás sigue cifrado y no puede verlo.',
+            'Desde el Cuaderno puedes conectar tu cuenta de Rockie con un asistente de IA externo: hoy, Claude (de Anthropic). Si más adelante sumamos otros, en Rockie también se llamará «abrir para Claude», sea cual sea el asistente. Solo ve los cuadernos que abres para él y los proyectos cuyo dueño los abrió; todo lo demás sigue cifrado y no puede verlo.',
             'Lo que el asistente crea o cambia (páginas, tarjetas, tareas) queda a tu nombre, como si lo hubieras hecho tú: revisa lo que le pides. Cada asistente es un servicio de su empresa y se rige por sus propias condiciones; Rockie no controla lo que responde.',
             'Puedes cerrar un cuaderno o un proyecto (vuelve a cifrarse) o desconectar el asistente en cualquier momento desde el Cuaderno.',
           ],
@@ -188,7 +188,8 @@ export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
         h: 'Si conectas tu asistente de IA',
         p: [
           'Cuando abres un cuaderno o un proyecto para Claude (o el asistente que conectaste), su contenido (en un proyecto: su nombre, sus áreas y sus tareas) deja de estar cifrado y se guarda en claro en nuestros servidores, para que el asistente pueda leerlo y escribir en él. Para buscar por significado en esos cuadernos, calculamos una huella de cada página con Google (Gemini) y la guardamos junto a ella.',
-          'Lo que el asistente lee de ahí lo recibe su empresa (Anthropic si es Claude, OpenAI si es ChatGPT), que lo trata según su propia política de privacidad. Para reconocer la conexión guardamos el nombre de la app conectada y una llave de acceso.',
+          'Lo que el asistente lee de ahí, y lo que le escribes en su app, lo recibe su empresa (Anthropic, si es Claude) y lo trata según su propia política de privacidad y la configuración de tu cuenta con ella (por ejemplo, si permites que use tus conversaciones para entrenar sus modelos). Rockie no controla eso: revísalo en tu asistente.',
+          'De nuestro lado, para reconocer la conexión guardamos el nombre de la app conectada, una llave de acceso y cuándo se usó por última vez. No guardamos tus conversaciones con el asistente: solo lo que él crea o cambia en Rockie, que queda a tu nombre.',
           'Si cierras el cuaderno o el proyecto, vuelve a cifrarse en tu dispositivo. Si desconectas el asistente, su llave deja de servir al instante.',
         ],
       },
