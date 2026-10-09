@@ -136,7 +136,7 @@ export function MovilNav(p: { tabs: MovilTab[]; label: string; tint?: CSSPropert
   return (
     <>
       {p.room && <div className="mnav-room" aria-hidden="true" />}
-      <nav ref={trackRef} className={`mnav${dragging ? ' arrastrando' : ''}`} aria-label={p.label} style={p.tint ?? (app ? appTint(app) : undefined)}>
+      <nav ref={trackRef} className={`mnav${dragging ? ' arrastrando' : ''}`} aria-label={p.label} data-guia="pie" style={p.tint ?? (app ? appTint(app) : undefined)}>
         <motion.span
           className="mnav-ind"
           aria-hidden="true"
@@ -237,7 +237,7 @@ export function RockieCentro(p: {
     else p.onTap()
   }
   return createPortal(
-    <div className={`m-rockie-wrap${p.listening ? ' on' : ''}`} data-rockie>
+    <div className={`m-rockie-wrap${p.listening ? ' on' : ''}`} data-rockie data-guia="rockie">
       <button
         type="button"
         className={`m-rockie${p.listening ? ' on' : ''}${p.pressed ? ' pressed' : ''}`}

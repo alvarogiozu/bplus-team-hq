@@ -188,7 +188,7 @@ export function InicioMovil() {
 
       <div className="im-aire" />
 
-      <nav className="im-grid" aria-label="Tus apps">
+      <nav className="im-grid" aria-label="Tus apps" data-guia="apps">
         {cuadros.map((c, i) => (
           <motion.a
             key={c.app.id}
@@ -235,6 +235,7 @@ export function InicioMovil() {
           conversación toma toda la pantalla (solo la parte visible: con el teclado, hasta el teclado) */}
       <section
         className={`im-chat${abierto ? ' abierto' : ''}${vacio ? ' vacio' : ''}`}
+        data-guia="caja"
         data-teclado={visible?.teclado ? '' : undefined}
         style={visible ? ({ ['--vv-h' as string]: `${visible.h}px`, ['--vv-top' as string]: `${visible.top}px` } as CSSProperties) : undefined}
         aria-label="Conversación con Rockie"

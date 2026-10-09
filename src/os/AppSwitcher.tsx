@@ -88,6 +88,7 @@ export function AppSwitcher({ compact = false, className = '' }: { compact?: boo
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Cambiar de app (estás en ${current?.name ?? 'Inicio'})`}
+        data-guia="rueda"
       >
         <span className={`os-tile sm${current ? '' : ' home'}`}>
           <Icon name={current?.icon ?? 'home'} />

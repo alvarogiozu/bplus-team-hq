@@ -13,6 +13,7 @@ import { humanError, supabase } from '../../lib/supabase'
 import { APPS } from '../../os/apps'
 import { fetchPerfilHabitos, guardarVidaMode, leerVidaMode, rockieLook, type VidaMode } from '../../os/habitos'
 import { RockieArt } from '../../os/RockieArt'
+import { empezarGuia } from '../../os/GuiaRockie'
 import { MovilTop } from '../../os/movil/MovilShell'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { signOut } from '../auth/credentials'
@@ -265,8 +266,9 @@ export function AjustesPage() {
             </button>
           ))}
         </div>
-        <nav className="cuenta-lista" aria-label="Tutorial" style={{ marginTop: 8 }}>
-          <Fila onClick={verTutorialHabitos} icon="sparkle" titulo="Volver a ver el tutorial de Hábitos" sub="Rockie te guía paso a paso por Hoy, Vida, Juntos y Progreso" />
+        <nav className="cuenta-lista" aria-label="Tutoriales" style={{ marginTop: 8 }}>
+          <Fila onClick={empezarGuia} icon="sparkle" titulo="Volver a ver la guía de Rockie OS" sub="Un minuto: hablarme, las apps, la rueda, las secciones" />
+          <Fila onClick={verTutorialHabitos} icon="flame" titulo="Volver a ver el tutorial de Hábitos" sub="Rockie te guía paso a paso por Hoy, Vida, Juntos y Progreso" />
         </nav>
       </section>
 

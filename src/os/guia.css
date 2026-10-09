@@ -1,0 +1,47 @@
+/* ============================================================
+   La guía de Rockie OS (os/GuiaRockie.tsx): velo con un hueco de luz sobre algo real, su aro de color,
+   y la tarjeta de Rockie donde quede lugar. Todo con tokens: igual en claro y oscuro.
+   ============================================================ */
+.guia-velo { position: fixed; inset: 0; z-index: 300; width: 100%; height: 100%; pointer-events: none; }
+.guia-velo-f { fill: rgba(24, 20, 35, 0.62); }
+:root[data-theme='dark'] .guia-velo-f { fill: rgba(0, 0, 0, 0.66); }
+.guia-aro { position: fixed; z-index: 301; box-sizing: border-box; border: 3px solid var(--k); box-shadow: 0 0 0 5px color-mix(in srgb, var(--k) 28%, transparent); pointer-events: none; }
+
+.guia-modal { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 20px; background: rgba(24, 20, 35, 0.62); }
+:root[data-theme='dark'] .guia-modal { background: rgba(0, 0, 0, 0.66); }
+
+.guia-tarjeta {
+  box-sizing: border-box; width: 100%; max-width: 360px; padding: 18px; border-radius: 22px;
+  background: var(--card); border: 2px solid var(--card-line); box-shadow: 0 5px 0 var(--card-edge), 0 18px 44px rgba(0, 0, 0, 0.18);
+  color: var(--ink);
+}
+.guia-tarjeta.centrada { text-align: center; }
+.guia-tarjeta.foco { position: fixed; z-index: 302; left: 16px; right: 16px; margin: 0 auto; max-width: 420px; }
+.guia-tarjeta.foco.abajo { bottom: calc(16px + env(safe-area-inset-bottom)); }
+.guia-tarjeta.foco.arriba { top: calc(16px + env(safe-area-inset-top)); }
+.guia-tarjeta h2 { margin: 0; font-family: var(--serif); font-size: var(--t-xl); line-height: 1.15; color: var(--ink); }
+.guia-tarjeta.centrada h2 { margin-top: 10px; font-size: var(--t-2xl); }
+.guia-tarjeta p { margin: 8px 0 0; font-size: var(--t-s); line-height: 1.55; color: var(--ink-soft); }
+.guia-rockie { display: inline-grid; place-items: center; }
+.guia-rockie.chica { flex: none; width: 48px; height: 48px; border-radius: 16px; background: var(--paper-alt); }
+.guia-cab { display: flex; align-items: center; gap: 12px; }
+.guia-cta {
+  display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; margin-top: 14px; padding: 0 16px; border-radius: 999px;
+  background: var(--k, var(--accent)); color: var(--on-color); font-size: var(--t-s); font-weight: 800; box-shadow: 0 4px 0 var(--ke, color-mix(in srgb, var(--k, var(--accent)) 70%, #000));
+  transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide);
+}
+.guia-cta:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ke, color-mix(in srgb, var(--k, var(--accent)) 70%, #000)); }
+.guia-dos { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.guia-dos .guia-cta { margin-top: 0; }
+.guia-luego { min-height: 44px; border-radius: 999px; background: var(--paper-alt); color: var(--ink-soft); font-size: var(--t-s); font-weight: 700; }
+.guia-pie { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.guia-saltar { padding: 6px 0; background: none; color: var(--ink-muted); font-size: var(--t-xs); font-weight: 700; text-decoration: underline; cursor: pointer; }
+.guia-pie small { font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.1em; color: var(--ink-faint); }
+.guia-chip {
+  position: fixed; z-index: 302; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); translate: -50% 0;
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px;
+  background: var(--accent); color: var(--on-color); font-size: var(--t-xs); font-weight: 800; box-shadow: 0 4px 0 var(--accent-edge), var(--shadow-lift);
+}
+@media (min-width: 768px) {
+  .guia-chip { bottom: 110px; }
+}

@@ -915,6 +915,7 @@ export default function Escritorio() {
           <nav
             className="esc-tabs"
             role="tablist"
+            data-guia="pestanas"
             aria-label="Pestañas"
             onDragEnter={(e) => {
               if (enCurso.current) e.preventDefault()
@@ -1131,6 +1132,7 @@ export default function Escritorio() {
         <nav
           className={`esc-dock${dockVisible ? ' ver' : ''}`}
           aria-label="Dock"
+          data-guia="dock"
           onContextMenu={(e) => {
             e.preventDefault()
             setMenuDock({ x: e.clientX, y: e.clientY })

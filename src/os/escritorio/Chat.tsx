@@ -206,7 +206,7 @@ export function ChatPanel(p: {
       </div>
       <div className="ini-reposo-sug">{chips}</div>
 
-      <form className={`ini-comp${voice.listening ? ' oyendo' : ''}`} onSubmit={submit}>
+      <form className={`ini-comp${voice.listening ? ' oyendo' : ''}`} onSubmit={submit} data-guia="caja">
         <Icon name="search" className="sm ini-lupa" />
         <input
           ref={input}
