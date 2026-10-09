@@ -94,11 +94,16 @@ function baseDe(s: Estado, id: AppId): Mosaico {
   return MOS_VACIO
 }
 
+/** La pestaña que toma el lugar de una que se cierra: la de su izquierda (o la de su derecha si era la primera). */
+function vecinaDe(orden: AppId[], id: AppId): AppId | undefined {
+  const resto = orden.filter((x) => x !== id)
+  return resto[Math.min(Math.max(0, orden.indexOf(id) - 1), resto.length - 1)]
+}
+
 /** Si cierras la pestaña que se ve: la de al lado (como en el navegador); sin ninguna, el Inicio. */
 function sinVentanas(s: Estado, abiertas: AppId[], quitada: AppId): Estado {
-  if (!abiertas.length) return { ...s, abiertas, mos: MOS_VACIO, foco: null, vista: 'inicio' }
-  const i = Math.max(0, s.abiertas.indexOf(quitada) - 1)
-  const otra = abiertas[Math.min(i, abiertas.length - 1)]
+  const otra = vecinaDe(s.abiertas, quitada)
+  if (!otra) return { ...s, abiertas, mos: MOS_VACIO, foco: null, vista: 'inicio' }
   return { ...s, abiertas, mos: uno(otra), foco: otra, vista: s.vista }
 }
 
@@ -141,13 +146,12 @@ function reducir(s: Estado, a: Accion): Estado {
       return { ...s, abiertas, mos, foco: s.foco === a.id ? ids[ids.length - 1] : s.foco }
     }
     case 'mover': {
-      if (s.vista !== 'apps' || cuantas(s.mos) <= 1) {
-        // sola en pantalla: se divide con la pestaña abierta más cercana
-        const otra = [...s.abiertas].reverse().find((x) => x !== a.id)
-        if (!otra) return s
-        return { ...s, vista: 'apps', mos: alBorde(uno(otra), a.id, a.donde), foco: a.id }
-      }
-      return { ...s, vista: 'apps', mos: alBorde(s.mos, a.id, a.donde), foco: a.id }
+      // hay otra en pantalla: se pone a su lado (aunque esta estuviera guardada en su pestaña)
+      if (s.vista === 'apps' && idsDe(s.mos).some((x) => x !== a.id)) return { ...s, mos: alBorde(s.mos, a.id, a.donde), foco: a.id }
+      // sola en pantalla (o desde el Inicio): se divide con la pestaña abierta más cercana
+      const otra = [...s.abiertas].reverse().find((x) => x !== a.id)
+      if (!otra) return s
+      return { ...s, vista: 'apps', mos: alBorde(uno(otra), a.id, a.donde), foco: a.id }
     }
     case 'mos':
       return { ...s, mos: a.mos }
@@ -490,7 +494,12 @@ export default function Escritorio() {
   const cerrarSuave = (id: AppId) => {
     const e = est.current
     const seVe = e.vista === 'apps' && idsDe(e.mos).includes(id)
-    if (seVe) minimizar(id)
+    // la única en pantalla: la pestaña de al lado toma su lugar (como en el navegador), no el Inicio
+    const vecina = seVe && cuantas(e.mos) <= 1 ? vecinaDe(ordenRef.current.filter((x) => e.abiertas.includes(x)), id) : undefined
+    if (vecina) {
+      aSuPestana.current = id
+      abrir(vecina)
+    } else if (seVe) minimizar(id)
     const tab = pestanas.current.get(id)
     const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches
     let anim: Animation | undefined
@@ -874,6 +883,11 @@ export default function Escritorio() {
     else colocar(id, { t: 'partir', col: 0, lado: 'abajo' })
   }
 
+  /** «A la izquierda / derecha» del menú: lo mismo que Alt ← / →; si la app no está abierta, se abre ahí. */
+  const aUnLado = (id: AppId, donde: 'izq' | 'der') => {
+    if (est.current.abiertas.includes(id)) dispatch({ t: 'mover', id, donde })
+    else abrir(id, undefined, donde)
+  }
   const enMenu = (hacer: () => void) => {
     hacer()
     setMenu(null)
@@ -1309,10 +1323,10 @@ export default function Escritorio() {
               role="menu"
               style={{ left: Math.max(8, Math.min(menu.x, innerWidth - 250)), ...(menu.y > innerHeight / 2 ? { bottom: innerHeight - menu.y + 6 } : { top: menu.y }) }}
             >
-              <button role="menuitem" onClick={() => enMenu(() => abrir(menu.id, undefined, 'izq'))}>
+              <button role="menuitem" onClick={() => enMenu(() => aUnLado(menu.id, 'izq'))}>
                 <Icon name="collapse" className="sm" /> A la izquierda <kbd>Alt ←</kbd>
               </button>
-              <button role="menuitem" onClick={() => enMenu(() => abrir(menu.id, undefined, 'der'))}>
+              <button role="menuitem" onClick={() => enMenu(() => aUnLado(menu.id, 'der'))}>
                 <Icon name="expand" className="sm" /> A la derecha <kbd>Alt →</kbd>
               </button>
               <button role="menuitem" onClick={() => enMenu(() => abajo(menu.id))}>
