@@ -1,26 +1,21 @@
-import { useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
-import { AnimatePresence } from 'motion/react'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
 import { Empty, ListSkeleton, LoadError } from '../../components/States'
 import { addDays, dayOfTs, fmtDay, fmtDayLong, fmtRelative, fmtTime, greeting, hourIn, isNight, timeAgo } from '../../lib/dates'
-import { pointOf } from '../../lib/fx'
 import { teamStreak, teamXp } from '../../lib/xp'
 import type { Task } from '../../lib/types'
 import { useMe } from '../auth/AuthProvider'
 import { useActivity, useEvents, useSpaceRow, useTasks, useXp } from '../data/queries'
-import { useTaskActions } from '../tasks/actions'
-import { openValidate } from '../tasks/dialogs'
 import { useLookup } from '../tasks/bits'
-import { useLoQueSigue, type Paso } from '../tasks/loQueSigue'
+import { CaminoDeHoy } from '../tasks/Camino'
+import { useLoQueSigue } from '../tasks/loQueSigue'
 import { presenceStore } from '../team/presence'
-import { Faces, Ring, Sec, TaskCard } from './bits'
+import { Faces, Ring, Sec } from './bits'
 
-// Hoy en el celular: cómo va tu día (anillo), lo que toca AHORA en grande, lo que sigue en
-// tarjetas que se deslizan, tus reuniones y lo que movió el equipo.
-// AHORA y «Lo que sigue» salen del mismo orden que la vista «Lo que sigue» de la PC (tasks/loQueSigue.ts): arriba la
-// primera tarea tuya que nada frena, con «Empezar»; abajo tus demás pasos en orden y, en las bloqueadas, a qué esperan.
+// Hoy en el celular: cómo va tu día (anillo), tu camino de hoy (tasks/Camino.tsx: lo hecho, el paso de ahora en
+// grande con «Empezar» / «Listo» y lo que sigue, en el orden de «Lo que sigue»), tus reuniones y lo que movió el equipo.
 export default function HoyMovil() {
   const { userId, profile } = useMe()
   const tz = profile.timezone
@@ -32,11 +27,8 @@ export default function HoyMovil() {
   const activity = useActivity().data ?? []
   const space = useSpaceRow().data
   const online = presenceStore.use()
-  const { validate, move } = useTaskActions()
   const sigue = useLoQueSigue()
-  const [params, setParams] = useSearchParams()
   const [feedAll, setFeedAll] = useState(false)
-  const ahoraBtn = useRef<HTMLButtonElement>(null)
   const hour = hourIn(tz)
 
   const day = useMemo(() => {
@@ -58,12 +50,6 @@ export default function HoyMovil() {
   const onlineIds = others.filter((m) => online.has(m.user_id)).map((m) => m.user_id)
   const faceIds = [...onlineIds, ...others.map((m) => m.user_id).filter((id) => !onlineIds.includes(id))]
 
-  const openTask = (id: string) => {
-    const next = new URLSearchParams(params)
-    next.set('tarea', id)
-    setParams(next)
-  }
-
   function shareWhatsApp() {
     const name = (id: string | null) => memberById.get(id ?? '')?.profile.display_name ?? '—'
     const line = (t: Task) => `- ${t.title} — ${name(t.assignee_id)}${t.due_date ? ` (${fmtRelative(t.due_date, today)})` : ''}`
@@ -80,13 +66,8 @@ export default function HoyMovil() {
     window.open('https://wa.me/?text=' + encodeURIComponent(out.join('\n')), '_blank', 'noopener')
   }
 
-  // la siguiente que nada frena (si todo lo tuyo espera, la primera de la fila, con a qué espera)
-  const quien = (t: Task) => (t.assignee_id ? memberById.get(t.assignee_id)?.profile.display_name?.split(' ')[0] : undefined)
-  const nombrar = (ts: Task[]) => ts.map((t) => `«${t.title}»${quien(t) ? ` de ${quien(t)}` : ''}`).join(', ')
-  const paso: Paso | undefined = sigue.siguiente ?? sigue.pasos[0]
-  const ahora = paso?.task
-  const ahoraLate = ahora?.due_date && ahora.due_date < today
-  const resto = sigue.pasos.filter((x) => x !== paso)
+  // tu camino de hoy (tasks/Camino.tsx): hay algo que mostrar si te queda un paso o ya hiciste alguno hoy
+  const hayCamino = sigue.pasos.length > 0 || day.doneToday.length > 0
   const feed = activity.slice(0, feedAll ? 12 : 4)
 
   return (
@@ -143,88 +124,15 @@ export default function HoyMovil() {
         <ListSkeleton rows={3} />
       ) : tasksQ.isError ? (
         <LoadError error={tasksQ.error} onRetry={() => tasksQ.refetch()} />
-      ) : !ahora || !paso ? (
+      ) : !hayCamino ? (
         <div className="em-card em-free">
           <Empty title="Día libre. Rockie aprueba.">
             <p className="hint">No tienes tareas pendientes en este proyecto.</p>
           </Empty>
         </div>
       ) : (
-        <>
-          {/* lo de ahora, en grande: la primera que nada frena */}
-          <Sec
-            title={
-              <span className={`em-now${ahoraLate ? ' late' : ''}${paso.bloqueada ? ' espera' : ''}`}>
-                <i />
-                {paso.bloqueada ? 'Todo lo tuyo espera' : ahoraLate ? 'Atrasada' : ahora.status === 'doing' ? 'Sigues con' : 'Ahora'}
-              </span>
-            }
-          />
-          <article className={`em-card em-ahora${ahora.priority === 'urgent' ? ' urgent' : ''}`}>
-            <button className="em-ahora-open" onClick={() => openTask(ahora.id)}>
-              <b>{ahora.title}</b>
-              <span>
-                {[ahora.priority === 'urgent' ? 'Urgente' : null, ahora.due_date ? fmtRelative(ahora.due_date, today) + (ahoraLate ? ' · se pasó' : '') : null, ahora.status === 'doing' ? 'En curso' : null]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </span>
-            </button>
-            {paso.bloqueada ? (
-              <p className="em-destraba">
-                <Icon name="lock" className="sm" /> Espera a {nombrar(paso.esperaA)}
-              </p>
-            ) : (
-              paso.desbloquea.length > 0 && (
-                <p className="em-destraba">
-                  <Icon name="lock" className="sm" /> Al terminarla destrabas {nombrar(paso.desbloquea)}
-                </p>
-              )
-            )}
-            {!paso.bloqueada && (
-              <div className="em-ahora-act">
-                {ahora.status === 'todo' ? (
-                  <>
-                    <button className="btn" onClick={() => void move(ahora, 'doing', ahora.position)}>
-                      <Icon name="arrow" /> Empezar
-                    </button>
-                    <button ref={ahoraBtn} className="btn ghost" onClick={() => void validate(ahora, 'plain', {}, pointOf(ahoraBtn.current))}>
-                      <Icon name="check" /> Lo hice
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button ref={ahoraBtn} className="btn" onClick={() => void validate(ahora, 'plain', {}, pointOf(ahoraBtn.current))}>
-                      <Icon name="check" /> Lo hice
-                    </button>
-                    <button className="btn ghost" onClick={(e) => openValidate(ahora.id, pointOf(e.currentTarget))}>
-                      <Icon name="image" /> Con prueba
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </article>
-
-          {resto.length > 0 && (
-            <>
-              <Sec title="Lo que sigue" count={resto.length}>
-                <Link to="/tareas?vista=lista" className="em-link">Ver todas</Link>
-              </Sec>
-              <div className="em-list">
-                <AnimatePresence initial={false} mode="popLayout">
-                  {resto.slice(0, 6).map((x, i) => (
-                    <TaskCard key={x.task.id} task={x.task} index={i} showAssignee={false} espera={x.bloqueada ? nombrar(x.esperaA) : undefined} />
-                  ))}
-                </AnimatePresence>
-              </div>
-              {resto.length > 6 && (
-                <Link to="/tareas?vista=lista" className="em-more">
-                  {resto.length - 6} más en Tareas <Icon name="expand" className="sm" />
-                </Link>
-              )}
-            </>
-          )}
-        </>
+        // lo que sigue como un camino de pasos: lo hecho, el paso de ahora en grande y lo que viene (igual en la PC)
+        <CaminoDeHoy />
       )}
 
       {myMeetings.length > 0 && (

@@ -1,0 +1,92 @@
+/* ============================================================
+   «TU CAMINO DE HOY» (tasks/Camino.tsx): el camino de pasos acostado. Piedras con canto (2.5D de B+) unidas por una
+   senda; el paso de ahora es una tarjeta grande al centro. Solo tokens: igual en claro y oscuro.
+   ============================================================ */
+.camino { --senda: var(--card-line); display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.camino-cargando { min-height: 220px; border-radius: var(--r-lg); background: var(--paper-alt); }
+.camino-cab { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); }
+.camino-cab b { font-family: var(--serif); font-size: var(--t-xl); color: var(--title, var(--ink)); }
+.camino-cab small { font-size: var(--t-xs); font-weight: 700; color: var(--ink-muted); }
+
+/* el mapa del camino (solo en el celular, donde la pista muestra un paso a la vez): puntos unidos por la senda */
+.camino-mapa { display: none; }
+@media (max-width: 767px) {
+  .camino-mapa {
+    display: flex; align-items: center; gap: 10px; width: fit-content; max-width: 100%; margin: 0; padding: 4px 0; list-style: none;
+    background: linear-gradient(var(--senda), var(--senda)) no-repeat 0 50% / 100% 3px;
+  }
+  .camino-mapa li {
+    width: 18px; height: 18px; flex: none; display: grid; place-items: center; border-radius: 50%;
+    background: var(--card); border: 2px solid var(--card-line); color: var(--ink-muted); cursor: pointer;
+  }
+  .camino-mapa li .ico { width: 11px; height: 11px; }
+  .camino-mapa li.hecho { background: var(--green-photo); border-color: transparent; color: var(--on-color); }
+  .camino-mapa li.ahora { width: 24px; height: 24px; background: var(--accent); border-color: transparent; box-shadow: 0 3px 0 var(--accent-edge, var(--card-edge)); }
+  .camino-mapa li.bloq { background: var(--paper-alt); border-style: dashed; }
+}
+
+/* la pista: se desliza de lado, cada paso encaja al soltar. La senda es una sola línea a media altura que se
+   desliza con el contenido (background local); las piedras quedan centradas en ella y su nombre va debajo. */
+.camino-pista {
+  position: relative; display: flex; align-items: center; gap: var(--s3);
+  overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none;
+  margin: 0 calc(var(--screen-x) * -1); padding: var(--s3) var(--screen-x) 64px;
+  background: linear-gradient(var(--senda), var(--senda)) no-repeat local;
+  background-size: 100% 6px; background-position: 0 calc(50% - 26px);
+}
+.camino-pista::-webkit-scrollbar { display: none; }
+.camino-pista > * { flex: none; scroll-snap-align: center; position: relative; }
+
+/* un paso (hecho o por venir): la piedra con canto; su nombre cuelga debajo sin mover el centro */
+.camino-nodo {
+  width: 96px; display: flex; flex-direction: column; align-items: center; padding: 0; background: none;
+  text-align: center; color: var(--ink); cursor: pointer;
+}
+.camino-nodo > :not(.camino-piedra) { position: absolute; left: 0; right: 0; }
+.camino-nodo > .camino-t { top: calc(100% + 6px); }
+.camino-nodo > small { top: calc(100% + 40px); }
+.camino-piedra {
+  width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%;
+  background: var(--card); border: 2px solid var(--card-line); box-shadow: 0 5px 0 var(--card-edge);
+  font-family: var(--serif); font-size: var(--t-lg); color: var(--ink-soft); transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide);
+}
+.camino-nodo:active .camino-piedra { transform: translateY(4px); box-shadow: 0 1px 0 var(--card-edge); }
+.camino-nodo.hecho .camino-piedra { background: var(--green-photo); border-color: transparent; color: var(--on-color); box-shadow: 0 5px 0 color-mix(in srgb, var(--green-photo) 65%, #000); }
+.camino-nodo.bloq .camino-piedra { background: var(--paper-alt); color: var(--ink-muted); border-style: dashed; box-shadow: none; }
+.camino-nodo.mas { cursor: default; }
+.camino-t {
+  width: 100%; font-size: var(--t-2xs); font-weight: 700; line-height: 1.3; color: var(--ink);
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.camino-nodo.hecho .camino-t { color: var(--ink-muted); text-decoration: line-through; text-decoration-color: var(--ink-faint); }
+.camino-nodo small { font-size: var(--t-3xs); font-weight: 700; color: var(--ink-muted); line-height: 1.3; }
+.camino-nodo small.camino-espera { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* el paso de ahora: tarjeta grande con canto del color del proyecto */
+.camino-actual {
+  width: min(340px, calc(100vw - var(--screen-x) * 2 - 48px)); display: flex; flex-direction: column; gap: var(--s2);
+  padding: var(--s4); border-radius: var(--r-lg); background: var(--card); border: 2px solid var(--accent);
+  box-shadow: 0 6px 0 var(--accent-edge, var(--card-edge)), var(--shadow-soft);
+}
+.camino-actual.urgente { border-color: var(--coral); box-shadow: 0 6px 0 var(--coral-edge), var(--shadow-soft); }
+.camino-actual.espera { border-style: dashed; border-color: var(--card-line); box-shadow: 0 4px 0 var(--card-edge); }
+.camino-actual.fin { align-items: center; text-align: center; border-color: var(--green-photo); box-shadow: 0 6px 0 color-mix(in srgb, var(--green-photo) 65%, #000); }
+.camino-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-2xs); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-ink, var(--accent)); }
+.camino-actual.espera .camino-eyebrow { color: var(--ink-muted); }
+.camino-titulo { padding: 0; background: none; text-align: left; font-family: var(--serif); font-size: var(--t-xl); font-weight: 700; line-height: 1.2; color: var(--ink); cursor: pointer; }
+.camino-actual.fin .camino-titulo { text-align: center; cursor: default; }
+.camino-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: var(--t-xs); font-weight: 700; color: var(--ink-muted); }
+.camino-meta > span { display: inline-flex; align-items: center; gap: 4px; }
+.camino-doing { color: var(--amber-ink); }
+
+/* los pasos de su nota, como casillas */
+.camino-pasos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 196px; overflow-y: auto; }
+.camino-pasos label { display: flex; align-items: flex-start; gap: var(--s2); min-height: 36px; padding: 6px 4px; border-radius: var(--r-sm); font-size: var(--t-sm); line-height: 1.4; color: var(--ink); cursor: pointer; }
+.camino-pasos input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--green-photo); }
+.camino-pasos label.hecho span { color: var(--ink-muted); text-decoration: line-through; }
+
+.camino-destraba { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: var(--t-xs); font-weight: 600; line-height: 1.45; color: var(--ink-soft); }
+.camino-destraba .ico { flex: none; margin-top: 2px; color: var(--ink-muted); }
+.camino-acciones { display: flex; gap: var(--s2); margin-top: var(--s1); }
+.camino-acciones .btn { flex: 1; justify-content: center; min-height: var(--tap); }
+.camino-listo { background: var(--green-photo); --edge: color-mix(in srgb, var(--green-photo) 65%, #000); }
