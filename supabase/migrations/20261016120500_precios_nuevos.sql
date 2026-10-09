@@ -1,6 +1,6 @@
 -- Precios nuevos (docs/negocio/precios-y-margenes.md, sección 1), listos detrás de un interruptor.
 -- Aplicar esta migración NO cambia ningún precio: solo deja preparado el cambio.
--- El día que Culqi apruebe la tienda y Álvaro dé el OK (su tarea 25), se activa con UNA llamada (llave de servicio):
+-- El día que Culqi apruebe la tienda y Álvaro dé el OK (su tarea 26), se activa con UNA llamada (llave de servicio):
 --   select public.activar_precios_nuevos();
 -- y se deshace (si hiciera falta) con:
 --   select public.desactivar_precios_nuevos();
@@ -103,7 +103,7 @@ begin
       ('plus', 'normal', 'anio', 23900),
       ('plus', 'estudiante', 'mes', 1490),
       ('plus', 'estudiante', 'ciclo', 4990),
-      ('plus', 'estudiante', 'anio', 14300), -- no está en el documento: −20 % como los demás anuales (confirmar en la tarea 25)
+      ('plus', 'estudiante', 'anio', 14300), -- no está en el documento: −20 % como los demás anuales (confirmar en la tarea 25b)
       ('pro', 'normal', 'mes', 3990),
       ('pro', 'normal', 'anio', 38300)
     ) as n(plan, tarifa, periodo, centimos)

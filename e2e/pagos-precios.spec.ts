@@ -5,7 +5,7 @@ import { PASS, pasarCofre } from './helpers'
 
 // Los precios nuevos (docs/negocio/precios-y-margenes.md) detrás del interruptor (migración 20261016120500):
 // - apagado (hoy): Tu plan y la hoja de pago muestran los precios de siempre y nadie ve «Precio fundador».
-// - prendido (select public.activar_precios_nuevos(), tarea 25 de Álvaro): Plus S/ 24.90; quien tiene tarifa
+// - prendido (select public.activar_precios_nuevos(), tarea 26 de Álvaro): Plus S/ 24.90; quien tiene tarifa
 //   fundador sigue viendo y pagando S/ 19.90.
 // Cada prueba corre solo en su estado: el día de la activación, correr este archivo antes y después del interruptor.
 
@@ -64,7 +64,7 @@ test('Interruptor apagado: los precios de siempre y nadie ve «Precio fundador»
 })
 
 test('Interruptor prendido: Plus a S/ 24.90 y el fundador sigue en S/ 19.90', async ({ page }) => {
-  test.skip(!(await activos()), 'los precios nuevos todavía no se activan (tarea 25)')
+  test.skip(!(await activos()), 'los precios nuevos todavía no se activan (tarea 26)')
   test.setTimeout(120_000)
   const uid = await uidDe('qa.intruso')
   await dejarEnGratis(uid)
