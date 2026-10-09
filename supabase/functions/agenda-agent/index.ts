@@ -193,7 +193,7 @@ Tu trabajo es convertir cada orden en PROPUESTAS usando las herramientas. Nunca 
 
 - Responde siempre con herramientas. Una orden puede necesitar varias llamadas: "mueve todo lo de la tarde una hora" es un mover_item por cada ítem de la tarde.
 - Usa solo ids que existan en el contexto. Si una referencia calza con varias cosas o con ninguna, usa preguntar con opciones concretas en vez de adivinar.
-- Fechas AAAA-MM-DD y horas HH:mm en 24 h, en la zona horaria del contexto. Las fechas relativas ("mañana", "el jueves", "la otra semana") se calculan desde "hoy" del contexto; un día de la semana sin más es el próximo que viene (si es hoy, es hoy solo si dicen "hoy" o "este").
+- Fechas AAAA-MM-DD y horas HH:mm en 24 h, en la zona horaria del contexto. Las fechas relativas ("mañana", "el jueves", "la otra semana") se calculan desde "hoy" del contexto; un día de la semana sin más es el próximo que viene (si es hoy, es hoy solo si dicen "hoy" o "este"). "proximos_dias" del contexto ya trae esas fechas resueltas (mañana, pasado mañana y cada día de la semana): úsalas tal cual, no las calcules.
 - Lo personal (gimnasio, estudiar, comer, una tarea propia) va a la agenda personal. Una reunión con gente del equipo es crear_reunion. Mover reuniones o proyectos afecta a todo el equipo: hazlo solo si lo piden claramente.
 - Personas que NO están en "people" (pareja, familia, amigos, clientes): no preguntes por ellas ni las busques en el equipo. Es un plan personal: crear_item con su nombre en el título ("Cita con Sofía"). crear_reunion es solo con gente de "people"; pregunta únicamente si un nombre calza con VARIAS personas de "people".
 - Si el pedido es de otra app usa otra_app: algo que quiere repetir o volver hábito (correr todos los días, leer 20 páginas diarias) es "habitos"; anotar una idea, un apunte o algo que aprendió es "cuaderno"; crear o asignar una tarea al equipo es "equipo". area: cuerpo (salud, ejercicio, comida, sueño), mente (estudio, lectura, aprender, crear), alma (pareja, familia, amigos, descanso, espiritualidad) o trabajo.
@@ -374,6 +374,20 @@ function preguntarEquipo(proposals: Prop[], ctx: Ctx): Prop[] {
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+
+/** «mañana», «pasado mañana» y cada día de la semana que viene (el próximo; si es hoy, el de la otra semana) → fecha. */
+function proximosDias(hoy: string): Record<string, string> {
+  const base = new Date(`${hoy}T12:00:00Z`)
+  const dia = (n: number) => {
+    const d = new Date(base)
+    d.setUTCDate(d.getUTCDate() + n)
+    return d
+  }
+  const out: Record<string, string> = { manana: dia(1).toISOString().slice(0, 10), pasado_manana: dia(2).toISOString().slice(0, 10) }
+  for (let n = 1; n <= 7; n++) out[DIAS[dia(n).getUTCDay()]] = dia(n).toISOString().slice(0, 10)
+  return out
+}
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 
 /** Descarta propuestas con ids inventados o fechas/horas mal formadas. */
@@ -494,6 +508,9 @@ Deno.serve(async (req) => {
   const ligero = cupo?.plan === 'gratis' || simple
   const ctx: Ctx = body.context ?? {}
   pedidoDe.set(ctx, { orden: text, historia: Array.isArray(body.history) && body.history.length > 0 })
+  // los modelos ligeros calculan mal «el lunes» (daba el martes): los próximos 7 días ya resueltos
+  const hoyCtx = (ctx as { hoy?: unknown }).hoy
+  if (typeof hoyCtx === 'string' && DATE.test(hoyCtx)) (ctx as Record<string, unknown>).proximos_dias = proximosDias(hoyCtx)
   const base: Kit =
     body.scope === 'hq'
       ? { tools: TOOLS_HQ as typeof TOOLS, system: SYSTEM_HQ }
@@ -545,6 +562,11 @@ Orden: ${text}`, ctx, kit, ligero)
   if (respuesta.status === 429 || respuesta.status >= 500) {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     await admin.rpc('devolver_cupo', { p_user: user.id, p_clave: 'ia_rockie_mes' })
+  }
+  // cuánto le queda del mes: la app avisa ANTES de que se acabe (no recién cuando ya no puede)
+  if (respuesta.ok && cupo && typeof cupo.limite === 'number') {
+    const datos = await respuesta.json()
+    return json({ ...datos, cupo: { usado: cupo.usado, limite: cupo.limite } })
   }
   return respuesta
 })

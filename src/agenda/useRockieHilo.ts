@@ -296,6 +296,12 @@ export function useRockieHilo(p: { today: string; nowMin: number; google?: GEven
     const historia = p.scope === 'os' ? hiloComoHistoria() : chat.history()
     const reply = await askRockie(t, historia, ctx, () => localPropose(t, { today: p.today, defaultDuration: prefs?.default_duration ?? 15, people }), p.scope)
     setThinking(false)
+    // aviso a tiempo: con 5 o menos mensajes del mes, se dice antes de que se acaben
+    const cupo = (reply as { cupo?: { usado: number; limite: number } }).cupo
+    if (cupo) {
+      const quedan = cupo.limite - cupo.usado
+      if (quedan <= 5) toast(quedan > 0 ? `Te ${quedan === 1 ? 'queda 1 mensaje' : `quedan ${quedan} mensajes`} con Rockie este mes` : 'Era tu último mensaje con Rockie de este mes')
+    }
     const q = reply.proposals.find((x) => x.tool === 'preguntar')
     const a = reply.proposals.find((x) => x.tool === 'responder')
     const ac = reply.proposals.find((x) => x.tool === 'aclarar')
