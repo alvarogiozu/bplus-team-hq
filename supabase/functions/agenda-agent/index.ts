@@ -295,11 +295,11 @@ Lo primero es decidir QUÉ es cada cosa que te dicen y usar la herramienta de es
 
 1. NOTA → anotar. Algo para guardar o recordar SIN día ni hora: una idea, un apunte de clase, algo que aprendió, una lista, una fórmula, «anota…», «apunta…», «idea:…», «guarda que…», «que no se me olvide que…». texto limpio, sin «anota que».
 2. HÁBITO → habito. Algo que quiere REPETIR o volver costumbre: «todos los días», «cada mañana», «diario», «los lunes y miércoles», «tres veces por semana», «quiero empezar a…», «quiero dejar de…», «volverlo hábito». accion crear con un nombre corto («Leer 20 minutos», «Meditar», «Estudiar cálculo») y la hora si la dice. Si cuenta que YA HIZO algo de su rutina («ya medité», «hoy leí 20 minutos», «hice mis flexiones», «ya tomé mis vitaminas») y no es un ítem de su agenda: accion hecho.
-3. AGENDA → las herramientas de la agenda (crear_item, mover_item, reservar, completar_item…). Algo que hará UNA vez, con día u hora, o para ordenar su tiempo: «mañana a las 5 estudio cálculo», «el viernes examen de física a las 8», «bloquea 2 horas el sábado para el informe», «recuérdame pagar la pensión el lunes», «mueve el gimnasio a las 7». Un examen, una clase o una entrega personal con fecha es de la agenda. Preguntas sobre su día («¿qué tengo mañana?», «¿estoy libre el jueves?») son responder.
+3. AGENDA → las herramientas de la agenda (crear_item, mover_item, reservar, completar_item…). Algo que hará UNA vez, con día u hora, o para ordenar su tiempo: «mañana a las 5 estudio cálculo», «el viernes examen de física a las 8», «bloquea 2 horas el sábado para el informe», «recuérdame pagar la pensión el lunes», «mueve el gimnasio a las 7». Un examen, una clase o una entrega personal con fecha es de la agenda, aunque la fecha sea solo un número («el examen es el 20» = día 20 de este mes, o del próximo si ya pasó). «Ponme», «agrega», «agéndame», «tengo» o «hay» CREAN algo nuevo aunque ya exista un ítem parecido; mover_item es solo para «mueve», «cambia», «pasa», «corre» o «adelanta». Preguntas sobre su día («¿qué tengo mañana?», «¿estoy libre el jueves?») son responder.
 4. TAREA DEL EQUIPO → crear_tarea_equipo. Algo de un proyecto o grupo de trabajo: menciona al equipo, al grupo, al proyecto o a alguien de "people" («que Diego haga el informe», «asígnale a Andrea la revisión», «tarea para el grupo: armar la presentación», «para el proyecto de circuitos…»). space_id: si tiene un solo equipo, ese; si son varios y no se sabe cuál, preguntar con los nombres de los equipos como opciones. assignee_id = id de people (null = la persona que habla). due si dice una fecha.
 5. Si NO está claro de qué tipo es («estudiar cálculo», «leer», «el gimnasio», «llamar a mamá», «tomar agua», sin día, sin hora y sin repetición), NO adivines: aclarar con el pedido tal cual, una pregunta corta y cálida («¿Cómo lo guardo?») y solo las opciones que tengan sentido.
 - Una frase puede traer varias cosas («anota que cambiaron el examen y ponme a estudiar el jueves a las 4»): una herramienta por cada una.
-- "app_abierta" (si viene) es la app que la persona tiene abierta: si lo que dice es ambiguo, prefiere esa (agenda → agenda; equipo → tarea del equipo; cuaderno → nota; habitos → hábito) en vez de aclarar.
+- "app_abierta" (si viene) es la app que la persona tiene abierta: si lo que dice es ambiguo, usa esa (agenda → agenda; equipo → tarea del equipo; cuaderno → nota; habitos → hábito) y NO uses aclarar.
 - Horas sin «de la mañana», «temprano» ni «am»: de 1 a 7 son de la TARDE («a las 6» = 18:00, «a las 4» = 16:00); de 8 a 11, de la mañana. Despertar y dormir se entienden como siempre.
 - Si el pedido empieza con «Como nota:», «Como hábito:», «En la agenda:» o «Tarea del equipo:», la persona ya eligió el tipo: úsalo y no vuelvas a preguntar.
 - Saludos, agradecimientos o «¿qué puedes hacer?»: responder con una frase corta y cálida que diga que puedes agendar, crear hábitos, anotar y crear tareas del equipo.
@@ -307,6 +307,7 @@ Lo primero es decidir QUÉ es cada cosa que te dicen y usar la herramienta de es
 
 Reglas de la AGENDA personal (cuando el pedido es de la agenda):
 ` + SYSTEM.replace(/^Eres Rockie, el asistente de Rockie Agenda[^\n]*\n\n/, '').replace(/^- Si el pedido es de otra app usa otra_app:[^\n]*\n/m, '')
+  .replace('Sin día ni hora: va al Inbox (day null).', 'Sin día ni hora va al Inbox (day null), pero SOLO si ya sabes que es de la agenda (lo dijo, o app_abierta es agenda); si no, es el punto 5: aclarar.')
 
 type Ctx = {
   items?: { id: string }[]
@@ -321,6 +322,30 @@ type Ctx = {
   groups?: { id: string }[]
   hobbies?: { id: string }[]
   reserves?: { id: string }[]
+  app_abierta?: string
+}
+
+type Prop = { tool: string; input: Record<string, unknown> }
+
+/** Si la persona está dentro de una app y Rockie igual pregunta «¿cómo lo guardo?», va a esa app sin preguntar
+ *  (el modelo a veces se salta la regla de app_abierta). Equipo solo si hay un único espacio. */
+function resolverAclarar(proposals: Prop[], ctx: Ctx): Prop[] {
+  const app = ctx.app_abierta
+  if (!app) return proposals
+  return proposals.map((p) => {
+    if (p.tool !== 'aclarar') return p
+    const pedido = String(p.input.pedido).trim()
+    const titulo = pedido[0].toUpperCase() + pedido.slice(1)
+    if (app === 'cuaderno') return { tool: 'anotar', input: { texto: pedido } }
+    if (app === 'habitos') return { tool: 'habito', input: { accion: 'crear', nombre: titulo, hora: null } }
+    if (app === 'agenda') {
+      return { tool: 'crear_item', input: { title: titulo, day: null, start: null, duration_min: null, icon: null, calendar_id: null, group_id: null, priority: null, end_day: null } }
+    }
+    if (app === 'equipo' && ctx.spaces?.length === 1) {
+      return { tool: 'crear_tarea_equipo', input: { space_id: ctx.spaces[0].id, title: titulo, assignee_id: null, due: null } }
+    }
+    return p
+  })
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -501,7 +526,7 @@ Orden: ${text}`, ctx, kit, ligero)
     if (!proposals.length && !say.trim()) {
       say = dropped ? 'No encontré eso en tu agenda. ¿Me lo dices de otra forma?' : 'No te entendí bien. ¿Me lo repites?'
     }
-    return json({ say: say.trim(), proposals, dropped })
+    return json({ say: say.trim(), proposals: resolverAclarar(proposals, ctx), dropped })
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return json({ error: 'Rockie está saturado. Intenta en unos segundos.' }, 429)
     if (e instanceof Anthropic.AuthenticationError) return json({ error: 'voz-sin-configurar' }, 503)
@@ -531,7 +556,7 @@ function pack(say: string, calls: { name: string; args: Record<string, unknown> 
   if (!proposals.length && !say.trim()) {
     say = dropped ? 'No encontré eso en tu agenda. ¿Me lo dices de otra forma?' : 'No te entendí bien. ¿Me lo repites?'
   }
-  return json({ say: say.trim(), proposals, dropped })
+  return json({ say: say.trim(), proposals: resolverAclarar(proposals, ctx), dropped })
 }
 
 type Kit = { tools: typeof TOOLS; system: string }
