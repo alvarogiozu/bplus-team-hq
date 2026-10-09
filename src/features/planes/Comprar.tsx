@@ -120,7 +120,7 @@ export function ComprarPlan({
     if (!elegido || fase) return
     setError('')
     const email = correo.trim().toLowerCase()
-    if (!CORREO.test(email)) return setError('Escribe tu correo: ahí te llega el comprobante.')
+    if (!CORREO.test(email)) return setError('Escribe tu correo: ahí te llega la constancia del pago.')
     if (plan === 'club' && !equipo) return setError('Elige el equipo que será Club.')
     const cel = celular.replace(/\D/g, '').replace(/^51(?=\d{9}$)/, '')
     const base = { plan, periodo, email, space_id: plan === 'club' ? equipo : null }
@@ -361,7 +361,7 @@ export function ComprarPlan({
         <div className="pl-campos">
           <div className="pl-campos-ancho">
             <label className="lbl" htmlFor="pl-correo">
-              Tu correo (te llega el comprobante)
+              Tu correo (te llega la constancia del pago)
             </label>
             <input
               id="pl-correo"

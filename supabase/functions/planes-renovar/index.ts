@@ -41,6 +41,12 @@ const fecha = (iso: string) =>
   new Date(iso).toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Lima' })
 const soles = (c: number) => `S/ ${(c / 100).toFixed(2)}`
 
+// quién cobra, como en la web (copia de src/features/publico/comercio.ts: si cambia allá, cambia aquí)
+const PIE_COMERCIO =
+  'Rockie · ZUÑIGA CANAZAS ALVARO GIOVANNI · RUC 10765450981 · Miraflores, Lima, Perú<br>' +
+  '<a href="https://rockie.plus" style="color:#9893a5">rockie.plus</a> · contacto@rockie.plus · ' +
+  '<a href="https://rockie.plus/libro-de-reclamaciones" style="color:#9893a5">Libro de Reclamaciones</a>'
+
 /** Un correo sencillo con la cara de Rockie: título, texto y un botón. */
 function correoHtml(titulo: string, parrafos: string[], boton: { texto: string; url: string }) {
   const p = parrafos.map((x) => `<p style="margin:0 0 14px;color:#575279;font-size:15px;line-height:1.5">${x}</p>`).join('')
@@ -50,7 +56,7 @@ function correoHtml(titulo: string, parrafos: string[], boton: { texto: string; 
 <tr><td style="text-align:center;padding-bottom:12px"><img src="https://rockie.plus/pagos/rockie-logo.png" width="72" height="72" alt="Rockie" style="border-radius:18px"></td></tr>
 <tr><td><h1 style="margin:0 0 14px;color:#286983;font-size:21px;line-height:1.3;text-align:center">${titulo}</h1>${p}
 <p style="text-align:center;margin:22px 0 8px"><a href="${boton.url}" style="display:inline-block;background:#2e88aa;color:#ffffff;text-decoration:none;font-weight:bold;padding:13px 24px;border-radius:999px;font-size:15px">${boton.texto}</a></p>
-<p style="margin:18px 0 0;color:#9893a5;font-size:12px;line-height:1.5;text-align:center">Te escribimos porque pediste avisos de tu plan. Puedes quitarlos en Rockie → Tu plan.<br>Rockie · rockie.plus · contacto@rockie.plus</p>
+<p style="margin:18px 0 0;color:#9893a5;font-size:12px;line-height:1.5;text-align:center">Te escribimos porque pediste avisos de tu plan. Puedes quitarlos en Rockie → Tu plan.<br>${PIE_COMERCIO}</p>
 </td></tr></table></td></tr></table></body></html>`
 }
 
