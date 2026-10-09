@@ -96,8 +96,10 @@ export async function syncHqSessionFromBplus(bplusSession: Session): Promise<Ses
 
   if (syncPromise) return syncPromise
 
-  syncPromise = (async () => {
+  syncPromise = conCandadoPuente(async () => {
     try {
+      const { data: ya } = await supabase.auth.getSession()
+      if (ya.session) return ya.session
       setKeepSession(true)
       const signRes = await supabase.auth.signInWithPassword({ email, password })
       if (signRes.data.session) return signRes.data.session
@@ -134,7 +136,7 @@ export async function syncHqSessionFromBplus(bplusSession: Session): Promise<Ses
     } finally {
       syncPromise = null
     }
-  })()
+  }, 'hq')
 
   return syncPromise
 }
@@ -153,8 +155,13 @@ export async function syncBplusSessionFromHq(hqSession: Session, rawPassword?: s
 
   if (syncBpPromise) return syncBpPromise
 
-  syncBpPromise = (async () => {
+  syncBpPromise = conCandadoPuente(async () => {
     try {
+      // otra app (otro iframe) pudo crearla mientras esperábamos el candado
+      const { data: ya } = await bp.auth.getSession()
+      if (ya.session) return ya.session
+      if (puenteEnPausa()) return null
+
       if (hqSession.user.email && rawPassword) {
         const signRes = await bp.auth.signInWithPassword({ email: hqSession.user.email, password: rawPassword })
         if (signRes.data.session) return signRes.data.session
@@ -177,6 +184,7 @@ export async function syncBplusSessionFromHq(hqSession: Session, rawPassword?: s
           },
         },
       })
+      if (anonRes.error?.status === 429) pausarPuente()
       if (anonRes.data.session) {
         // el perfil ya lo creó el trigger de Hábitos al registrar la sesión (handle_new_user): solo se le pone el
         // nombre. Un upsert pedía INSERT, que la RLS de profiles no da → 403 y el perfil quedaba como «Tu».
@@ -189,9 +197,34 @@ export async function syncBplusSessionFromHq(hqSession: Session, rawPassword?: s
     } finally {
       syncBpPromise = null
     }
-  })()
+  })
 
   return syncBpPromise
+}
+
+// El puente a Hábitos se arma UNA vez para todas las apps: en el escritorio cada app es un iframe con su propia memoria
+// (syncBpPromise no las une) y todas arrancaban a la vez → ~15 POST /auth/v1/signup en segundos y 429. El candado del
+// navegador (Web Locks) es común a todos los iframes del mismo origen; dentro se vuelve a mirar si ya hay sesión.
+// (un candado por sentido: Hábitos → Rockie OS y Rockie OS → Hábitos)
+const PAUSA_PUENTE = 'rockie.puente.pausa'
+function conCandadoPuente<T>(fn: () => Promise<T>, sentido: 'habitos' | 'hq' = 'habitos'): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
+  return locks ? locks.request(`rockie:puente-${sentido}`, fn) : fn()
+}
+/** Tras un 429, nadie vuelve a intentar el puente en 2 minutos (en ninguna app). */
+function pausarPuente() {
+  try {
+    localStorage.setItem(PAUSA_PUENTE, String(Date.now() + 120_000))
+  } catch {
+    /* sin almacenamiento */
+  }
+}
+function puenteEnPausa() {
+  try {
+    return Number(localStorage.getItem(PAUSA_PUENTE) || 0) > Date.now()
+  } catch {
+    return false
+  }
 }
 
 export function emailFor(username: string) {

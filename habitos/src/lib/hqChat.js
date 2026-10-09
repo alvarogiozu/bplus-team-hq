@@ -92,12 +92,23 @@ export async function cerrarSesionHq() {
 
 /** Si ya hay sesión en Rockie OS (HQ) y Hábitos aún no tiene sesión en B+, la sincroniza automáticamente. */
 export async function sincronizarDesdeHq(bplusClient) {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
+  // mismo candado que src/features/auth/credentials.ts: el puente se arma una vez para todas las apps (iframes)
+  return locks ? locks.request('rockie:puente-habitos', () => puenteDesdeHq(bplusClient)) : puenteDesdeHq(bplusClient)
+}
+
+async function puenteDesdeHq(bplusClient) {
   try {
     const c = hq()
     if (!c || !bplusClient) return null
     const { data: bpData } = await bplusClient.auth.getSession()
     if (bpData?.session) {
       return bpData.session
+    }
+    try {
+      if (Number(localStorage.getItem('rockie.puente.pausa') || 0) > Date.now()) return null
+    } catch {
+      /* sin almacenamiento */
     }
     const { data: hqData } = await c.auth.getSession()
     const hqSess = hqData?.session
@@ -120,8 +131,16 @@ export async function sincronizarDesdeHq(bplusClient) {
         },
       },
     })
+    if (anonRes.error?.status === 429) {
+      try {
+        localStorage.setItem('rockie.puente.pausa', String(Date.now() + 120_000))
+      } catch {
+        /* sin almacenamiento */
+      }
+    }
     if (anonRes.data?.session) {
-      await bplusClient.from('profiles').upsert({ id: anonRes.data.session.user.id, name: displayName }, { onConflict: 'id' })
+      // el perfil lo crea el trigger de Hábitos (handle_new_user); un upsert pide INSERT y la RLS lo rechaza (403)
+      await bplusClient.from('profiles').update({ name: displayName }).eq('id', anonRes.data.session.user.id)
       return anonRes.data.session
     }
     return null
