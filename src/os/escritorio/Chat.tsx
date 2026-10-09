@@ -68,6 +68,81 @@ function destinoDe(ps: PropState): { app: OsApp; verbo: string } {
   return { app: APP.agenda, verbo: VERBO_AGENDA[t] ?? 'Confirmar' }
 }
 
+/** Con qué IA conversas (docs/negocio/precios-y-margenes.md §7). Rockie viene incluido; Claude se usa desde su
+ *  propia app con el conector (su suscripción, no gasta tus mensajes); ChatGPT queda listo pero oculto hasta que
+ *  OpenAI apruebe «Sign in with ChatGPT». */
+type Motor = 'rockie' | 'claude' | 'chatgpt'
+const CHATGPT_LISTO = false
+const MOTORES: { id: Motor; nombre: string; sub: string; icon: 'sparkle' | 'link' }[] = [
+  { id: 'rockie', nombre: 'Rockie', sub: 'Incluido en tu plan. Escribe o habla aquí mismo.', icon: 'sparkle' },
+  { id: 'claude', nombre: 'Claude, desde su app', sub: 'Usa tu suscripción de Claude: no gasta tus mensajes con Rockie.', icon: 'link' },
+  ...(CHATGPT_LISTO ? [{ id: 'chatgpt' as const, nombre: 'Continuar con ChatGPT', sub: 'Usa tu plan de ChatGPT dentro de este chat.', icon: 'link' as const }] : []),
+]
+const fila: CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px', borderRadius: 16, textAlign: 'left', cursor: 'pointer',
+  border: '1.5px solid var(--card-line)', background: 'var(--card-2)', boxShadow: '0 3px 0 var(--card-edge)', font: 'inherit', color: 'var(--ink)',
+}
+
+/** Elegir motor: la lista, y la guía para conectar Claude dentro del mismo chat. */
+function Motores(p: { vista: 'motores' | 'claude'; elegir: (m: Motor) => void; abrir: (path: string) => void }) {
+  const url = `${location.origin}/mcp`
+  const [copiado, setCopiado] = useState(false)
+  if (p.vista === 'motores') {
+    return (
+      <div className="ini-nuevo" role="group" aria-label="Con qué IA conversar">
+        <p style={{ fontWeight: 800 }}>¿Con qué IA conversas?</p>
+        {MOTORES.map((m) => (
+          <button key={m.id} type="button" style={fila} onClick={() => p.elegir(m.id)} aria-pressed={m.id === 'rockie'}>
+            <Icon name={m.icon} />
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+              <b style={{ fontSize: 'var(--t-base)' }}>{m.nombre}</b>
+              <small style={{ fontSize: 'var(--t-xs)', fontWeight: 600, color: 'var(--ink-soft)' }}>{m.sub}</small>
+            </span>
+            {m.id === 'rockie' && <Icon name="check" className="sm" />}
+          </button>
+        ))}
+      </div>
+    )
+  }
+  return (
+    <div className="ini-nuevo" role="group" aria-label="Conectar Claude">
+      <p style={{ fontWeight: 800 }}>Usa Rockie desde Claude</p>
+      <p>Es parte de Plus. Claude usa tu suscripción, así que no gasta tus mensajes con Rockie, y trabaja con las mismas herramientas: notas, tareas y tu Cuaderno.</p>
+      <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--t-s)', fontWeight: 600, color: 'var(--ink)' }}>
+        <li>
+          En Claude abre <b>Configuración → Conectores</b> y toca <b>Agregar conector personalizado</b>.
+        </li>
+        <li>
+          Nombre: <b>Rockie</b>. Dirección: <code>{url}</code>
+        </li>
+        <li>
+          Toca <b>Conectar</b> y luego <b>Permitir</b> con tu cuenta de Rockie.
+        </li>
+        <li>Elige qué cuadernos y proyectos puede ver Claude (lo demás sigue cifrado).</li>
+      </ol>
+      <div className="ini-sug">
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(url).then(() => setCopiado(true))
+          }}
+        >
+          <Icon name={copiado ? 'check' : 'copy'} className="sm" /> {copiado ? 'Dirección copiada' : 'Copiar la dirección'}
+        </button>
+        <button type="button" onClick={() => window.open('https://claude.ai/customize/connectors', '_blank', 'noopener,noreferrer')}>
+          <Icon name="link" className="sm" /> Abrir Claude
+        </button>
+        <button type="button" onClick={() => p.abrir('/cuaderno?ajustes=1')}>
+          <Icon name="notebook" className="sm" /> Qué ve Claude
+        </button>
+        <button type="button" onClick={() => p.elegir('rockie')}>
+          Seguir con Rockie
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /** El contenido de la conversación (cabecera, hilo, sugerencias, escribir y hablar). El contenedor lo pone quien lo
  *  usa (el panel del Inicio o la barra flotante), con sus estados y animaciones. */
 export function ChatPanel(p: {
@@ -108,6 +183,8 @@ export function ChatPanel(p: {
   const voice = useVoice({ onFinal: (t) => void enviar(t, true) })
   const press = useMicPress(voice, () => p.onActivo?.())
   const vacio = thread.length === 0 && !thinking
+  const [motores, setMotores] = useState<'no' | 'motores' | 'claude'>('no')
+  const elegirMotor = (m: Motor) => setMotores(m === 'claude' ? 'claude' : 'no')
   const setText = (t: string) => {
     setTextState(t)
     p.onTexto?.(t)
@@ -117,6 +194,7 @@ export function ChatPanel(p: {
     const t = raw.trim()
     if (!t) return
     setText('')
+    setMotores('no')
     p.onActivo?.()
     await hilo.send(t, byVoice)
   }
@@ -172,12 +250,22 @@ export function ChatPanel(p: {
     <>
       <header className="ini-chat-cab">
         <span>{vacio ? 'Conversación nueva' : 'Conversación de hoy'}</span>
+        {/* con qué IA: Rockie (incluido) o Claude desde su app; el «Nueva» de la derecha conserva su lugar */}
+        <button
+          type="button"
+          style={{ marginLeft: 0 }}
+          onClick={() => setMotores((v) => (v === 'no' ? 'motores' : 'no'))}
+          aria-expanded={motores !== 'no'}
+          aria-label="Elegir con qué IA conversar"
+        >
+          <Icon name="sparkle" className="sm" /> Rockie <Icon name="chevron" className="sm" />
+        </button>
         {!vacio && (
-          <button type="button" onClick={() => setThread([])}>
+          <button type="button" style={{ marginLeft: 'auto' }} onClick={() => setThread([])}>
             <Icon name="plus" className="sm" /> Nueva
           </button>
         )}
-        <button type="button" className="ini-bajar" onClick={p.onCerrar} aria-label={p.cerrarLabel ?? 'Cerrar la conversación'}>
+        <button type="button" className="ini-bajar" style={vacio ? { marginLeft: 'auto' } : undefined} onClick={p.onCerrar} aria-label={p.cerrarLabel ?? 'Cerrar la conversación'}>
           <Icon name="close" className="sm" />
         </button>
       </header>
@@ -185,6 +273,8 @@ export function ChatPanel(p: {
         {/* mientras le hablas: la roca al centro, lo que va entendiendo y cómo terminar (tocarla envía) */}
         {voice.listening ? (
           <Escuchando text={voice.text} level={voice.level} pista={pistaVoz(voice.mode, p.movil)} onTerminar={voice.stop} onCancelar={p.movil ? voice.cancel : undefined} />
+        ) : motores !== 'no' ? (
+          <Motores vista={motores} elegir={elegirMotor} abrir={p.abrir} />
         ) : vacio ? (
           <div className="ini-nuevo">
             {p.saludo}
