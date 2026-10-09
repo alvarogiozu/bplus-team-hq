@@ -416,6 +416,217 @@
       "publico": {},
       "_por_que": "solo ids (task_id espera a depende_de, del proyecto space_id) y fechas: no hay texto de nadie que cifrar; el servidor los lee para impedir ciclos y para que el conector diga «bloqueada por»"
     },
+    "habitos.challenges": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "kind": "tipo de reto: el servidor arma el feed",
+        "icon": "icono de una lista fija"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.completions": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [],
+      "publico": {
+        "mode": "cómo se validó (foto o manual)",
+        "photo_path": "ruta del archivo de prueba (el archivo va aparte)"
+      },
+      "servidor": {
+        "verdict": "lo escribe validate-habit (Gemini) al revisar la foto"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.day_notes": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [
+        "note"
+      ],
+      "publico": {},
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.devices": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "pair_code": "código de vinculación de 6 letras, temporal: el servidor lo busca"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.families": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [
+        "child_name"
+      ],
+      "publico": {
+        "pair_code": "código de vinculación del aparato, temporal"
+      },
+      "servidor": {
+        "pin": "PIN del aparato del niño: lo compara el servidor (pendiente pasarlo a hash)"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.family_submissions": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [
+        "motivo"
+      ],
+      "publico": {
+        "status": "estado del envío: el servidor aprueba o rechaza"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.family_tasks": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "color": "color de una lista fija",
+        "time": "hora del día",
+        "icon": "icono de una lista fija"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.feed_events": {
+      "llave": "ninguna",
+      "estado": "pendiente",
+      "cifrar": [],
+      "publico": {
+        "type": "tipo de evento del feed"
+      },
+      "servidor": {
+        "payload": "lo arma validate-habit para el feed del grupo"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.goals": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "icon": "icono de una lista fija",
+        "color": "color de una lista fija",
+        "area_id": "área (cuerpo, mente, alma)",
+        "deadline": "fecha límite: ordena y avisa",
+        "gcal_event_id": "id del evento en Google (no su contenido)"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.google_calendar": {
+      "llave": "ninguna",
+      "estado": "pendiente",
+      "cifrar": [],
+      "publico": {
+        "calendar_id": "id del calendario «B+» en Google"
+      },
+      "servidor": {
+        "refresh_token": "token de Google: calendar-sync lo usa en el servidor",
+        "sync_token": "marca de sincronización de Google"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.group_members": {
+      "llave": "ninguna",
+      "estado": "pendiente",
+      "cifrar": [],
+      "publico": {
+        "role": "admin o miembro: el servidor aplica permisos"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.groups": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [
+        "name"
+      ],
+      "publico": {
+        "icon": "icono de una lista fija",
+        "color": "color de una lista fija",
+        "invite_code": "código para unirse: el servidor lo busca"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.habits": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [],
+      "publico": {
+        "type": "tipo de hábito",
+        "time": "hora del día",
+        "freq": "frecuencia",
+        "icon": "icono de una lista fija",
+        "color": "color de una lista fija",
+        "gcal_event_id": "id del evento en Google (no su contenido)"
+      },
+      "servidor": {
+        "name": "validate-habit se lo pasa a Gemini para revisar la foto (la tanda 5 decide si viaja en el pedido en vez de guardarse en claro)",
+        "photo_instruction": "validate-habit se la pasa a Gemini para revisar la foto"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.messages": {
+      "llave": "personal",
+      "estado": "pendiente",
+      "cifrar": [
+        "body"
+      ],
+      "publico": {
+        "kind": "mensaje o evento"
+      },
+      "servidor": {
+        "payload": "eventos que arma el servidor (racha, validación)"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.profiles": {
+      "llave": "ninguna",
+      "estado": "pendiente",
+      "cifrar": [],
+      "publico": {
+        "name": "nombre que ven tus amigos y grupos",
+        "avatar": "ruta de la foto de perfil",
+        "friend_code": "código para agregarte: el servidor lo busca",
+        "rockie_shop": "inventario de Rockie (piedra, color, accesorios)"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.reports": {
+      "llave": "ninguna",
+      "estado": "pendiente",
+      "cifrar": [],
+      "publico": {
+        "context": "perfil o mensaje",
+        "status": "estado de la revisión"
+      },
+      "servidor": {
+        "reason": "lo lee el equipo de moderación (Apple 1.2)"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
+    "habitos.rpc_rate_limits": {
+      "llave": "ninguna",
+      "estado": "pendiente",
+      "cifrar": [],
+      "publico": {
+        "action": "nombre de la acción limitada"
+      },
+      "_por_que": "Hábitos dentro de Rockie OS (fase 1, esquema habitos): clasificado ya; cifrar es la tanda 5 del Cofre (pendiente de decisión)"
+    },
     "xp_log": {
       "llave": "ninguna",
       "estado": "activo",
