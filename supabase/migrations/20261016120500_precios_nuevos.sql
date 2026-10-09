@@ -103,7 +103,7 @@ begin
       ('plus', 'normal', 'anio', 23900),
       ('plus', 'estudiante', 'mes', 1490),
       ('plus', 'estudiante', 'ciclo', 4990),
-      ('plus', 'estudiante', 'anio', 14300), -- no está en el documento: −20 % como los demás anuales (confirmar en la tarea 25b)
+      ('plus', 'estudiante', 'anio', 14300), -- −20 % como los demás anuales (Álvaro, tarea 25b, 9 oct)
       ('pro', 'normal', 'mes', 3990),
       ('pro', 'normal', 'anio', 38300)
     ) as n(plan, tarifa, periodo, centimos)

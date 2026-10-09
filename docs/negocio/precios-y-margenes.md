@@ -13,6 +13,7 @@
 | Plus anual (−20 %) | S/ 191 | **S/ 239** | S/ 191 |
 | Plus estudiante mensual | S/ 12.90 | **S/ 14.90** | — |
 | Plus estudiante ciclo (4 meses) | S/ 44.90 | **S/ 49.90** (≈ S/ 12.48/mes, ahorra 16 %) | — |
+| Plus estudiante anual (−20 %) | S/ 123.80 | **S/ 143** | — |
 | Pro mensual | S/ 34.90 | **S/ 39.90** | S/ 34.90 |
 | Pro anual | S/ 335 | **S/ 383** | S/ 335 |
 | Club (por equipo) | S/ 99 | S/ 99 · anual S/ 950 | — |
