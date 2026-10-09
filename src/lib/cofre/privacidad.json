@@ -292,7 +292,9 @@
         "priority": "orden",
         "validation": "cómo se valida",
         "proof_image_path": "ruta del archivo de prueba (el archivo va cifrado)",
-        "abierta": "el proyecto está abierto para Claude (lo eligió su dueño): va en claro para que el conector lo lea y lo mueva"
+        "abierta": "el proyecto está abierto para Claude (lo eligió su dueño): va en claro para que el conector lo lea y lo mueva",
+        "start_time": "hora del día a la que se planea hacer (para ordenar el día y los carriles de Hoy)",
+        "estimate_min": "cuántos minutos se estima (largo del bloque)"
       },
       "enClaroSi": "abierta"
     },
