@@ -26,7 +26,7 @@ export function anotarUso(u: Uso, quien: Quien | undefined = quienIA.getStore())
       p_ms: Math.round(u.ms),
       p_ok: u.ok,
     })
-    .then(({ error }: { error: { message: string } | null }) => error && console.error('ia_uso', error.message))
+    .then(({ error }: { error: { message: string } | null }) => error && console.error('ia_uso', (error as { code?: string }).code ?? 'error'))
   // que la función no se apague antes de anotar, sin hacer esperar a la persona
   const rt = (globalThis as { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } }).EdgeRuntime
   if (rt) rt.waitUntil(p)

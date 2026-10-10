@@ -6,6 +6,7 @@
 import Anthropic from 'npm:@anthropic-ai/sdk'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { anotarUso, tokensClaude, tokensGemini } from './ia-uso.ts'
+import { sinContenido } from './registro.ts'
 
 export type Tool = { name: string; description: string; strict?: boolean; input_schema: Record<string, unknown> }
 export type Call = { name: string; args: Record<string, unknown> }
@@ -203,14 +204,14 @@ async function gemini(
         }),
       })
     } catch (e) {
-      console.error('gemini timeout', model, String(e).slice(0, 120))
+      console.error('gemini timeout', model, sinContenido(e))
       trail.push(`${model}: ${String(e).slice(0, 80)}`)
       res = null
       continue
     }
     if (res.ok || (res.status !== 429 && res.status !== 404 && res.status < 500)) break
     const t = (await res.text()).slice(0, 240)
-    console.error('gemini next', model, res.status, t)
+    console.error('gemini next', model, res.status)
     trail.push(`${model}: ${res.status} ${t}`)
   }
   if (!res?.ok) anotarUso({ proveedor: 'gemini', modelo: used, entrada: 0, salida: 0, cache: 0, ms: Date.now() - t0, ok: false })
@@ -218,12 +219,12 @@ async function gemini(
   if (!res) return { ok: false, status: 502, error: CANT, detail: trail.join(' | ') }
   if (res.status === 429) return { ok: false, status: 429, error: SATURATED }
   if (res.status === 401 || res.status === 403) {
-    console.error('gemini', res.status, (await res.text()).slice(0, 400))
+    console.error('gemini', res.status)
     return { ok: false, status: 503, error: 'voz-sin-configurar' }
   }
   if (res.status === 400) {
     const t = await res.text()
-    console.error('gemini 400', t.slice(0, 400))
+    console.error('gemini', 400)
     if (/video|youtube|file|pdf|mime|document/i.test(t)) return { ok: false, status: 400, error: 'No pude leer esa fuente. Prueba con otro video (público) o PDF.', detail: t.slice(0, 300) }
     return { ok: false, status: 502, error: CANT, detail: t.slice(0, 300) }
   }
@@ -289,7 +290,7 @@ async function claudeText(apiKey: string, system: string, turns: Turn[], maxToke
 function claudeError(e: unknown): { ok: false; status: number; error: string } {
   if (e instanceof Anthropic.RateLimitError) return { ok: false, status: 429, error: 'Rockie está saturado. Intenta en unos segundos.' }
   if (e instanceof Anthropic.AuthenticationError) return { ok: false, status: 503, error: 'voz-sin-configurar' }
-  console.error('anthropic', e instanceof Anthropic.APIError ? e.status : '', String(e).slice(0, 200))
+  console.error('anthropic', sinContenido(e))
   return { ok: false, status: 502, error: CANT }
 }
 
@@ -317,7 +318,7 @@ export async function embed(texts: string[]): Promise<number[][] | null> {
       }),
     })
     if (!res.ok) {
-      console.error('embed', res.status, (await res.text()).slice(0, 200))
+      console.error('embed', res.status)
       return null
     }
     const data = await res.json()
@@ -329,7 +330,7 @@ export async function embed(texts: string[]): Promise<number[][] | null> {
     })
     return out.length === texts.length ? out : null
   } catch (e) {
-    console.error('embed', String(e).slice(0, 160))
+    console.error('embed', sinContenido(e))
     return null
   }
 }

@@ -7,6 +7,7 @@
 // las reglas de las tareas valen igual que en la app). Pasar a Hecho no valida la tarea: eso (y su XP) lo hace una
 // persona en la app.
 import type { Ctx } from './tools.ts'
+import { sinContenido } from '../_shared/registro.ts'
 
 type Args = Record<string, unknown>
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean }
@@ -368,7 +369,7 @@ export async function callProyecto(name: string, args: Args, ctx: Ctx): Promise<
     }
     return null
   } catch (e) {
-    console.error(name, e)
+    console.error(name, sinContenido(e))
     return oops('Algo falló en Proyectos. Intenta de nuevo en un momento.')
   }
 }

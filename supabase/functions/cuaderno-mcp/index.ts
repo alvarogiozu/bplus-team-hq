@@ -11,6 +11,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { INSTRUCTIONS, toolsFor, callTool, type Ctx, type Scope } from './tools.ts'
 import { quienIA } from '../_shared/ia-uso.ts'
+import { sinContenido } from '../_shared/registro.ts'
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -432,7 +433,7 @@ Deno.serve(async (req) => {
     if (path === '/oauth/approve' && req.method === 'POST') return await approve(req)
     return json({ error: 'not_found' }, 404)
   } catch (e) {
-    console.error('cuaderno-mcp', e)
+    console.error('cuaderno-mcp', sinContenido(e))
     return json({ error: 'server_error' }, 500)
   }
 })

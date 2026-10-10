@@ -7,6 +7,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { embed } from '../_shared/rockie-llm.ts'
 import { callProyecto, PROYECTO_INSTRUCCIONES, PROYECTO_TOOLS } from './proyectos.ts'
+import { sinContenido } from '../_shared/registro.ts'
 
 export type Scope = 'leer' | 'escribir'
 export type Ctx = { db: SupabaseClient; uid: string; scope: Scope; origin: string }
@@ -262,7 +263,7 @@ async function embedNotes(ctx: Ctx, ids: string[]) {
       ),
     )
   } catch (e) {
-    console.error('embed', e)
+    console.error('embed', sinContenido(e))
   }
 }
 
@@ -374,7 +375,7 @@ export async function callTool(name: string, args: Args, ctx: Ctx): Promise<Resu
     }
     return oops(`No existe la herramienta ${name}`)
   } catch (e) {
-    console.error(name, e)
+    console.error(name, sinContenido(e))
     return oops('Algo falló en el cuaderno. Intenta de nuevo en un momento.')
   }
 }

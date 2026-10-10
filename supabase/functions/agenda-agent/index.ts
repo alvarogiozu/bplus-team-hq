@@ -6,6 +6,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { anotarUso, quienIA, tokensClaude, tokensGemini } from '../_shared/ia-uso.ts'
 import { DATE, pedidoDe, proximosDias, resolverAclarar, SYSTEM, SYSTEM_HQ, SYSTEM_OS, TOOLS, TOOLS_HQ, TOOLS_OS, valid, type Ctx, type Kit } from './kit.ts'
+import { sinContenido } from '../_shared/registro.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -186,10 +187,10 @@ async function askClaude(apiKey: string, messages: Anthropic.MessageParam[], ctx
     if (e instanceof Anthropic.RateLimitError) return json({ error: 'Rockie está saturado. Intenta en unos segundos.', claude }, 429)
     if (e instanceof Anthropic.AuthenticationError) return json({ error: 'voz-sin-configurar', claude }, 503)
     if (e instanceof Anthropic.APIError) {
-      console.error('anthropic', e.status, e.message)
+      console.error('anthropic', sinContenido(e))
       return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.', claude }, 502)
     }
-    console.error(e)
+    console.error('agenda-agent', sinContenido(e))
     return json({ error: 'Algo salió mal en Rockie.', claude }, 500)
   }
 }
@@ -246,14 +247,14 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx,
         })
       } catch (e) {
         trace.push(`${model}:timeout`)
-        console.error('gemini timeout', model, String(e).slice(0, 120))
+        console.error('gemini timeout', model, sinContenido(e))
         res = null
         continue
       }
       if (res.ok || (res.status !== 429 && res.status !== 404 && res.status < 500)) break vueltas
       trace.push(`${model}:${res.status}`)
       if (res.status === 429 || res.status === 404) sinCuota.add(model)
-      console.error('gemini next', model, res.status, (await res.text()).slice(0, 200))
+      console.error('gemini next', model, res.status)
     }
   }
   if (trace.length) console.error('gemini trace', trace.join(' '))
@@ -261,7 +262,7 @@ async function askGemini(key: string, history: Turn[], prompt: string, ctx: Ctx,
   if (!res) return json({ error: 'Rockie no pudo pensar ahora. Intenta de nuevo.', trace }, 502)
   if (res.status === 429) return json({ error: 'Rockie está saturado (límite gratuito). Intenta en un minuto.' }, 429)
   if (res.status === 400 || res.status === 401 || res.status === 403) {
-    console.error('gemini', res.status, await res.text())
+    console.error('gemini', res.status)
     return json({ error: 'voz-sin-configurar' }, 503)
   }
   if (!res.ok) {
