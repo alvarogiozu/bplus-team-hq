@@ -135,7 +135,23 @@ try {
   await call('crear_tarjetas', { pagina_id: pag.id, tarjetas: [{ pregunta: '¿Qué produce la mitocondria?', respuesta: 'Energía' }] })
   const [tarj] = await rest(`cuaderno_cards?note_id=eq.${pag.id}&select=q,a`)
   ok(nav.esCifrado(tarj?.q) && (await abreM(tarj.a)) === 'Energía', 'crear_tarjetas guarda cifrado')
-  ok((await call('tarjetas_para_hoy', {})).includes('¿Qué produce la mitocondria?'), 'tarjetas_para_hoy las abre')
+  const [tarjD] = await rest(`cuaderno_cards?note_id=eq.${pag.id}&select=due,box,abierta`)
+  const ph = await call('ver_tarjetas', {})
+  ok(ph.includes('¿Qué produce la mitocondria?'), `ver_tarjetas las abre (${JSON.stringify(tarjD)} ${ph.slice(0, 90)})`)
+
+  // Hábitos (esquema habitos): ver y marcar uno; marcar pasa por validate-habit, que escribe el cumplido y la racha
+  const H = { 'Accept-Profile': 'habitos', 'Content-Profile': 'habitos' }
+  await rest('profiles', { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates,return=representation' }, body: JSON.stringify({ id: yo.uid, name: 'Prueba' }) })
+  const [hab] = await rest('habits', { method: 'POST', headers: H, body: JSON.stringify({ user_id: yo.uid, name: 'Leer 20 páginas', time: '21:00' }) })
+  const vh = await call('ver_habitos', {})
+  ok(vh.includes('○ pendiente · 21:00 · Leer 20 páginas') && vh.includes(hab.id), 'ver_habitos lista el hábito pendiente')
+  const mh = await call('marcar_habito', { habito: hab.id })
+  const [cumplido] = await rest(`completions?habit_id=eq.${hab.id}&select=mode,date`, { headers: H })
+  const [racha] = await rest(`streaks?user_id=eq.${yo.uid}&select=current`, { headers: H })
+  ok(mh.startsWith('✓ Leer 20 páginas') && cumplido?.mode === 'check' && racha?.current === 1, `marcar_habito deja el cumplido y la racha en 1 (${mh.slice(0, 60)})`)
+  ok((await call('ver_habitos', {})).includes('✓ hecho · 21:00 · Leer 20 páginas'), 'ver_habitos lo muestra hecho')
+  ok(/ya estaba marcado/.test(await call('marcar_habito', { habito: hab.id })), 'marcarlo dos veces no duplica')
+  ok(/No encontré/.test(await call('marcar_habito', { habito: sid })), 'un id que no es suyo no se marca')
 
   // protección avanzada: se borra la copia y Claude deja de entrar
   const q = await custodia({ accion: 'quitar' })

@@ -12,7 +12,7 @@ import { capturarReferido, usarReferidoPendiente } from './referidos'
 // El aviso se baja aparte: solo cuando hay sesión.
 
 const AvisoPlan = lazy(() => import('./AvisoPlan'))
-const SIN_AVISO = ['/planes', '/cofre', '/login', '/registro', '/bienvenida', '/cambiar-clave', '/terminos', '/reembolsos', '/privacidad', '/libro-de-reclamaciones', '/oauth', '/invitacion']
+const SIN_AVISO = ['/planes', '/cofre', '/login', '/registro', '/bienvenida', '/cambiar-clave', '/terminos', '/reembolsos', '/privacidad', '/conector', '/libro-de-reclamaciones', '/oauth', '/invitacion']
 
 export function AvisoPlanHost() {
   const { session } = useAuth()

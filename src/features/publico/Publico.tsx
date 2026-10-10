@@ -198,7 +198,7 @@ function Inicio() {
 }
 
 /** /terminos, /reembolsos, /privacidad */
-export function LegalPage({ slug }: { slug: 'terminos' | 'reembolsos' | 'privacidad' }) {
+export function LegalPage({ slug }: { slug: 'terminos' | 'reembolsos' | 'privacidad' | 'conector' }) {
   const d = documento(slug)
   useEffect(() => {
     document.title = `${d.titulo} · Rockie`

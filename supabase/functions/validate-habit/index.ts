@@ -57,17 +57,26 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
-    // 1. Verificar al usuario por su JWT
-    const userClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
-    )
-    const { data: { user } } = await userClient.auth.getUser()
+    // 1. Verificar al usuario por su JWT. El conector de Claude (cuaderno-mcp) entra por la puerta del servidor:
+    //    se presenta con la llave de servicio y dice a nombre de quien marca (el ya verifico a esa persona y su
+    //    permiso de escribir). Por esa puerta solo se marca sin foto.
+    const auth = req.headers.get('Authorization') ?? ''
+    const cuerpo = await req.json()
+    const delServidor = auth === `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` && typeof cuerpo.user_id === 'string'
+    let user: { id: string } | null = delServidor ? { id: cuerpo.user_id } : null
+    if (!delServidor) {
+      const userClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: auth } } },
+      )
+      user = (await userClient.auth.getUser()).data.user
+    }
     if (!user) return json(req, { error: 'no_autenticado' }, 401)
 
-    const { habit_id, mode, photo_path } = await req.json()
+    const { habit_id, mode, photo_path } = cuerpo
     if (!['photo', 'check', 'tomorrow'].includes(mode)) return json(req, { error: 'modo_invalido' }, 400)
+    if (delServidor && mode !== 'check') return json(req, { error: 'modo_invalido' }, 400)
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,

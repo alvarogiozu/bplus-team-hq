@@ -142,6 +142,7 @@ export function App() {
         <Route path="/terminos" element={<Suspense fallback={<Splash />}><LegalPage slug="terminos" /></Suspense>} />
         <Route path="/reembolsos" element={<Suspense fallback={<Splash />}><LegalPage slug="reembolsos" /></Suspense>} />
         <Route path="/privacidad" element={<Suspense fallback={<Splash />}><LegalPage slug="privacidad" /></Suspense>} />
+        <Route path="/conector" element={<Suspense fallback={<Splash />}><LegalPage slug="conector" /></Suspense>} />
         <Route path="/libro-de-reclamaciones" element={<Suspense fallback={<Splash />}><ReclamacionesPage /></Suspense>} />
         {/* Google Play y Apple: borrar la cuenta desde una página web, con o sin sesión */}
         <Route path="/borrar-cuenta" element={<Suspense fallback={<Splash />}><BorrarCuentaPage /></Suspense>} />

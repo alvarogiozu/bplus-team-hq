@@ -10,6 +10,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { embed } from '../_shared/rockie-llm.ts'
 import { callProyecto, PROYECTO_INSTRUCCIONES, PROYECTO_TOOLS } from './proyectos.ts'
 import { AGENDA_INSTRUCCIONES, AGENDA_TOOLS, callAgenda } from './agenda.ts'
+import { callHabitos, HABITOS_TOOLS } from './habitos.ts'
 import { EN_CLARO, LLAVE_VIEJA, type Llavero, type Sello } from './llavero.ts'
 import { cerrar, kidDe } from '../_shared/cofre.ts'
 import { sinContenido } from '../_shared/registro.ts'
@@ -119,7 +120,7 @@ const TOOLS = [
 
 /** Las herramientas que ve esta conexión (una de solo lectura no ve las que escriben). */
 export function toolsFor(scope: Scope) {
-  return [...TOOLS, ...PROYECTO_TOOLS, ...AGENDA_TOOLS].filter((t) => scope === 'escribir' || !t.write).map(({ write: _w, ...t }) => t)
+  return [...TOOLS, ...PROYECTO_TOOLS, ...AGENDA_TOOLS, ...HABITOS_TOOLS].filter((t) => scope === 'escribir' || !t.write).map(({ write: _w, ...t }) => t)
 }
 
 // ---------- utilidades ----------
@@ -355,6 +356,8 @@ const AUN_CIFRADA = 'Claude no puede abrir esa nota todavía: su dueña tiene qu
 export async function callTool(name: string, args: Args, ctx: Ctx): Promise<Result> {
   const deProyectos = await callProyecto(name, args, ctx)
   if (deProyectos) return deProyectos
+  const deHabitos = await callHabitos(name, args, ctx)
+  if (deHabitos) return deHabitos
   const deAgenda = await callAgenda(name, args, ctx)
   if (deAgenda) return deAgenda
   const tool = TOOLS.find((t) => t.name === name)

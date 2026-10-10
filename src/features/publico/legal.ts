@@ -3,11 +3,71 @@ import { COMERCIO, contactoTexto } from './comercio'
 // Textos legales de rockie.plus (los pide Culqi e INDECOPI). Escritos para que se entiendan; dicen lo que Rockie
 // hace de verdad hoy. Antes de lanzar fuerte, conviene que los revise alguien con formación legal.
 
+/** La guía del conector de Rockie para asistentes de IA (rockie.plus/mcp): cómo conectarlo, qué puede hacer, qué pasa
+ *  con los datos y cómo desconectarlo. Es la documentación pública que piden los directorios de Claude y ChatGPT. */
+const CONECTOR: Doc = {
+  titulo: 'Conecta Rockie con tu asistente de IA',
+  intro:
+    'Rockie tiene un conector (un servidor MCP) para que tu asistente de IA, como Claude, trabaje con tu Cuaderno, tus proyectos, tu agenda y tus hábitos: busca en tus apuntes, crea páginas y tarjetas de repaso, mueve tareas, agenda eventos y marca un hábito cumplido, con tu permiso y a tu nombre.',
+  secciones: [
+    {
+      h: 'Qué necesitas',
+      p: [
+        'Una cuenta de Rockie con el plan Plus o Pro, y un asistente que acepte conectores personalizados (por ejemplo, Claude en sus planes de pago).',
+        'La dirección del conector es https://rockie.plus/mcp',
+      ],
+    },
+    {
+      h: 'Cómo se conecta',
+      p: [
+        '1. En tu asistente, abre Configuración → Conectores y elige «Agregar conector personalizado».',
+        '2. Ponle de nombre «Rockie» y pega la dirección https://rockie.plus/mcp',
+        '3. Toca «Conectar». Se abre Rockie: entra con tu cuenta y toca «Permitir». Ahí eliges si el asistente solo lee o también escribe.',
+        '4. Listo. Pídele, por ejemplo: «busca en mi cuaderno lo que tengo de fotosíntesis», «crea tarjetas de repaso de esta página», «¿qué tareas tengo en curso?» o «agéndame estudiar cálculo mañana a las 5».',
+        'Activa Rockie solo en los chats donde lo vayas a usar: cada conector activo ocupa un poco de cada mensaje.',
+      ],
+    },
+    {
+      h: 'Qué puede hacer',
+      p: [
+        'Cuaderno: ver tus cuadernos, buscar y leer páginas, crear páginas (una o varias), sumarles contenido, conectarlas entre sí, crear tarjetas de repaso y tomarte examen con las que tocan hoy.',
+        'Proyectos: ver tus proyectos con sus áreas, frentes y metas; ver, crear y mover tareas (Por hacer, En curso, Hecho), y crear la nota de una tarea.',
+        'Agenda: ver tus días y crear o cambiar eventos.',
+        'Hábitos: ver tus hábitos con su racha y marcar uno como cumplido cuando le dices que ya lo hiciste.',
+        'Nunca borra nada: eso solo lo haces tú en la app. Pasar una tarea a Hecho no la valida: la validación la da una persona en Rockie.',
+      ],
+    },
+    {
+      h: 'Tus datos',
+      p: [
+        'El conector actúa solo con tu permiso y solo sobre tu cuenta. Lo que tu asistente lee de Rockie, y lo que le escribes en su app, lo recibe la empresa de ese asistente (Anthropic, si es Claude) y lo trata según su política de privacidad y la configuración de tu cuenta con ella.',
+        'Rockie no guarda tus conversaciones con el asistente: solo lo que él crea o cambia en Rockie, que queda a tu nombre. Para reconocer la conexión guardamos el nombre de la app conectada y cuándo se usó por última vez.',
+        'El detalle está en la Política de privacidad (rockie.plus/privacidad), sección «Si conectas tu asistente de IA».',
+      ],
+    },
+    {
+      h: 'Cómo desconectarlo',
+      p: [
+        'En Rockie: Cuaderno → Ajustes → Claude (conector). Ahí ves las conexiones activas y cada una se desconecta con un toque; deja de funcionar al instante.',
+        'También puedes quitar el conector desde la configuración de tu asistente.',
+      ],
+    },
+    {
+      h: 'Límites y ayuda',
+      p: [
+        'Para evitar abusos, cada persona tiene un tope de 300 acciones del conector por hora y 8000 al mes.',
+        `¿Algo no funciona? Escríbenos a ${COMERCIO.correo ?? 'contacto@rockie.plus'}.`,
+      ],
+    },
+  ],
+}
+
 export type Doc = { titulo: string; intro: string; secciones: { h: string; p: string[] }[] }
 
 const quien = () => `${COMERCIO.titular}, RUC ${COMERCIO.ruc}${COMERCIO.direccion ? `, con domicilio en ${COMERCIO.direccion}` : ''}`
 
-export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad'): Doc {
+export function documento(slug: 'terminos' | 'reembolsos' | 'privacidad' | 'conector'): Doc {
+  if (slug === 'conector') return CONECTOR
   const contacto = contactoTexto()
   const dias = COMERCIO.diasReembolso
   if (slug === 'terminos') {
