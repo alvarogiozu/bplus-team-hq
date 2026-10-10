@@ -82,8 +82,10 @@ export function SpaceProvider({ children, fallback }: { children: ReactNode; fal
   }, [pedido, q.isSuccess, list, key, setParams])
 
   useEffect(() => {
-    if (q.isSuccess && list.length === 0) nav('/bienvenida', { replace: true })
-  }, [q.isSuccess, list.length, nav])
+    // mientras se vuelve a pedir la lista no se decide nada: recién creado el primer proyecto, la lista guardada
+    // todavía dice «ninguno» y mandaba de vuelta a la bienvenida
+    if (q.isSuccess && !q.isFetching && list.length === 0) nav('/bienvenida', { replace: true })
+  }, [q.isSuccess, q.isFetching, list.length, nav])
 
   const value = useMemo<SpaceCtx | null>(() => {
     if (!current) return null
@@ -135,7 +137,8 @@ export function WelcomePage() {
     } catch {
       /* sin almacenamiento */
     }
-    await qc.invalidateQueries({ queryKey: ['memberships'] })
+    // se pide ya (aquí nadie la está mirando, y solo invalidarla la dejaba con la lista vieja al llegar a /hoy)
+    await qc.refetchQueries({ queryKey: ['memberships'], type: 'all' })
     nav('/hoy', { replace: true })
   }
 

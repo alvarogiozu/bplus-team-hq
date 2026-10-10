@@ -498,6 +498,9 @@ export class Llavero {
       this.faltantes.set(kid, Date.now())
       if (this.cargaSobres) await this.cargaSobres
       await this.cargarSobres(true)
+      // sigue sin llegar (otro aparato acaba de sellar y su sobre viene en camino): se avisa para que la app
+      // vuelva a mirar en unos segundos y no deje el 🔒 pegado hasta la siguiente vuelta
+      if (!this.sellados.has(kid) && typeof dispatchEvent === 'function') dispatchEvent(new Event('cofre:falta-llave'))
     }
     const s = this.sellados.get(kid)
     if (!s) return null

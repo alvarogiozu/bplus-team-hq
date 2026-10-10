@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { toast, toastError } from '../../components/Toasts'
+import { useCofreEstandar } from '../../lib/cofre/useCofreEstandar'
 import { haptic } from '../../lib/fx'
 import { humanError, supabase } from '../../lib/supabase'
 import { useSpace } from '../spaces/SpaceProvider'
@@ -11,6 +12,9 @@ import { keys, useSpaceRow } from '../data/queries'
 // abre para Claude, su nombre, sus áreas y sus tareas pasan a guardarse sin cifrar (la app las reescribe sola al
 // volver a leerlas) y el conector de Rockie (rockie.plus/mcp) puede verlas, crear tareas y moverlas por
 // Por hacer → En curso → Hecho mientras Claude trabaja. Cerrarlo las vuelve a cifrar.
+// Eso es solo para la protección avanzada del Cofre. Con la estándar (la de casi todos) no hay nada que abrir: el
+// Claude que cada persona conectó entra a sus proyectos a su nombre y todo sigue cifrado en la base. Ahí el
+// interruptor solo aparece si el proyecto quedó abierto de antes, para poder volver a cifrarlo.
 
 const INSTRUCCION =
   'Usa el conector de Rockie para este proyecto: al empezar una tarea, muévela a en_curso; al terminarla, a hecho con una nota corta de lo que hiciste. Si aparece trabajo nuevo, créalo como tarea.'
@@ -21,6 +25,8 @@ export function ClaudeProyecto() {
   const space = useSpaceRow().data
   const abierto = Boolean((space as { abierto_claude?: boolean } | undefined)?.abierto_claude)
   const [ocupado, setOcupado] = useState(false)
+  const estandar = useCofreEstandar()
+  const listo = estandar && !abierto // Claude ya entra y no hay nada sin cifrar
   const url = `${location.origin}/mcp`
 
   async function cambiar(abrir: boolean) {
@@ -41,7 +47,7 @@ export function ClaudeProyecto() {
     )
     setOcupado(false)
     haptic(6)
-    toast(abrir ? `Claude ya puede ver y mover las tareas de «${space.name}»` : `«${space.name}» volvió a cifrarse: Claude ya no lo ve`, { kind: 'ok', icon: 'check' })
+    toast(abrir ? `Claude ya puede ver y mover las tareas de «${space.name}»` : estandar ? `«${space.name}» volvió a cifrarse` : `«${space.name}» volvió a cifrarse: Claude ya no lo ve`, { kind: 'ok', icon: 'check' })
   }
 
   const copiar = async (t: string, que: string) => {
@@ -59,18 +65,26 @@ export function ClaudeProyecto() {
         <h2>Claude</h2>
       </div>
       <p className="hint">
-        Con el proyecto abierto para Claude, Claude ve sus tareas, crea las que falten y las mueve de Por hacer a En curso y a Hecho mientras
-        trabaja. Hecho no es validada: eso sigue siendo de ustedes.
+        {estandar ? 'Si conectaste tu Claude a Rockie, ya puede trabajar en este proyecto:' : 'Con el proyecto abierto para Claude,'} Claude ve sus tareas, crea
+        las que falten y las mueve de Por hacer a En curso y a Hecho mientras trabaja. Hecho no es validada: eso sigue siendo de ustedes.
       </p>
-      <div className={`claude-proy-sw${abierto ? ' on' : ''}`}>
+      <div className={`claude-proy-sw${abierto || listo ? ' on' : ''}`}>
         <span className="claude-proy-ic">
-          <Icon name={abierto ? 'sparkle' : 'lock'} />
+          <Icon name={abierto || listo ? 'sparkle' : 'lock'} />
         </span>
         <span className="claude-proy-t">
-          <b>{abierto ? 'Abierto para Claude' : 'Cifrado: Claude no lo ve'}</b>
-          <small>{abierto ? 'Su nombre, áreas y tareas están sin cifrar' : 'Nadie fuera del equipo puede leerlo, ni Rockie'}</small>
+          <b>{listo ? 'Claude entra con tu permiso' : abierto ? 'Abierto para Claude' : 'Cifrado: Claude no lo ve'}</b>
+          <small>
+            {listo
+              ? 'No hay nada que activar. El proyecto sigue guardado cifrado'
+              : !abierto
+                ? 'Nadie fuera del equipo puede leerlo, ni Rockie'
+                : estandar
+                  ? 'Quedó sin cifrar de antes. Ya no hace falta: ciérralo y Claude sigue entrando'
+                  : 'Su nombre, áreas y tareas están sin cifrar'}
+          </small>
         </span>
-        {isOwner ? (
+        {listo ? null : isOwner ? (
           <button
             type="button"
             role="switch"
@@ -86,7 +100,7 @@ export function ClaudeProyecto() {
           <small className="claude-proy-dueno">Lo decide el dueño</small>
         )}
       </div>
-      {abierto && (
+      {(abierto || listo) && (
         <div className="claude-proy-pasos">
           <p className="lbl">1 · Conecta Rockie en Claude (una sola vez)</p>
           <p className="hint">En Claude: Ajustes › Conectores › Agregar conector personalizado, y pega esta dirección. En Claude Code: <code>claude mcp add --transport http rockie {url}</code>.</p>

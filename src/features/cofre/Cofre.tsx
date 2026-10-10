@@ -389,7 +389,16 @@ export function CofreGate({ uid, cargando, children }: { uid: string; cargando: 
     const t = setInterval(vuelta, 60_000)
     const alVolver = () => document.visibilityState === 'visible' && void vuelta()
     document.addEventListener('visibilitychange', alVolver)
+    // una fila sellada hace un instante en otro aparato: su llave llega enseguida, no hace falta esperar la vuelta
+    let pronto = 0
+    const alFaltar = () => {
+      window.clearTimeout(pronto)
+      pronto = window.setTimeout(vuelta, 3_500)
+    }
+    window.addEventListener('cofre:falta-llave', alFaltar)
     return () => {
+      window.clearTimeout(pronto)
+      window.removeEventListener('cofre:falta-llave', alFaltar)
       vivo = false
       clearInterval(t)
       document.removeEventListener('visibilitychange', alVolver)

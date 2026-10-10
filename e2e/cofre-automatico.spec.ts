@@ -26,7 +26,10 @@ let uid = ''
 
 async function quitar() {
   const { data } = await admin.auth.admin.listUsers({ perPage: 1000 })
-  for (const u of data.users.filter((x) => x.email === EMAIL)) await admin.auth.admin.deleteUser(u.id)
+  for (const u of data.users.filter((x) => x.email === EMAIL)) {
+    await admin.from('spaces').delete().eq('created_by', u.id) // el proyecto que crea en la prueba
+    await admin.auth.admin.deleteUser(u.id)
+  }
 }
 
 test.beforeAll(async () => {
@@ -68,6 +71,19 @@ test('cuenta nueva: el Cofre se crea solo y se abre solo en otro dispositivo; av
   expect(uno.modo).toBe('estandar')
   expect(uno.copia).toBe(uno.kid)
 
+  // en estándar su Claude entra a sus proyectos sin abrir nada: Ajustes del proyecto lo dice y no ofrece interruptor
+  await a.goto('/bienvenida')
+  await a.getByLabel('Nombre del proyecto').fill('Proyecto de Auto')
+  await a.getByRole('button', { name: 'Crear', exact: true }).click()
+  await expect(a).not.toHaveURL(/bienvenida/, { timeout: 20_000 })
+  // la app puede estar dentro de una ventana del escritorio: se busca en todos los marcos
+  const cuantos = async (p: Page, loc: (f: import('@playwright/test').Frame) => import('@playwright/test').Locator) =>
+    (await Promise.all(p.frames().map((f) => loc(f).count().catch(() => 0)))).reduce((x, y) => x + y, 0)
+  const interruptor = (p: Page) => cuantos(p, (f) => f.getByRole('switch', { name: 'Abrir este proyecto para Claude' }))
+  await a.goto('/proyecto/ajustes')
+  await expect.poll(() => cuantos(a, (f) => f.getByText('Claude entra con tu permiso')), { timeout: 30_000 }).toBeGreaterThan(0)
+  expect(await interruptor(a)).toBe(0)
+
   // 2. segundo dispositivo, navegador limpio: se abre solo (abrir exige que la llave sea la misma)
   const b = await entrar(browser)
   await expect(b).toHaveURL(/\/(hoy|bienvenida)/, { timeout: 30_000 })
@@ -88,6 +104,10 @@ test('cuenta nueva: el Cofre se crea solo y se abre solo en otro dispositivo; av
   expect(dos.modo).toBe('avanzada')
   expect(dos.copia).toBeNull()
   await expect(b.getByRole('heading', { name: 'Código de recuperación' })).toBeVisible()
+  // en avanzada vuelve el interruptor: el proyecto está cifrado y Claude no lo ve hasta que su dueño lo abra
+  await b.goto('/proyecto/ajustes')
+  await expect.poll(() => cuantos(b, (f) => f.getByText('Cifrado: Claude no lo ve')), { timeout: 30_000 }).toBeGreaterThan(0)
+  expect(await interruptor(b)).toBe(1)
 
   // un dispositivo nuevo ya no se abre solo: pide el código, y con el código abre
   const c = await entrar(browser)
@@ -98,6 +118,7 @@ test('cuenta nueva: el Cofre se crea solo y se abre solo en otro dispositivo; av
   await c.context().close()
 
   // 4. de vuelta a estándar
+  await b.goto('/cofre')
   b.once('dialog', (d) => void d.accept())
   await b.getByRole('button', { name: 'Volver a la protección estándar' }).click()
   await expect(b.getByRole('button', { name: 'Activar protección avanzada' })).toBeVisible({ timeout: 20_000 })

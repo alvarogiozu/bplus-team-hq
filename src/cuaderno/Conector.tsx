@@ -6,6 +6,7 @@ import { toast } from '../components/Toasts'
 import { useMe } from '../features/auth/AuthProvider'
 import { env } from '../lib/env'
 import { timeAgo } from '../lib/dates'
+import { useCofreEstandar } from '../lib/cofre/useCofreEstandar'
 import { haptic } from '../lib/fx'
 import { usePlan } from '../lib/planes'
 import { humanError, supabase } from '../lib/supabase'
@@ -211,12 +212,15 @@ async function copy(text: string, what: string) {
 }
 
 /** Qué cuadernos ve Claude. El cuaderno está cifrado (el Cofre): solo lo que la persona abre aquí queda en claro
- *  para que el conector lo lea y escriba. Al abrir o cerrar, la app reescribe sola esas páginas (ver lib/cofre). */
+ *  para que el conector lo lea y escriba. Al abrir o cerrar, la app reescribe sola esas páginas (ver lib/cofre).
+ *  Eso es la protección avanzada. Con la estándar Claude ve todo lo de la persona sin abrir nada y lo guardado sigue
+ *  cifrado: aquí solo se listan los cuadernos que quedaron abiertos de antes, para volver a cifrarlos. */
 function CuadernosParaClaude() {
   const { userId } = useMe()
   const qc = useQueryClient()
   const books = useBooks().data ?? []
   const [busy, setBusy] = useState<string | null>(null)
+  const estandar = useCofreEstandar()
   const abierto = (b: Book) => Boolean((b as Book & { abierta_claude?: boolean }).abierta_claude)
   const debajo = (id: string): string[] => books.filter((b) => b.parent_id === id).flatMap((b) => [b.id, ...debajo(b.id)])
 
@@ -231,10 +235,36 @@ function CuadernosParaClaude() {
     await Promise.all([ckeys.books, ckeys.notes, ckeys.cards, ckeys.links].map((k) => qc.invalidateQueries({ queryKey: k(userId) })))
     setBusy(null)
     haptic(6)
-    toast(abrir ? `Claude ya puede ver «${b.name}»` : `«${b.name}» volvió a cifrarse: Claude ya no lo ve`)
+    toast(abrir ? `Claude ya puede ver «${b.name}»` : estandar ? `«${b.name}» volvió a cifrarse` : `«${b.name}» volvió a cifrarse: Claude ya no lo ve`)
   }
 
-  const top = books.filter((b) => !b.parent_id)
+  const top = books.filter((b) => !b.parent_id && (!estandar || abierto(b)))
+  if (estandar)
+    return (
+      <div className="cu-claude-ver">
+        <h4>Qué puede ver Claude</h4>
+        <p className="cu-muted">
+          Todo lo tuyo en Rockie: tu cuaderno, tu agenda, tus hábitos y los proyectos donde estás. Entra a tu nombre y solo mientras lo tengas
+          conectado; en Rockie sigue guardado cifrado. Lo que Claude cree sin decir dónde va a «Desde Claude».
+        </p>
+        {top.length > 0 && (
+          <>
+            <p className="cu-muted">Estos cuadernos quedaron sin cifrar de antes. Desmárcalos para volver a cifrarlos; Claude los sigue viendo.</p>
+            <ul className="cu-conns" aria-label="Cuadernos sin cifrar">
+              {top.map((b) => (
+                <li key={b.id}>
+                  <label className="checkline" style={{ margin: 0, flex: 1 }}>
+                    <input type="checkbox" checked disabled={busy === b.id} onChange={() => void cambiar(b, false)} />
+                    {b.name}
+                  </label>
+                  <small className="cu-muted">{busy === b.id ? 'Guardando…' : 'Sin cifrar'}</small>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    )
   return (
     <div className="cu-claude-ver">
       <h4>Qué puede ver Claude</h4>
@@ -264,6 +294,7 @@ function CuadernosParaClaude() {
 export function ClaudeSection() {
   const { userId } = useMe()
   const qc = useQueryClient()
+  const estandar = useCofreEstandar()
   const key = ['cu', 'conexiones', userId]
   const conns = useQuery({
     queryKey: key,
@@ -340,7 +371,9 @@ export function ClaudeSection() {
         </li>
       </ol>
       <p className="cu-muted" role="note">
-        Lo que abras para Claude deja de estar cifrado y lo recibe Anthropic, según tu cuenta con ellos. Lo cierras o desconectas cuando quieras.{' '}
+        {estandar
+          ? 'Lo que Claude lee de tu Rockie lo recibe Anthropic, según tu cuenta con ellos. Lo desconectas cuando quieras.'
+          : 'Lo que abras para Claude deja de estar cifrado y lo recibe Anthropic, según tu cuenta con ellos. Lo cierras o desconectas cuando quieras.'}{' '}
         <a href="/privacidad" target="_blank" rel="noreferrer">
           Más en la Política de privacidad
         </a>
