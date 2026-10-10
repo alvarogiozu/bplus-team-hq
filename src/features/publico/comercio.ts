@@ -15,12 +15,6 @@ export const COMERCIO = {
   telefono: null as string | null,
   /** días desde el primer pago de un plan en los que se devuelve todo, sin preguntas */
   diasReembolso: 7,
-  /** precios nuevos (docs/negocio/precios-y-margenes.md §1): en la web el estudiante ve primero el ciclo y las dudas
-   *  explican el precio de fundador. Se pone en true EL MISMO DÍA que Pagos cambia planes_precios, no antes (Culqi
-   *  está revisando la tienda con los precios de hoy). Los montos salen siempre de la base. */
-  preciosNuevos: false,
-  /** lo que paga para siempre quien se registró antes del cambio (tarifa fundador) */
-  fundador: { plus: 'S/ 19.90', pro: 'S/ 34.90' },
   /** fecha de la última actualización de los textos legales */
   actualizado: '9 de octubre de 2026',
 }

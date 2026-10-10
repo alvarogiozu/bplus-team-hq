@@ -77,7 +77,7 @@ export function PortadaHero() {
         </div>
         <ul className="pt-confianza">
           <li>
-            <Icon name="lock" className="sm" /> Ni nosotros leemos lo tuyo
+            <Icon name="lock" className="sm" /> No leemos lo tuyo
           </li>
           <li>
             <Icon name="star" className="sm" /> Gratis para siempre
@@ -795,7 +795,7 @@ function Cofre() {
         </h2>
         <p>
           Tus notas, tu agenda y tus proyectos se cifran en tu dispositivo antes de salir, y tu Cofre se abre
-          solo al entrar con tu cuenta. ¿Quieres más? Con la protección avanzada, ni nosotros podemos abrirlo.
+          solo al entrar con tu cuenta: para eso custodiamos una copia de tu llave, y no leemos lo tuyo. ¿Quieres más? Con la protección avanzada, ni nosotros podemos abrirlo.
         </p>
         <ul className="pt-cofre-chips">
           <li>

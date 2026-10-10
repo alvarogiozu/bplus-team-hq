@@ -6,6 +6,7 @@ import { soles } from '../../lib/planes'
 import { precioDe, usePrecios } from '../../lib/precios'
 import { useAuth } from '../auth/AuthProvider'
 import { capturarReferido, referidoPendiente } from '../planes/referidos'
+import { precioTarifa, preciosNuevos } from '../planes/tarifa'
 import { COMERCIO } from './comercio'
 import { documento } from './legal'
 import { PlanesPublicos } from './PlanesPublicos'
@@ -104,7 +105,7 @@ function Pie() {
 }
 
 const DESCRIPCION =
-  'Hábitos con prueba, agenda, apuntes y los proyectos de tu equipo en una sola app, con Rockie. Gratis para siempre; ni nosotros leemos lo tuyo.'
+  'Hábitos con prueba, agenda, apuntes y los proyectos de tu equipo en una sola app, con Rockie. Gratis para siempre; no leemos lo tuyo.'
 
 function Inicio() {
   // llegó con el link de un amigo (rockie.plus/?ref=CODIGO): se guarda hasta que cree su cuenta
@@ -115,6 +116,9 @@ function Inicio() {
   const precios = usePrecios()
   const ciclo = precioDe(precios, 'plus', 'estudiante', 'ciclo')
   const mesEst = precioDe(precios, 'plus', 'estudiante', 'mes')
+  const nuevos = preciosNuevos(precios)
+  const fPlus = precioTarifa(precios, 'plus', 'fundador', 'mes')
+  const fPro = precioTarifa(precios, 'pro', 'fundador', 'mes')
   useEffect(() => {
     // lo que ve Google (las vistas previas de WhatsApp y redes salen de index.html)
     document.title = 'Rockie · Todas tus herramientas, en una sola mochila'
@@ -164,7 +168,7 @@ function Inicio() {
         </details>
         <details>
           <summary>¿Hay precio de estudiante?</summary>
-          {COMERCIO.preciosNuevos && ciclo && mesEst ? (
+          {nuevos && ciclo && mesEst ? (
             <p>
               Sí: con el correo de tu universidad, Plus te cuesta {soles(ciclo.centimos / 100)} por ciclo de 4 meses (unos {soles(Math.round(ciclo.centimos / 4) / 100)} al
               mes) o {soles(mesEst.centimos / 100)} al mes.
@@ -173,11 +177,11 @@ function Inicio() {
             <p>Sí: Plus te cuesta menos si verificas el correo de tu universidad, y puedes pagar 4 meses (un semestre) de una vez.</p>
           )}
         </details>
-        {COMERCIO.preciosNuevos && (
+        {nuevos && fPlus && fPro && (
           <details>
             <summary>Ya tenía mi cuenta antes del cambio de precios, ¿cuánto pago?</summary>
             <p>
-              Lo de antes, para siempre: es tu precio de fundador. Plus a {COMERCIO.fundador.plus} y Pro a {COMERCIO.fundador.pro} al mes (o su precio anual
+              Lo de antes, para siempre: es tu precio de fundador. Plus a {soles(fPlus.centimos / 100)} y Pro a {soles(fPro.centimos / 100)} al mes (o su precio anual
               de siempre).
             </p>
           </details>
