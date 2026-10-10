@@ -83,14 +83,6 @@ const TOOLS = [
     write: true,
   },
   {
-    name: 'crear_carpeta',
-    title: 'Crear carpeta',
-    description: 'Crea una carpeta o un cuaderno; si ya existe, devuelve ese.',
-    inputSchema: { type: 'object', properties: { nombre: S, tipo: { type: 'string', enum: ['carpeta', 'cuaderno'] }, dentro_de_id: S }, required: ['nombre'] },
-    annotations: ADD,
-    write: true,
-  },
-  {
     name: 'crear_tarjetas',
     title: 'Crear tarjetas',
     description: 'Hasta 40 tarjetas de repaso (pregunta y respuesta cortas) de una página.',
@@ -353,8 +345,6 @@ export async function callTool(name: string, args: Args, ctx: Ctx): Promise<Resu
         return await crearPaginas(ctx, args)
       case 'editar_pagina':
         return await editarPagina(ctx, args)
-      case 'crear_carpeta':
-        return await crearCarpeta(ctx, args)
       case 'crear_tarjetas':
         return await crearTarjetas(ctx, args)
       case 'tarjetas_para_hoy':

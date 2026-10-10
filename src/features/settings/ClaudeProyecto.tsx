@@ -90,6 +90,7 @@ export function ClaudeProyecto() {
         <div className="claude-proy-pasos">
           <p className="lbl">1 · Conecta Rockie en Claude (una sola vez)</p>
           <p className="hint">En Claude: Ajustes › Conectores › Agregar conector personalizado, y pega esta dirección. En Claude Code: <code>claude mcp add --transport http rockie {url}</code>.</p>
+          <p className="hint">Activa Rockie solo en los chats donde lo vayas a usar: cada conector activo ocupa un poco de cada mensaje.</p>
           <span className="claude-proy-url">
             <code>{url}</code>
             <button type="button" className="btn ghost sm" onClick={() => void copiar(url, 'Dirección')}>

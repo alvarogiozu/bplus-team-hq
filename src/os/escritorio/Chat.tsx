@@ -120,6 +120,7 @@ function Motores(p: { vista: 'motores' | 'claude'; elegir: (m: Motor) => void; a
         </li>
         <li>Elige qué cuadernos y proyectos puede ver Claude (lo demás sigue cifrado).</li>
       </ol>
+      <p>Activa Rockie solo en los chats donde lo vayas a usar: cada conector activo ocupa un poco de cada mensaje.</p>
       <div className="ini-sug">
         <button
           type="button"
