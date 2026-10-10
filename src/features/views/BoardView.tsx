@@ -32,9 +32,10 @@ function arrange(tasks: Task[]): Cols {
   return out
 }
 
-/** hechasOcultas: cuántas hechas esconde el filtro «Mostrar hechas»; la columna Hecho las cuenta y ofrece verlas
- *  (vacía y en 0 parecía que no se había hecho nada). */
-export function BoardView({ tasks, hechasOcultas = 0, onVerHechas }: { tasks: Task[]; hechasOcultas?: number; onVerHechas?: () => void }) {
+/** El tablero siempre muestra lo hecho en su columna (vacía y en 0 parecía que no se había hecho nada).
+ *  recortarHechas: con «Mostrar hechas» apagado, solo las más recientes y un botón para ver el resto. */
+const HECHAS_A_LA_VISTA = 8
+export function BoardView({ tasks, recortarHechas = false, onVerHechas }: { tasks: Task[]; recortarHechas?: boolean; onVerHechas?: () => void }) {
   const { move } = useTaskActions()
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks])
   const base = useMemo(() => arrange(tasks), [tasks])
@@ -113,7 +114,7 @@ export function BoardView({ tasks, hechasOcultas = 0, onVerHechas }: { tasks: Ta
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onStart} onDragOver={onOver} onDragEnd={onEnd} onDragCancel={() => { setActiveId(null); setCols(base) }}>
       <div className="board">
         {COLS.map((s) => (
-          <Column key={s} status={s} ids={cols[s]} byId={byId} highlight={overCol === s && Boolean(activeId)} ocultas={s === 'done' ? hechasOcultas : 0} onVer={onVerHechas} />
+          <Column key={s} status={s} ids={cols[s]} byId={byId} highlight={overCol === s && Boolean(activeId)} recortar={s === 'done' && recortarHechas} onVer={onVerHechas} />
         ))}
       </div>
       <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(.32,.72,0,1)' }}>
@@ -123,27 +124,29 @@ export function BoardView({ tasks, hechasOcultas = 0, onVerHechas }: { tasks: Ta
   )
 }
 
-function Column({ status, ids, byId, highlight, ocultas, onVer }: { status: Status; ids: string[]; byId: Map<string, Task>; highlight: boolean; ocultas: number; onVer?: () => void }) {
+function Column({ status, ids, byId, highlight, recortar, onVer }: { status: Status; ids: string[]; byId: Map<string, Task>; highlight: boolean; recortar: boolean; onVer?: () => void }) {
   const { setNodeRef } = useDroppable({ id: status })
+  const visibles = recortar ? ids.slice(0, HECHAS_A_LA_VISTA) : ids
+  const ocultas = ids.length - visibles.length
   return (
     <section ref={setNodeRef} className={`col${highlight ? ' over' : ''}${status === 'done' ? ' donecol' : ''}`} aria-label={STATUS_LABEL[status]}>
       <div className="colhead">
         <span className="cdot" style={{ background: COL_COLOR[status] }} />
         <span className="cname">{STATUS_LABEL[status]}</span>
-        <span key={ids.length + ocultas} className="ccount pop">{ids.length + ocultas}</span>
+        <span key={ids.length} className="ccount pop">{ids.length}</span>
       </div>
-      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+      <SortableContext items={visibles} strategy={verticalListSortingStrategy}>
         <div className="cards">
-          {ids.map((id) => {
+          {visibles.map((id) => {
             const t = byId.get(id)
             return t ? <SortableCard key={id} task={t} /> : null
           })}
           {status === 'done' && ocultas > 0 && (
             <button type="button" className="btn ghost sm block" onClick={onVer}>
-              {ocultas === 1 ? 'Ver la tarea hecha' : `Ver las ${ocultas} hechas`}
+              {ocultas === 1 ? 'Ver 1 hecha más' : `Ver ${ocultas} hechas más`}
             </button>
           )}
-          {status === 'done' && ids.length === 0 && ocultas === 0 && <p className="hint" style={{ textAlign: 'center', padding: 16 }}>Suelta aquí para validar</p>}
+          {status === 'done' && ids.length === 0 && <p className="hint" style={{ textAlign: 'center', padding: 16 }}>Suelta aquí para validar</p>}
         </div>
       </SortableContext>
     </section>

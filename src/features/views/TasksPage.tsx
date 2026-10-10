@@ -97,6 +97,8 @@ function Tareas({ spaceId }: { spaceId: string }) {
   }, [base, userId, spaceId])
 
   const shown = useMemo(() => applyFilters(q.data ?? [], filters, userId ?? ''), [q.data, filters, userId])
+  // el Tablero tiene su columna «Hecho»: ahí lo hecho se ve siempre (lo más reciente; el resto, con un botón)
+  const paraTablero = useMemo(() => applyFilters(q.data ?? [], { ...filters, hideDone: false }, userId ?? ''), [q.data, filters, userId])
   // el Panel mide al equipo: «Mías» y las hechas ocultas le quitarían el avance real
   const paraPanel = useMemo(() => applyFilters(q.data ?? [], { ...filters, mine: false, hideDone: false }, userId ?? ''), [q.data, filters, userId])
 
@@ -147,7 +149,7 @@ function Tareas({ spaceId }: { spaceId: string }) {
               {/* Hoy son carriles por persona: va con todo el equipo aunque «Mías» esté puesto */}
               {view === 'hoy' && <HoyView tasks={paraPanel} />}
               {view === 'lista' && <ListView tasks={shown} />}
-              {view === 'tablero' && <BoardView tasks={shown} hechasOcultas={hechasOcultas(q.data ?? [], filters, userId ?? '')} onVerHechas={() => setFilters({ ...filters, hideDone: false })} />}
+              {view === 'tablero' && <BoardView tasks={paraTablero} recortarHechas={filters.hideDone} onVerHechas={() => setFilters({ ...filters, hideDone: false })} />}
               {view === 'calendario' && <WeekView tasks={shown} />}
               {view === 'gantt' && <GanttView tasks={shown} />}
               {view === 'panel' && <DashboardView tasks={paraPanel} filtered={paraPanel.length !== (q.data ?? []).length} />}
