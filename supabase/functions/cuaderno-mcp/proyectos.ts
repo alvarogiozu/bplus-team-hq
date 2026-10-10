@@ -37,14 +37,16 @@ const S = { type: 'string' }
 const ESTADO = { type: 'string', enum: ['por_hacer', 'en_curso', 'hecho'] }
 const IDS = { type: 'array', items: S }
 const CAMPOS = { notas: S, estado: ESTADO, area: S, responsable: S, fecha: S, hora: S, minutos: { type: 'integer' }, urgente: { type: 'boolean' }, frente: S, depende_de: IDS, nota: S }
-const READ = { readOnlyHint: true }
-const EDIT = { destructiveHint: false }
+const READ = { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
+const EDIT = { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
+// cambia o reemplaza lo que ya había (título, notas, estado): destructiva para los directorios
+const CAMBIA = { readOnlyHint: false, destructiveHint: true, openWorldHint: false }
 
 export const PROYECTO_TOOLS = [
   {
     name: 'ver_proyectos',
     title: 'Ver proyectos',
-    description: 'Proyectos: id, tareas por estado, áreas y frentes numerados, metas.',
+    description: 'Lista los proyectos: id, tareas por estado, áreas y frentes numerados, metas.',
     inputSchema: { type: 'object', properties: {} },
     annotations: READ,
     write: false,
@@ -52,7 +54,7 @@ export const PROYECTO_TOOLS = [
   {
     name: 'ver_tareas',
     title: 'Ver tareas',
-    description: 'Tareas abiertas de un proyecto, 15 por página (desde). Filtra por estado, area, frente o buscar; con pocas, da el detalle.',
+    description: 'Muestra las tareas abiertas de un proyecto, 15 por página (desde). Filtra por estado, area, frente o buscar; con pocas, da el detalle.',
     inputSchema: { type: 'object', properties: { proyecto_id: S, estado: ESTADO, area: S, frente: S, buscar: S, desde: { type: 'integer' } }, required: ['proyecto_id'] },
     annotations: READ,
     write: false,
@@ -78,7 +80,7 @@ export const PROYECTO_TOOLS = [
       properties: { cambios: { type: 'array', items: { type: 'object', properties: { id: S, titulo: S, agregar_nota: S, ...CAMPOS }, required: ['id'] } } },
       required: ['cambios'],
     },
-    annotations: EDIT,
+    annotations: CAMBIA,
     write: true,
   },
 ] as const

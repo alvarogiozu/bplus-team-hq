@@ -20,9 +20,9 @@ export const AGENDA_TOOLS = [
   {
     name: 'ver_agenda',
     title: 'Ver agenda',
-    description: 'Agenda por días: hora, duración, título e id. desde (AAAA-MM-DD u hoy) y dias (7).',
+    description: 'Muestra la agenda por días: hora, duración, título e id. desde (AAAA-MM-DD u hoy) y dias (7).',
     inputSchema: { type: 'object', properties: { desde: S, dias: { type: 'integer' } } },
-    annotations: { readOnlyHint: true },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     write: false,
   },
   {
@@ -34,7 +34,7 @@ export const AGENDA_TOOLS = [
       properties: { eventos: { type: 'array', items: { type: 'object', properties: { id: S, titulo: S, dia: S, hora: S, minutos: { type: 'integer' }, notas: S, hecho: { type: 'boolean' } } } } },
       required: ['eventos'],
     },
-    annotations: { destructiveHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     write: true,
   },
 ]

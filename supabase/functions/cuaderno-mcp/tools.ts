@@ -31,14 +31,14 @@ export const INSTRUCTIONS = [
 // ---------- las herramientas (mínimas y estables: van en CADA mensaje del usuario) ----------
 const S = { type: 'string' }
 const N = { type: 'integer' }
-const READ = { readOnlyHint: true }
-const ADD = { destructiveHint: false }
+const READ = { readOnlyHint: true, destructiveHint: false, openWorldHint: false }
+const ADD = { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
 
 const TOOLS = [
   {
     name: 'ver_cuaderno',
     title: 'Ver el cuaderno',
-    description: 'Carpetas, cuadernos y páginas con sus ids. carpeta_id: todo lo de esa.',
+    description: 'Muestra carpetas, cuadernos y páginas con sus ids. carpeta_id: todo lo de esa.',
     inputSchema: { type: 'object', properties: { carpeta_id: S } },
     annotations: READ,
     write: false,
@@ -84,13 +84,13 @@ const TOOLS = [
       properties: { id: S, contenido: S, modo: { type: 'string', enum: ['agregar', 'reemplazar'] }, titulo: S, conectar_con: { type: 'array', items: S }, motivo: S },
       required: ['id'],
     },
-    annotations: { destructiveHint: true },
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     write: true,
   },
   {
     name: 'crear_tarjetas',
     title: 'Crear tarjetas',
-    description: 'Hasta 40 tarjetas de repaso (pregunta y respuesta cortas) de una página.',
+    description: 'Crea hasta 40 tarjetas de repaso (pregunta y respuesta cortas) de una página.',
     inputSchema: {
       type: 'object',
       properties: { pagina_id: S, tarjetas: { type: 'array', items: { type: 'object', properties: { pregunta: S, respuesta: S }, required: ['pregunta', 'respuesta'] } } },
@@ -100,9 +100,9 @@ const TOOLS = [
     write: true,
   },
   {
-    name: 'tarjetas_para_hoy',
+    name: 'ver_tarjetas',
     title: 'Tarjetas de hoy',
-    description: 'Tarjetas que tocan hoy. Para examen: de a una, sin mostrar la respuesta, y registrar_repaso.',
+    description: 'Muestra las tarjetas de repaso que tocan hoy. Para examen: de a una, sin mostrar la respuesta, y registrar_repaso.',
     inputSchema: { type: 'object', properties: { limite: N } },
     annotations: READ,
     write: false,
@@ -110,7 +110,7 @@ const TOOLS = [
   {
     name: 'registrar_repaso',
     title: 'Registrar repaso',
-    description: 'Anota si se acordó de una tarjeta.',
+    description: 'Registra si se acordó de una tarjeta (cambia cuándo vuelve a tocar).',
     inputSchema: { type: 'object', properties: { tarjeta_id: S, me_acorde: { type: 'boolean' } }, required: ['tarjeta_id', 'me_acorde'] },
     annotations: ADD,
     write: true,
@@ -373,7 +373,8 @@ export async function callTool(name: string, args: Args, ctx: Ctx): Promise<Resu
         return await editarPagina(ctx, args)
       case 'crear_tarjetas':
         return await crearTarjetas(ctx, args)
-      case 'tarjetas_para_hoy':
+      case 'ver_tarjetas':
+      case 'tarjetas_para_hoy': // nombre anterior
         return await paraHoy(ctx, args)
       case 'registrar_repaso':
         return await registrar(ctx, args)
