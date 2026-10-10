@@ -6,8 +6,9 @@ export const PASS = 'qa-pass-1234'
 // los usuarios qa.* nacen con Cofre y este código de recuperación (scripts/qa.mjs)
 export const CODIGO_COFRE = 'QA00-C0FR-E000-0000-0000-0001'
 
-/** Para usuarios desechables que crea una prueba: su Cofre con el código de prueba (como scripts/qa.mjs hace con
- *  los qa.*). Sin esto, el primer «Entrar» crea un Cofre con un código al azar y la prueba siguiente no lo abre. */
+/** Para usuarios desechables que crea una prueba: su Cofre en protección avanzada con el código de prueba (como
+ *  scripts/qa.mjs hace con los qa.*). Sin esto, el primer «Entrar» le crea solo un Cofre en protección estándar
+ *  (también sirve: se abre sin código; ver e2e/cofre-automatico.spec.ts). */
 export async function crearCofreQa(sb: SupabaseClient, uid: string) {
   const { data: ya } = await sb.from('cofre_cuentas').select('kid').eq('user_id', uid).maybeSingle()
   if (ya) return
@@ -24,25 +25,21 @@ export async function crearCofreQa(sb: SupabaseClient, uid: string) {
   if (error) throw new Error(`cofre: ${error.message}`)
 }
 
-/** Después de «Entrar»: abre el Cofre del usuario de prueba (o lo crea si el usuario es nuevo). */
+/** Después de «Entrar»: espera a que el Cofre quede abierto. Los qa.* (protección avanzada) lo abren con el código
+ *  de prueba; un usuario nuevo (protección estándar) no ve ninguna pantalla: se crea y se abre solo. */
 export async function pasarCofre(page: Page) {
-  const crear = page.getByRole('button', { name: 'Crear mi Cofre' })
   const abrir = page.getByRole('button', { name: 'Abrir mi Cofre' })
-  await expect(crear.or(abrir)).toBeVisible({ timeout: 15_000 })
-  if (await crear.isVisible()) {
-    await crear.click()
-    const codigo = ((await page.getByLabel('Código').textContent()) ?? '').replace(/[^0-9A-Z]/g, '')
-    await page.getByLabel('Para confirmar, escribe los últimos 4 caracteres').fill(codigo.slice(-4))
-    await page.getByRole('button', { name: 'Ya lo guardé' }).click()
-    await expect(page.getByRole('button', { name: 'Ya lo guardé' })).toHaveCount(0, { timeout: 20_000 })
-  } else {
+  const abierto = page.locator('html[data-cofre="abierto"]')
+  await expect(abrir.or(abierto)).toHaveCount(1, { timeout: 20_000 })
+  if (await abrir.count()) {
     await page.getByPlaceholder('XXXX-XXXX-XXXX').fill(CODIGO_COFRE)
     await abrir.click()
     // al tocar, el botón pasa a «Abriendo…» mientras se calcula la llave (1-2 s): hay que esperar a que la
     // pantalla del Cofre se vaya de verdad (si no, una recarga inmediata corta la apertura y lo vuelve a pedir)
     await expect(page.getByPlaceholder('XXXX-XXXX-XXXX')).toHaveCount(0, { timeout: 20_000 })
   }
-  await expect(crear.or(abrir)).toHaveCount(0, { timeout: 15_000 })
+  await expect(abierto).toHaveCount(1, { timeout: 15_000 })
+  await expect(abrir).toHaveCount(0, { timeout: 15_000 })
 }
 
 export async function login(page: Page, username = 'qa.alvaro', theme: 'light' | 'dark' = 'light') {

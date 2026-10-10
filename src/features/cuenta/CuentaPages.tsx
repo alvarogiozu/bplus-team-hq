@@ -191,7 +191,7 @@ export function PerfilPage() {
       <section className="cuenta-card">
         <nav className="cuenta-lista" aria-label="Tu cuenta">
           <Fila to="/planes" icon="sparkle" titulo="Tu plan" sub={`Tienes ${NOMBRE_PLAN[plan.plan]}${plan.plan === 'gratis' && !esAppNativa() ? ' · mira qué trae Plus' : ''}`} />
-          <Fila to="/cofre" icon="lock" titulo="Tu Cofre" sub="Tu código de recuperación y tus otros dispositivos" />
+          <Fila to="/cofre" icon="lock" titulo="Tu Cofre" sub="Cómo se protege lo que guardas" />
           <Fila to="/ajustes" icon="settings" titulo="Ajustes" sub="Tema, color, zona horaria y lo de cada app" />
           <Fila onClick={() => signOut()} icon="logout" titulo="Cerrar sesión" peligro derecha={<span />} />
         </nav>
@@ -305,7 +305,7 @@ export function AjustesPage() {
           <Fila to="/perfil" icon="user" titulo="Perfil" sub="Tu nombre, tu color y tu código de amigo" />
           <Fila to="/cambiar-clave" icon="key" titulo="Cambiar contraseña" />
           <Fila to="/planes" icon="sparkle" titulo="Tu plan" sub={`Tienes ${NOMBRE_PLAN[plan.plan]}${plan.plan !== 'gratis' ? ' · hasta cuándo y lo que incluye' : esAppNativa() ? '' : ' · mira qué trae Plus y cómo activarlo'}`} />
-          <Fila to="/cofre" icon="lock" titulo="Tu Cofre" sub="Lo que guardas se cifra en tu dispositivo. Aquí está tu código de recuperación" />
+          <Fila to="/cofre" icon="lock" titulo="Tu Cofre" sub="Lo que guardas se cifra en tu dispositivo. Aquí eliges tu protección" />
           <Fila onClick={() => setBorrar(true)} icon="trash" titulo="Eliminar cuenta" sub="Borra tu cuenta de Rockie y todos tus datos" peligro />
         </nav>
       </section>

@@ -1,14 +1,18 @@
 // El llavero del Cofre: qué llaves tiene esta persona en este dispositivo y cómo consigue las que le faltan.
 //
-//   llave maestra (una por persona) ── vive SOLO en sus dispositivos (IndexedDB). Al servidor llega envuelta con el
-//   │                                  código de recuperación (cofre_cuentas.recuperacion), que el servidor nunca ve.
+//   llave maestra (una por persona) ── vive en sus dispositivos (IndexedDB). Según la protección que eligió:
+//   │     estándar (por defecto)  el servidor custodia una copia cerrada con una llave que no está en la base
+//   │                             (función cofre-custodia): el Cofre se crea y se abre solo al entrar con la cuenta.
+//   │     avanzada                no hay copia: al servidor solo llega envuelta con el código de recuperación
+//   │                             (cofre_cuentas.recuperacion), que el servidor nunca ve.
 //   ├─ cifra lo personal (notas, agenda, conversaciones con Rockie…)
 //   └─ cifra su llave privada de identidad (ECDH), que sirve para recibir llaves de otros:
 //        llave de un equipo / nota compartida ── se le entrega a cada miembro «sellada» con su llave pública
 //                                                (cofre_sobres). El servidor guarda sobres que no puede abrir.
 //
-// Un dispositivo nuevo consigue la maestra con el código de recuperación o con un traspaso desde otro dispositivo
-// abierto (código de un solo uso, 15 minutos). Nadie más —ni el dueño de Rockie— puede abrir el Cofre.
+// En protección avanzada, un dispositivo nuevo consigue la maestra con el código de recuperación o con un traspaso
+// desde otro dispositivo abierto (código de un solo uso, 15 minutos), y nadie más —ni el dueño de Rockie— puede
+// abrir el Cofre. En estándar la consigue sola, de la copia custodiada.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
@@ -33,16 +37,29 @@ import {
   type Sellado,
 } from './cripto'
 
-export type FaseCofre = 'sin-sesion' | 'cargando' | 'nuevo' | 'bloqueado' | 'abierto' | 'error'
-export type EstadoCofre = { fase: FaseCofre; error?: string }
+export type FaseCofre = 'sin-sesion' | 'cargando' | 'bloqueado' | 'abierto' | 'error'
+export type ModoCofre = 'estandar' | 'avanzada'
+export type EstadoCofre = { fase: FaseCofre; error?: string; modo?: ModoCofre }
 
 /** De dónde sale la llave de una fila: lo personal usa la maestra; lo compartido, la llave de su ámbito. */
 /** espacio = un equipo · nota = una página compartida · agenda = lo de tu agenda que ve tu equipo (id = tu user id) */
 export type AmbitoCompartido = 'espacio' | 'nota' | 'agenda'
 export type Ambito = { tipo: 'personal' } | { tipo: AmbitoCompartido; id: string }
 
-type Cuenta = { kid: string; publica: Publica; privada: string; recuperacion: Envuelto }
+type Cuenta = { kid: string; publica: Publica; privada: string; recuperacion: Envuelto; modo?: ModoCofre }
 type Guardada = { kid: string; llave: CryptoKey }
+
+/** Recordatorios de este dispositivo (sin valor: lee; con valor: escribe; null: borra). Nunca guardan llaves. */
+function marcar(k: string, v?: string | null): string | null {
+  try {
+    if (v === undefined) return localStorage.getItem(k)
+    if (v === null) localStorage.removeItem(k)
+    else localStorage.setItem(k, v)
+    return v
+  } catch {
+    return null
+  }
+}
 
 // ——— IndexedDB: la maestra se guarda como CryptoKey (no como texto) ———
 
@@ -134,6 +151,8 @@ export class Llavero {
 
   private poner(e: EstadoCofre) {
     this.estado = e
+    // en qué va el Cofre, a la vista de las pruebas (en protección estándar no hay pantalla que esperar)
+    if (typeof document !== 'undefined') document.documentElement.dataset.cofre = e.fase
     this.oyentes.forEach((f) => f())
   }
 
@@ -195,15 +214,20 @@ export class Llavero {
       if (uid !== this.uid) return
       if (!cuenta) {
         if (guardada) await this.borrarDispositivo()
-        this.poner({ fase: 'nuevo' })
+        // primera vez: el Cofre se crea solo, sin pantallas ni códigos (una ventana a la vez en este dispositivo)
+        await this.conCandado(() => this.crearSolo(uid!))
         return
       }
       if (!guardada || guardada.kid !== cuenta.kid) {
         if (guardada) await this.borrarDispositivo()
+        // protección estándar: la llave llega sola al entrar con la cuenta
+        if (cuenta.modo === 'estandar' && (await this.abrirConCustodia(cuenta))) return
+        if (uid !== this.uid) return
         this.poner({ fase: 'bloqueado' })
         return
       }
       await this.abrir(guardada, cuenta)
+      if (cuenta.modo === 'estandar') void this.asegurarCustodia()
     } catch (e) {
       if (uid !== this.uid) return
       this.poner({ fase: 'error', error: e instanceof Error ? e.message : String(e) })
@@ -213,7 +237,7 @@ export class Llavero {
   private async leerCuenta(): Promise<Cuenta | null> {
     const { data, error } = await this.db
       .from('cofre_cuentas')
-      .select('kid, publica, privada, recuperacion')
+      .select('kid, publica, privada, recuperacion, modo')
       .eq('user_id', this.uid!)
       .maybeSingle()
     if (error) throw new Error(error.message)
@@ -251,36 +275,128 @@ export class Llavero {
     this.publica = { x: jwk.x!, y: jwk.y! }
     this.maestra = g
     this.llaves.set(g.kid, g.llave)
-    this.poner({ fase: 'abierto' })
+    this.poner({ fase: 'abierto', modo: cuenta.modo ?? 'avanzada' })
     void this.cargarSobres(true)
   }
 
   // ——— crear, abrir, traspasar ———
 
-  /** Primera vez: crea la maestra y la identidad. Devuelve el código de recuperación (se muestra UNA vez). */
-  async crear(): Promise<string> {
-    if (this.fase !== 'nuevo') throw new Error('Este Cofre ya existe')
+  private conCandado<T>(fn: () => Promise<T>): Promise<T> {
+    const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
+    return locks ? (locks.request('rockie-cofre:' + this.clave(), fn) as Promise<T>) : fn()
+  }
+
+  /** Primera vez: crea la maestra y la identidad sin preguntar nada, y deja la copia custodiada (protección estándar). */
+  private async crearSolo(uid: string): Promise<void> {
+    // otra ventana de este dispositivo pudo crearlo mientras se esperaba el candado
+    const [ya, guardada] = await Promise.all([this.leerCuenta(), this.leerDispositivo()])
+    if (uid !== this.uid) return
+    if (ya) return this.abrirLaQueHay(uid, ya, guardada)
     const llave = await nuevaLlave()
     const kid = nuevoKid('p')
     const id = await nuevaIdentidad()
-    const codigo = nuevoCodigo(6)
     const cuenta: Cuenta = {
       kid,
       publica: id.publica,
       privada: await cifrarValor(llave, kid, await exportarPrivada(id.privada)),
-      recuperacion: await envolverConCodigo(codigo, await exportarLlave(llave)),
+      // nadie ve este código: si la persona pasa a protección avanzada se le crea uno nuevo
+      recuperacion: await envolverConCodigo(nuevoCodigo(6), await exportarLlave(llave)),
+      modo: 'estandar',
     }
-    const { error } = await this.db.from('cofre_cuentas').insert({ user_id: this.uid, ...cuenta })
+    const { error } = await this.db.from('cofre_cuentas').insert({ user_id: uid, ...cuenta })
     if (error) {
-      // otro dispositivo lo creó al mismo tiempo: hay que abrir ese
-      await this.recargar()
-      throw new Error(/duplicate|unique/i.test(error.message) ? 'Tu Cofre ya se creó en otro dispositivo.' : error.message)
+      if (!/duplicate|unique/i.test(error.message)) throw new Error(error.message)
+      // otro dispositivo lo creó al mismo tiempo: se abre ese
+      const otra = await this.leerCuenta()
+      if (uid !== this.uid) return
+      if (!otra) throw new Error(error.message)
+      return this.abrirLaQueHay(uid, otra, null)
     }
     const g = { kid, llave }
     await this.guardarDispositivo(g)
     await this.abrir(g, cuenta)
+    await this.asegurarCustodia()
+    this.avisarOtrasVentanas()
+  }
+
+  private async abrirLaQueHay(uid: string, cuenta: Cuenta, guardada: Guardada | null): Promise<void> {
+    if (guardada && guardada.kid === cuenta.kid) return this.abrir(guardada, cuenta)
+    if (cuenta.modo === 'estandar' && (await this.abrirConCustodia(cuenta))) return
+    if (uid !== this.uid) return
+    this.poner({ fase: 'bloqueado' })
+  }
+
+  // ——— protección estándar: la copia que custodia el servidor ———
+
+  private async custodia(body: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+    try {
+      const { data, error } = await this.db.functions.invoke('cofre-custodia', { body })
+      return error ? null : ((data as Record<string, unknown> | null) ?? null)
+    } catch {
+      return null
+    }
+  }
+
+  private marcaCustodia(kid: string): string {
+    return 'cofre.custodia.' + this.clave() + '.' + kid
+  }
+
+  /** Dispositivo nuevo en protección estándar: pide la maestra al servidor y abre. false si no se pudo. */
+  private async abrirConCustodia(cuenta: Cuenta): Promise<boolean> {
+    const uid = this.uid
+    for (let intento = 0; intento < 2; intento++) {
+      const r = await this.custodia({ accion: 'abrir' })
+      if (uid !== this.uid) return true
+      if (r && r.kid === cuenta.kid && typeof r.llave === 'string') {
+        try {
+          const g = { kid: cuenta.kid, llave: await importarLlave(deB64u(r.llave)) }
+          await this.guardarDispositivo(g)
+          await this.abrir(g, cuenta)
+          marcar(this.marcaCustodia(cuenta.kid), '1')
+          this.avisarOtrasVentanas()
+          return true
+        } catch {
+          return false
+        }
+      }
+      // recién creado en otro dispositivo: su copia puede tardar un instante en llegar
+      if (intento === 0) await new Promise((ok) => setTimeout(ok, 1500))
+    }
+    return false
+  }
+
+  /** Deja (una vez por dispositivo) la copia de la maestra en custodia. Si falla, se reintenta la próxima vez. */
+  private async asegurarCustodia(): Promise<boolean> {
+    const m = this.maestra
+    if (!m) return false
+    const marca = this.marcaCustodia(m.kid)
+    if (marcar(marca)) return true
+    const r = await this.custodia({ accion: 'guardar', kid: m.kid, llave: b64u(await exportarLlave(m.llave)) })
+    if (!r?.ok) return false
+    marcar(marca, '1')
+    return true
+  }
+
+  /** Protección avanzada: se borra la copia del servidor; desde ahora solo sus dispositivos y su código abren el
+   *  Cofre. Devuelve el código de recuperación nuevo (se muestra UNA vez). */
+  async activarAvanzada(): Promise<string> {
+    if (!this.maestra) throw new Error('Abre tu Cofre primero')
+    const codigo = await this.nuevoCodigoRecuperacion()
+    const r = await this.custodia({ accion: 'quitar' })
+    if (!r?.ok) throw new Error('No se pudo activar. Revisa tu conexión e inténtalo otra vez.')
+    marcar(this.marcaCustodia(this.maestra.kid), null)
+    this.poner({ fase: 'abierto', modo: 'avanzada' })
     this.avisarOtrasVentanas()
     return codigo
+  }
+
+  /** Vuelve a la protección estándar: el servidor custodia una copia y el Cofre se abre solo al entrar. */
+  async activarEstandar(): Promise<void> {
+    if (!this.maestra) throw new Error('Abre tu Cofre primero')
+    marcar(this.marcaCustodia(this.maestra.kid), null)
+    if (!(await this.asegurarCustodia())) throw new Error('No se pudo activar. Revisa tu conexión e inténtalo otra vez.')
+    this.poner({ fase: 'abierto', modo: 'estandar' })
+    this.avisarOtrasVentanas()
   }
 
   /** Abre el Cofre en este dispositivo con el código de recuperación. Lanza si el código no es. */

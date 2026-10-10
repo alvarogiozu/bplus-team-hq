@@ -791,18 +791,18 @@ function Cofre() {
       <div className="pt-cofre-t">
         <Ceja color="var(--green-photo)">Tu Cofre</Ceja>
         <h2>
-          Ni nosotros podemos <em>leerlo</em>.
+          Lo tuyo viaja <em>cifrado</em>.
         </h2>
         <p>
-          Tus notas, tu agenda y tus proyectos se cifran en tu dispositivo antes de salir. En nuestros
-          servidores solo hay datos cifrados que nadie del equipo de Rockie puede abrir.
+          Tus notas, tu agenda y tus proyectos se cifran en tu dispositivo antes de salir, y tu Cofre se abre
+          solo al entrar con tu cuenta. ¿Quieres más? Con la protección avanzada, ni nosotros podemos abrirlo.
         </p>
         <ul className="pt-cofre-chips">
           <li>
             <Icon name="check" className="sm" /> Se cifra en tu dispositivo
           </li>
           <li>
-            <Icon name="key" className="sm" /> La llave es solo tuya
+            <Icon name="key" className="sm" /> Sin códigos que guardar
           </li>
           <li>
             <Icon name="star" className="sm" /> En todos los planes

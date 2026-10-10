@@ -717,7 +717,19 @@
         "kid": "nombre de tu llave maestra (no la llave)",
         "publica": "llave pública: es pública por diseño",
         "privada": "va cifrada con tu maestra",
-        "recuperacion": "tu maestra cifrada con tu código de recuperación"
+        "recuperacion": "tu maestra cifrada con tu código de recuperación",
+        "modo": "protección estándar (copia custodiada) o avanzada (sin copia)"
+      }
+    },
+    "cofre_custodia": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "kid": "nombre de tu llave maestra (no la llave)"
+      },
+      "servidor": {
+        "envuelto": "en protección estándar, la copia de tu maestra cerrada con la llave del servidor (COFRE_CUSTODIA_KEK), que no está en la base ni en sus respaldos; la app no la puede leer. En protección avanzada no existe"
       }
     },
     "cofre_ambitos": {

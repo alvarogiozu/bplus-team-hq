@@ -1,5 +1,6 @@
-// Pantallas del Cofre: crearlo la primera vez, guardar el código de recuperación, abrirlo en un dispositivo
-// nuevo y (en /cofre) agregar dispositivos. La lógica vive en lib/cofre; aquí solo se le habla a la persona.
+// Pantallas del Cofre. En protección estándar (por defecto) no hay ninguna: se crea y se abre solo al entrar. Las
+// de aquí son para la protección avanzada (guardar el código, abrirlo en un dispositivo nuevo) y la página /cofre,
+// donde se elige la protección. La lógica vive en lib/cofre; aquí solo se le habla a la persona.
 
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
@@ -162,39 +163,10 @@ function CodigoGrande({ codigo }: { codigo: string }) {
   )
 }
 
-// ——— primera vez ———
+// ——— protección avanzada: quien creó su Cofre con código y aún no confirmó que lo guardó ———
 
-function CrearCofre({ onCreado }: { onCreado: (codigo: string) => void }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  async function crear() {
-    setBusy(true)
-    setError('')
-    try {
-      onCreado(await cofre.crear())
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-      setBusy(false)
-    }
-  }
-  return (
-    <Marco titulo="Tu Cofre" lead="Desde ahora, lo que guardas en Rockie se cifra en tu dispositivo antes de salir.">
-      <ul style={{ listStyle: 'none', padding: 0, margin: 'var(--s5) 0', display: 'grid', gap: 'var(--s3)' }}>
-        <Punto icono="🔒">Tu agenda, tus notas y lo que le dices a Rockie se cierran con una llave que solo tienen tus dispositivos.</Punto>
-        <Punto icono="👥">Lo de tu equipo se cierra con una llave que solo tiene tu equipo.</Punto>
-        <Punto icono="🙈">Nadie más puede leerlo: ni Rockie, ni quienes lo hacemos, ni el servicio donde se guarda.</Punto>
-        <Punto icono="🗝️">Te daremos un código de recuperación. Guárdalo bien: si pierdes tus dispositivos, es la única forma de volver a abrir tu Cofre.</Punto>
-      </ul>
-      <button className="btn block" onClick={crear} disabled={busy}>
-        {busy ? 'Creando tu llave…' : 'Crear mi Cofre'}
-      </button>
-      {error && <p className="formerror" role="alert">{error}</p>}
-    </Marco>
-  )
-}
-
-function GuardaTuCodigo({ uid, codigo: inicial, onListo }: { uid: string; codigo: string | null; onListo: () => void }) {
-  const [codigo, setCodigo] = useState(inicial)
+function GuardaTuCodigo({ uid, onListo }: { uid: string; onListo: () => void }) {
+  const [codigo, setCodigo] = useState<string | null>(null)
   const [confirma, setConfirma] = useState('')
   const [copiado, setCopiado] = useState(false)
   const [fase, setFase] = useState<'mostrar' | 'sellando'>('mostrar')
@@ -382,7 +354,6 @@ function AbrirCofre() {
 
 export function CofreGate({ uid, cargando, children }: { uid: string; cargando: ReactNode; children: ReactNode }) {
   const estado = useCofre()
-  const [codigoNuevo, setCodigoNuevo] = useState<string | null>(null)
   const [, refrescar] = useState(0)
 
   const qc = useQueryClient()
@@ -438,35 +409,17 @@ export function CofreGate({ uid, cargando, children }: { uid: string; cargando: 
           </button>
         </Marco>
       )
-    case 'nuevo':
-      return (
-        <CrearCofre
-          onCreado={(c) => {
-            escribir(pendienteGuardar(uid), '1')
-            setCodigoNuevo(c)
-          }}
-        />
-      )
     case 'bloqueado':
       return <AbrirCofre />
     case 'abierto':
-      if (codigoNuevo || leer(pendienteGuardar(uid))) {
-        return (
-          <GuardaTuCodigo
-            uid={uid}
-            codigo={codigoNuevo}
-            onListo={() => {
-              setCodigoNuevo(null)
-              refrescar((n) => n + 1)
-            }}
-          />
-        )
+      if (estado.modo !== 'estandar' && leer(pendienteGuardar(uid))) {
+        return <GuardaTuCodigo uid={uid} onListo={() => refrescar((n) => n + 1)} />
       }
       return <>{children}</>
   }
 }
 
-// ——— /cofre: agregar dispositivos, cambiar el código, olvidar este dispositivo ———
+// ——— /cofre: elegir la protección, agregar dispositivos, cambiar el código, olvidar este dispositivo ———
 
 function AgregarDispositivo() {
   const [codigo, setCodigo] = useState<string | null>(null)
@@ -583,9 +536,66 @@ function CambiarCodigo() {
   )
 }
 
+function Proteccion({ avanzada }: { avanzada: boolean }) {
+  const [codigo, setCodigo] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function cambiar() {
+    const pregunta = avanzada
+      ? '¿Volver a la protección estándar? Rockie custodiará una copia de tu llave para que tu Cofre se abra solo al entrar con tu cuenta.'
+      : '¿Activar la protección avanzada? Te daremos un código de recuperación. Si pierdes tus dispositivos y ese código, nadie podrá abrir tu Cofre, ni nosotros.'
+    if (!window.confirm(pregunta)) return
+    setBusy(true)
+    setError('')
+    try {
+      if (avanzada) {
+        await cofre.activarEstandar()
+        setCodigo(null)
+      } else {
+        setCodigo(await cofre.activarAvanzada())
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <>
+      <p className="hint" style={{ lineHeight: 1.5 }}>
+        {avanzada ? (
+          <>
+            <b>Avanzada.</b> Solo tus dispositivos y tu código de recuperación abren tu Cofre. Nadie de Rockie puede leer
+            lo tuyo ni recuperarlo por ti.
+          </>
+        ) : (
+          <>
+            <b>Estándar.</b> Rockie custodia una copia de tu llave, separada de tus datos, para que no tengas que guardar
+            ningún código. Con la protección avanzada esa copia se borra: ni nosotros podemos abrir tu Cofre, y
+            recuperarlo depende solo de ti.
+          </>
+        )}
+      </p>
+      {codigo && (
+        <div style={{ marginTop: 'var(--s3)' }}>
+          <CodigoGrande codigo={codigo} />
+          <p className="hint" style={{ marginTop: 'var(--s3)', lineHeight: 1.5 }}>
+            Este es tu código de recuperación. Guárdalo fuera de este dispositivo: solo se muestra esta vez.
+          </p>
+        </div>
+      )}
+      <button className="btn ghost block" style={{ marginTop: 'var(--s3)' }} onClick={cambiar} disabled={busy}>
+        {avanzada ? 'Volver a la protección estándar' : 'Activar protección avanzada'}
+      </button>
+      {error && <p className="formerror" role="alert">{error}</p>}
+    </>
+  )
+}
+
 export default function CofrePage() {
   const nav = useNavigate()
   const estado = useCofre()
+  const avanzada = estado.modo !== 'estandar'
   return (
     <main className="authwrap" style={{ alignItems: 'start' }}>
       <div style={{ width: 'min(520px, 100%)', display: 'grid', gap: 'var(--s4)' }}>
@@ -603,19 +613,29 @@ export default function CofrePage() {
             </div>
           </div>
           <p style={{ marginTop: 'var(--s4)', color: 'var(--ink-soft)', fontSize: 'var(--t-s)', lineHeight: 1.5 }}>
-            Lo que guardas se cifra aquí antes de salir. En el servidor solo queda texto ilegible: nadie de Rockie puede
-            leerlo. Lo que tú decides mandar a un servicio externo (Google Calendar, Claude o la IA de Rockie) sale del
-            Cofre solo en ese momento.
+            {avanzada
+              ? 'Lo que guardas se cifra aquí antes de salir. En el servidor solo queda texto ilegible: nadie de Rockie puede leerlo.'
+              : 'Lo que guardas se cifra aquí antes de salir y en el servidor solo queda texto ilegible. Tu Cofre se abre solo cuando entras con tu cuenta, en cualquier dispositivo.'}{' '}
+            Lo que tú decides mandar a un servicio externo (Google Calendar, Claude o la IA de Rockie) sale del Cofre solo
+            en ese momento.
           </p>
         </section>
         <section className="card pad">
-          <div className="sectionh"><h2>Otro dispositivo</h2></div>
-          <AgregarDispositivo />
+          <div className="sectionh"><h2>Protección</h2></div>
+          <Proteccion avanzada={avanzada} />
         </section>
-        <section className="card pad">
-          <div className="sectionh"><h2>Código de recuperación</h2></div>
-          <CambiarCodigo />
-        </section>
+        {avanzada && (
+          <>
+            <section className="card pad">
+              <div className="sectionh"><h2>Otro dispositivo</h2></div>
+              <AgregarDispositivo />
+            </section>
+            <section className="card pad">
+              <div className="sectionh"><h2>Código de recuperación</h2></div>
+              <CambiarCodigo />
+            </section>
+          </>
+        )}
         <section className="card pad">
           <div className="sectionh"><h2>Este dispositivo</h2></div>
           <p className="hint" style={{ lineHeight: 1.5 }}>
@@ -625,7 +645,10 @@ export default function CofrePage() {
             className="btn danger block"
             style={{ marginTop: 'var(--s3)' }}
             onClick={async () => {
-              if (!window.confirm('¿Olvidar la llave en este dispositivo? Para volver a abrir tu Cofre aquí necesitarás otro dispositivo o tu código.')) return
+              const aviso = avanzada
+                ? '¿Olvidar la llave en este dispositivo? Para volver a abrir tu Cofre aquí necesitarás otro dispositivo o tu código.'
+                : '¿Olvidar la llave en este dispositivo? Tu Cofre se abrirá de nuevo cuando entres con tu cuenta.'
+              if (!window.confirm(aviso)) return
               await cofre.olvidarDispositivo()
               await signOut()
             }}

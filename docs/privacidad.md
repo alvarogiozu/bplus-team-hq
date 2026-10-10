@@ -1,8 +1,20 @@
 # Privacidad: el Cofre (cifrado de extremo a extremo)
 
 **Promesa:** lo que una persona guarda en Rockie se cifra en su dispositivo antes de salir. En la base de datos solo
-queda texto ilegible (`cf1.…`). Nadie lo puede leer: ni el dueño de Rockie con el panel de Supabase o la service role,
-ni Supabase, ni alguien que robe una copia de la base.
+queda texto ilegible (`cf1.…`): quien robe una copia de la base o mire el panel de Supabase no lee nada.
+
+**Dos protecciones (9 oct 2026, pedido de Álvaro: seguridad sin fricción, «como Apple»):**
+
+- **Estándar (por defecto en cuentas nuevas).** El Cofre se crea y se abre solo al entrar con la cuenta, sin códigos.
+  Para eso el servidor custodia una copia de la maestra en `cofre_custodia`, cerrada con `COFRE_CUSTODIA_KEK` (secret
+  de las funciones, no está en la base ni en sus respaldos) y atada a la persona y a su kid. La función
+  `cofre-custodia` la entrega solo a la sesión de esa persona. **No es extremo a extremo puro:** quien tenga a la vez
+  la base y ese secret puede abrir el Cofre. No decir «ni nosotros podemos» sobre este modo.
+- **Avanzada (Ajustes › Tu Cofre; las cuentas anteriores al 9 oct siguen aquí).** No hay copia: solo los dispositivos
+  y el código de recuperación abren el Cofre. Ni el dueño de Rockie con la service role, ni Supabase. Todo lo que
+  sigue en este documento describe este modo.
+- Si se pierde `COFRE_CUSTODIA_KEK`, las copias dejan de abrir: cada dispositivo que ya tiene la maestra vuelve a
+  dejar la suya cuando se suba `KEK_VERSION` y se borre su marca `cofre.custodia.*`. Rotarla = versión 2 del secret.
 
 ## Cómo funciona
 
