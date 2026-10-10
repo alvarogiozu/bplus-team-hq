@@ -117,6 +117,26 @@ try {
   const [mov] = await rest(`agenda_items?id=eq.${ev.id}&select=title,start_min,done_at`)
   ok(mov.start_min === 600 && Boolean(mov.done_at) && (await abreM(mov.title)) === 'Clase de cálculo', 'mover y marcar hecho conserva el título')
 
+  // el cuaderno personal ENTERO (nada «abierto para Claude»): ver, buscar, leer, crear, editar y tarjetas
+  const [libro] = await rest('cuaderno_books', { method: 'POST', body: JSON.stringify({ user_id: yo.uid, name: await cm('Biología'), kind: 'cuaderno', position: 1, abierta_claude: false }) })
+  const [pag] = await rest('cuaderno_notes', { method: 'POST', body: JSON.stringify({ user_id: yo.uid, title: await cm('La célula'), body: await cm('La mitocondria produce energía.'), kind: 'pagina', book_id: libro.id, position: 1 }) })
+  const vc = await call('ver_cuaderno', {})
+  ok(vc.includes('Biología') && vc.includes('La célula') && !/c[fj]1\./.test(vc), 'ver_cuaderno muestra el cuaderno cifrado, abierto')
+  ok((await call('buscar', { consulta: 'mitocondria' })).includes('La célula'), 'buscar encuentra dentro de una página cifrada')
+  ok((await call('leer_pagina', { id: pag.id })).includes('produce energía'), 'leer_pagina la abre')
+  const cp = await call('crear_paginas', { cuaderno_id: libro.id, paginas: [{ titulo: 'El núcleo', contenido: 'Guarda el ADN. Ver [[La célula]].' }] })
+  const pid = /El núcleo \[([0-9a-f-]{36})\]/.exec(cp)?.[1]
+  const [nueva] = pid ? await rest(`cuaderno_notes?id=eq.${pid}&select=title,body,abierta`) : [{}]
+  ok(Boolean(pid) && String(nueva.title).startsWith(`cf1.${kidP}.`) && String(nueva.body).startsWith(`cf1.${kidP}.`) && nueva.abierta === false, 'crear_paginas guarda cifrado con su llave')
+  ok((await abreM(nueva.title)) === 'El núcleo' && String(await abreM(nueva.body)).includes('Guarda el ADN') && String(await abreM(nueva.body)).includes(`cuaderno://nota/${pag.id}`), 'el navegador la abre y [[…]] quedó enlazado')
+  await call('editar_pagina', { id: pag.id, contenido: 'También tiene ribosomas.' })
+  const [edit] = await rest(`cuaderno_notes?id=eq.${pag.id}&select=title,body`)
+  ok(nav.esCifrado(edit.body) && String(await abreM(edit.body)).endsWith('También tiene ribosomas.') && (await abreM(edit.title)) === 'La célula', 'editar_pagina suma y vuelve a guardar cifrado')
+  await call('crear_tarjetas', { pagina_id: pag.id, tarjetas: [{ pregunta: '¿Qué produce la mitocondria?', respuesta: 'Energía' }] })
+  const [tarj] = await rest(`cuaderno_cards?note_id=eq.${pag.id}&select=q,a`)
+  ok(nav.esCifrado(tarj?.q) && (await abreM(tarj.a)) === 'Energía', 'crear_tarjetas guarda cifrado')
+  ok((await call('tarjetas_para_hoy', {})).includes('¿Qué produce la mitocondria?'), 'tarjetas_para_hoy las abre')
+
   // protección avanzada: se borra la copia y Claude deja de entrar
   const q = await custodia({ accion: 'quitar' })
   const [cuenta] = await rest(`cofre_cuentas?user_id=eq.${yo.uid}&select=modo`)
@@ -126,6 +146,7 @@ try {
   ok(!(await call('ver_proyectos', {})).includes('Proyecto en custodia'), 'en avanzada Claude deja de ver el proyecto')
   ok(/no encontré/i.test(await call('ver_tareas', { proyecto_id: sid })), 'y ver_tareas ya no lo abre')
   ok(/protección avanzada/.test(await call('ver_agenda', {})), 'ni abre la agenda')
+  ok(!(await call('ver_cuaderno', {})).includes('La célula'), 'ni el cuaderno')
   const no = await call('crear_tareas', { proyecto_id: sid, tareas: [{ titulo: 'no debería crearse' }] })
   ok((await rest(`tasks?space_id=eq.${sid}&select=id`)).length === 2 && !/\[[0-9a-f-]{36}\]/.test(no), 'ni escribe')
 } finally {

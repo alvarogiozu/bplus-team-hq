@@ -3,12 +3,15 @@
 // eso se hace en la app.
 // Privacidad (el Cofre, docs/privacidad.md): el cuaderno está cifrado en el dispositivo. Claude solo ve y escribe
 // lo que la persona abrió para Claude (libretas con abierta_claude; sus páginas y tarjetas tienen abierta = true).
+// Si Claude puede abrir «todo su Rockie» (protección estándar del Cofre, o la llave de «todo»: llavero.todo()), ve el
+// cuaderno ENTERO: lo cifrado se abre en memoria y lo que escribe ahí se guarda cifrado con la llave de la persona.
 // Todo lo demás no existe para este servidor: no puede leerlo.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { embed } from '../_shared/rockie-llm.ts'
 import { callProyecto, PROYECTO_INSTRUCCIONES, PROYECTO_TOOLS } from './proyectos.ts'
 import { AGENDA_INSTRUCCIONES, AGENDA_TOOLS, callAgenda } from './agenda.ts'
-import { EN_CLARO, LLAVE_VIEJA, type Llavero } from './llavero.ts'
+import { EN_CLARO, LLAVE_VIEJA, type Llavero, type Sello } from './llavero.ts'
+import { cerrar, kidDe } from '../_shared/cofre.ts'
 import { sinContenido } from '../_shared/registro.ts'
 
 export type Scope = 'leer' | 'escribir'
@@ -129,8 +132,21 @@ const asStr = (v: unknown, max = 60_000) => (typeof v === 'string' ? v.slice(0, 
 const MAX_BODY = 60_000
 const COLOR_ORDER = ['berry', 'coral', 'title', 'amber', 'olive', 'green', 'accent', 'navy']
 
-type Book = { id: string; name: string; kind: 'carpeta' | 'cuaderno'; parent_id: string | null; color: string | null; position: number }
-type NoteRow = { id: string; title: string; book_id: string | null; parent_note_id: string | null; kind: string; position: number; updated_at: string }
+type Book = { id: string; name: string; kind: 'carpeta' | 'cuaderno'; parent_id: string | null; color: string | null; position: number; abierta?: boolean }
+type NoteRow = { id: string; title: string; book_id: string | null; parent_note_id: string | null; kind: string; position: number; updated_at: string; abierta?: boolean }
+
+/** Cómo se guarda un texto del cuaderno personal: en claro si su fila está «abierta para Claude» (modo viejo); si no,
+ *  cifrado con la misma llave con que ya venía (previo) o con la de la persona. null = no hay llave: no se escribe. */
+async function selloPersonal(ctx: Ctx, abierta: boolean, previo?: unknown): Promise<Sello | null> {
+  if (abierta) return EN_CLARO
+  const kid = typeof previo === 'string' ? kidDe(previo) : null
+  if (kid) {
+    const ll = await ctx.llavero.llaves()
+    if (ll.has(kid)) return { cifra: true, cierra: (v) => (v === '' ? Promise.resolve('') : cerrar(ll, kid, v)) }
+  }
+  return ctx.llavero.sello({ personal: ctx.uid })
+}
+const abre = async (ctx: Ctx, v: unknown, si = '🔒') => (await ctx.llavero.texto(v)) ?? si
 
 async function books(ctx: Ctx): Promise<Book[]> {
   const { data } = await ctx.db
@@ -146,20 +162,22 @@ async function books(ctx: Ctx): Promise<Book[]> {
     }
     return false
   }
+  // con «todo su Rockie»: todas, con el nombre abierto en memoria (abierta = se guarda en claro, modo viejo)
+  if (await ctx.llavero.todo()) {
+    return Promise.all(all.map(async (b) => ({ id: b.id, name: await abre(ctx, b.name), kind: b.kind, parent_id: b.parent_id, color: b.color, position: b.position, abierta: open(b) })))
+  }
   const abiertas = all.filter(open)
   const ids = new Set(abiertas.map((b) => b.id))
   // una abierta dentro de una carpeta cerrada: cuelga de la raíz (el nombre de arriba está cifrado)
-  return abiertas.map(({ abierta_claude: _a, ...b }) => ({ ...b, parent_id: b.parent_id && ids.has(b.parent_id) ? b.parent_id : null }))
+  return abiertas.map(({ abierta_claude: _a, ...b }) => ({ ...b, abierta: true, parent_id: b.parent_id && ids.has(b.parent_id) ? b.parent_id : null }))
 }
 async function notes(ctx: Ctx): Promise<NoteRow[]> {
-  const { data } = await ctx.db
-    .from('cuaderno_notes')
-    .select('id, title, book_id, parent_note_id, kind, position, updated_at')
-    .eq('user_id', ctx.uid)
-    .eq('abierta', true)
-    .order('position')
-    .limit(5000)
-  return (data ?? []) as NoteRow[]
+  const todo = await ctx.llavero.todo()
+  let q = ctx.db.from('cuaderno_notes').select('id, title, book_id, parent_note_id, kind, position, updated_at, abierta').eq('user_id', ctx.uid)
+  if (!todo) q = q.eq('abierta', true)
+  const { data } = await q.order('position').limit(5000)
+  const filas = (data ?? []) as NoteRow[]
+  return todo ? Promise.all(filas.map(async (n) => ({ ...n, title: await abre(ctx, n.title) }))) : filas
 }
 const pathOf = (id: string | null, all: Book[]) => {
   const out: string[] = []
@@ -236,7 +254,7 @@ async function linkAll(ctx: Ctx, from: string, targets: string[], reason = 'Enla
 async function embedNotes(ctx: Ctx, ids: string[]) {
   if (!ids.length) return
   try {
-    const { data } = await ctx.db.from('cuaderno_notes').select('id, title, body').eq('user_id', ctx.uid).in('id', ids)
+    const { data } = await ctx.db.from('cuaderno_notes').select('id, title, body').eq('user_id', ctx.uid).eq('abierta', true).in('id', ids)
     const rows = data ?? []
     const vecs = await embed(rows.map((n) => `${n.title}\n\n${n.body}`.slice(0, 8000)))
     if (!vecs) return
@@ -301,15 +319,19 @@ async function bookFor(ctx: Ctx, args: Args, all: Book[]): Promise<{ id: string 
 }
 
 async function makeBook(ctx: Ctx, name: string, kind: Book['kind'], parentId: string | null, all: Book[]): Promise<Book | { error: string }> {
+  // con «todo su Rockie» lo nuevo nace cifrado (salvo dentro de una libreta que sigue abierta en claro)
+  const abierta = !(await ctx.llavero.todo()) || Boolean(all.find((b) => b.id === parentId)?.abierta)
+  const sello = await selloPersonal(ctx, abierta)
+  if (!sello) return { error: LLAVE_VIEJA }
   const used = all.filter((b) => !b.parent_id).map((b) => b.color)
   const color = parentId ? null : (COLOR_ORDER.find((c) => !used.includes(c)) ?? COLOR_ORDER[used.length % COLOR_ORDER.length])
   const { data, error } = await ctx.db
     .from('cuaderno_books')
-    .insert({ user_id: ctx.uid, name: name.slice(0, 80), kind, parent_id: parentId, color, position: Date.now() / 1000, abierta_claude: true })
+    .insert({ user_id: ctx.uid, name: await sello.cierra(name.slice(0, 80)), kind, parent_id: parentId, color, position: Date.now() / 1000, abierta_claude: abierta })
     .select('id, name, kind, parent_id, color, position')
     .single()
   if (error) return { error: /niveles/.test(error.message) ? 'Como mucho 4 niveles de carpetas.' : /cuaderno/.test(error.message) ? 'Una carpeta no puede ir dentro de un cuaderno.' : 'No pude crear la carpeta.' }
-  return data as Book
+  return { ...(data as Book), name: name.slice(0, 80), abierta }
 }
 
 /** ¿Es la nota de una tarea de un proyecto que Claude puede ver (con llave temporal, o abierto en claro) y del que
@@ -438,8 +460,20 @@ async function buscar(ctx: Ctx, args: Args) {
     }
   }
   for (const r of byBody.data ?? []) if (!found.has(r.id)) found.set(r.id, r)
+  // lo cifrado no se puede buscar en la base: se abre en memoria y se busca aquí (lo más reciente primero)
+  const todo = await ctx.llavero.todo()
+  if (todo && found.size < k) {
+    const { data } = await ctx.db.from('cuaderno_notes').select('id, title, body, book_id').eq('user_id', ctx.uid).eq('abierta', false).order('updated_at', { ascending: false }).limit(400)
+    const fq = fold(q)
+    for (const r of data ?? []) {
+      if (found.size >= k) break
+      const [t, b] = await Promise.all([ctx.llavero.texto(r.title), ctx.llavero.texto(r.body)])
+      if (t === null || b === null) continue
+      if (fold(t).includes(fq) || fold(plain(b)).includes(fq)) found.set(r.id, { ...r, title: t, body: b })
+    }
+  }
   const hits = [...found.values()].slice(0, k)
-  if (!hits.length) return text(`No encontré nada sobre «${q}» en los cuadernos abiertos para Claude.`)
+  if (!hits.length) return text(`No encontré nada sobre «${q}» en ${todo ? 'su cuaderno' : 'los cuadernos abiertos para Claude'}.`)
   const lines = hits.map((n) => {
     const p = plain(n.body)
     const at = fold(p).indexOf(fold(q))
@@ -455,12 +489,20 @@ async function idDePagina(ctx: Ctx, id: string): Promise<string> {
   return (data as { note_id?: string } | null)?.note_id ?? id
 }
 
+/** Con qué está conectada una página (el motivo, abierto en memoria si iba cifrado). */
+async function enlacesDe(ctx: Ctx, id: string) {
+  let q = ctx.db.from('cuaderno_links').select('a_id, b_id, reason').eq('user_id', ctx.uid)
+  if (!(await ctx.llavero.todo())) q = q.eq('abierta', true)
+  const { data } = await q.or(`a_id.eq.${id},b_id.eq.${id}`).not('b_id', 'is', null).limit(50)
+  return { data: await Promise.all(((data ?? []) as { a_id: string; b_id: string; reason: string }[]).map(async (x) => ({ ...x, reason: await abre(ctx, x.reason) }))) }
+}
+
 async function leerPagina(ctx: Ctx, args: Args) {
   if (!UUID.test(asStr(args.id, 60))) return oops('Ese id no es de una página. Usa buscar o ver_cuaderno para encontrarlo.')
   const id = await idDePagina(ctx, asStr(args.id, 60))
   const delProyecto = await notaDeProyecto(ctx, id)
   let q = ctx.db.from('cuaderno_notes').select('id, title, body, book_id, parent_note_id, kind, area, created_at, updated_at').eq('id', id)
-  if (!delProyecto?.conLlave) q = q.eq('abierta', true)
+  if (!delProyecto?.conLlave && !(await ctx.llavero.todo())) q = q.eq('abierta', true)
   if (!delProyecto) q = q.eq('user_id', ctx.uid)
   const { data: n } = await q.maybeSingle()
   if (!n) return oops(delProyecto ? 'Esa nota de tarea no está abierta para Claude todavía.' : 'No encontré esa página en los cuadernos abiertos para Claude (lo demás está cifrado).')
@@ -472,7 +514,7 @@ async function leerPagina(ctx: Ctx, args: Args) {
   const [bs, ns, links, cards] = await Promise.all([
     books(ctx),
     notes(ctx),
-    ctx.db.from('cuaderno_links').select('a_id, b_id, reason').eq('user_id', ctx.uid).eq('abierta', true).or(`a_id.eq.${id},b_id.eq.${id}`).not('b_id', 'is', null).limit(50),
+    enlacesDe(ctx, id),
     ctx.db.from('cuaderno_cards').select('id', { count: 'exact', head: true }).eq('user_id', ctx.uid).eq('note_id', id),
   ])
   const byId = new Map(ns.map((x) => [x.id, x.title]))
@@ -522,7 +564,7 @@ async function crearPaginas(ctx: Ctx, args: Args) {
   const [bs, ns] = await Promise.all([books(ctx), notes(ctx)])
   const where = await bookFor(ctx, args, bs)
   if ('error' in where) return oops(where.error)
-  if (!where.id) {
+  if (!where.id && !(await ctx.llavero.todo())) {
     // sin cuaderno quedaría cifrada y Claude ya no la vería: va a «Desde Claude» (abierto para Claude)
     const ya = bs.find((b) => !b.parent_id && fold(b.name) === fold('Desde Claude'))
     const b = ya ?? (await makeBook(ctx, 'Desde Claude', 'cuaderno', null, bs))
@@ -535,6 +577,7 @@ async function crearPaginas(ctx: Ctx, args: Args) {
   }
   const titles = titleMap(ns)
   const made: NoteRow[] = []
+  const sellos: Sello[] = []
   const lines: string[] = []
   for (const p of items) {
     // su tema: una página ya existente (por id o título) o una de este mismo lote
@@ -547,11 +590,14 @@ async function crearPaginas(ctx: Ctx, args: Args) {
       parent = [...made].reverse().find((x) => fold(x.title) === t) ?? ns.find((x) => x.id === titles.get(t)?.id)
       if (!parent) return oops(`No encontré la página «${p.tema}» para usarla como tema. Créala primero o usa su id.`)
     }
+    const destino = parent ? parent.book_id : where.id
+    const sello = await selloPersonal(ctx, Boolean(bs.find((b) => b.id === destino)?.abierta))
+    if (!sello) return oops(LLAVE_VIEJA)
     const { data, error } = await ctx.db
       .from('cuaderno_notes')
       .insert({
         user_id: ctx.uid,
-        title: p.titulo,
+        title: await sello.cierra(p.titulo),
         body: '',
         kind: 'pagina',
         book_id: parent ? parent.book_id : where.id,
@@ -561,8 +607,9 @@ async function crearPaginas(ctx: Ctx, args: Args) {
       .select('id, title, book_id, parent_note_id, kind, position, updated_at')
       .single()
     if (error || !data) return oops(`No pude crear «${p.titulo}»${made.length ? ` (sí creé ${made.length} antes)` : ''}: ${/niveles/.test(error?.message ?? '') ? 'como mucho 4 niveles de subnotas' : 'intenta de nuevo'}.`)
-    made.push(data as NoteRow)
-    titles.set(fold(p.titulo), { id: data.id, title: data.title })
+    made.push({ ...(data as NoteRow), title: p.titulo })
+    sellos.push(sello)
+    titles.set(fold(p.titulo), { id: data.id, title: p.titulo })
   }
   // el contenido va después: así [[…]] puede enlazar también páginas del mismo lote
   // cada línea cuenta lo que de verdad quedó: contenido guardado, conexiones hechas y lo que no se encontró
@@ -572,7 +619,7 @@ async function crearPaginas(ctx: Ctx, args: Args) {
     const { body, targets, missing } = prepare(items[i].contenido, titles)
     const notas: string[] = []
     if (body.trim()) {
-      const { error } = await ctx.db.from('cuaderno_notes').update({ body: body.slice(0, MAX_BODY) }).eq('id', made[i].id).eq('user_id', ctx.uid)
+      const { error } = await ctx.db.from('cuaderno_notes').update({ body: await sellos[i].cierra(body.slice(0, MAX_BODY)) }).eq('id', made[i].id).eq('user_id', ctx.uid)
       if (error) notas.push('⚠️ la página quedó creada pero SIN contenido (no se pudo guardar): reintenta con editar_pagina')
     }
     const rel = items[i].relacionadas.map((r) => (UUID.test(r) ? (made.find((m) => m.id === r) ?? ns.find((m) => m.id === r))?.id : titles.get(fold(r))?.id))
@@ -601,18 +648,20 @@ async function editarPagina(ctx: Ctx, args: Args) {
   const id = await idDePagina(ctx, asStr(args.id, 60))
   const conectarCon = (Array.isArray(args.conectar_con) ? args.conectar_con : []).map((x) => asStr(x, 60)).filter((x) => UUID.test(x)).slice(0, 20)
   const delProyecto = await notaDeProyecto(ctx, id)
-  let q = ctx.db.from('cuaderno_notes').select('id, title, body').eq('id', id)
-  if (!delProyecto?.conLlave) q = q.eq('abierta', true)
+  let q = ctx.db.from('cuaderno_notes').select('id, title, body, abierta').eq('id', id)
+  if (!delProyecto?.conLlave && !(await ctx.llavero.todo())) q = q.eq('abierta', true)
   if (!delProyecto) q = q.eq('user_id', ctx.uid)
   const { data: n } = await q.maybeSingle()
   if (!n) return oops(delProyecto ? 'Esa nota de tarea no está abierta para Claude todavía.' : 'No encontré esa página en los cuadernos abiertos para Claude.')
   // se abre en memoria; lo que no se pudo abrir no se toca (sumarle texto la rompería)
+  const crudo = n.title
   const [tituloAbierto, cuerpoAbierto] = await Promise.all([ctx.llavero.texto(n.title), ctx.llavero.texto(n.body)])
   if (tituloAbierto === null || cuerpoAbierto === null) return oops(AUN_CIFRADA)
   n.title = tituloAbierto
   n.body = cuerpoAbierto
   // y se vuelve a guardar como estaba: cifrada con la llave vigente del equipo, o en claro en el modo viejo
-  const sello = delProyecto && !delProyecto.abierto ? await ctx.llavero.sello({ espacio: delProyecto.sid }) : EN_CLARO
+  // (lo personal: en claro si su libreta sigue «abierta»; si no, con la llave con que venía o la de la persona)
+  const sello = delProyecto ? (delProyecto.abierto ? EN_CLARO : await ctx.llavero.sello({ espacio: delProyecto.sid })) : await selloPersonal(ctx, Boolean(n.abierta), crudo)
   if (!sello) return oops(LLAVE_VIEJA)
   const mode = args.modo === 'reemplazar' ? 'reemplazar' : 'agregar'
   const titulo = asStr(args.titulo, 160).trim()
@@ -625,7 +674,7 @@ async function editarPagina(ctx: Ctx, args: Args) {
   const patch: Record<string, string> = { body: await sello.cierra(next) }
   if (titulo) patch.title = await sello.cierra(titulo)
   let upd = ctx.db.from('cuaderno_notes').update(patch).eq('id', id)
-  if (!delProyecto?.conLlave) upd = upd.eq('abierta', true)
+  if (!delProyecto?.conLlave && !(await ctx.llavero.todo())) upd = upd.eq('abierta', true)
   if (!delProyecto) upd = upd.eq('user_id', ctx.uid)
   const { error } = await upd
   if (error) return oops('No pude guardar el cambio.')
@@ -669,10 +718,15 @@ async function conectar(ctx: Ctx, args: Args) {
   const b = asStr(args.b_id, 60)
   const motivo = asStr(args.motivo, 300).trim() || 'Conectadas desde Claude'
   if (!UUID.test(a) || !UUID.test(b) || a === b) return oops('Necesito dos páginas distintas (sus ids).')
-  const { data } = await ctx.db.from('cuaderno_notes').select('id, title').eq('user_id', ctx.uid).eq('abierta', true).in('id', [a, b])
-  if ((data ?? []).length !== 2) return oops('No encontré alguna de las dos páginas en los cuadernos abiertos para Claude.')
-  const { error } = await ctx.db.from('cuaderno_links').insert({ user_id: ctx.uid, a_id: a, b_id: b, reason: motivo })
-  const t = (id: string) => data!.find((x) => x.id === id)?.title
+  let qn = ctx.db.from('cuaderno_notes').select('id, title, abierta').eq('user_id', ctx.uid)
+  if (!(await ctx.llavero.todo())) qn = qn.eq('abierta', true)
+  const { data: filas } = await qn.in('id', [a, b])
+  const data = await Promise.all(((filas ?? []) as { id: string; title: string; abierta: boolean }[]).map(async (x) => ({ ...x, title: await abre(ctx, x.title) })))
+  if (data.length !== 2) return oops('No encontré alguna de las dos páginas en los cuadernos abiertos para Claude.')
+  const sello = await selloPersonal(ctx, data.every((x) => x.abierta))
+  if (!sello) return oops(LLAVE_VIEJA)
+  const { error } = await ctx.db.from('cuaderno_links').insert({ user_id: ctx.uid, a_id: a, b_id: b, reason: await sello.cierra(motivo) })
+  const t = (id: string) => data.find((x) => x.id === id)?.title
   if (error?.code === '23505') return text(`«${t(a)}» y «${t(b)}» ya estaban conectadas.`)
   if (error) return oops('No pude conectarlas.')
   return text(`Conecté «${t(a)}» con «${t(b)}» (${motivo}).`)
@@ -681,35 +735,38 @@ async function conectar(ctx: Ctx, args: Args) {
 async function crearTarjetas(ctx: Ctx, args: Args) {
   const id = asStr(args.pagina_id, 60)
   if (!UUID.test(id)) return oops('Falta la página (pagina_id).')
-  const { data: n } = await ctx.db.from('cuaderno_notes').select('id, title').eq('user_id', ctx.uid).eq('id', id).eq('abierta', true).maybeSingle()
+  let qn = ctx.db.from('cuaderno_notes').select('id, title, abierta').eq('user_id', ctx.uid).eq('id', id)
+  if (!(await ctx.llavero.todo())) qn = qn.eq('abierta', true)
+  const { data: n } = await qn.maybeSingle()
   if (!n) return oops('No encontré esa página en los cuadernos abiertos para Claude.')
+  const sello = await selloPersonal(ctx, Boolean(n.abierta), n.title)
+  if (!sello) return oops(LLAVE_VIEJA)
   const list = (Array.isArray(args.tarjetas) ? (args.tarjetas as Args[]) : [])
     .map((c) => ({ q: asStr(c.pregunta, 300).trim(), a: asStr(c.respuesta, 600).trim() }))
     .filter((c) => c.q && c.a)
     .slice(0, 40)
   if (!list.length) return oops('Cada tarjeta necesita pregunta y respuesta.')
   const due = await today(ctx)
-  const { error } = await ctx.db.from('cuaderno_cards').insert(list.map((c) => ({ user_id: ctx.uid, note_id: id, q: c.q, a: c.a, due })))
+  const filas = await Promise.all(list.map(async (c) => ({ user_id: ctx.uid, note_id: id, q: await sello.cierra(c.q), a: await sello.cierra(c.a), due })))
+  const { error } = await ctx.db.from('cuaderno_cards').insert(filas)
   if (error) return oops('No pude crear las tarjetas.')
-  return text(`Creé ${list.length} ${list.length === 1 ? 'tarjeta' : 'tarjetas'} en «${n.title}». Aparecen hoy en Repaso: ${ctx.origin}/cuaderno/repaso`)
+  return text(`Creé ${list.length} ${list.length === 1 ? 'tarjeta' : 'tarjetas'} en «${await abre(ctx, n.title, 'la página')}». Aparecen hoy en Repaso: ${ctx.origin}/cuaderno/repaso`)
 }
 
 async function paraHoy(ctx: Ctx, args: Args) {
   const k = Math.min(30, Math.max(1, Number(args.limite) || 10))
   const day = await today(ctx)
-  const { data } = await ctx.db
-    .from('cuaderno_cards')
-    .select('id, q, a, box, due, note_id')
-    .eq('user_id', ctx.uid)
-    .eq('abierta', true)
+  let qc = ctx.db.from('cuaderno_cards').select('id, q, a, box, due, note_id').eq('user_id', ctx.uid)
+  if (!(await ctx.llavero.todo())) qc = qc.eq('abierta', true)
+  const { data } = await qc
     .lte('due', day)
     .order('due')
     .order('box')
     .limit(k)
-  const cards = data ?? []
+  const cards = await Promise.all((data ?? []).map(async (c) => ({ ...c, q: await abre(ctx, c.q), a: await abre(ctx, c.a) })))
   if (!cards.length) return text('No hay tarjetas pendientes hoy. ¡Al día!')
   const { data: ns } = await ctx.db.from('cuaderno_notes').select('id, title').eq('user_id', ctx.uid).in('id', [...new Set(cards.map((c) => c.note_id))])
-  const t = new Map((ns ?? []).map((x) => [x.id, x.title]))
+  const t = new Map(await Promise.all((ns ?? []).map(async (x) => [x.id as string, await abre(ctx, x.title, '?')] as const)))
   const lines = cards.map((c) => `- [${c.id}] (caja ${c.box}, de «${t.get(c.note_id) ?? '?'}»)\n  P: ${c.q}\n  R: ${c.a}`)
   return text(`Tarjetas para hoy (${cards.length}). Pregunta de a una sin mostrar la respuesta y registra cada una con registrar_repaso.\n${lines.join('\n')}`)
 }
@@ -717,7 +774,9 @@ async function paraHoy(ctx: Ctx, args: Args) {
 async function registrar(ctx: Ctx, args: Args) {
   const id = asStr(args.tarjeta_id, 60)
   if (!UUID.test(id)) return oops('Falta la tarjeta (tarjeta_id).')
-  const { data: c } = await ctx.db.from('cuaderno_cards').select('id, box, q').eq('user_id', ctx.uid).eq('id', id).eq('abierta', true).maybeSingle()
+  let qc = ctx.db.from('cuaderno_cards').select('id, box, q').eq('user_id', ctx.uid).eq('id', id)
+  if (!(await ctx.llavero.todo())) qc = qc.eq('abierta', true)
+  const { data: c } = await qc.maybeSingle()
   if (!c) return oops('No encontré esa tarjeta.')
   const remembered = args.me_acorde === true
   const day = await today(ctx)

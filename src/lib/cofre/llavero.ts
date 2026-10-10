@@ -112,6 +112,7 @@ export class Llavero {
   private cargaSobres: Promise<void> | null = null
   private ultimaCargaSobres = 0
   private inicio: Promise<void> | null = null
+  private dejandoCopia: Promise<boolean> | null = null
   private canal: BroadcastChannel | null = null
   private readonly db: SupabaseClient
   private readonly ref: string
@@ -227,7 +228,6 @@ export class Llavero {
         return
       }
       await this.abrir(guardada, cuenta)
-      if (cuenta.modo === 'estandar') void this.asegurarCustodia()
     } catch (e) {
       if (uid !== this.uid) return
       this.poner({ fase: 'error', error: e instanceof Error ? e.message : String(e) })
@@ -276,6 +276,8 @@ export class Llavero {
     this.maestra = g
     this.llaves.set(g.kid, g.llave)
     this.poner({ fase: 'abierto', modo: cuenta.modo ?? 'avanzada' })
+    // protección estándar: si este dispositivo aún no dejó su copia en custodia, la deja ahora (sin molestar)
+    if (cuenta.modo === 'estandar') void this.asegurarCustodia()
     void this.cargarSobres(true)
   }
 
@@ -351,8 +353,8 @@ export class Llavero {
         try {
           const g = { kid: cuenta.kid, llave: await importarLlave(deB64u(r.llave)) }
           await this.guardarDispositivo(g)
-          await this.abrir(g, cuenta)
           marcar(this.marcaCustodia(cuenta.kid), '1')
+          await this.abrir(g, cuenta)
           this.avisarOtrasVentanas()
           return true
         } catch {
@@ -366,7 +368,13 @@ export class Llavero {
   }
 
   /** Deja (una vez por dispositivo) la copia de la maestra en custodia. Si falla, se reintenta la próxima vez. */
-  private async asegurarCustodia(): Promise<boolean> {
+  private asegurarCustodia(): Promise<boolean> {
+    return (this.dejandoCopia ??= this.dejarCopia().finally(() => {
+      this.dejandoCopia = null
+    }))
+  }
+
+  private async dejarCopia(): Promise<boolean> {
     const m = this.maestra
     if (!m) return false
     const marca = this.marcaCustodia(m.kid)
