@@ -147,7 +147,7 @@ function Tareas({ spaceId }: { spaceId: string }) {
               {/* Hoy son carriles por persona: va con todo el equipo aunque «Mías» esté puesto */}
               {view === 'hoy' && <HoyView tasks={paraPanel} />}
               {view === 'lista' && <ListView tasks={shown} />}
-              {view === 'tablero' && <BoardView tasks={shown} />}
+              {view === 'tablero' && <BoardView tasks={shown} hechasOcultas={hechasOcultas(q.data ?? [], filters, userId ?? '')} onVerHechas={() => setFilters({ ...filters, hideDone: false })} />}
               {view === 'calendario' && <WeekView tasks={shown} />}
               {view === 'gantt' && <GanttView tasks={shown} />}
               {view === 'panel' && <DashboardView tasks={paraPanel} filtered={paraPanel.length !== (q.data ?? []).length} />}

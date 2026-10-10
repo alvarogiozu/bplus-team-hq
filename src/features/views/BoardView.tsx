@@ -32,7 +32,9 @@ function arrange(tasks: Task[]): Cols {
   return out
 }
 
-export function BoardView({ tasks }: { tasks: Task[] }) {
+/** hechasOcultas: cuántas hechas esconde el filtro «Mostrar hechas»; la columna Hecho las cuenta y ofrece verlas
+ *  (vacía y en 0 parecía que no se había hecho nada). */
+export function BoardView({ tasks, hechasOcultas = 0, onVerHechas }: { tasks: Task[]; hechasOcultas?: number; onVerHechas?: () => void }) {
   const { move } = useTaskActions()
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks])
   const base = useMemo(() => arrange(tasks), [tasks])
@@ -111,7 +113,7 @@ export function BoardView({ tasks }: { tasks: Task[] }) {
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onStart} onDragOver={onOver} onDragEnd={onEnd} onDragCancel={() => { setActiveId(null); setCols(base) }}>
       <div className="board">
         {COLS.map((s) => (
-          <Column key={s} status={s} ids={cols[s]} byId={byId} highlight={overCol === s && Boolean(activeId)} />
+          <Column key={s} status={s} ids={cols[s]} byId={byId} highlight={overCol === s && Boolean(activeId)} ocultas={s === 'done' ? hechasOcultas : 0} onVer={onVerHechas} />
         ))}
       </div>
       <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(.32,.72,0,1)' }}>
@@ -121,14 +123,14 @@ export function BoardView({ tasks }: { tasks: Task[] }) {
   )
 }
 
-function Column({ status, ids, byId, highlight }: { status: Status; ids: string[]; byId: Map<string, Task>; highlight: boolean }) {
+function Column({ status, ids, byId, highlight, ocultas, onVer }: { status: Status; ids: string[]; byId: Map<string, Task>; highlight: boolean; ocultas: number; onVer?: () => void }) {
   const { setNodeRef } = useDroppable({ id: status })
   return (
     <section ref={setNodeRef} className={`col${highlight ? ' over' : ''}${status === 'done' ? ' donecol' : ''}`} aria-label={STATUS_LABEL[status]}>
       <div className="colhead">
         <span className="cdot" style={{ background: COL_COLOR[status] }} />
         <span className="cname">{STATUS_LABEL[status]}</span>
-        <span key={ids.length} className="ccount pop">{ids.length}</span>
+        <span key={ids.length + ocultas} className="ccount pop">{ids.length + ocultas}</span>
       </div>
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         <div className="cards">
@@ -136,7 +138,12 @@ function Column({ status, ids, byId, highlight }: { status: Status; ids: string[
             const t = byId.get(id)
             return t ? <SortableCard key={id} task={t} /> : null
           })}
-          {status === 'done' && ids.length === 0 && <p className="hint" style={{ textAlign: 'center', padding: 16 }}>Suelta aquí para validar</p>}
+          {status === 'done' && ocultas > 0 && (
+            <button type="button" className="btn ghost sm block" onClick={onVer}>
+              {ocultas === 1 ? 'Ver la tarea hecha' : `Ver las ${ocultas} hechas`}
+            </button>
+          )}
+          {status === 'done' && ids.length === 0 && ocultas === 0 && <p className="hint" style={{ textAlign: 'center', padding: 16 }}>Suelta aquí para validar</p>}
         </div>
       </SortableContext>
     </section>
