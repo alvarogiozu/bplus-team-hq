@@ -11,6 +11,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { INSTRUCTIONS, toolsFor, callTool, type Ctx, type Scope } from './tools.ts'
 import { quienIA } from '../_shared/ia-uso.ts'
+import { crearLlavero } from './llavero.ts'
 import { sinContenido } from '../_shared/registro.ts'
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -102,7 +103,7 @@ async function mcp(req: Request) {
   } catch {
     return json(fail(null, -32700, 'El mensaje no es JSON'), 400)
   }
-  const ctx: Ctx = { db: admin, uid: who.uid, scope: who.scope, origin }
+  const ctx: Ctx = { db: admin, uid: who.uid, scope: who.scope, origin, llavero: crearLlavero(admin, who.uid) }
   const batch = Array.isArray(body)
   const out = []
   for (const m of (batch ? body : [body]) as Rpc[]) {

@@ -7,10 +7,12 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { embed } from '../_shared/rockie-llm.ts'
 import { callProyecto, PROYECTO_INSTRUCCIONES, PROYECTO_TOOLS } from './proyectos.ts'
+import { EN_CLARO, LLAVE_VIEJA, type Llavero } from './llavero.ts'
 import { sinContenido } from '../_shared/registro.ts'
 
 export type Scope = 'leer' | 'escribir'
-export type Ctx = { db: SupabaseClient; uid: string; scope: Scope; origin: string }
+/** llavero = las llaves temporales que la persona le dio a Claude, para este pedido (./llavero.ts). */
+export type Ctx = { db: SupabaseClient; uid: string; scope: Scope; origin: string; llavero: Llavero }
 type Args = Record<string, unknown>
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean }
 
@@ -316,20 +318,22 @@ async function makeBook(ctx: Ctx, name: string, kind: Book['kind'], parentId: st
   return data as Book
 }
 
-/** ¿Es la nota de una tarea de un proyecto abierto para Claude del que esta persona es miembro? (entonces la puede
- *  leer y editar aunque la haya creado otra persona del equipo). */
-async function notaDeProyecto(ctx: Ctx, id: string): Promise<boolean> {
+/** ¿Es la nota de una tarea de un proyecto que Claude puede ver (con llave temporal, o abierto en claro) y del que
+ *  esta persona es miembro? Entonces la puede leer y editar aunque la haya creado otra persona del equipo.
+ *  abierto = el proyecto sigue en claro (modo viejo); conLlave = hay llave vigente y la nota va cifrada. */
+async function notaDeProyecto(ctx: Ctx, id: string): Promise<{ sid: string; abierto: boolean; conLlave: boolean } | null> {
   const { data: m } = await ctx.db.from('materials').select('space_id').eq('note_id', id).eq('kind', 'note').not('task_id', 'is', null).limit(1).maybeSingle()
-  if (!m) return false
+  if (!m) return null
   const sid = (m as { space_id: string }).space_id
-  const [{ data: sp }, { data: yo }] = await Promise.all([
+  const [{ data: sp }, { data: yo }, conLlave] = await Promise.all([
     ctx.db.from('spaces').select('abierto_claude').eq('id', sid).maybeSingle(),
     ctx.db.from('space_members').select('user_id').eq('space_id', sid).eq('user_id', ctx.uid).maybeSingle(),
+    ctx.llavero.cubre(sid),
   ])
-  return Boolean((sp as { abierto_claude?: boolean } | null)?.abierto_claude && yo)
+  const abierto = Boolean((sp as { abierto_claude?: boolean } | null)?.abierto_claude)
+  return yo && (abierto || conLlave) ? { sid, abierto, conLlave } : null
 }
-const enCifrado = (v: unknown) => typeof v === 'string' && /^c[fj]1\./.test(v)
-const AUN_CIFRADA = 'Esa nota todavía está cifrada: se abre sola cuando su dueña entra a Rockie (rockie.plus). Mientras tanto no se puede leer ni cambiar.'
+const AUN_CIFRADA = 'Claude no puede abrir esa nota todavía: su dueña tiene que abrir Rockie (rockie.plus) para renovar la llave de Claude. Mientras tanto no se puede leer ni cambiar.'
 
 // ---------- cada herramienta ----------
 export async function callTool(name: string, args: Args, ctx: Ctx): Promise<Result> {
@@ -461,11 +465,16 @@ async function leerPagina(ctx: Ctx, args: Args) {
   if (!UUID.test(asStr(args.id, 60))) return oops('Ese id no es de una página. Usa buscar o ver_cuaderno para encontrarlo.')
   const id = await idDePagina(ctx, asStr(args.id, 60))
   const delProyecto = await notaDeProyecto(ctx, id)
-  let q = ctx.db.from('cuaderno_notes').select('id, title, body, book_id, parent_note_id, kind, area, created_at, updated_at').eq('id', id).eq('abierta', true)
+  let q = ctx.db.from('cuaderno_notes').select('id, title, body, book_id, parent_note_id, kind, area, created_at, updated_at').eq('id', id)
+  if (!delProyecto?.conLlave) q = q.eq('abierta', true)
   if (!delProyecto) q = q.eq('user_id', ctx.uid)
   const { data: n } = await q.maybeSingle()
   if (!n) return oops(delProyecto ? 'Esa nota de tarea no está abierta para Claude todavía.' : 'No encontré esa página en los cuadernos abiertos para Claude (lo demás está cifrado).')
-  if (enCifrado(n.title) || enCifrado(n.body)) return oops(AUN_CIFRADA)
+  // se abre en memoria con la llave temporal (si está en claro, pasa igual)
+  const [tituloAbierto, cuerpoAbierto] = await Promise.all([ctx.llavero.texto(n.title), ctx.llavero.texto(n.body)])
+  if (tituloAbierto === null || cuerpoAbierto === null) return oops(AUN_CIFRADA)
+  n.title = tituloAbierto
+  n.body = cuerpoAbierto
   const [bs, ns, links, cards] = await Promise.all([
     books(ctx),
     notes(ctx),
@@ -598,12 +607,19 @@ async function editarPagina(ctx: Ctx, args: Args) {
   const id = await idDePagina(ctx, asStr(args.id, 60))
   const conectarCon = (Array.isArray(args.conectar_con) ? args.conectar_con : []).map((x) => asStr(x, 60)).filter((x) => UUID.test(x)).slice(0, 20)
   const delProyecto = await notaDeProyecto(ctx, id)
-  let q = ctx.db.from('cuaderno_notes').select('id, title, body').eq('id', id).eq('abierta', true)
+  let q = ctx.db.from('cuaderno_notes').select('id, title, body').eq('id', id)
+  if (!delProyecto?.conLlave) q = q.eq('abierta', true)
   if (!delProyecto) q = q.eq('user_id', ctx.uid)
   const { data: n } = await q.maybeSingle()
   if (!n) return oops(delProyecto ? 'Esa nota de tarea no está abierta para Claude todavía.' : 'No encontré esa página en los cuadernos abiertos para Claude.')
-  // sumarle texto en claro a una nota que sigue cifrada la rompería
-  if (enCifrado(n.title) || enCifrado(n.body)) return oops(AUN_CIFRADA)
+  // se abre en memoria; lo que no se pudo abrir no se toca (sumarle texto la rompería)
+  const [tituloAbierto, cuerpoAbierto] = await Promise.all([ctx.llavero.texto(n.title), ctx.llavero.texto(n.body)])
+  if (tituloAbierto === null || cuerpoAbierto === null) return oops(AUN_CIFRADA)
+  n.title = tituloAbierto
+  n.body = cuerpoAbierto
+  // y se vuelve a guardar como estaba: cifrada con la llave vigente del equipo, o en claro en el modo viejo
+  const sello = delProyecto && !delProyecto.abierto ? await ctx.llavero.sello({ espacio: delProyecto.sid }) : EN_CLARO
+  if (!sello) return oops(LLAVE_VIEJA)
   const mode = args.modo === 'reemplazar' ? 'reemplazar' : 'agregar'
   const titulo = asStr(args.titulo, 160).trim()
   const add = asStr(args.contenido, MAX_BODY)
@@ -612,9 +628,10 @@ async function editarPagina(ctx: Ctx, args: Args) {
   const { body, targets, missing } = prepare(add, titleMap(all))
   const next = !add.trim() ? n.body : mode === 'agregar' ? `${n.body.trimEnd()}${n.body.trim() ? '\n\n' : ''}${body.trim()}` : body.trim()
   if (next.length > MAX_BODY) return oops(`La página quedaría demasiado larga (máximo ${MAX_BODY} caracteres). Crea una subnota con crear_pagina y "tema".`)
-  const patch: Record<string, string> = { body: next }
-  if (titulo) patch.title = titulo
-  let upd = ctx.db.from('cuaderno_notes').update(patch).eq('id', id).eq('abierta', true)
+  const patch: Record<string, string> = { body: await sello.cierra(next) }
+  if (titulo) patch.title = await sello.cierra(titulo)
+  let upd = ctx.db.from('cuaderno_notes').update(patch).eq('id', id)
+  if (!delProyecto?.conLlave) upd = upd.eq('abierta', true)
   if (!delProyecto) upd = upd.eq('user_id', ctx.uid)
   const { error } = await upd
   if (error) return oops('No pude guardar el cambio.')

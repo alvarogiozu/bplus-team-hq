@@ -1,12 +1,15 @@
 // Las herramientas de Proyectos del conector de Rockie: ver tus proyectos, sus tareas, crear tareas y moverlas
 // (Por hacer → En curso → Hecho) mientras Claude trabaja.
-// Privacidad (el Cofre): un proyecto está cifrado en el dispositivo. Claude solo ve y mueve los proyectos que su DUEÑO
-// abrió para Claude (spaces.abierto_claude; sus tareas y áreas tienen abierta = true). Los demás no existen aquí.
+// Privacidad (el Cofre): un proyecto está SIEMPRE cifrado en la base. Claude ve y mueve los proyectos para los que la
+// persona le dio una «llave temporal» (claude_llaves): el conector los abre y los cierra al vuelo, en memoria
+// (./llavero.ts), y lo que crea se guarda cifrado con la llave vigente del equipo. Mientras dura la migración también
+// valen los que siguen «abiertos para Claude» en claro (spaces.abierto_claude). Los demás no existen aquí.
 // El servidor usa la llave de servicio: TODA lectura se filtra por la membresía de quien conectó el conector, y las
 // escrituras van por mcp_crear_tarea / mcp_actualizar_tarea, que se ponen en su lugar (la actividad dice su nombre y
 // las reglas de las tareas valen igual que en la app). Pasar a Hecho no valida la tarea: eso (y su XP) lo hace una
 // persona en la app.
 import type { Ctx } from './tools.ts'
+import { EN_CLARO, LLAVE_VIEJA, type Sello } from './llavero.ts'
 import { sinContenido } from '../_shared/registro.ts'
 
 type Args = Record<string, unknown>
@@ -86,7 +89,7 @@ export const PROYECTO_INSTRUCCIONES = [
 ].join('\n')
 
 // ---------- datos ----------
-type Space = { id: string; name: string }
+type Space = { id: string; name: string; abierto: boolean }
 type Member = { user_id: string; role: string; display_name: string; username: string }
 type Area = { id: string; name: string; color: string; position: number; n?: number }
 type Frente = { id: string; name: string; n: number; hechas: number; total: number }
@@ -107,30 +110,38 @@ type Task = {
   cifrada?: boolean
 }
 
-// Recién abierto para Claude, lo cifrado sigue cifrado hasta que la app del dueño lo lee y lo reescribe en claro
-// (pasa sola al abrir Rockie en cualquier dispositivo). Mientras tanto se muestra legible y no se toca.
+// Lo que no se puede abrir (falta su llave, o es del modo viejo y la app de su dueño aún no lo reescribió) se muestra
+// legible y no se toca.
 const cifrado = (v: unknown) => typeof v === 'string' && /^c[fj]1\./.test(v)
 const PENDIENTE =
-  'Todavía hay cosas cifradas en este proyecto: se terminan de abrir solas cuando su dueño abre Rockie (rockie.plus) en su teléfono o su PC. Mientras tanto no se pueden leer ni cambiar.'
+  'Hay cosas de este proyecto que Claude no puede abrir todavía: su dueño tiene que abrir Rockie (rockie.plus) para renovar la llave de Claude. Mientras tanto no se pueden leer ni cambiar.'
 
-/** Tus proyectos: los abiertos (con su nombre en claro) y cuántos tienes cerrados. */
+/** Tus proyectos: los que Claude puede ver (con llave, o abiertos en claro) y cuántos no. */
 async function misProyectos(ctx: Ctx): Promise<{ abiertos: Space[]; cerrados: number }> {
   const { data: ms } = await ctx.db.from('space_members').select('space_id').eq('user_id', ctx.uid)
   const ids = (ms ?? []).map((m: { space_id: string }) => m.space_id)
   if (!ids.length) return { abiertos: [], cerrados: 0 }
   const { data } = await ctx.db.from('spaces').select('id, name, abierto_claude').in('id', ids)
-  const all = (data ?? []) as (Space & { abierto_claude: boolean })[]
-  return {
-    abiertos: all.filter((s) => s.abierto_claude).map(({ id, name }) => ({ id, name: cifrado(name) ? '(nombre todavía cifrado)' : name })),
-    cerrados: all.filter((s) => !s.abierto_claude).length,
+  const all = (data ?? []) as { id: string; name: string; abierto_claude: boolean }[]
+  const abiertos: Space[] = []
+  for (const sp of all) {
+    if (!sp.abierto_claude && !(await ctx.llavero.cubre(sp.id))) continue
+    abiertos.push({ id: sp.id, name: (await ctx.llavero.texto(sp.name)) ?? '(nombre todavía cifrado)', abierto: sp.abierto_claude })
   }
+  return { abiertos, cerrados: all.length - abiertos.length }
 }
 
-/** Un proyecto abierto del que eres miembro (o el motivo por el que no). */
+/** Un proyecto que Claude puede ver y del que eres miembro (o el motivo por el que no). */
 async function proyecto(ctx: Ctx, id: string): Promise<Space | string> {
   if (!UUID.test(id)) return 'Ese id de proyecto no es válido. Míralo con ver_proyectos.'
   const { abiertos } = await misProyectos(ctx)
-  return abiertos.find((s) => s.id === id) ?? 'No encontré ese proyecto entre los abiertos para Claude. Mira cuáles hay con ver_proyectos.'
+  return abiertos.find((sp) => sp.id === id) ?? 'No encontré ese proyecto entre los que Claude puede ver. Mira cuáles hay con ver_proyectos.'
+}
+
+/** Cómo se escribe en este proyecto: en claro si sigue «abierto» (modo viejo), cifrado con su kid vigente si no.
+ *  null = la llave que le dieron a Claude quedó vieja: no se escribe. */
+async function selloDe(ctx: Ctx, sp: { id: string; abierto: boolean }): Promise<Sello | null> {
+  return sp.abierto ? EN_CLARO : await ctx.llavero.sello({ espacio: sp.id })
 }
 
 async function miembros(ctx: Ctx, sid: string): Promise<Member[]> {
@@ -142,20 +153,27 @@ async function miembros(ctx: Ctx, sid: string): Promise<Member[]> {
     username: m.profile?.username ?? '',
   }))
 }
+// Con llave, se lee todo lo del proyecto (cifrado) y se abre aquí; sin llave (modo viejo), solo lo marcado «abierta».
 async function areas(ctx: Ctx, sid: string): Promise<Area[]> {
-  const { data } = await ctx.db.from('areas').select('id, name, color, position').eq('space_id', sid).eq('abierta', true).order('position')
+  let q = ctx.db.from('areas').select('id, name, color, position').eq('space_id', sid)
+  if (!(await ctx.llavero.cubre(sid))) q = q.eq('abierta', true)
+  const { data } = await q.order('position')
   // numeradas en su orden (1, 2, 3…): también se eligen por número
-  return ((data ?? []) as Area[]).map((a, i) => ({ ...a, name: cifrado(a.name) ? `Área ${i + 1} (aún cifrada)` : a.name, n: i + 1 }))
+  return Promise.all(((data ?? []) as Area[]).map(async (a, i) => ({ ...a, name: (await ctx.llavero.texto(a.name)) ?? `Área ${i + 1} (aún cifrada)`, n: i + 1 })))
 }
 async function tareas(ctx: Ctx, sid: string): Promise<Task[]> {
-  const { data } = await ctx.db
+  let q = ctx.db
     .from('tasks')
     .select('id, title, notes, status, area_id, project_id, start_time, estimate_min, assignee_id, due_date, priority, validation, updated_at')
     .eq('space_id', sid)
-    .eq('abierta', true)
-    .order('position')
-    .limit(2000)
-  return ((data ?? []) as Task[]).map((t) => ({ ...t, cifrada: cifrado(t.title) || cifrado(t.notes), title: cifrado(t.title) ? '(tarea todavía cifrada)' : t.title, notes: cifrado(t.notes) ? '' : t.notes }))
+  if (!(await ctx.llavero.cubre(sid))) q = q.eq('abierta', true)
+  const { data } = await q.order('position').limit(2000)
+  return Promise.all(
+    ((data ?? []) as Task[]).map(async (t) => {
+      const [title, notes] = await Promise.all([ctx.llavero.texto(t.title), ctx.llavero.texto(t.notes)])
+      return { ...t, cifrada: title === null || notes === null, title: title ?? '(tarea todavía cifrada)', notes: notes ?? '' }
+    }),
+  )
 }
 
 /** La nota del proyecto de cada tarea (materials kind 'note'; la crea la app, cifrada con la llave del equipo).
@@ -168,26 +186,34 @@ async function notasDeTareas(ctx: Ctx, sid: string): Promise<Map<string, { id: s
   if (!filas.length) return out
   const { data: ns } = await ctx.db.from('cuaderno_notes').select('id, title, body, abierta').in('id', filas.map((f) => f.note_id))
   const porId = new Map(((ns ?? []) as { id: string; title: string; body: string; abierta: boolean }[]).map((n) => [n.id, n]))
+  const conLlave = await ctx.llavero.cubre(sid)
   for (const f of filas) {
     const n = porId.get(f.note_id)
     if (!n) continue
-    out.set(f.task_id, { id: n.id, estado: !n.abierta ? 'cerrada' : cifrado(n.title) || cifrado(n.body) ? 'cifrada' : 'abierta' })
+    if (!n.abierta && !conLlave) out.set(f.task_id, { id: n.id, estado: 'cerrada' })
+    else {
+      const legible = (await ctx.llavero.texto(n.title)) !== null && (await ctx.llavero.texto(n.body)) !== null
+      out.set(f.task_id, { id: n.id, estado: legible ? 'abierta' : 'cifrada' })
+    }
   }
   return out
 }
-const NOTA_TXT = { abierta: '', cifrada: ' (todavía cifrada: se abre sola cuando su dueña entra a rockie.plus)', cerrada: ' (no está abierta para Claude)' }
+const NOTA_TXT = { abierta: '', cifrada: ' (Claude no la puede abrir todavía)', cerrada: ' (no está abierta para Claude)' }
 
 /** Los frentes del proyecto (projects abiertos, sin archivar), numerados, con sus tareas hechas / total. */
 async function frentes(ctx: Ctx, sid: string): Promise<Frente[]> {
-  const [{ data: ps }, { data: ts }] = await Promise.all([
+  const [{ data: ps }, { data: ts }, conLlave] = await Promise.all([
     ctx.db.from('projects').select('id, name, archived, abierta, created_at').eq('space_id', sid).eq('archived', false).order('created_at'),
     ctx.db.from('tasks').select('project_id, status').eq('space_id', sid).not('project_id', 'is', null).limit(5000),
+    ctx.llavero.cubre(sid),
   ])
-  const abiertos = ((ps ?? []) as { id: string; name: string; abierta: boolean }[]).filter((p) => p.abierta)
-  return abiertos.map((p, i) => {
-    const mias = ((ts ?? []) as { project_id: string; status: Status }[]).filter((t) => t.project_id === p.id)
-    return { id: p.id, name: cifrado(p.name) ? `Frente ${i + 1} (aún cifrado)` : p.name, n: i + 1, hechas: mias.filter((t) => t.status === 'done').length, total: mias.length }
-  })
+  const visibles = ((ps ?? []) as { id: string; name: string; abierta: boolean }[]).filter((p) => p.abierta || conLlave)
+  return Promise.all(
+    visibles.map(async (p, i) => {
+      const mias = ((ts ?? []) as { project_id: string; status: Status }[]).filter((t) => t.project_id === p.id)
+      return { id: p.id, name: (await ctx.llavero.texto(p.name)) ?? `Frente ${i + 1} (aún cifrado)`, n: i + 1, hechas: mias.filter((t) => t.status === 'done').length, total: mias.length }
+    }),
+  )
 }
 function frenteDe(nombre: string, todos: Frente[]): Frente | null | undefined {
   const s = fold(nombre)
@@ -334,25 +360,19 @@ export async function callProyecto(name: string, args: Args, ctx: Ctx): Promise<
 async function verProyectos(ctx: Ctx): Promise<Result> {
   const { abiertos, cerrados } = await misProyectos(ctx)
   const aviso = cerrados
-    ? `\n${cerrados === 1 ? '1 proyecto más está cerrado' : `${cerrados} proyectos más están cerrados`} para Claude (cifrados). Su dueño puede abrirlos en Rockie › Proyectos › Ajustes del proyecto › Claude.`
+    ? `\n${cerrados === 1 ? '1 proyecto más está cerrado' : `${cerrados} proyectos más están cerrados`} para Claude. Su dueño le da la llave en Rockie › Proyectos › Ajustes del proyecto › Claude.`
     : ''
   if (!abiertos.length) return text(`No tienes proyectos abiertos para Claude.${aviso}`)
-  const ids = abiertos.map((s) => s.id)
-  const [{ data: ts }, { data: ars }, fs, metas] = await Promise.all([
-    ctx.db.from('tasks').select('space_id, status, title').in('space_id', ids).eq('abierta', true),
-    ctx.db.from('areas').select('space_id, name, position').in('space_id', ids).eq('abierta', true).order('position'),
-    Promise.all(ids.map((id) => frentes(ctx, id))),
-    Promise.all(ids.map((id) => metasDe(ctx, id))),
-  ])
-  const lines = abiertos.map((s, k) => {
-    const mias = ((ts ?? []) as { space_id: string; status: Status; title: string }[]).filter((t) => t.space_id === s.id)
-    const n = (st: Status) => mias.filter((t) => t.status === st).length
-    const ar = ((ars ?? []) as { space_id: string; name: string }[]).filter((a) => a.space_id === s.id)
-    const nombres = ar.map((a, i) => `${i + 1}. ${cifrado(a.name) ? '(aún cifrada)' : a.name}`)
-    const pendientes = mias.filter((t) => cifrado(t.title)).length + ar.filter((a) => cifrado(a.name)).length + (s.name.startsWith('(nombre') ? 1 : 0)
-    const fr = (fs[k] as Frente[]).map((x) => `${x.n}. ${x.name} ${x.hechas}/${x.total} (${pct(x.hechas, x.total)} %)`)
-    return `📁 ${s.name} [${s.id}]\n   ${n('todo')} por hacer · ${n('doing')} en curso · ${n('done')} hechas${nombres.length ? `\n   áreas: ${nombres.join(' · ')}` : ' · sin áreas'}${fr.length ? `\n   frentes: ${fr.join(' · ')}` : ''}${metas[k].length ? `\n   metas:\n${(metas[k] as string[]).join('\n')}` : ''}${pendientes ? `\n   ⚠️ ${PENDIENTE}` : ''}`
-  })
+  const lines = await Promise.all(
+    abiertos.map(async (sp) => {
+      const [ts, ar, fs, metas] = await Promise.all([tareas(ctx, sp.id), areas(ctx, sp.id), frentes(ctx, sp.id), metasDe(ctx, sp.id)])
+      const n = (st: Status) => ts.filter((t) => t.status === st).length
+      const nombres = ar.map((a) => `${a.n}. ${a.name}`)
+      const pendientes = ts.some((t) => t.cifrada) || ar.some((a) => a.name.endsWith('(aún cifrada)')) || sp.name.startsWith('(nombre')
+      const fr = fs.map((x) => `${x.n}. ${x.name} ${x.hechas}/${x.total} (${pct(x.hechas, x.total)} %)`)
+      return `📁 ${sp.name} [${sp.id}]\n   ${n('todo')} por hacer · ${n('doing')} en curso · ${n('done')} hechas${nombres.length ? `\n   áreas: ${nombres.join(' · ')}` : ' · sin áreas'}${fr.length ? `\n   frentes: ${fr.join(' · ')}` : ''}${metas.length ? `\n   metas:\n${metas.join('\n')}` : ''}${pendientes ? `\n   ⚠️ ${PENDIENTE}` : ''}`
+    }),
+  )
   return text(`${lines.join('\n')}${aviso}`)
 }
 
@@ -365,7 +385,7 @@ async function metasDe(ctx: Ctx, sid: string): Promise<string[]> {
     frentes(ctx, sid),
   ])
   type G = { id: string; parent_id: string | null; title: string; kind: string; start_value: number; target_value: number; current_value: number; project_id: string | null }
-  const gs = (data ?? []) as G[]
+  const gs = await Promise.all(((data ?? []) as G[]).map(async (g) => ({ ...g, title: (await ctx.llavero.texto(g.title)) ?? g.title })))
   if (!gs.length) return []
   const porFrente = new Map<string, Frente>((fs as Frente[]).map((x) => [x.id, x]))
   const hijas = (id: string | null) => gs.filter((g) => (g.parent_id ?? null) === id)
@@ -471,6 +491,8 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
   if (typeof p === 'string') return oops(p)
   const lista = Array.isArray(args.tareas) ? (args.tareas as Args[]).slice(0, 30) : []
   if (!lista.length) return oops('Dime al menos una tarea (tareas: [{ titulo }]).')
+  const sello = await selloDe(ctx, p)
+  if (!sello) return oops(LLAVE_VIEJA)
   const [ar, ms, hoyDia, fs] = await Promise.all([areas(ctx, p.id), miembros(ctx, p.id), hoy(ctx), frentes(ctx, p.id)])
   const hechas: string[] = []
   const errores: string[] = []
@@ -538,8 +560,8 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
     const { data, error } = await ctx.db.rpc('mcp_crear_tarea', {
       p_uid: ctx.uid,
       p_space: p.id,
-      p_title: titulo,
-      p_notes: asStr(t.notas, 20_000),
+      p_title: await sello.cierra(titulo),
+      p_notes: await sello.cierra(asStr(t.notas, 20_000)),
       p_status: estado,
       p_area: area?.id ?? null,
       p_assignee: persona?.user_id ?? null,
@@ -558,7 +580,7 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
   // la nota del proyecto de las que la traen (mcp_crear_nota_tarea: una por tarea, en la carpeta de su frente)
   for (const [i, t] of lista.entries()) {
     if (!creadas[i] || typeof t.nota !== 'string' || !t.nota.trim()) continue
-    const { data, error } = await ctx.db.rpc('mcp_crear_nota_tarea', { p_uid: ctx.uid, p_task: creadas[i], p_body: t.nota.slice(0, 60_000) })
+    const { data, error } = await ctx.db.rpc('mcp_crear_nota_tarea', { p_uid: ctx.uid, p_task: creadas[i], p_body: await sello.cierra(t.nota.slice(0, 60_000)) })
     const k = hechas.findIndex((h) => h.includes(`[${creadas[i]}]`))
     if (error) errores.push(`«${asStr(t.titulo, 200).trim()}» se creó, pero sin nota: ${error.message}`)
     else if (k >= 0) hechas[k] += ` · 📝 nota [${(data as { note_id: string }).note_id}]`
@@ -583,30 +605,17 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
   return hechas.length ? text(out.join('\n')) : oops(out.join('\n'))
 }
 
-async function crearNotaTarea(ctx: Ctx, args: Args): Promise<Result> {
-  const id = asStr(args.tarea_id, 60)
-  if (!UUID.test(id)) return oops('Ese id de tarea no es válido. Míralo con ver_tareas.')
-  const { data: t } = await ctx.db.from('tasks').select('id, space_id, title, abierta').eq('id', id).maybeSingle()
-  const { abiertos } = await misProyectos(ctx)
-  const tarea = t as { id: string; space_id: string; title: string; abierta: boolean } | null
-  if (!tarea || !tarea.abierta || !abiertos.some((s) => s.id === tarea.space_id)) return oops('Esa tarea no está en tus proyectos abiertos para Claude.')
-  if (cifrado(tarea.title)) return oops(`Esa tarea todavía está cifrada. ${PENDIENTE}`)
-  const { data, error } = await ctx.db.rpc('mcp_crear_nota_tarea', { p_uid: ctx.uid, p_task: id, p_body: asStr(args.contenido, 60_000) })
-  if (error) return oops(`No pude crear la nota: ${error.message}`)
-  const r = data as { note_id: string; ya_existia: boolean; carpeta?: boolean }
-  const link = `${ctx.origin}/cuaderno/nota/${r.note_id}`
-  if (r.ya_existia) {
-    return text(`«${tarea.title}» ya tenía su nota [${r.note_id}]: no creé otra${asStr(args.contenido, 10).trim() ? ' ni le sumé el contenido (hazlo con editar_pagina)' : ''}.\n${link}`)
-  }
-  return text(`Creé la nota de «${tarea.title}» [${r.note_id}] en Materiales${r.carpeta ? ', en la carpeta de su frente' : ''}.\n${link}`)
-}
-
 async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
   const cambios = Array.isArray(args.cambios) ? (args.cambios as Args[]).slice(0, 50) : []
   if (!cambios.length) return oops('Dime qué cambiar (cambios: [{ id, estado }]).')
   const ids = cambios.map((c) => asStr(c.id, 60)).filter((id) => UUID.test(id))
   const { abiertos } = await misProyectos(ctx)
-  const abiertosId = new Set(abiertos.map((s) => s.id))
+  const proyectoDe = new Map(abiertos.map((sp) => [sp.id, sp]))
+  const sellos = new Map<string, Sello | null>()
+  const selloDeEspacio = async (sid: string) => {
+    if (!sellos.has(sid)) sellos.set(sid, await selloDe(ctx, proyectoDe.get(sid)!))
+    return sellos.get(sid)!
+  }
   const { data } = ids.length
     ? await ctx.db.from('tasks').select('id, space_id, title, notes, status, abierta, project_id').in('id', ids)
     : { data: [] }
@@ -621,14 +630,21 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
   const errores: string[] = []
   for (const c of cambios) {
     const id = asStr(c.id, 60)
-    const t = porId.get(id)
-    if (!t || !abiertosId.has(t.space_id) || !t.abierta) {
-      errores.push(`${id}: no está en tus proyectos abiertos para Claude`)
+    const t0 = porId.get(id)
+    if (!t0 || !proyectoDe.has(t0.space_id) || !(t0.abierta || (await ctx.llavero.cubre(t0.space_id)))) {
+      errores.push(`${id}: no está en los proyectos que Claude puede ver`)
       continue
     }
-    // recién abierta y todavía cifrada: no se toca (sumarle una nota en claro a un texto cifrado lo rompería)
-    if (cifrado(t.title) || cifrado(t.notes)) {
-      errores.push(`${id}: todavía está cifrada. ${PENDIENTE}`)
+    // lo que no se puede abrir no se toca (sumarle una nota a un texto que no se pudo leer lo rompería)
+    const [titulo0, notas0] = await Promise.all([ctx.llavero.texto(t0.title), ctx.llavero.texto(t0.notes)])
+    if (titulo0 === null || notas0 === null) {
+      errores.push(`${id}: Claude no la puede abrir todavía. ${PENDIENTE}`)
+      continue
+    }
+    const t = { ...t0, title: titulo0, notes: notas0 }
+    const sello = await selloDeEspacio(t.space_id)
+    if (!sello) {
+      errores.push(`«${t.title}»: ${LLAVE_VIEJA}`)
       continue
     }
     const patch: Record<string, unknown> = {}
@@ -644,8 +660,10 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
         dice.push(`→ ${NOMBRE[st]}`)
       }
     }
+    let tituloNuevo: string | null = null
     if (typeof c.titulo === 'string' && c.titulo.trim()) {
-      patch.title = c.titulo.trim().slice(0, 200)
+      tituloNuevo = c.titulo.trim().slice(0, 200)
+      patch.title = await sello.cierra(tituloNuevo)
       dice.push('título nuevo')
     }
     let notas = typeof c.notas === 'string' ? c.notas.slice(0, 20_000) : null
@@ -654,7 +672,7 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
       notas = `${base}${base.trim() ? '\n' : ''}- ${hoyDia}: ${c.agregar_nota.trim().slice(0, 2000)}`
       dice.push('nota de avance')
     }
-    if (notas !== null) patch.notes = notas
+    if (notas !== null) patch.notes = await sello.cierra(notas)
     if (c.area !== undefined || c.responsable !== undefined) {
       const { ar, ms } = await datos(t.space_id)
       if (c.area !== undefined) {
@@ -753,11 +771,11 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
       else dice.push(n ? `espera a ${n}` : 'sin dependencias')
     }
     if (typeof c.nota === 'string' && c.nota.trim()) {
-      const { data: r, error } = await ctx.db.rpc('mcp_crear_nota_tarea', { p_uid: ctx.uid, p_task: id, p_body: c.nota.slice(0, 60_000) })
+      const { data: r, error } = await ctx.db.rpc('mcp_crear_nota_tarea', { p_uid: ctx.uid, p_task: id, p_body: await sello.cierra(c.nota.slice(0, 60_000)) })
       if (error) errores.push(`«${t.title}»: no pude crear su nota (${error.message})`)
       else dice.push((r as { ya_existia: boolean }).ya_existia ? 'ya tenía nota (súmale con editar_pagina y el id de la tarea)' : '📝 nota creada')
     }
-    if (dice.length || Object.keys(patch).length) hechas.push(`- ${patch.title ?? t.title} ${dice.join(' · ') || 'notas nuevas'}`)
+    if (dice.length || Object.keys(patch).length) hechas.push(`- ${tituloNuevo ?? t.title} ${dice.join(' · ') || 'notas nuevas'}`)
   }
   const out = [hechas.length ? `Listo:\n${hechas.join('\n')}` : 'No cambié nada.']
   if (errores.length) out.push(`\nNo pude con:\n${errores.map((e) => `- ${e}`).join('\n')}`)
