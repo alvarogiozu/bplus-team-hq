@@ -29,29 +29,19 @@ function estadoDe(v: unknown): Status | null {
   return null
 }
 
-// Esquemas cortos y estables (van en cada mensaje del usuario): los formatos se explican una vez en las instrucciones.
-const ESTADO = { type: 'string', enum: ['por_hacer', 'en_curso', 'hecho'] }
+// Esquemas mínimos y estables (van en CADA mensaje del usuario): los formatos se explican una vez en las instrucciones.
 const S = { type: 'string' }
-const DEPENDE = { type: 'array', maxItems: 20, items: S, description: 'ids de las tareas que espera' }
-const CAMPOS = {
-  notas: S,
-  estado: ESTADO,
-  area: S,
-  responsable: S,
-  fecha: S,
-  hora: S,
-  minutos: { type: 'integer', minimum: 0, maximum: 1440 },
-  urgente: { type: 'boolean' },
-  frente: S,
-}
-const READ = { readOnlyHint: true, openWorldHint: false }
-const EDIT = { destructiveHint: false, openWorldHint: false }
+const ESTADO = { type: 'string', enum: ['por_hacer', 'en_curso', 'hecho'] }
+const IDS = { type: 'array', items: S }
+const CAMPOS = { notas: S, estado: ESTADO, area: S, responsable: S, fecha: S, hora: S, minutos: { type: 'integer' }, urgente: { type: 'boolean' }, frente: S, depende_de: IDS, nota: S }
+const READ = { readOnlyHint: true }
+const EDIT = { destructiveHint: false }
 
 export const PROYECTO_TOOLS = [
   {
     name: 'ver_proyectos',
     title: 'Ver proyectos',
-    description: 'Proyectos abiertos para Claude: id, tareas por estado, áreas y frentes numerados, metas con su %.',
+    description: 'Proyectos: id, tareas por estado, áreas y frentes numerados, metas.',
     inputSchema: { type: 'object', properties: {} },
     annotations: READ,
     write: false,
@@ -59,30 +49,18 @@ export const PROYECTO_TOOLS = [
   {
     name: 'ver_tareas',
     title: 'Ver tareas',
-    description: 'Tareas de un proyecto por estado (máx. 30 por estado; filtra para ver más), con id, área, frente, responsable, fecha, hora, bloqueos y nota.',
-    inputSchema: {
-      type: 'object',
-      properties: { proyecto_id: S, estado: ESTADO, area: S, frente: S, buscar: S },
-      required: ['proyecto_id'],
-    },
+    description: 'Tareas abiertas de un proyecto, 15 por página (desde). Filtra por estado, area, frente o buscar; con pocas, da el detalle.',
+    inputSchema: { type: 'object', properties: { proyecto_id: S, estado: ESTADO, area: S, frente: S, buscar: S, desde: { type: 'integer' } }, required: ['proyecto_id'] },
     annotations: READ,
     write: false,
   },
   {
     name: 'crear_tareas',
     title: 'Crear tareas',
-    description: 'Crea hasta 30 tareas en un proyecto. depende_de acepta «#2» (la 2.ª de esta lista); nota crea su página en Materiales.',
+    description: 'Crea hasta 30 tareas. depende_de: ids o «#2» (la 2.ª de la lista). nota: Markdown de su página en Materiales.',
     inputSchema: {
       type: 'object',
-      properties: {
-        proyecto_id: S,
-        tareas: {
-          type: 'array',
-          minItems: 1,
-          maxItems: 30,
-          items: { type: 'object', properties: { titulo: S, ...CAMPOS, depende_de: DEPENDE, nota: S }, required: ['titulo'] },
-        },
-      },
+      properties: { proyecto_id: S, tareas: { type: 'array', items: { type: 'object', properties: { titulo: S, ...CAMPOS }, required: ['titulo'] } } },
       required: ['proyecto_id', 'tareas'],
     },
     annotations: EDIT,
@@ -91,39 +69,20 @@ export const PROYECTO_TOOLS = [
   {
     name: 'actualizar_tareas',
     title: 'Mover o cambiar tareas',
-    description: 'Mueve (en_curso al empezar, hecho al terminar) y cambia hasta 50 tareas. agregar_nota suma una línea fechada; notas las reemplaza.',
+    description: 'Mueve o cambia hasta 50 tareas. agregar_nota suma una línea; notas las reemplaza; nota crea su página si no tiene.',
     inputSchema: {
       type: 'object',
-      properties: {
-        cambios: {
-          type: 'array',
-          minItems: 1,
-          maxItems: 50,
-          items: { type: 'object', properties: { id: S, titulo: S, agregar_nota: S, ...CAMPOS, depende_de: DEPENDE }, required: ['id'] },
-        },
-      },
+      properties: { cambios: { type: 'array', items: { type: 'object', properties: { id: S, titulo: S, agregar_nota: S, ...CAMPOS }, required: ['id'] } } },
       required: ['cambios'],
     },
-    annotations: EDIT,
-    write: true,
-  },
-  {
-    name: 'crear_nota_tarea',
-    title: 'Crear nota de tarea',
-    description: 'Crea la nota (Markdown) de una tarea en Materiales, en la carpeta de su frente. Una por tarea: si ya existe, devuelve su id.',
-    inputSchema: { type: 'object', properties: { tarea_id: S, contenido: S }, required: ['tarea_id'] },
     annotations: EDIT,
     write: true,
   },
 ] as const
 
 export const PROYECTO_INSTRUCCIONES = [
-  'Proyectos: áreas y frentes numerados (se eligen por nombre o número); tareas Por hacer → En curso → Hecho.',
-  '- Al empezar una tarea, en_curso; al terminarla, hecho + agregar_nota corta. Mueve en lote, sin volver a listar todo.',
-  '- fecha AAAA-MM-DD, «hoy» o «mañana»; hora HH:MM; minutos 5-1440; responsable nombre, usuario o «yo»; «ninguna» quita.',
-  '- Sin frente, la tarea toma el de su área. depende_de al actualizar es la lista completa. «⛔» = bloqueada.',
-  '- «📝 nota [id]»: léela con leer_pagina y súmale con editar_pagina. Hecho no es validada (eso es en la app).',
-  '- Solo ves los proyectos abiertos para Claude (Rockie › Proyectos › Ajustes › Claude).',
+  '- Tareas: en_curso al empezar; hecho + agregar_nota al terminar; en lote. fecha AAAA-MM-DD, hoy o mañana; hora HH:MM;',
+  '  área y frente por nombre o número; «ninguna» quita un campo. 📝 = tiene nota: leer_pagina con el id de la tarea.',
 ].join('\n')
 
 // ---------- datos ----------
@@ -364,8 +323,6 @@ export async function callProyecto(name: string, args: Args, ctx: Ctx): Promise<
         return await crearTareas(ctx, args)
       case 'actualizar_tareas':
         return await actualizarTareas(ctx, args)
-      case 'crear_nota_tarea':
-        return await crearNotaTarea(ctx, args)
     }
     return null
   } catch (e) {
@@ -476,23 +433,37 @@ async function verTareas(ctx: Ctx, args: Args): Promise<Result> {
     const pend = (deps.get(t.id) ?? []).map((id) => porId.get(id)).filter((d): d is Task => !!d && d.status !== 'done')
     return pend.length ? ` · ⛔ bloqueada por: ${pend.map((d) => `«${d.title}» [${d.id}]`).join(', ')}` : ''
   }
+  // con pocas filas se da el detalle (nombre del frente, quién bloquea, id de la nota); si no, una línea corta
+  const frenteNum = new Map(fs.map((x) => [x.id, x.n]))
+  const corta = (t: Task) => {
+    const esperan = t.status === 'done' ? 0 : (deps.get(t.id) ?? []).map((id) => porId.get(id)).filter((d) => !!d && d.status !== 'done').length
+    return `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.project_id && frenteNum.get(t.project_id) ? ` · ▸${frenteNum.get(t.project_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · ${t.due_date}` : ''}${t.start_time ? ` ${t.start_time.slice(0, 5)}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${esperan ? ` · ⛔${esperan}` : ''}${notas.get(t.id) ? ' · 📝' : ''}`
+  }
   const fila = (t: Task) =>
     `- ${t.title} [${t.id}]${t.area_id && areaN.get(t.area_id) ? ` · ${areaN.get(t.area_id)}` : ''}${t.project_id && frenteN.get(t.project_id) ? ` · ▸ ${frenteN.get(t.project_id)}` : ''}${t.assignee_id ? ` · ${quien.get(t.assignee_id) ?? 'alguien'}` : ''}${t.due_date ? ` · vence ${t.due_date}` : ''}${t.start_time ? ` · ${t.start_time.slice(0, 5)}` : ''}${t.estimate_min ? ` · ${fmtMin(t.estimate_min)}` : ''}${t.priority === 'urgent' ? ' · urgente' : ''}${notas.get(t.id) ? ` · 📝 nota${notas.get(t.id)!.estado === 'abierta' ? ` [${notas.get(t.id)!.id}]` : NOTA_TXT[notas.get(t.id)!.estado]}` : ''}${t.status === 'done' ? (t.validation ? ' · validada' : ' · por validar') : ''}${bloqueos(t)}`
-  const out: string[] = [`📁 ${p.name}`]
+  // por defecto, lo abierto (En curso y luego Por hacer); las hechas solo si se piden. 15 por página.
+  const n = (st: Status) => lista.filter((t) => t.status === st).length
+  const orden: Status[] = soloEstado ? [soloEstado] : ['doing', 'todo']
+  const visibles = orden.flatMap((st) => {
+    const g = lista.filter((t) => t.status === st)
+    return st === 'done' ? g.sort((a, b) => b.updated_at.localeCompare(a.updated_at)) : g
+  })
+  const POR_PAGINA = 15
+  const desde = Math.max(0, Math.min(Number(args.desde) || 0, visibles.length))
+  const pagina = visibles.slice(desde, desde + POR_PAGINA)
+  const detalle = visibles.length <= 5
+  const out: string[] = [`📁 ${p.name} · ${n('doing')} en curso · ${n('todo')} por hacer · ${n('done')} hechas`]
   if (ts.some((t) => t.cifrada) || ar.some((a) => a.name.endsWith('(aún cifrada)'))) out.push(`⚠️ ${PENDIENTE}`)
-  for (const st of ['doing', 'todo', 'done'] as Status[]) {
-    if (soloEstado && st !== soloEstado) continue
-    let grupo = lista.filter((t) => t.status === st)
-    const total = grupo.length
-    // compacto: 30 por estado (las hechas, las 10 más recientes) salvo que filtren por estado
-    if (st === 'done') grupo = grupo.sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-    grupo = grupo.slice(0, soloEstado ? 200 : st === 'done' ? 10 : 30)
-    out.push(`\n${NOMBRE[st]} (${total})`)
-    out.push(...(grupo.length ? grupo.map(fila) : ['  (ninguna)']))
-    if (total > grupo.length) out.push(`  … y ${total - grupo.length} más (filtra por estado, área, frente o buscar)`)
+  let ultimo: Status | null = null
+  for (const t of pagina) {
+    if (t.status !== ultimo) out.push(`${NOMBRE[t.status]}:`)
+    ultimo = t.status
+    out.push(detalle ? fila(t) : corta(t))
   }
-  out.push(`\nÁbrelo en la app: ${enlace(ctx, p.id)}`)
-  return text(out.join('\n').slice(0, 40_000))
+  if (!pagina.length) out.push('(ninguna)')
+  const quedan = visibles.length - desde - pagina.length
+  if (quedan > 0) out.push(`… ${quedan} más: desde=${desde + pagina.length}`)
+  return text(out.join('\n'))
 }
 
 async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
@@ -581,7 +552,7 @@ async function crearTareas(ctx: Ctx, args: Args): Promise<Result> {
     if (error) errores.push(`«${titulo}»: ${error.message}`)
     else {
       creadas[i] = data as string
-      hechas.push(`- ${titulo} [${data}] · ${NOMBRE[estado]}${hora ? ` · ${hora}` : ''}${minutos ? ` · ${fmtMin(minutos)}` : ''}${area ? ` · ${area.name}` : ''}${frente ? ` · ▸ ${frente.name}` : fs.length ? ' · sin frente (no suma a ninguna meta)' : ''}`)
+      hechas.push(`- ${titulo} [${data}] · ${NOMBRE[estado]}${hora ? ` · ${hora}` : ''}${minutos ? ` · ${fmtMin(minutos)}` : ''}${area ? ` · ${area.name}` : ''}${frente ? ` · ▸ ${frente.name}` : fs.length ? ' · sin frente' : ''}`)
     }
   }
   // la nota del proyecto de las que la traen (mcp_crear_nota_tarea: una por tarea, en la carpeta de su frente)
@@ -765,7 +736,7 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
       }
       deps = ids
     }
-    if (!Object.keys(patch).length && deps === null) {
+    if (!Object.keys(patch).length && deps === null && !(typeof c.nota === 'string' && c.nota.trim())) {
       hechas.push(`- ${t.title}: ya estaba así`)
       continue
     }
@@ -780,6 +751,11 @@ async function actualizarTareas(ctx: Ctx, args: Args): Promise<Result> {
       const { data: n, error } = await ctx.db.rpc('mcp_dependencias', { p_uid: ctx.uid, p_task: id, p_depende_de: deps })
       if (error) errores.push(`«${t.title}»${dice.length ? ` (lo demás sí se guardó)` : ''}: ${error.message}`)
       else dice.push(n ? `espera a ${n}` : 'sin dependencias')
+    }
+    if (typeof c.nota === 'string' && c.nota.trim()) {
+      const { data: r, error } = await ctx.db.rpc('mcp_crear_nota_tarea', { p_uid: ctx.uid, p_task: id, p_body: c.nota.slice(0, 60_000) })
+      if (error) errores.push(`«${t.title}»: no pude crear su nota (${error.message})`)
+      else dice.push((r as { ya_existia: boolean }).ya_existia ? 'ya tenía nota (súmale con editar_pagina y el id de la tarea)' : '📝 nota creada')
     }
     if (dice.length || Object.keys(patch).length) hechas.push(`- ${patch.title ?? t.title} ${dice.join(' · ') || 'notas nuevas'}`)
   }
