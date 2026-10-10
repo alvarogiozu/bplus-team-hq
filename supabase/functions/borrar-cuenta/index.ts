@@ -76,6 +76,9 @@ Deno.serve(async (req) => {
 
   // 3. Cuaderno
   archivos += await borrarCarpeta(admin, 'cuaderno', uid).catch(() => 0)
+  // 3a. Hábitos (esquema habitos de esta base): sus fotos de prueba y su avatar; las filas caen con el usuario
+  archivos += await borrarCarpeta(admin, 'habitos-proofs', uid).catch(() => 0)
+  archivos += await borrarCarpeta(admin, 'habitos-avatars', uid).catch(() => 0)
   hecho.archivos = archivos
 
   // 3b. Culqi: la tarjeta guardada para renovar y su cliente (nombre, celular, ciudad, correo) se borran allá;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase.js'
+import { ESQUEMA_HABITOS } from '../../../src/lib/unaBase'
 import { MOCK_CHATS } from './mock/chat.js'
 
 // ============================================================================
@@ -108,7 +109,7 @@ export function useChat({ channel, me, open }) {
     const canal = supabase
       .channel(`chat-${key}`)
       .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'messages',
+        event: 'INSERT', schema: ESQUEMA_HABITOS, table: 'messages',
         filter: `${col}=eq.${chanId}`,
       }, async (payload) => {
         const row = payload.new

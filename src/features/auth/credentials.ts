@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { env } from '../../lib/env'
 import { setKeepSession, supabase } from '../../lib/supabase'
 import { bplus } from '../../os/habitos'
+import { UNIDA } from '../../lib/unaBase'
 import { abrirLoginNativo, loginGoogleNativo, VUELTA_NATIVA } from '../../lib/appNativa'
 
 export const USERNAME_RE = /^[a-z0-9._]{3,20}$/
@@ -128,6 +129,8 @@ let syncBpPromise: Promise<Session | null> | null = null
  * anónima nueva en cada navegador sin sesión y los hábitos no seguían a la persona (0031 + fusion-cuentas.mjs).
  */
 export async function syncBplusSessionFromHq(hqSession: Session, _rawPassword?: string): Promise<Session | null> {
+  // una sola base (lib/unaBase): Hábitos usa tu sesión de Rockie OS; ya no se abre ni se crea cuenta en su base vieja
+  if (UNIDA) return null
   const bp = bplus()
   if (!bp) return null
 

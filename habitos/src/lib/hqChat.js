@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Llavero } from '../../../src/lib/cofre/llavero'
 import { crearFetchCifrado } from '../../../src/lib/cofre/fetchCifrado'
 import { BLOQUEADO } from '../../../src/lib/cofre/cripto'
+import { UNIDA } from '../../../src/lib/unaBase'
 
 // Un solo acceso y un solo chat con Rockie en las cuatro apps: la conversación vive en rockie_turns (base de Rockie OS).
 // Hábitos comparte el mismo inicio de sesión con Google y sincroniza automáticamente la sesión de Rockie OS.
@@ -31,6 +32,9 @@ function hq() {
   }
   return client
 }
+
+/** El cliente de cuentas de Rockie OS de esta página (con una sola base, la sesión de Hábitos es esta). */
+export const cuentaHq = () => hq()
 
 /** Sesión de Rockie OS en este navegador, con su Cofre cargado. */
 async function sesion() {
@@ -109,6 +113,8 @@ export async function cerrarSesionHq() {
 
 /** Si ya hay sesión en Rockie OS (HQ) y Hábitos aún no tiene sesión en B+, la sincroniza automáticamente. */
 export async function sincronizarDesdeHq(bplusClient) {
+  // una sola base: no hay cuenta de Hábitos que abrir, la sesión de Rockie OS ya es la de Hábitos
+  if (UNIDA) return (await hq()?.auth.getSession())?.data?.session ?? null
   const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
   // mismo candado que src/features/auth/credentials.ts: el puente se arma una vez para todas las apps (iframes)
   return locks ? locks.request('rockie:puente-habitos', () => puenteDesdeHq(bplusClient)) : puenteDesdeHq(bplusClient)

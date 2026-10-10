@@ -12,7 +12,8 @@ import { inferirArea, catalogAreas, AREA_COLOR_OPTS, AREA_ICON_OPTS, MAX_AREAS, 
 import { itemById } from './shop.js'
 import { claveMes } from './fechas.js'
 import { haceISO } from './habitHistory.js'
-import { supabase } from './supabase.js'
+import { supabase, puerta, sesiones } from './supabase.js'
+import { UNIDA, ESQUEMA_HABITOS, BUCKET_PRUEBAS, BUCKET_AVATARES } from '../../../src/lib/unaBase'
 import { sincronizarSesionHq, cerrarSesionHq, sincronizarDesdeHq, iniciarSesionCredenciales, borrarCuentaHq } from '../lib/hqChat.js'
 import { cabeEnPlan } from '../lib/planHq.js'
 import { abrirLimite } from '../../../src/lib/limites'
@@ -27,13 +28,14 @@ const EN_VENTANA = (() => { try { return window.self !== window.top } catch { re
 // En la app de Android Google no deja entrar en el WebView: va por la Custom Tab (src/lib/appNativa) y, al
 // volver, la app carga la misma direccion que options.redirectTo con lo que trajo Google.
 async function oauthGoogle(options) {
+  if (!puerta) return { error: new Error('Google no esta disponible') }
   if (loginGoogleNativo()) {
     const vuelta = new URL(options?.redirectTo || '/habitos/entrar', window.location.origin)
-    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { ...options, redirectTo: VUELTA_NATIVA, skipBrowserRedirect: true } })
+    const { data, error } = await puerta.auth.signInWithOAuth({ provider: 'google', options: { ...options, redirectTo: VUELTA_NATIVA, skipBrowserRedirect: true } })
     if (!error && data?.url) await abrirLoginNativo(data.url, vuelta.pathname + vuelta.search)
     return { error }
   }
-  const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { ...options, skipBrowserRedirect: EN_VENTANA } })
+  const { data, error } = await puerta.auth.signInWithOAuth({ provider: 'google', options: { ...options, skipBrowserRedirect: EN_VENTANA } })
   if (!error && EN_VENTANA && data?.url) window.top.location.assign(data.url)
   return { error }
 }
@@ -551,10 +553,10 @@ export function StoreProvider({ children }) {
       }
       const uid = uidRef.current
       const path = `${uid}/avatar.jpg`
-      const { error: upErr } = await supabase.storage.from('avatars')
+      const { error: upErr } = await supabase.storage.from(BUCKET_AVATARES)
         .upload(path, blob, { contentType: 'image/jpeg', upsert: true })
       if (upErr) throw upErr
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+      const { data } = supabase.storage.from(BUCKET_AVATARES).getPublicUrl(path)
       // Cache-bust: si no, el navegador se queda con la foto vieja
       const url = `${data.publicUrl}?t=${Date.now()}`
       setMeAvatar(url)
@@ -932,16 +934,16 @@ export function StoreProvider({ children }) {
     }
     const canal = supabase
       .channel(`social-live-${uid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships', filter: `a=eq.${uid}` }, recargar)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships', filter: `b=eq.${uid}` }, recargar)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members' }, recargar)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'challenge_members' }, recargar)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'groups' }, recargar)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, recargar)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'completions' }, recargar)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, recargar)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'streaks' }, recargar)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'kind=eq.event' }, recargar)
+      .on('postgres_changes', { event: '*', schema: ESQUEMA_HABITOS, table: 'friendships', filter: `a=eq.${uid}` }, recargar)
+      .on('postgres_changes', { event: '*', schema: ESQUEMA_HABITOS, table: 'friendships', filter: `b=eq.${uid}` }, recargar)
+      .on('postgres_changes', { event: '*', schema: ESQUEMA_HABITOS, table: 'group_members' }, recargar)
+      .on('postgres_changes', { event: '*', schema: ESQUEMA_HABITOS, table: 'challenge_members' }, recargar)
+      .on('postgres_changes', { event: '*', schema: ESQUEMA_HABITOS, table: 'groups' }, recargar)
+      .on('postgres_changes', { event: '*', schema: ESQUEMA_HABITOS, table: 'challenges' }, recargar)
+      .on('postgres_changes', { event: '*', schema: ESQUEMA_HABITOS, table: 'completions' }, recargar)
+      .on('postgres_changes', { event: 'UPDATE', schema: ESQUEMA_HABITOS, table: 'profiles' }, recargar)
+      .on('postgres_changes', { event: '*', schema: ESQUEMA_HABITOS, table: 'streaks' }, recargar)
+      .on('postgres_changes', { event: 'INSERT', schema: ESQUEMA_HABITOS, table: 'messages', filter: 'kind=eq.event' }, recargar)
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           // Re-sync al conectar (cubre eventos perdidos mientras estaba offline)
@@ -1067,7 +1069,7 @@ export function StoreProvider({ children }) {
         // DB y los amigos te veian como "Alguien" aunque tu pantalla mostrara tu
         // nombre de Google (ese venia del setMeName local, no del servidor).
         const meta = session.user.user_metadata || {}
-        const nombreGoogle = (meta.full_name || meta.name || '').trim().split(' ')[0]
+        const nombreGoogle = (meta.full_name || meta.name || meta.display_name || '').trim().split(' ')[0]
         if (prof.name === 'Tu' && nombreGoogle) {
           supabase.from('profiles').update({ name: nombreGoogle }).eq('id', session.user.id).then(({ error }) => {
             if (error) console.warn('[bplus] No se guardo el nombre de Google en el perfil:', error.message)
@@ -1202,9 +1204,63 @@ export function StoreProvider({ children }) {
       loadSocial()  // grupos/retos/chat reales (si la migracion 0004 ya corrio)
     }
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Calendar: el permiso de Google llega UNA vez (provider_refresh_token); se entrega a calendar-sync (que lo
+    // guarda server-side, crea el calendario "B+" y vuelca habitos+metas) y el cliente lo olvida. Las metas ya viven
+    // en `goals` (0008); igual viajan en el payload por si el connect corre antes del load.
+    const conectarCalendario = (refreshToken) => {
+      if (!refreshToken || gcalTokenEnviado.current) return
+      gcalTokenEnviado.current = true
+      const metasNow = metasRef.current
+        .filter(m => !INITIAL_METAS.some(d => d.id === m.id))
+        .map(m => ({ id: m.id, name: m.name, deadline: m.deadline }))
+      supabase.functions.invoke('calendar-sync', {
+        body: { action: 'connect', refresh_token: refreshToken, metas: metasNow },
+      }).then(({ data, error }) => {
+        if (cancelado) return
+        if (error || !data?.ok) {
+          console.warn('[bplus] No se conecto Calendar:', error?.message ?? data?.error)
+          return
+        }
+        setGcalOn(true)
+        if (data.meta_events) {
+          setMetas(prev => prev.map(m => (data.meta_events[m.id]
+            ? { ...m, gcalEventId: data.meta_events[m.id] }
+            : m)))
+        }
+        // refresca los gcal_event_id que el volcado inicial escribio en habits
+        supabase.from('habits').select('id, gcal_event_id').then(({ data: rows }) => {
+          if (cancelado || !rows) return
+          const por = Object.fromEntries(rows.map(r => [r.id, r.gcal_event_id]))
+          setAllHabits(prev => prev.map(h => ({ ...h, gcalEventId: por[h.id] ?? h.gcalEventId ?? null })))
+        })
+      })
+    }
+
+    // Una sola base: quien entra con Google lo hace por la puerta (la base vieja de Habitos). Con esa sesion la
+    // funcion puente-google abre la de Rockie OS, que es la que carga los datos (listener de abajo). El permiso de
+    // Calendar tambien llega por la puerta.
+    const entrarPorLaPuerta = async (ps) => {
+      if (!ps || ps.user?.is_anonymous) return null
+      const s = await sincronizarSesionHq(ps)
+      if (s && !cancelado) conectarCalendario(ps.provider_refresh_token)
+      return s
+    }
+    const subPuerta = UNIDA && puerta
+      ? puerta.auth.onAuthStateChange((event, ps) => {
+          if (cancelado || (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION')) return
+          setTimeout(() => { void entrarPorLaPuerta(ps) }, 0)
+        })
+      : null
+
+    const { data: sub } = sesiones.onAuthStateChange(async (event, session) => {
       if (cancelado) return
-      if (event === 'INITIAL_SESSION' && !session) {
+      if (event === 'INITIAL_SESSION' && !session && UNIDA) {
+        // sin sesion de Rockie OS pero quiza con la de Google en la puerta: al abrirse llega SIGNED_IN aqui mismo
+        const ps = puerta ? (await puerta.auth.getSession()).data.session : null
+        const abierta = await entrarPorLaPuerta(ps)
+        if (cancelado || abierta) return
+      }
+      if (event === 'INITIAL_SESSION' && !session && !UNIDA) {
         const bridged = await sincronizarDesdeHq(supabase)
         if (cancelado) return
         if (bridged) {
@@ -1224,38 +1280,8 @@ export function StoreProvider({ children }) {
         if (uidRef.current !== session.user.id) {
           loadData(session).catch(e => console.warn('[bplus] Error cargando datos; sigo en mock.', e))
         }
-        // Vuelta del consent de Calendar: el provider_refresh_token de Google
-        // llega UNA vez en esta sesion; se entrega a calendar-sync (que lo
-        // guarda server-side, crea el calendario "B+" y vuelca habitos+metas)
-        // y el cliente lo olvida. Las metas ya viven en `goals` (0008); igual
-        // viajan en el payload por si el connect corre antes del load.
-        if (session.provider_refresh_token && !gcalTokenEnviado.current) {
-          gcalTokenEnviado.current = true
-          const metasNow = metasRef.current
-            .filter(m => !INITIAL_METAS.some(d => d.id === m.id))
-            .map(m => ({ id: m.id, name: m.name, deadline: m.deadline }))
-          supabase.functions.invoke('calendar-sync', {
-            body: { action: 'connect', refresh_token: session.provider_refresh_token, metas: metasNow },
-          }).then(({ data, error }) => {
-            if (cancelado) return
-            if (error || !data?.ok) {
-              console.warn('[bplus] No se conecto Calendar:', error?.message ?? data?.error)
-              return
-            }
-            setGcalOn(true)
-            if (data.meta_events) {
-              setMetas(prev => prev.map(m => (data.meta_events[m.id]
-                ? { ...m, gcalEventId: data.meta_events[m.id] }
-                : m)))
-            }
-            // refresca los gcal_event_id que el volcado inicial escribio en habits
-            supabase.from('habits').select('id, gcal_event_id').then(({ data: rows }) => {
-              if (cancelado || !rows) return
-              const por = Object.fromEntries(rows.map(r => [r.id, r.gcal_event_id]))
-              setAllHabits(prev => prev.map(h => ({ ...h, gcalEventId: por[h.id] ?? h.gcalEventId ?? null })))
-            })
-          })
-        }
+        // Vuelta del consent de Calendar (antes de unir las bases llegaba en esta misma sesion)
+        conectarCalendario(session.provider_refresh_token)
       } else if (event === 'SIGNED_OUT') {
         setGcalOn(false)
         gcalTokenEnviado.current = false
@@ -1285,7 +1311,7 @@ export function StoreProvider({ children }) {
       }
     })
 
-    return () => { cancelado = true; sub.subscription.unsubscribe() }
+    return () => { cancelado = true; sub.subscription.unsubscribe(); subPuerta?.data.subscription.unsubscribe() }
   }, [])
 
   // ---- Persistencia ligera (tienda/saldo/contadores sobreviven recargas) ----
@@ -1851,7 +1877,7 @@ export function StoreProvider({ children }) {
       if (live) {
         const blob = await prepararFoto(file)
         const path = `${uidRef.current}/${id}/${hoyISO()}.jpg`
-        const { error: upErr } = await supabase.storage.from('proofs')
+        const { error: upErr } = await supabase.storage.from(BUCKET_PRUEBAS)
           .upload(path, blob, { contentType: 'image/jpeg', upsert: true })
         if (upErr) throw upErr
         const result = await invocarValidacion(id, 'photo', path, { revertOnFail: false })
@@ -2526,7 +2552,8 @@ export function StoreProvider({ children }) {
   // Cerrar sesion: el listener SIGNED_OUT limpia el estado y App.jsx vuelve al login.
   const signOut = useCallback(async () => {
     if (!supabase) return
-    await Promise.allSettled([supabase.auth.signOut(), cerrarSesionHq()])
+    // con una sola base la sesion es la de Rockie OS; la puerta de Google tambien se cierra o volveria a entrar sola
+    await Promise.allSettled(UNIDA ? [cerrarSesionHq(), puerta?.auth.signOut()] : [supabase.auth.signOut(), cerrarSesionHq()])
   }, [])
 
   // Eliminar cuenta (Apple 5.1.1(v), Google Play): dentro de Rockie OS se borra la cuenta COMPLETA (borrar-cuenta de
@@ -2540,7 +2567,7 @@ export function StoreProvider({ children }) {
         console.warn('[bplus] No se pudo eliminar la cuenta:', completa.error)
         return completa
       }
-      await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+      await Promise.allSettled(UNIDA ? [puerta?.auth.signOut({ scope: 'local' })] : [supabase.auth.signOut({ scope: 'local' })])
       return { ok: true }
     }
     const { data, error } = await supabase.functions.invoke('delete-account', { body: {} })
@@ -2549,7 +2576,7 @@ export function StoreProvider({ children }) {
       console.warn('[bplus] No se pudo eliminar la cuenta:', msg)
       return { ok: false, error: msg }
     }
-    await supabase.auth.signOut()
+    await sesiones.signOut()
     return { ok: true }
   }, [])
 

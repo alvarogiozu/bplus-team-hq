@@ -37,7 +37,7 @@
 // ============================================================================
 
 import { useEffect, useState } from 'react'
-import { supabase } from './supabase.js'
+import { supabase, sesiones } from './supabase.js'
 
 const LS_KEY = 'bplus.family.v1'
 const EVT = 'bplus-family-change'
@@ -518,9 +518,9 @@ function pararRemoto() {
   window.dispatchEvent(new Event(EVT))
 }
 
-if (typeof window !== 'undefined' && supabase) {
-  supabase.auth.getSession().then(({ data }) => { if (data?.session) arrancarRemoto() })
-  supabase.auth.onAuthStateChange((_ev, session) => {
+if (typeof window !== 'undefined' && supabase && sesiones) {
+  sesiones.getSession().then(({ data }) => { if (data?.session) arrancarRemoto() })
+  sesiones.onAuthStateChange((_ev, session) => {
     if (session) arrancarRemoto()
     else pararRemoto()
   })

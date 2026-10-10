@@ -1,8 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase'
+import { env } from '../lib/env'
+import { UNIDA } from '../lib/unaBase'
 
-// Hábitos (el código de rockie.plus) vive en /habitos con su propia base mientras las bases se juntan.
-// Como es el mismo sitio, el Inicio comparte su sesión y su Rockie guardados en este navegador:
-// así muestra tus hábitos de hoy y tu racha sin volver a entrar.
+// Hábitos (el código de rockie.plus) vive en /habitos. Sus datos están en el esquema `habitos` de Rockie OS y la
+// persona es la de Rockie OS (lib/unaBase): el Inicio muestra tus hábitos de hoy y tu racha con tu misma sesión.
+// La base vieja de Hábitos (`bplus()`) queda solo como puerta de Google.
 
 const url = import.meta.env.VITE_BPLUS_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_BPLUS_SUPABASE_ANON_KEY as string | undefined
@@ -14,6 +17,35 @@ export function bplus(): SupabaseClient | null {
     client = url && key ? createClient(url, key, { auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } }) : null
   }
   return client
+}
+
+// Los datos de Hábitos: esquema habitos de Rockie OS con el token de tu sesión. Cliente aparte del principal porque
+// el Cofre reconoce las tablas por nombre y aquí hay `profiles` y `goals` propios; no lleva sesión (accessToken).
+let datosCliente: SupabaseClient | null | undefined
+function datos(): SupabaseClient | null {
+  if (datosCliente === undefined) {
+    datosCliente =
+      env.supabaseUrl && env.supabaseAnonKey
+        ? (createClient(env.supabaseUrl, env.supabaseAnonKey, {
+            db: { schema: 'habitos' },
+            accessToken: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
+          }) as unknown as SupabaseClient)
+        : null
+  }
+  return datosCliente
+}
+
+/** Dónde están tus hábitos y quién eres ahí (null = sin sesión). */
+async function tusHabitos(): Promise<{ c: SupabaseClient; uid: string } | null> {
+  if (UNIDA) {
+    const c = datos()
+    const uid = (await supabase.auth.getSession()).data.session?.user.id
+    return c && uid ? { c, uid } : null
+  }
+  const c = bplus()
+  if (!c) return null
+  const uid = (await c.auth.getSession()).data.session?.user.id
+  return uid ? { c, uid } : null
 }
 
 export type HabitToday = { id: string; name: string; time: string; type: string; icon: string | null; color: string | null; done: boolean }
@@ -29,12 +61,9 @@ const toMin = (t: string) => {
 type HabitRow = { id: string; name: string; time: string | null; type: string | null; icon: string | null; color: string | null; days: number[] | null }
 
 export async function fetchHabitosHoy(): Promise<HabitosHoy> {
-  const c = bplus()
-  if (!c) return { signedIn: false }
-  const { data } = await c.auth.getSession()
-  const session = data.session
-  if (!session) return { signedIn: false }
-  const uid = session.user.id
+  const yo = await tusHabitos()
+  if (!yo) return { signedIn: false }
+  const { c, uid } = yo
   const now = new Date()
   const wd = (now.getDay() + 6) % 7 // lunes = 0, como en Hábitos
   const today = isoLocal(now)
@@ -63,11 +92,9 @@ export async function fetchHabitosHoy(): Promise<HabitosHoy> {
 export type PerfilHabitos = { signedIn: false } | { signedIn: true; friendCode: string | null; level: number; streak: number; best: number }
 
 export async function fetchPerfilHabitos(): Promise<PerfilHabitos> {
-  const c = bplus()
-  if (!c) return { signedIn: false }
-  const { data } = await c.auth.getSession()
-  const uid = data.session?.user.id
-  if (!uid) return { signedIn: false }
+  const yo = await tusHabitos()
+  if (!yo) return { signedIn: false }
+  const { c, uid } = yo
   const now = new Date()
   const today = isoLocal(now)
   const y = new Date(now)
@@ -115,12 +142,9 @@ export type HabitosRango = { signedIn: false } | { signedIn: true; habits: Habit
 
 /** Tus hábitos activos y lo que cumpliste entre `from` y `to` (incluidos). */
 export async function fetchHabitosRango(from: string, to: string): Promise<HabitosRango> {
-  const c = bplus()
-  if (!c) return { signedIn: false }
-  const { data } = await c.auth.getSession()
-  const session = data.session
-  if (!session) return { signedIn: false }
-  const uid = session.user.id
+  const yo = await tusHabitos()
+  if (!yo) return { signedIn: false }
+  const { c, uid } = yo
   const [h, cmp] = await Promise.all([
     c.from('habits').select('id, name, time, type, icon, color, days').eq('user_id', uid).eq('active', true),
     c.from('completions').select('habit_id, date, mode').eq('user_id', uid).gte('date', from).lte('date', to),
