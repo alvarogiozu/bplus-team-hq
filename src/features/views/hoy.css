@@ -1,0 +1,49 @@
+/* ============================================================
+   «HOY» EN TAREAS (views/HoyView.tsx): carriles por persona, horas arriba, la línea de ahora.
+   Solo tokens: claro y oscuro.
+   ============================================================ */
+.hoyv-scroll { position: relative; overflow: auto; max-height: calc(100dvh - 260px); min-height: 280px; padding: 0; overscroll-behavior: contain; scrollbar-width: thin; }
+.hoyv-inner { position: relative; }
+.hoyv-head { position: sticky; top: 0; z-index: 6; display: flex; height: 36px; background: var(--card); border-bottom: 1.5px solid var(--card-line); }
+.hoyv-corner { position: sticky; left: 0; z-index: 7; flex: none; width: var(--nw); display: flex; align-items: center; padding: 0 14px; background: var(--card); border-right: 1.5px solid var(--card-line); font-size: var(--t-3xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.hoyv-horas { position: relative; flex: none; }
+.hoyv-horas span { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding-left: 6px; border-left: 1px solid var(--line); font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.hoyv-body { position: relative; }
+.hoyv-grid { position: absolute; top: 0; bottom: 0; z-index: 0; pointer-events: none; background-image: linear-gradient(to right, var(--line) 1px, transparent 1px), linear-gradient(to right, color-mix(in oklab, var(--line) 50%, transparent) 1px, transparent 1px); background-size: var(--h) 100%, calc(var(--h) / 4) 100%; }
+.hoyv-ahora { position: absolute; top: 0; bottom: 0; z-index: 4; width: 0; pointer-events: none; }
+.hoyv-ahora i { position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; border-radius: 2px; background: var(--coral); }
+.hoyv-ahora-hora { position: absolute; top: 50%; z-index: 1; transform: translate(-50%, -50%); padding: 1px 7px; border-radius: var(--r-pill); background: var(--coral); color: var(--on-color); font-size: 10px; font-weight: 800; font-variant-numeric: tabular-nums; box-shadow: 0 2px 0 var(--coral-edge); }
+.hoyv-carril { position: absolute; left: 0; right: 0; border-bottom: 1px solid var(--line); }
+.hoyv-carril:nth-child(even) { background: color-mix(in oklab, var(--paper-alt) 45%, transparent); }
+.hoyv-nombre { position: sticky; left: 0; z-index: 5; width: var(--nw); height: 100%; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--card); border-right: 1.5px solid var(--card-line); }
+.hoyv-nombre b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--serif); font-size: var(--t-s); color: var(--ink); }
+.hoyv-nombre small { font-size: var(--t-3xs); font-weight: 800; color: var(--ink-muted); }
+
+/* los bloques */
+.hoyv-b {
+  position: absolute; z-index: 3; height: calc(46px - 8px); display: flex; align-items: center; gap: 4px; padding: 0 12px 0 10px; border-radius: 10px;
+  background: var(--bc); color: var(--on-color); box-shadow: 0 3px 0 color-mix(in oklab, var(--bc) 62%, black); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; outline: none;
+}
+.hoyv-b:focus-visible { box-shadow: 0 3px 0 color-mix(in oklab, var(--bc) 62%, black), 0 0 0 3px var(--card), 0 0 0 5px var(--accent); }
+.hoyv-b.arrastrando { z-index: 8; cursor: grabbing; }
+.hoyv-b.sugerida { background: color-mix(in oklab, var(--bc) 22%, var(--card)); color: var(--ink); border: 1.5px dashed color-mix(in oklab, var(--bc) 70%, var(--ink-faint)); box-shadow: none; }
+.hoyv-b.hecha { background: color-mix(in oklab, var(--bc) 30%, var(--card)); color: var(--ink-muted); box-shadow: none; text-decoration: line-through; }
+.hoyv-b.bloq { background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in oklab, var(--card) 35%, transparent) 6px 10px); }
+.hoyv-b.tarde { outline: 2px solid var(--coral); outline-offset: 2px; }
+.hoyv-bt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; pointer-events: none; }
+.hoyv-bt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-2xs); font-weight: 800; }
+.hoyv-bt small { font-size: 10px; font-weight: 700; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.hoyv-b .pill { flex: none; padding: 1px 5px; }
+.hoyv-fin { position: absolute; top: 0; right: -3px; bottom: 0; width: 10px; cursor: ew-resize; }
+.hoyv-fin::after { content: ''; position: absolute; top: 9px; bottom: 9px; left: 4px; width: 3px; border-radius: 2px; background: currentColor; opacity: 0; transition: opacity 0.15s; }
+.hoyv-b:hover .hoyv-fin::after { opacity: 0.6; }
+.hoyv-tip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); padding: 3px 9px; border-radius: var(--r-pill); background: var(--ink); color: var(--paper); font-size: var(--t-3xs); font-weight: 800; white-space: nowrap; pointer-events: none; }
+
+/* las flechas (debajo de los bloques) */
+.hoyv-flechas { position: absolute; top: 0; z-index: 2; overflow: visible; pointer-events: none; }
+.hoyv-flechas path { fill: none; stroke: var(--ink-muted); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.hoyv-flechas path.choca { stroke: var(--coral); stroke-width: 2; }
+.hoyv-flechas marker path { fill: var(--ink-muted); stroke: none; }
+.hoyv-flechas marker.choca path { fill: var(--coral); }
+.hoyv-ayuda { margin: var(--s3) 0 0; }
+@media (max-width: 700px) { .hoyv { --nw: 120px !important; } .hoyv-scroll { max-height: calc(100dvh - 300px); } }
