@@ -272,7 +272,7 @@ function idsDependencias(v: unknown, creadas?: (string | null)[]): string[] | st
 }
 
 /** La fecha de hoy en la zona horaria de la persona (para «hoy» y «mañana»). */
-async function hoy(ctx: Ctx): Promise<string> {
+export async function hoy(ctx: Ctx): Promise<string> {
   const { data } = await ctx.db.from('profiles').select('timezone').eq('id', ctx.uid).maybeSingle()
   const tz = (data as { timezone?: string } | null)?.timezone || 'America/Lima'
   try {
@@ -281,13 +281,13 @@ async function hoy(ctx: Ctx): Promise<string> {
     return new Date().toISOString().slice(0, 10)
   }
 }
-const sumarDias = (dia: string, n: number) => {
+export const sumarDias = (dia: string, n: number) => {
   const d = new Date(`${dia}T12:00:00Z`)
   d.setUTCDate(d.getUTCDate() + n)
   return d.toISOString().slice(0, 10)
 }
 /** «2026-10-20», «hoy», «mañana», «ninguna» → la fecha (null = quitarla; undefined = no se entiende) */
-function fechaDe(v: string, hoyDia: string): string | null | undefined {
+export function fechaDe(v: string, hoyDia: string): string | null | undefined {
   const s = fold(v)
   if (['ninguna', 'sin fecha', 'nada', 'quitar'].includes(s)) return null
   if (s === 'hoy') return hoyDia
@@ -296,7 +296,7 @@ function fechaDe(v: string, hoyDia: string): string | null | undefined {
   return /^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : undefined
 }
 /** «14», «14:30», «9:05», «ninguna» → «HH:MM» (null = quitarla; undefined = no se entiende) */
-function horaDe(v: unknown): string | null | undefined {
+export function horaDe(v: unknown): string | null | undefined {
   const s = fold(asStr(v, 20))
   if (['ninguna', 'sin hora', 'nada', 'quitar'].includes(s)) return null
   const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(s)

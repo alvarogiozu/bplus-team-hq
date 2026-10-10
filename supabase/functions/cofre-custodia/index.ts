@@ -9,6 +9,7 @@
 // Reglas: ni el cuerpo, ni las llaves, ni los errores con datos van a los logs.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { b64u, deB64u, descifrarValor, importarLlave } from '../_shared/cofre.ts'
+import { abrirMaestra, envolverMaestra, KEK_VERSION } from '../_shared/custodia.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -21,32 +22,6 @@ const json = (body: unknown, status = 200) =>
     },
   })
 const KID = /^[A-Za-z0-9_-]{6,40}$/
-const enc = new TextEncoder()
-const KEK_VERSION = 1
-
-function kekDe(version: number): Uint8Array<ArrayBuffer> {
-  const v = Deno.env.get(version === 1 ? 'COFRE_CUSTODIA_KEK' : `COFRE_CUSTODIA_KEK_${version}`)
-  if (!v) throw new Error('falta la llave del servidor')
-  return deB64u(v)
-}
-const aadDe = (uid: string, kid: string) => enc.encode(`cofre-custodia|${uid}|${kid}`)
-
-async function envolver(version: number, uid: string, kid: string, raw: Uint8Array<ArrayBuffer>): Promise<string> {
-  const k = await crypto.subtle.importKey('raw', kekDe(version), { name: 'AES-GCM' }, false, ['encrypt'])
-  const iv = crypto.getRandomValues(new Uint8Array(12))
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: aadDe(uid, kid) }, k, raw))
-  const out = new Uint8Array(12 + ct.length)
-  out.set(iv)
-  out.set(ct, 12)
-  return b64u(out)
-}
-
-async function abrirEnvuelto(version: number, uid: string, kid: string, envuelto: string): Promise<Uint8Array> {
-  const k = await crypto.subtle.importKey('raw', kekDe(version), { name: 'AES-GCM' }, false, ['decrypt'])
-  const b = deB64u(envuelto)
-  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b.subarray(0, 12), additionalData: aadDe(uid, kid) }, k, b.subarray(12)))
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return json('ok')
   if (req.method !== 'POST') return json({ error: 'metodo_no_permitido' }, 405)
@@ -76,7 +51,7 @@ Deno.serve(async (req) => {
       } catch {
         return json({ error: 'llave_invalida' }, 400)
       }
-      const envuelto = await envolver(KEK_VERSION, uid, cuenta.kid, raw)
+      const envuelto = await envolverMaestra(uid, cuenta.kid, raw)
       const { error } = await db.from('cofre_custodia').upsert({ user_id: uid, kid: cuenta.kid, envuelto, kek_version: KEK_VERSION, creado: new Date().toISOString() })
       if (error) return json({ error: 'no_se_pudo_guardar' }, 500)
       if (cuenta.modo !== 'estandar') await db.from('cofre_cuentas').update({ modo: 'estandar', actualizado: new Date().toISOString() }).eq('user_id', uid)
@@ -87,7 +62,7 @@ Deno.serve(async (req) => {
       if (cuenta.modo !== 'estandar') return json({ error: 'proteccion_avanzada' }, 403)
       const { data: c } = await db.from('cofre_custodia').select('kid, envuelto, kek_version').eq('user_id', uid).maybeSingle()
       if (!c || c.kid !== cuenta.kid) return json({ error: 'sin_custodia' }, 404)
-      const raw = await abrirEnvuelto(c.kek_version, uid, c.kid, c.envuelto)
+      const raw = await abrirMaestra(c.kek_version, uid, c.kid, c.envuelto)
       return json({ kid: c.kid, llave: b64u(raw) })
     }
 

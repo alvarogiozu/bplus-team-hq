@@ -1,15 +1,19 @@
-// El llavero de UN pedido del conector («llave temporal para Claude»): las llaves que la persona le dio a Claude,
-// abiertas en memoria una sola vez por pedido (llavesDeClaude) y nunca guardadas entre pedidos. Con ellas el conector
-// lee lo cifrado (abrir) y escribe cifrado con el kid vigente (sello). Nada de esto se registra.
+// El llavero de UN pedido del conector: las llaves con que Claude abre lo de la persona, en memoria una sola vez por
+// pedido y nunca guardadas entre pedidos. Salen de dos lugares:
+//  - protección estándar del Cofre: la copia custodiada (llavesEnCustodia) → todo lo suyo y lo de sus equipos, sin
+//    interruptores: conectar a Claude es el permiso;
+//  - protección avanzada: solo las «llaves temporales» que su dispositivo le entregó a Claude (llavesDeClaude).
+// Con ellas el conector lee lo cifrado (abrir) y escribe cifrado con el kid vigente (sello). Nada de esto se registra.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { abrir, cerrar, type Llaves } from '../_shared/cofre.ts'
 import { kidVigente, llavesDeClaude } from '../_shared/claude-llaves.ts'
+import { llavesEnCustodia } from '../_shared/custodia.ts'
 
 export type Sello = { cifra: boolean; cierra: (v: string) => Promise<string> }
 export type Llavero = {
-  /** ¿Le dio a Claude una llave vigente que cubre este proyecto (la suya o la de «todo»)? No abre nada. */
+  /** ¿Claude puede abrir este proyecto (protección estándar, o una llave vigente suya o la de «todo»)? */
   cubre(spaceId: string): Promise<boolean>
-  /** ¿Le dio la de «todo su Rockie» (lo personal y sus equipos)? No abre nada. */
+  /** ¿Puede abrir «todo su Rockie» (lo personal y sus equipos): protección estándar o la llave de «todo»? */
   todo(): Promise<boolean>
   /** Las llaves, abiertas en memoria (una vez por pedido). Vacío si no dio ninguna. */
   llaves(): Promise<Llaves>
@@ -26,6 +30,8 @@ export const LLAVE_VIEJA = 'La llave que le diste a Claude quedó vieja o venci�
 export function crearLlavero(db: SupabaseClient, uid: string): Llavero {
   let cobertura: Promise<{ todo: boolean; espacios: Set<string> }> | null = null
   let abiertas: Promise<Llaves> | null = null
+  let custodia: Promise<Llaves | null> | null = null
+  const enCustodia = () => (custodia ??= llavesEnCustodia(db, uid))
   const cubiertos = () =>
     (cobertura ??= (async () => {
       const { data } = await db.from('claude_llaves').select('ambito, space_id').eq('user_id', uid).gt('vence', new Date().toISOString())
@@ -34,16 +40,19 @@ export function crearLlavero(db: SupabaseClient, uid: string): Llavero {
     })())
   const llaves = () =>
     (abiertas ??= (async () => {
-      const c = await cubiertos()
+      const [c, propias] = await Promise.all([cubiertos(), enCustodia()])
       // sin ninguna llave vigente no hay nada que abrir (ni uso que anotar)
-      return c.todo || c.espacios.size ? await llavesDeClaude(db, uid) : (new Map() as Llaves)
+      const out = c.todo || c.espacios.size ? await llavesDeClaude(db, uid) : (new Map() as Llaves)
+      for (const [kid, k] of propias ?? []) out.set(kid, k)
+      return out
     })())
   return {
     cubre: async (spaceId) => {
+      if (await enCustodia()) return true
       const c = await cubiertos()
       return c.todo || c.espacios.has(spaceId)
     },
-    todo: async () => (await cubiertos()).todo,
+    todo: async () => !!(await enCustodia()) || (await cubiertos()).todo,
     llaves,
     texto: async (v) => {
       if (v == null) return ''

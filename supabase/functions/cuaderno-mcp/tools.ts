@@ -7,6 +7,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { embed } from '../_shared/rockie-llm.ts'
 import { callProyecto, PROYECTO_INSTRUCCIONES, PROYECTO_TOOLS } from './proyectos.ts'
+import { AGENDA_INSTRUCCIONES, AGENDA_TOOLS, callAgenda } from './agenda.ts'
 import { EN_CLARO, LLAVE_VIEJA, type Llavero } from './llavero.ts'
 import { sinContenido } from '../_shared/registro.ts'
 
@@ -17,9 +18,10 @@ type Args = Record<string, unknown>
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean }
 
 export const INSTRUCTIONS = [
-  'Rockie: Cuaderno (cuadernos → páginas Markdown, tarjetas de repaso) y Proyectos (tareas).',
+  'Rockie: Cuaderno (cuadernos → páginas Markdown, tarjetas de repaso), Proyectos (tareas) y Agenda.',
   '- Busca antes de crear. [[Título]] en el contenido conecta páginas. No borra. Comparte el enlace de lo que crees.',
   PROYECTO_INSTRUCCIONES,
+  AGENDA_INSTRUCCIONES,
   '- Solo ves lo abierto para Claude; lo demás está cifrado (🔒).',
 ].join('\n')
 
@@ -114,7 +116,7 @@ const TOOLS = [
 
 /** Las herramientas que ve esta conexión (una de solo lectura no ve las que escriben). */
 export function toolsFor(scope: Scope) {
-  return [...TOOLS, ...PROYECTO_TOOLS].filter((t) => scope === 'escribir' || !t.write).map(({ write: _w, ...t }) => t)
+  return [...TOOLS, ...PROYECTO_TOOLS, ...AGENDA_TOOLS].filter((t) => scope === 'escribir' || !t.write).map(({ write: _w, ...t }) => t)
 }
 
 // ---------- utilidades ----------
@@ -331,6 +333,8 @@ const AUN_CIFRADA = 'Claude no puede abrir esa nota todavía: su dueña tiene qu
 export async function callTool(name: string, args: Args, ctx: Ctx): Promise<Result> {
   const deProyectos = await callProyecto(name, args, ctx)
   if (deProyectos) return deProyectos
+  const deAgenda = await callAgenda(name, args, ctx)
+  if (deAgenda) return deAgenda
   const tool = TOOLS.find((t) => t.name === name)
   if (tool?.write && ctx.scope !== 'escribir') return oops('Esta conexión es de solo lectura. El usuario puede darle permiso de escribir reconectando el cuaderno.')
   try {
