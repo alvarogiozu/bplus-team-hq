@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { Icon, type IconName } from '../../components/Icon'
 import { APPS, appTint, type AppId, type OsApp } from '../../os/apps'
@@ -523,9 +523,13 @@ function medidasRecorrido(el: HTMLElement | null) {
 
 /** El recorrido se queda fijo mientras bajas: el scroll decide el paso activo y, en --avance (0 a 1), cuánto va
  *  de ese paso (la barra de su rótulo). Solo cambia el estado al pasar de un paso a otro. */
-function useRecorrido(n: number) {
+function useRecorrido(n: number, alMedir?: (paso: number, avance: number) => void) {
   const ref = useRef<HTMLDivElement>(null)
   const [paso, setPaso] = useState(0)
+  const aviso = useRef(alMedir)
+  useEffect(() => {
+    aviso.current = alMedir
+  })
   useEffect(() => {
     let raf = 0
     const medir = () => {
@@ -535,6 +539,7 @@ function useRecorrido(n: number) {
       const x = Math.min(n - 0.001, Math.max(0, ((m.tope - m.el.getBoundingClientRect().top) / m.total) * n))
       const i = Math.floor(x)
       m.el.style.setProperty('--avance', (x - i).toFixed(3))
+      aviso.current?.(i, x - i)
       setPaso((antes) => (antes === i ? antes : i))
     }
     const alMover = () => {
@@ -929,88 +934,114 @@ function MockCierre() {
   )
 }
 
-/* ---------- por dentro: lo que le da vida a Rockie, tal como es en la app ---------- */
+/* ---------- por dentro: lo que le da vida a Rockie, tal como es en la app ----------
+   Otro tramo fijo: a la izquierda, la lista de lo que hace; a la derecha, la escena. Cada muestra NO corre sola:
+   se arma con el scroll (--avance), poco a poco, y se desarma si subes. */
 
-function Demo({
-  tinte,
-  icon,
-  rot,
-  titulo,
-  texto,
-  children,
-}: {
-  tinte: CSSProperties
-  icon: IconName
-  rot: string
-  titulo: string
-  texto: string
-  children: ReactNode
-}) {
-  return (
-    <article className="pt-demo pt-rv" style={tinte}>
-      <div className="pt-demo-m" aria-hidden="true">
-        {children}
-      </div>
-      <div className="pt-demo-t">
-        <p className="pt-demo-rot">
-          <span className="os-tile sm">
-            <Icon name={icon} className="sm" />
-          </span>
-          {rot}
-        </p>
-        <h3>{titulo}</h3>
-        <p>{texto}</p>
-      </div>
-    </article>
-  )
-}
+const DICHO = 'Idea para la tesis: comparar los dos métodos con los datos de 2024'
+
+type Muestra = { tinte: CSSProperties; icon: IconName; rot: string; titulo: string; texto: string }
+
+const ambar = { ['--app' as string]: 'var(--amber)', ['--app-edge' as string]: 'var(--amber-edge)' } as CSSProperties
+const coral = { ['--app' as string]: 'var(--title)', ['--app-edge' as string]: 'var(--coral-edge)' } as CSSProperties
+
+const MUESTRAS: Muestra[] = [
+  {
+    tinte: appTint(app('cuaderno')),
+    icon: 'tree',
+    rot: 'Cuaderno · Mapa',
+    titulo: 'Tus notas, enlazadas entre sí.',
+    texto:
+      'Escribe [[ y la página queda unida a otra. El Mapa junta tus apuntes de la universidad, tus recuerdos y tus proyectos, y cada conexión guarda su porqué. Una página puede vivir también en tu proyecto: el equipo la edita a la vez.',
+  },
+  {
+    tinte: appTint(app('cuaderno')),
+    icon: 'edit',
+    rot: 'Cuaderno · Dibujar y Pizarra',
+    titulo: 'Escribe, dibuja y pega en la misma página.',
+    texto:
+      'Cada página acepta texto, una hoja de dibujo que crece hacia abajo y una pizarra infinita con tus imágenes. Con lápiz, la tinta responde a la presión, como en papel.',
+  },
+  {
+    tinte: ambar,
+    icon: 'mic',
+    rot: 'Rockie · Voz',
+    titulo: 'Háblale: Rockie entiende de qué se trata.',
+    texto:
+      'Mantén presionado y habla. Rockie decide si es una nota, un hábito, una cita o una tarea, lo deja listo para confirmar y, si duda, te pregunta dónde guardarlo.',
+  },
+  {
+    tinte: coral,
+    icon: 'panel',
+    rot: 'Escritorio · Pantalla dividida',
+    titulo: 'Una pestaña al lado de la otra.',
+    texto:
+      'Arrastra una pestaña a un costado y la pantalla se parte, hasta seis paneles. Tus apuntes junto al proyecto, la agenda junto a tus hábitos.',
+  },
+]
 
 function PorDentro() {
-  const cuaderno = appTint(app('cuaderno'))
+  const dicho = useRef<HTMLQuoteElement>(null)
+  // lo que «dices» se va escribiendo con el scroll (el resto de cada muestra lo mueve el CSS con --avance)
+  const avanceVoz = useRef(0)
+  const escribir = () => {
+    if (!dicho.current) return
+    const q = Math.min(1, Math.max(0, (avanceVoz.current / 0.78 - 0.04) / 0.42))
+    dicho.current.textContent = DICHO.slice(0, Math.round(q * DICHO.length))
+  }
+  const { ref, paso, ir } = useRecorrido(MUESTRAS.length, (i, avance) => {
+    avanceVoz.current = i === 2 ? avance : i < 2 ? 0 : 1
+    escribir()
+  })
+  // al llegar a la voz de un salto (un clic en la lista), la frase arranca donde toca
+  useEffect(() => {
+    if (paso === 2) escribir()
+  })
+  const m = MUESTRAS[paso]
   return (
     <section id="por-dentro" className="pt-sec">
       <Ceja n="02">Por dentro</Ceja>
       <h2 className="pt-rv">
         Lo que escribes, dibujas o dices <em>queda conectado</em>.
       </h2>
-      <p className="pt-lead pt-rv">Cuatro cosas que Rockie ya hace hoy, tal como se ven en la app.</p>
-      <div className="pt-demos">
-        <Demo
-          tinte={cuaderno}
-          icon="tree"
-          rot="Cuaderno · Mapa"
-          titulo="Tus notas, enlazadas entre sí."
-          texto="Escribe [[ y la página queda unida a otra. El Mapa junta tus apuntes de la universidad, tus recuerdos y tus proyectos, y cada conexión guarda su porqué. Una página puede vivir también en tu proyecto: el equipo la edita a la vez."
-        >
-          <DemoMapa />
-        </Demo>
-        <Demo
-          tinte={cuaderno}
-          icon="edit"
-          rot="Cuaderno · Dibujar y Pizarra"
-          titulo="Escribe, dibuja y pega en la misma página."
-          texto="Cada página acepta texto, una hoja de dibujo que crece hacia abajo y una pizarra infinita con tus imágenes. Con lápiz, la tinta responde a la presión, como en papel."
-        >
-          <DemoTinta />
-        </Demo>
-        <Demo
-          tinte={vars({ '--app': 'var(--amber)', '--app-edge': 'var(--amber-edge)' })}
-          icon="mic"
-          rot="Rockie · Voz"
-          titulo="Háblale: Rockie entiende de qué se trata."
-          texto="Mantén presionado y habla. Rockie decide si es una nota, un hábito, una cita o una tarea, lo deja listo para confirmar y, si duda, te pregunta dónde guardarlo."
-        >
-          <DemoVoz />
-        </Demo>
-        <Demo
-          tinte={vars({ '--app': 'var(--title)', '--app-edge': 'var(--coral-edge)' })}
-          icon="panel"
-          rot="Escritorio · Pantalla dividida"
-          titulo="Una pestaña al lado de la otra."
-          texto="Arrastra una pestaña a un costado y la pantalla se parte, hasta seis paneles. Tus apuntes junto al proyecto, la agenda junto a tus hábitos."
-        >
-          <DemoDividida />
-        </Demo>
+      <p className="pt-lead pt-rv">Sigue bajando: cada cosa se arma delante de ti, tal como pasa en la app.</p>
+      <div ref={ref} className="pt-rec pd" style={vars({ '--n': MUESTRAS.length })}>
+        <div className="pt-rec-fijo pd-fijo">
+          <div className="pd-pips" aria-hidden="true">
+            {MUESTRAS.map((x, i) => (
+              <span key={x.rot} className={i === paso ? 'on' : i < paso ? 'hecho' : ''} style={x.tinte}>
+                <i />
+              </span>
+            ))}
+          </div>
+          <ol className="pd-lista">
+            {MUESTRAS.map((x, i) => (
+              <li key={x.rot} className={i === paso ? 'on' : i < paso ? 'hecho' : ''} style={x.tinte}>
+                <button type="button" onClick={() => ir(i)} aria-current={i === paso ? 'step' : undefined}>
+                  <span className="pd-barra">
+                    <i />
+                  </span>
+                  <span className="pt-demo-rot">
+                    <span className="os-tile sm">
+                      <Icon name={x.icon} className="sm" />
+                    </span>
+                    {x.rot}
+                  </span>
+                  <b>{x.titulo}</b>
+                  <span className="pd-texto">
+                    <span>{x.texto}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+          <div key={paso} className="pd-escena pt-cambia" style={m.tinte} aria-hidden="true">
+            {paso === 0 && <DemoMapa />}
+            {paso === 1 && <DemoTinta />}
+            {paso === 2 && <DemoVoz dicho={dicho} />}
+            {paso === 3 && <DemoDividida />}
+          </div>
+        </div>
       </div>
     </section>
   )
@@ -1024,7 +1055,7 @@ const NUCLEOS = [
 ]
 const PAGINAS = [
   { t: 'Derivadas', x: 38, y: 132, de: 'calc', lado: 1 },
-  { t: 'Límites', x: 138, y: 136, de: 'calc', lado: 1 },
+  { t: 'Límites', x: 138, y: 136, de: 'calc', lado: -1 },
   { t: 'Parcial', x: 56, y: 30, de: 'calc', lado: -1 },
   { t: 'Viaje a Cusco', x: 322, y: 96, de: 'rec', lado: 1 },
   { t: 'Cumple de mamá', x: 300, y: 18, de: 'rec', lado: -1 },
@@ -1038,11 +1069,14 @@ function DemoMapa() {
       {PAGINAS.map((p, i) => (
         <line key={p.t} className="dm-liga" pathLength={1} x1={n(p.de).x} y1={n(p.de).y} x2={p.x} y2={p.y} style={vars({ stroke: n(p.de).c, '--i': i })} />
       ))}
-      {/* páginas unidas entre sí, y una página unida a un proyecto */}
+      {/* páginas unidas entre sí, y una página unida a un proyecto, con su porqué */}
       <line className="dm-liga" pathLength={1} x1={38} y1={132} x2={138} y2={136} style={vars({ '--i': 6 })} />
-      <line className="dm-liga cruce" pathLength={1} x1={138} y1={136} x2={232} y2={150} style={vars({ '--i': 7 })} />
-      {NUCLEOS.map((x, i) => (
-        <g key={x.id} className="dm-nodo" style={vars({ '--i': i })}>
+      <line className="dm-liga cruce" x1={138} y1={136} x2={232} y2={150} />
+      <text className="porque" x={176} y={164} textAnchor="middle">
+        porqué: «va en el stand»
+      </text>
+      {NUCLEOS.map((x) => (
+        <g key={x.id}>
           <circle cx={x.x} cy={x.y} r={x.r} style={{ fill: x.c }} />
           <text className="nucleo" x={x.x} y={x.y - x.r - 6} textAnchor="middle">
             {x.t}
@@ -1050,7 +1084,7 @@ function DemoMapa() {
         </g>
       ))}
       {PAGINAS.map((p, i) => (
-        <g key={p.t} className="dm-nodo" style={vars({ '--i': i + 3 })}>
+        <g key={p.t} className="dm-nodo" style={vars({ '--i': i })}>
           <circle className="pagina" cx={p.x} cy={p.y} r={5} style={{ stroke: n(p.de).c }} />
           <text x={p.x} y={p.y + (p.lado > 0 ? 17 : -10)} textAnchor="middle">
             {p.t}
@@ -1061,7 +1095,7 @@ function DemoMapa() {
   )
 }
 
-// Una página con tinta: la curva y su tangente se trazan solas, junto a una imagen pegada.
+// Una página con tinta: la curva y su tangente se trazan con el scroll, y al final cae una imagen pegada.
 function DemoTinta() {
   return (
     <svg className="dm-tinta" viewBox="0 0 360 200" preserveAspectRatio="xMidYMid meet">
@@ -1072,17 +1106,19 @@ function DemoTinta() {
       <text className="mano" x={92} y={46}>
         pendiente = f′(a)
       </text>
-      <g className="foto" transform="rotate(5 292 150)">
-        <rect x={254} y={118} width={76} height={58} rx={7} />
-        <path d="M260 168l18-22 12 13 9-9 22 18z" />
-        <circle cx={316} cy={131} r={5} />
+      <g className="foto">
+        <g transform="rotate(5 292 150)">
+          <rect x={254} y={118} width={76} height={58} rx={7} />
+          <path d="M260 168l18-22 12 13 9-9 22 18z" />
+          <circle cx={316} cy={131} r={5} />
+        </g>
       </g>
     </svg>
   )
 }
 
-// La voz: la roca escucha, y Rockie deja la tarjeta lista con su destino («Anotar en el Cuaderno»).
-function DemoVoz() {
+// La voz: la roca escucha mientras se escribe lo que dices; Rockie elige qué es y deja la tarjeta lista.
+function DemoVoz({ dicho }: { dicho: RefObject<HTMLQuoteElement> }) {
   const a = app('cuaderno')
   return (
     <div className="dm-voz">
@@ -1097,7 +1133,16 @@ function DemoVoz() {
             <i key={i} style={vars({ '--h': h, '--i': i })} />
           ))}
         </span>
-        <q>Idea para la tesis: comparar los dos métodos con los datos de 2024</q>
+        <q ref={dicho}>{DICHO}</q>
+      </div>
+      <div className="dm-decide" style={appTint(a)}>
+        <small>Rockie decide</small>
+        <span className="si" data-t="Nota">
+          Nota
+        </span>
+        <span>Hábito</span>
+        <span>Cita</span>
+        <span>Tarea</span>
       </div>
       <div className="dm-tarjeta">
         <span className="dm-chips">
@@ -1113,10 +1158,18 @@ function DemoVoz() {
   )
 }
 
-// El escritorio: la pestaña del Cuaderno baja a un costado y la pantalla se parte en dos.
+// El escritorio: la pestaña del Cuaderno baja a un costado, se ilumina la zona y la pantalla se parte en dos.
 function DemoDividida() {
   const pr = app('equipo')
   const cu = app('cuaderno')
+  const pestana = (
+    <>
+      <span className="pt-tab-ic">
+        <Icon name={cu.icon} className="sm" />
+      </span>
+      {cu.name}
+    </>
+  )
   return (
     <div className="dm-esc">
       <div className="dm-esc-tabs">
@@ -1126,11 +1179,9 @@ function DemoDividida() {
           </span>
           {pr.name}
         </span>
-        <span className="pt-tab va" style={appTint(cu)}>
-          <span className="pt-tab-ic">
-            <Icon name={cu.icon} className="sm" />
-          </span>
-          {cu.name}
+        <span className="dm-hueco" style={appTint(cu)}>
+          <span className="pt-tab">{pestana}</span>
+          <span className="pt-tab va">{pestana}</span>
         </span>
       </div>
       <div className="dm-mesa">

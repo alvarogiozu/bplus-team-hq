@@ -132,82 +132,117 @@
 @keyframes pt-apachurra { 0%, 100% { transform: none; } 40% { transform: scale(1.035, 0.96); } 75% { transform: scale(0.99, 1.015); } }
 
 /* ============================================================ por dentro ============================================================ */
-/* cuatro muestras de lo que ya hace la app; cada una se anima una vez, al asomar */
-.pt-demos { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); margin-top: var(--s6); }
-@media (min-width: 760px) { .pt-demos { grid-template-columns: 1fr 1fr; gap: var(--s5); } }
-.pt-demo {
-  display: flex; flex-direction: column; min-width: 0; overflow: hidden;
-  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge);
-}
-.pt-demo-m { position: relative; height: 220px; display: grid; place-items: center; padding: var(--s3); background: var(--card-2); border-bottom: 1px solid var(--line); overflow: hidden; }
-.pt-demo-t { display: grid; gap: var(--s2); padding: var(--s4) var(--s5) var(--s5); }
-.pt-demo-rot { display: flex; align-items: center; gap: 8px; margin: 0; font: 500 var(--t-2xs) var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
-.pt-demo-t h3 { margin: 0; font: 600 var(--t-2xl)/1.15 var(--serif); letter-spacing: -0.01em; color: var(--title); }
-.pt-demo-t > p:last-child { margin: 0; font-size: var(--t-sm); line-height: 1.5; color: var(--ink-soft); }
+/* otro tramo fijo: la lista de lo que hace Rockie y, al lado, la escena. Nada corre solo: cada muestra se arma con
+   el scroll. --p (0 a 1) es cuánto va del paso (llega a 1 antes del final, para verla completa un momento) y cada
+   pieza toma su tramo de --p con clamp(). Solo transform, opacity y el trazo de las líneas. */
+.pt-rec.pd { height: calc(100vh + var(--n) * 85vh); height: calc(100dvh + var(--n) * 85vh); }
+.pd-fijo { justify-content: center; gap: var(--s4); }
+.pd-pips { flex: none; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: var(--s2); }
+.pd-pips span, .pd-barra { display: block; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.pd-pips i, .pd-barra i { display: block; height: 100%; background: var(--app); transform: scaleX(0); transform-origin: 0 50%; }
+.pd-pips .hecho i, .pd-lista .hecho .pd-barra i { transform: none; }
+.pd-pips .on i, .pd-lista .on .pd-barra i { transform: scaleX(var(--avance, 0)); }
 
-/* el Mapa: las uniones se trazan y los nodos aparecen en orden */
+.pd-escena {
+  --p: clamp(0, calc(var(--avance, 0) / 0.78), 1);
+  order: -1; flex: 0 1 300px; min-height: 200px; position: relative; display: grid; place-items: center; padding: var(--s3); overflow: hidden;
+  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); border-top: 3px solid var(--app); box-shadow: 0 4px 0 var(--card-edge), var(--shadow-card);
+}
+.pd-pips { order: -2; }
+
+/* la lista: en el celular solo se lee el paso en curso; en la PC están los cuatro y el activo se abre */
+.pd-lista { flex: none; display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.pd-lista li:not(.on) { display: none; }
+.pd-lista button { display: grid; gap: 6px; width: 100%; padding: 0; text-align: left; font-weight: 400; color: var(--ink-soft); cursor: pointer; }
+.pd-lista button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+.pd-barra { display: none; }
+.pt-demo-rot { display: flex; align-items: center; gap: 8px; margin: 0; font: 500 var(--t-2xs) var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.pd-lista b { font: 600 var(--t-2xl)/1.12 var(--serif); letter-spacing: -0.01em; color: var(--title); }
+.pd-texto { font-size: var(--t-s); line-height: 1.5; color: var(--ink-soft); }
+@media (min-width: 900px) {
+  .pt-rec-fijo.pd-fijo { display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr); align-items: center; column-gap: var(--s10); }
+  .pd-pips { display: none; }
+  .pd-escena { order: 0; height: min(460px, 100%); }
+  .pd-lista { gap: var(--s4); }
+  .pd-lista li:not(.on) { display: block; }
+  .pd-lista button { transition: opacity 0.3s; }
+  .pd-lista li:not(.on) button { opacity: 0.5; }
+  .pd-lista li:not(.on) button:hover { opacity: 0.85; }
+  .pd-barra { display: block; margin-bottom: 4px; }
+  .pd-lista b { font-size: var(--t-xl); color: var(--ink); transition: font-size 0.35s var(--pt-ease), color 0.3s; }
+  .pd-lista .on b { font-size: var(--t-2xl); color: var(--title); }
+  /* el texto del activo se abre (y los demás se cierran) sin saltos */
+  .pd-texto { display: grid; grid-template-rows: 0fr; font-size: var(--t-sm); transition: grid-template-rows 0.45s var(--pt-ease); }
+  .pd-texto > span { min-height: 0; overflow: hidden; }
+  .pd-lista .on .pd-texto { grid-template-rows: 1fr; }
+}
+
+/* ---------- 1 · el Mapa: los núcleos ya están; con el scroll salen sus páginas, se trazan las uniones y, al final,
+   la nota se une al proyecto con su porqué ---------- */
 .dm-mapa, .dm-tinta { position: absolute; inset: var(--s3); width: calc(100% - 2 * var(--s3)); height: calc(100% - 2 * var(--s3)); }
-.dm-liga { stroke: var(--ink-faint); stroke-width: 1.5; stroke-dasharray: 1; }
-.dm-liga.cruce { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 0.06 0.05; }
 .dm-mapa text { font: 500 9.5px var(--sans); fill: var(--ink-soft); }
 .dm-mapa text.nucleo { font: 600 11px var(--sans); fill: var(--ink); }
 .dm-mapa .pagina { fill: var(--card); stroke-width: 2.5; }
-.dm-nodo { transform-box: fill-box; transform-origin: 50% 50%; }
-.pt-anim .pt-demo .dm-liga:not(.cruce) { stroke-dashoffset: 1; transition: stroke-dashoffset 0.7s var(--pt-ease); transition-delay: calc(0.35s + var(--i) * 0.07s); }
-.pt-anim .pt-demo.vis .dm-liga:not(.cruce) { stroke-dashoffset: 0; }
-.pt-anim .pt-demo .dm-liga.cruce { opacity: 0; transition: opacity 0.5s 1.2s; }
-.pt-anim .pt-demo.vis .dm-liga.cruce { opacity: 1; }
-.pt-anim .pt-demo .dm-nodo { opacity: 0; transform: scale(0.6); transition: opacity 0.35s, transform 0.5s var(--spring); transition-delay: calc(0.15s + var(--i) * 0.07s); }
-.pt-anim .pt-demo.vis .dm-nodo { opacity: 1; transform: none; }
+.dm-liga { --q: clamp(0, calc((var(--p) - 0.04 - var(--i) * 0.09) / 0.2), 1); stroke: var(--ink-faint); stroke-width: 1.5; stroke-dasharray: 1px; stroke-dashoffset: calc(1px - var(--q) * 1px); }
+.dm-nodo { --q: clamp(0, calc((var(--p) - 0.14 - var(--i) * 0.09) / 0.12), 1); opacity: var(--q); transform-box: fill-box; transform-origin: 50% 50%; transform: scale(calc(0.5 + 0.5 * var(--q))); }
+.dm-liga.cruce { --q: clamp(0, calc((var(--p) - 0.8) / 0.12), 1); stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5px 4px; stroke-dashoffset: 0; opacity: var(--q); }
+.dm-mapa .porque { font: italic 500 10px var(--serif); fill: var(--accent-ink); opacity: clamp(0, calc((var(--p) - 0.88) / 0.1), 1); }
 
-/* la tinta: la curva se dibuja sola, luego la tangente y su nota */
+/* ---------- 2 · la tinta: la curva se dibuja con el scroll, luego su tangente y su nota, y cae la imagen ---------- */
 .dm-tinta .eje { fill: none; stroke: var(--ink-faint); stroke-width: 1.5; }
-.dm-tinta .trazo { fill: none; stroke: var(--berry); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; }
-.dm-tinta .tangente { stroke: var(--accent); stroke-width: 2.5; }
-.dm-tinta .punto { fill: var(--accent); }
-.dm-tinta .mano { font: italic 500 14px var(--serif); fill: var(--ink); }
+.dm-tinta .trazo { --q: clamp(0, calc((var(--p) - 0.03) / 0.5), 1); fill: none; stroke: var(--berry); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1px; stroke-dashoffset: calc(1px - var(--q) * 1px); opacity: clamp(0, calc(var(--q) * 40), 1); }
+.dm-tinta .tangente { --q: clamp(0, calc((var(--p) - 0.56) / 0.14), 1); stroke: var(--accent); stroke-width: 2.5; }
+.dm-tinta .punto { fill: var(--accent); opacity: clamp(0, calc((var(--p) - 0.54) / 0.05), 1); }
+.dm-tinta .mano { font: italic 500 14px var(--serif); fill: var(--ink); opacity: clamp(0, calc((var(--p) - 0.7) / 0.1), 1); }
+.dm-tinta .foto { --q: clamp(0, calc((var(--p) - 0.82) / 0.16), 1); opacity: var(--q); transform: translateY(calc((1 - var(--q)) * -18px)); }
 .dm-tinta .foto rect { fill: var(--card); stroke: var(--card-line); stroke-width: 1.5; }
 .dm-tinta .foto path { fill: var(--olive); }
 .dm-tinta .foto circle { fill: var(--amber); }
-.pt-anim .pt-demo .dm-tinta .trazo { stroke-dashoffset: 1; transition: stroke-dashoffset 1.3s cubic-bezier(0.5, 0, 0.3, 1) 0.3s; }
-.pt-anim .pt-demo .dm-tinta .tangente { transition-duration: 0.5s; transition-delay: 1.5s; }
-.pt-anim .pt-demo.vis .dm-tinta .trazo { stroke-dashoffset: 0; }
-.pt-anim .pt-demo .dm-tinta .punto, .pt-anim .pt-demo .dm-tinta .mano, .pt-anim .pt-demo .dm-tinta .foto { opacity: 0; transition: opacity 0.45s 1.9s; }
-.pt-anim .pt-demo .dm-tinta .foto { transition-delay: 0.2s; }
-.pt-anim .pt-demo.vis .dm-tinta .punto, .pt-anim .pt-demo.vis .dm-tinta .mano, .pt-anim .pt-demo.vis .dm-tinta .foto { opacity: 1; }
 
-/* la voz: la roca escucha (salta con lo que dices) y sale la tarjeta lista para confirmar */
-.dm-voz { width: 100%; max-width: 420px; display: grid; gap: var(--s3); }
+/* ---------- 3 · la voz: mientras «hablas» la roca salta y las ondas se mueven; luego Rockie elige qué es y sale
+   la tarjeta lista para confirmar ---------- */
+.dm-voz { --oye: clamp(0, calc((0.52 - var(--p)) / 0.08), 1); width: 100%; max-width: 420px; display: grid; gap: var(--s3); }
 .dm-oye { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: var(--s3); }
-.dm-roca { width: 52px; height: 49px; }
+.dm-roca { width: 52px; height: 49px; transform: translateY(calc(var(--oye) * -3px * (1 + sin(var(--p) * 60)))); }
 .dm-roca path { fill: var(--navbar-blue); }
 .dm-roca .canto { fill: var(--navbar-blue-edge); }
 .dm-roca .faceta { fill: none; stroke: color-mix(in srgb, var(--on-color) 45%, transparent); stroke-width: 1.5; stroke-linejoin: round; }
 .dm-ondas { display: flex; align-items: center; gap: 3px; height: 30px; }
-.dm-ondas i { width: 4px; height: calc(var(--h) * 100%); border-radius: 2px; background: var(--amber); transform-origin: 50% 50%; }
-.dm-oye q { font: italic 400 var(--t-base)/1.3 var(--serif); color: var(--ink); quotes: '«' '»'; }
+.dm-ondas i { width: 4px; height: calc(var(--h) * 100%); border-radius: 2px; background: var(--amber); transform: scaleY(calc(0.28 + var(--oye) * (0.44 + 0.28 * sin(var(--p) * 70 + var(--i) * 1.7)))); }
+.dm-oye q { display: block; min-height: 2.6em; font: italic 400 var(--t-base)/1.3 var(--serif); color: var(--ink); quotes: '«' '»'; }
+.dm-decide { --q: clamp(0, calc((var(--p) - 0.5) / 0.1), 1); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; opacity: var(--q); transform: translateY(calc((1 - var(--q)) * 8px)); }
+.dm-decide small { margin-right: 2px; font: 500 var(--t-3xs) var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.dm-decide span { position: relative; padding: 3px 10px; border-radius: var(--r-pill); border: 1.5px solid var(--card-line); background: var(--card-2); font-size: var(--t-2xs); font-weight: 600; color: var(--ink-soft); }
+.dm-decide .si::after {
+  content: attr(data-t); position: absolute; inset: -1.5px; display: grid; place-items: center; border-radius: inherit;
+  background: var(--app); color: var(--on-color); box-shadow: 0 2px 0 var(--app-edge); opacity: clamp(0, calc((var(--p) - 0.62) / 0.08), 1);
+}
 .dm-tarjeta {
+  --q: clamp(0, calc((var(--p) - 0.74) / 0.18), 1); opacity: var(--q); transform: translateY(calc((1 - var(--q)) * 14px));
   display: grid; gap: 8px; justify-items: start; padding: var(--s3); border-radius: var(--r-lg);
-  background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
+  background: var(--card-2); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
 }
 .dm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .dm-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: var(--r-pill); background: var(--app); color: var(--on-color); font-size: var(--t-2xs); font-weight: 600; }
 .dm-chip.gris { background: var(--paper-alt); color: var(--ink-soft); }
 .dm-tarjeta b { font: 600 var(--t-base) var(--serif); color: var(--ink); }
 .dm-btn { padding: 7px 14px; border-radius: var(--r-pill); background: var(--accent); color: var(--on-color); box-shadow: 0 3px 0 var(--accent-edge); font-size: var(--t-xs); font-weight: 600; }
-.pt-demo.vis .dm-roca { animation: dm-salta 0.6s ease-in-out 0.3s 3; }
-.pt-demo.vis .dm-ondas i { animation: dm-onda 0.6s ease-in-out calc(0.3s + var(--i) * 0.06s) 3; }
-@keyframes dm-salta { 50% { transform: translateY(-5px) scale(1.04, 0.97); } }
-@keyframes dm-onda { 50% { transform: scaleY(0.35); } }
-.pt-anim .pt-demo .dm-tarjeta { opacity: 0; transform: translateY(10px); transition: opacity 0.4s, transform 0.5s var(--pt-ease); transition-delay: 1.6s; }
-.pt-anim .pt-demo.vis .dm-tarjeta { opacity: 1; transform: none; }
 
-/* la pantalla dividida: la pestaña baja a un costado, se ilumina la zona y la mesa se parte en dos */
-.dm-esc { width: 100%; max-width: 440px; display: grid; }
+/* ---------- 4 · la pantalla dividida: la pestaña baja a un costado, se ilumina la zona y la mesa se parte ---------- */
+.dm-esc {
+  --q1: clamp(0, calc((var(--p) - 0.06) / 0.36), 1); --q3: clamp(0, calc((var(--p) - 0.5) / 0.08), 1); --q4: clamp(0, calc((var(--p) - 0.54) / 0.32), 1);
+  width: 100%; max-width: 440px; display: grid;
+}
 .dm-esc-tabs { display: flex; align-items: flex-end; gap: 6px; height: 46px; padding: 0 var(--s3); }
-.dm-mesa { position: relative; height: 128px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.dm-panel { min-width: 0; overflow: hidden; display: grid; align-content: start; gap: var(--s2); padding: var(--s2) var(--s3); border-radius: var(--r-md); background: var(--card); border: 1.5px solid var(--card-line); border-top: 3px solid var(--app); }
-.dm-panel.b { padding: 0; }
+.dm-hueco { position: relative; display: inline-flex; align-items: flex-end; }
+.dm-hueco .pt-tab.va {
+  position: absolute; left: 0; bottom: 0; z-index: 2; box-shadow: var(--shadow-card);
+  opacity: calc(min(1, var(--q1) * 12) * (1 - var(--q3)));
+  transform: translate(calc(var(--q1) * 74px), calc(var(--q1) * 84px)) rotate(calc(var(--q1) * 4deg));
+}
+.dm-mesa { position: relative; height: 128px; display: flex; }
+.dm-panel { flex: 1 1 0; min-width: 0; overflow: hidden; display: grid; align-content: start; gap: var(--s2); padding: var(--s2) var(--s3); border-radius: var(--r-md); background: var(--card-2); border: 1.5px solid var(--card-line); border-top: 3px solid var(--app); }
+.dm-panel.b { flex-grow: var(--q4); padding: 0; margin-left: calc(var(--q4) * 6px); opacity: clamp(0, calc(var(--q4) * 4), 1); border-left-width: calc(min(1, var(--q4) * 20) * 1.5px); border-right-width: calc(min(1, var(--q4) * 20) * 1.5px); }
 .dm-panel-in { display: grid; align-content: start; gap: var(--s2); min-width: 150px; padding: var(--s2) var(--s3); }
 .dm-panel-bar { display: flex; align-items: center; gap: 6px; font: 600 var(--t-2xs) var(--sans); color: var(--ink); }
 .dm-panel-bar .os-tile.sm { width: 20px; height: 20px; border-radius: 7px; }
@@ -217,15 +252,13 @@
 .dm-nota { display: grid; gap: 6px; }
 .dm-nota b { font: 600 var(--t-s) var(--serif); color: var(--ink); white-space: nowrap; }
 .dm-nota i { display: block; height: 5px; border-radius: 3px; background: var(--line); }
-.dm-zona { position: absolute; top: 0; right: 0; bottom: 0; width: calc(50% - 3px); border-radius: var(--r-md); border: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); opacity: 0; pointer-events: none; }
-.pt-anim .pt-demo .dm-mesa { grid-template-columns: 1fr 0fr; gap: 0; transition: grid-template-columns 0.7s var(--pt-ease) 1.3s, gap 0.7s var(--pt-ease) 1.3s; }
-.pt-anim .pt-demo.vis .dm-mesa { grid-template-columns: 1fr 1fr; gap: 6px; }
-.pt-anim .pt-demo .dm-panel.b { opacity: 0; border-width: 0; transition: opacity 0.4s 1.4s, border-width 0s 1.3s; }
-.pt-anim .pt-demo.vis .dm-panel.b { opacity: 1; border-width: 1.5px; border-top-width: 3px; }
-.pt-anim .pt-demo.vis .dm-zona { animation: dm-zona 1.1s ease-in-out 0.5s both; }
-.pt-anim .pt-demo.vis .pt-tab.va { animation: dm-arrastra 1.6s var(--pt-ease) 0.3s both; }
-@keyframes dm-zona { 0%, 100% { opacity: 0; } 35%, 75% { opacity: 1; } }
-@keyframes dm-arrastra { 0%, 100% { transform: none; } 35%, 60% { transform: translate(86px, 58px) rotate(4deg); } 61% { transform: translate(86px, 58px) rotate(4deg); opacity: 1; } 75% { transform: none; opacity: 0; } 76% { opacity: 0; } }
+.dm-zona {
+  position: absolute; top: 0; right: 0; bottom: 0; width: calc(50% - 3px); border-radius: var(--r-md); pointer-events: none;
+  border: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent);
+  opacity: calc(clamp(0, calc((var(--p) - 0.26) / 0.1), 1) * (1 - var(--q3)));
+}
+/* en la PC la escena es grande: las muestras hechas con cajas crecen con ella */
+@media (min-width: 900px) { .dm-voz, .dm-esc { transform: scale(1.2); } }
 
 /* el logro del hábito, como en la app: validado, XP, racha, monedas y cuántos van hoy */
 .mk-foto { display: grid; gap: var(--s3); }
@@ -344,6 +377,19 @@
 }
 .pt-tab-ic { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 8px; color: var(--on-color); background: var(--app); box-shadow: 0 2px 0 var(--app-edge); }
 .pt-tab-mas { width: 36px; height: 36px; margin-bottom: 5px; display: grid; place-items: center; color: var(--ink-muted); }
+
+/* en la PC, «Si estudias / trabajas / emprendes» va al costado izquierdo de la ventana, en columna */
+@media (min-width: 1040px) {
+  .pt-rec-fijo:not(.pd-fijo) {
+    display: grid; grid-template-columns: 158px minmax(0, 1fr); grid-template-rows: auto minmax(0, 520px) auto; column-gap: var(--s5); row-gap: var(--s3); align-content: center;
+  }
+  .pt-rec-fijo:not(.pd-fijo) .pt-personas { grid-column: 1; grid-row: 2; flex-direction: column; justify-content: flex-start; align-items: stretch; }
+  .pt-rec-fijo:not(.pd-fijo) .pt-personas::before { content: 'Elige tu día'; margin-bottom: 2px; font: 500 var(--t-3xs) var(--mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-muted); }
+  .pt-rec-fijo:not(.pd-fijo) .pt-persona { justify-content: flex-start; }
+  .pt-rec-fijo:not(.pd-fijo) .pt-tabs { grid-column: 2; grid-row: 1; }
+  .pt-rec-fijo:not(.pd-fijo) .pt-win { grid-column: 2; grid-row: 2; max-height: none; }
+  .pt-rec-fijo:not(.pd-fijo) .pt-pasos { grid-column: 1 / -1; grid-row: 3; }
+}
 
 /* la ventana de la app abierta: su barra, la hoja en el centro y, a la derecha, con qué se conecta */
 .pt-win {
@@ -582,6 +628,6 @@
 @media (prefers-reduced-motion: reduce) {
   .pt-anim .pt-rv { transform: none; transition: opacity 0.4s linear; transition-delay: 0s; }
   .pt-hero > *, .pt-util, .pt-asoma, .pt-cambia, .pt-guardado li { animation-name: pt-aparece; animation-duration: 0.4s; animation-timing-function: linear; }
-  .pt-mochila, .pt-cursor, .dm-roca, .dm-ondas i, .pt-tab.va, .dm-zona { animation: none !important; }
-  .pt-anim .pt-demo .dm-mesa, .pt-anim .pt-demo .dm-tarjeta, .pt-anim .pt-demo .dm-nodo { transition: none; transform: none; }
+  .pt-mochila, .pt-cursor { animation: none; }
+  .pd-lista b, .pd-texto { transition: none; }
 }
