@@ -52,9 +52,14 @@ export function useItems() {
     queryKey: akeys.items(userId),
     enabled: Boolean(userId),
     queryFn: async () => {
-      const { data, error } = await supabase.from('agenda_items').select('*').order('position')
-      if (error) throw error
-      return (data ?? []) as unknown as AgendaItem[]
+      // de mil en mil: con eventos que se repiten una agenda pasa fácil del tope de filas por pedido
+      const todo: AgendaItem[] = []
+      for (let desde = 0; ; desde += 1000) {
+        const { data, error } = await supabase.from('agenda_items').select('*').order('position').order('id').range(desde, desde + 999)
+        if (error) throw error
+        todo.push(...((data ?? []) as unknown as AgendaItem[]))
+        if ((data ?? []).length < 1000) return todo
+      }
     },
   })
 }

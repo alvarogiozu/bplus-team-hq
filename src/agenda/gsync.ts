@@ -78,8 +78,12 @@ async function flush() {
   gone.clear()
   if (!ids.length && !deleted.length) return
   try {
-    const { data } = ids.length ? await supabase.from('agenda_items').select(COLS).in('id', ids) : { data: [] }
-    await subir((data ?? []) as Fila[], deleted)
+    // de 50 en 50: una serie nueva trae muchas actividades de golpe
+    if (!ids.length) await subir([], deleted)
+    for (let i = 0; i < ids.length; i += 50) {
+      const { data } = await supabase.from('agenda_items').select(COLS).in('id', ids.slice(i, i + 50))
+      await subir((data ?? []) as Fila[], i === 0 ? deleted : [])
+    }
   } catch {
     // sin red: el próximo "sync" (al volver a la app) se pone al día
   }

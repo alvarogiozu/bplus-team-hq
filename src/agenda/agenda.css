@@ -400,6 +400,16 @@ h2.ag-ph-title { border: 0; font-size: 24px; line-height: 1.2; color: var(--on-c
 .ag-pbtn:hover { background: var(--paper-alt); }
 .ag-alldaytoggle { display: flex; align-items: center; gap: 8px; font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); padding: 0 12px; cursor: pointer; white-space: nowrap; }
 .ag-alldaytoggle input { width: 18px; height: 18px; accent-color: var(--c); }
+/* se repite: la regla se elige con las mismas fichas de la hoja; en uno que ya se repite es solo lectura */
+.ag-rep { border-top: 1px dashed var(--line); }
+.ag-rep .ag-presets.inline + .ag-presets.inline { padding-top: 0; }
+/* los 7 días siempre en una línea, también en el celular */
+.ag-rep .ag-presets.inline.ag-rep-dias { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.ag-rep-dias .ag-chip { min-width: 0; padding: 4px 0; text-transform: capitalize; }
+.ag-rep-es { color: var(--ink-soft); }
+.ag-rep-es:hover { background: none; }
+.ag-pf-serie { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.ag-pf .ag-pf-serie .btn:not(.ghost) { min-width: 0; }
 .ag-subs { list-style: none; margin: 0; padding: 4px 6px 0; }
 .ag-subs li { display: flex; align-items: center; gap: 6px; overflow: hidden; }
 .ag-sub { flex: 1; display: flex; align-items: center; gap: 10px; }

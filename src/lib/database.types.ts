@@ -240,6 +240,42 @@ export type Database = {
           },
         ]
       }
+      agenda_series: {
+        Row: {
+          cada: number
+          created_at: string
+          dias: number[]
+          freq: string
+          generado_hasta: string
+          hasta: string | null
+          id: string
+          inicio: string
+          user_id: string
+        }
+        Insert: {
+          cada?: number
+          created_at?: string
+          dias?: number[]
+          freq: string
+          generado_hasta: string
+          hasta?: string | null
+          id?: string
+          inicio: string
+          user_id?: string
+        }
+        Update: {
+          cada?: number
+          created_at?: string
+          dias?: number[]
+          freq?: string
+          generado_hasta?: string
+          hasta?: string | null
+          id?: string
+          inicio?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agenda_groups: {
         Row: {
           calendar_id: string | null
@@ -363,6 +399,7 @@ export type Database = {
           position: number
           priority: number
           reserve_id: string | null
+          serie_id: string | null
           start_min: number | null
           subtasks: Json
           title: string
@@ -390,6 +427,7 @@ export type Database = {
           position?: number
           priority?: number
           reserve_id?: string | null
+          serie_id?: string | null
           start_min?: number | null
           subtasks?: Json
           title: string
@@ -417,6 +455,7 @@ export type Database = {
           position?: number
           priority?: number
           reserve_id?: string | null
+          serie_id?: string | null
           start_min?: number | null
           subtasks?: Json
           title?: string

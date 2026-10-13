@@ -15,6 +15,7 @@ import { cleanAvail, rangesOn } from './availability'
 import { CalendarsPanel } from './CalendarsPanel'
 import { useCalendarMap, useCalendarsRealtime, useGoogleEvents, useGoogleIds, useGoogleReturn, useGoogleStatus, useGoogleSync } from './calendars'
 import { useAgendaActions, useAgendaRealtime, useHq, useItems, usePrefs, type AgendaItem } from './data'
+import { useExtenderSeries } from './series'
 import { DayStrip } from './DayStrip'
 import { useDayActions, useDayMap, useDaysRealtime } from './days'
 import { useDrag, useDraggable, type DragPayload } from './drag'
@@ -78,6 +79,7 @@ export function AgendaShell() {
   const monthOpen = !peopleOpen && params.get('vista') === 'mes'
   const myAvail = useMemo(() => rangesOn(cleanAvail(prefs?.availability), day), [prefs?.availability, day])
   useAgendaRealtime()
+  useExtenderSeries(today)
   useCalendarsRealtime()
   useGroupsRealtime()
   useHobbiesRealtime()

@@ -8,11 +8,13 @@ import { Rockie } from '../components/Rockie'
 import { toast, toastError } from '../components/Toasts'
 import { burst, celebrateRockie, haptic } from '../lib/fx'
 import { createStore } from '../lib/store'
-import { dayOfTs, daysBetween, fmtDay, fmtRelative } from '../lib/dates'
+import { dayOfTs, daysBetween, fmtDay, fmtRelative, weekday } from '../lib/dates'
 import { humanError, supabase } from '../lib/supabase'
 import { useAuth } from '../features/auth/AuthProvider'
 import { TEAM_COLOR } from './blocks'
-import { akeys, useAgendaActions, useHq, useItems, usePrefs, type Subtask } from './data'
+import { akeys, useAgendaActions, useHq, useItems, usePrefs, type AgendaItem, type Subtask } from './data'
+import { diaCorto, ORDEN_SEMANA, reglaInicial, textoRegla, type Freq, type Regla } from './repetir'
+import { reglaDe, useSeries } from './series'
 import type { ShareLevel, Visibility } from './availability'
 import { SeePick } from './AvailabilityEditor'
 import { AIcon } from './icons'
@@ -142,8 +144,14 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
       }
     : draft!
   const [f, setF] = useState<Draft>(init)
-  const [pop, setPop] = useState<'time' | 'date' | 'end' | 'style' | null>(null)
+  const [pop, setPop] = useState<'time' | 'date' | 'end' | 'style' | 'hasta' | null>(null)
   const [sub, setSub] = useState('')
+  // se repite: la regla que se está eligiendo (evento suelto) o la de la serie a la que ya pertenece
+  const { porId: series, repetir, cambiarSiguientes, borrarDesde } = useSeries()
+  const serie = item?.serie_id ? series.get(item.serie_id) : undefined
+  const [rep, setRep] = useState<Regla | null>(null)
+  const [repAbierto, setRepAbierto] = useState(false)
+  const [borrando, setBorrando] = useState(false)
   const titleRef = useRef<HTMLTextAreaElement>(null)
   const task = item?.hq_task_id ? hq?.tasks.find((t) => t.id === item.hq_task_id) : undefined
   const set = (p: Partial<Draft>) => setF((x) => ({ ...x, ...p }))
@@ -168,7 +176,13 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
   const allDay = f.day != null && f.start == null
   const timeLabel = f.day == null ? `Inbox · ${fmtDur(f.duration)}` : allDay ? 'Todo el día' : `${hhmm(f.start!)} – ${hhmm(f.start! + f.duration)} (${fmtDur(f.duration)})`
 
-  async function save() {
+  // se puede repetir lo que tiene día y es de un solo día; no lo que ya es de una serie ni lo que viene de otro lado
+  const puedeRepetir = f.day != null && !(f.end_day && f.end_day > f.day) && !serie && !item?.is_reserve && !item?.hobby_id && !item?.hq_task_id
+  const avisarSerie = (n: number | null, r: Regla) => {
+    if (n != null) toast(`${textoRegla(r)}: ${n + 1} veces en tu agenda${r.hasta ? '' : ' (se van sumando solas)'}`, { kind: 'ok', icon: 'check' })
+  }
+
+  async function save(alcance: 'este' | 'siguientes' = 'este') {
     const title = f.title.trim()
     if (!title) return titleRef.current?.focus()
     const row = {
@@ -187,9 +201,16 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
       // varios días solo para lo de todo el día (y siempre después del primer día)
       end_day: f.day && f.start == null && f.end_day && f.end_day > f.day ? f.end_day : null,
     }
-    if (item) await updateItem(item.id, row)
-    else await createItem(row)
+    const regla = puedeRepetir && rep ? rep : null
     close()
+    if (item) {
+      // los dos pedidos salen a la vez: si la persona cierra enseguida, las siguientes ya van en camino
+      await Promise.all([updateItem(item.id, row), serie && alcance === 'siguientes' ? cambiarSiguientes({ ...item, day: row.day ?? item.day }, row) : null])
+      if (regla) avisarSerie(await repetir({ ...item, ...row } as AgendaItem, regla), regla)
+    } else {
+      const r = await createItem(row)
+      if (r && regla) avisarSerie(await repetir(r.item, regla), regla)
+    }
   }
 
   async function toggleDone(e: React.MouseEvent) {
@@ -326,6 +347,89 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
               {f.start != null && (
                 <TimePop open={pop === 'time'} onClose={() => setPop(null)} start={f.start} duration={f.duration} presets={presets} tz={tz} onChange={(start, duration) => set({ start, duration })} />
               )}
+              {serie && (
+                <div className="ag-prow">
+                  <span className="ag-pbtn ag-rep-es">
+                    <AIcon name="repeat" size={18} /> {textoRegla(reglaDe(serie))}
+                    {serie.hasta ? ` · hasta el ${fmtDay(serie.hasta)}` : ''}
+                  </span>
+                </div>
+              )}
+              {puedeRepetir && (
+                <div className="ag-prow">
+                  <button className="ag-pbtn" aria-expanded={repAbierto} onClick={() => setRepAbierto(!repAbierto)}>
+                    <AIcon name="repeat" size={18} /> {rep ? `${textoRegla(rep)}${rep.hasta ? ` · hasta el ${fmtDay(rep.hasta)}` : ''}` : 'No se repite'}
+                  </button>
+                </div>
+              )}
+              {puedeRepetir && repAbierto && (
+                <div className="ag-rep">
+                  <div className="ag-presets inline" role="radiogroup" aria-label="Se repite">
+                    <button role="radio" aria-checked={!rep} className={`ag-chip${!rep ? ' on' : ''}`} onClick={() => setRep(null)}>
+                      No se repite
+                    </button>
+                    {(
+                      [
+                        ['dia', 'Cada día'],
+                        ['semana', 'Cada semana'],
+                        ['mes', 'Cada mes'],
+                      ] as [Freq, string][]
+                    ).map(([freq, nombre]) => (
+                      <button
+                        key={freq}
+                        role="radio"
+                        aria-checked={rep?.freq === freq}
+                        className={`ag-chip${rep?.freq === freq ? ' on' : ''}`}
+                        onClick={() => setRep({ ...reglaInicial(freq, f.day!), hasta: rep?.hasta ?? null })}
+                      >
+                        {nombre}
+                      </button>
+                    ))}
+                  </div>
+                  {rep?.freq === 'semana' && (
+                    <div className="ag-presets inline ag-rep-dias" role="group" aria-label="Qué días">
+                      {ORDEN_SEMANA.map((d) => {
+                        const on = rep.dias.includes(d)
+                        return (
+                          <button
+                            key={d}
+                            aria-pressed={on}
+                            className={`ag-chip${on ? ' on' : ''}`}
+                            // siempre queda al menos un día: el del propio evento
+                            onClick={() => setRep({ ...rep, dias: on ? (rep.dias.length > 1 ? rep.dias.filter((x) => x !== d) : [weekday(f.day!)]) : [...rep.dias, d] })}
+                          >
+                            {diaCorto(d)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {rep && (
+                    <div className="ag-prow">
+                      <button className="ag-pbtn" onClick={() => setPop(pop === 'hasta' ? null : 'hasta')}>
+                        <AIcon name="flag" size={18} /> {rep.hasta ? `Hasta el ${fmtDay(rep.hasta)}` : 'Sin fecha de fin'}
+                      </button>
+                      {rep.hasta && (
+                        <button className="ag-x" aria-label="Sin fecha de fin" title="Sin fecha de fin" onClick={() => setRep({ ...rep, hasta: null })}>
+                          <AIcon name="close" size={14} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {rep && (
+                    <DatePop
+                      open={pop === 'hasta'}
+                      onClose={() => setPop(null)}
+                      day={rep.hasta ?? f.day}
+                      today={today}
+                      onChange={(d) => {
+                        setRep({ ...rep, hasta: d && f.day && d > f.day ? d : null })
+                        setPop(null)
+                      }}
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             {cals.length > 0 && !item?.is_reserve && (
@@ -450,7 +554,10 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
               <button
                 className="ag-trash"
                 aria-label="Borrar"
+                aria-expanded={serie ? borrando : undefined}
                 onClick={() => {
+                  // el que se repite pregunta primero: solo este o también los que vienen
+                  if (serie) return setBorrando(!borrando)
                   close()
                   void deleteItem(item)
                 }}
@@ -459,9 +566,41 @@ function ItemEditor({ id, draft }: { id?: string; draft?: Draft }) {
               </button>
             )}
             <span className="spacer" />
-            <motion.button className="btn" onClick={save} disabled={!f.title.trim()} whileTap={{ scale: 0.96 }}>
-              {item ? 'Guardar' : 'Crear'}
-            </motion.button>
+            {serie && item && borrando ? (
+              <div className="ag-pf-serie" role="group" aria-label="Borrar">
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    close()
+                    void deleteItem(item)
+                  }}
+                >
+                  Borrar solo este
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    close()
+                    void borrarDesde(item)
+                  }}
+                >
+                  Este y los siguientes
+                </button>
+              </div>
+            ) : serie ? (
+              <div className="ag-pf-serie" role="group" aria-label="Guardar">
+                <motion.button className="btn ghost" onClick={() => void save('este')} disabled={!f.title.trim()} whileTap={{ scale: 0.96 }}>
+                  Solo este
+                </motion.button>
+                <motion.button className="btn" onClick={() => void save('siguientes')} disabled={!f.title.trim()} whileTap={{ scale: 0.96 }}>
+                  Este y los siguientes
+                </motion.button>
+              </div>
+            ) : (
+              <motion.button className="btn" onClick={() => void save()} disabled={!f.title.trim()} whileTap={{ scale: 0.96 }}>
+                {item ? 'Guardar' : 'Crear'}
+              </motion.button>
+            )}
           </footer>
         </>
       )}

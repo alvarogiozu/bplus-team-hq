@@ -83,6 +83,14 @@
       },
       "_llave": "tu llave; la de tu agenda (la reciben solo quienes comparten un equipo contigo) si la actividad se muestra con título en Buscar hueco"
     },
+    "agenda_series": {
+      "llave": "ninguna",
+      "estado": "activo",
+      "cifrar": [],
+      "publico": {
+        "freq": "cada cuánto se repite (día, semana o mes), sin el título: la app crea con eso las próximas veces"
+      }
+    },
     "agenda_prefs": {
       "llave": "personal",
       "estado": "activo",
