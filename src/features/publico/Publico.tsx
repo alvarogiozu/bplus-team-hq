@@ -33,7 +33,7 @@ export function MarcoPublico({ children }: { children: ReactNode }) {
     <div className="pub">
       <header className="pub-top">
         <Link to="/" className="pub-marca" aria-label="Rockie, inicio">
-          <Rockie size={34} still />
+          <Rockie size={34} still personaje />
           <span>Rockie</span>
         </Link>
         <nav className="pub-nav" aria-label="Secciones">
@@ -68,7 +68,7 @@ function Pie() {
     <footer className="pub-pie">
       <div className="pub-pie-col">
         <b className="pub-pie-marca">
-          <Rockie size={28} still /> Rockie
+          <Rockie size={28} still personaje /> Rockie
         </b>
         <p>
           {COMERCIO.titular} · RUC {COMERCIO.ruc}

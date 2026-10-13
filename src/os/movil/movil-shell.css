@@ -156,6 +156,7 @@
   -webkit-tap-highlight-color: transparent;
   transition: background 0.2s, transform 0.12s var(--glide), box-shadow 0.12s;
 }
+.m-rockie-chispa { color: var(--on-color); }
 .m-rockie:active, .m-rockie.pressed { transform: translateY(3px); box-shadow: 0 1px 0 var(--rockie-edge), var(--shadow-card); }
 .m-rockie.on { background: var(--title); box-shadow: 0 4px 0 var(--coral-edge), var(--shadow-card); }
 /* el micrófono: su propio botón, pegado a Rockie. Se ve de 34 px y se toca en 44. */

@@ -16,7 +16,7 @@ function AuthShell({ title, lead, children, color }: { title: string; lead?: str
     <main className="authwrap">
       <div className="card authcard">
         <div style={{ display: 'grid', placeItems: 'center' }}>
-          <Rockie color={color ?? '#3c5d73'} size={76} />
+          <Rockie color={color ?? '#3c5d73'} size={76} personaje />
         </div>
         <h1>{title}</h1>
         {lead && <p className="lead">{lead}</p>}

@@ -1266,7 +1266,8 @@ export default function Escritorio() {
         )}
         {s.vista === 'apps' && flotOculto && !flotAbierto && (
           <button className="esc-rk-asa" onClick={() => setFlotOculto(false)} aria-label="Mostrar a Rockie" title="Mostrar a Rockie (Ctrl K)">
-            <RockieArt size={30} stone={look.stone} equipped={look.equipped} />
+            {/* el personaje solo sobre Hábitos: en Proyectos, Cuaderno y Agenda el asa lleva una chispa */}
+            {activa === 'habitos' ? <RockieArt size={30} stone={look.stone} equipped={look.equipped} /> : <Icon name="sparkle" className="esc-rk-chispa" />}
             <Icon name="chevron" className="sm" />
           </button>
         )}

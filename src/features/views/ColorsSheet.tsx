@@ -43,7 +43,7 @@ export function ColorsSheet({ open, onClose }: { open: boolean; onClose: () => v
     <Sheet open={open} onClose={onClose} title="Colores">
       <div className="colorsec">
         <div className="colorsec-title">Tu color principal</div>
-        <p className="hint" style={{ margin: '0 0 10px' }}>Botones, enlaces y tu Rockie del logo. Solo lo ves tú.</p>
+        <p className="hint" style={{ margin: '0 0 10px' }}>Botones, enlaces y el logo. Solo lo ves tú.</p>
         <AccentPicker />
       </div>
 
@@ -51,10 +51,10 @@ export function ColorsSheet({ open, onClose }: { open: boolean; onClose: () => v
         <div className="colorrow">
           <Rockie color={mine} size={30} />
           <span className="colorrow-name">
-            Tu Rockie
+            Tu color
             <small>Así te ve el equipo en cada tarea tuya</small>
           </span>
-          <ColorPick value={mine} onChange={(c) => void paintMe(c)} palette={PALETTE} label="Color de tu Rockie" />
+          <ColorPick value={mine} onChange={(c) => void paintMe(c)} palette={PALETTE} label="Tu color en el equipo" />
         </div>
       </div>
 

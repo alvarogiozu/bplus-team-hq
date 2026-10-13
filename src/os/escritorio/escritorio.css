@@ -330,6 +330,7 @@ html[data-ventana] .os-home { padding-bottom: 24px; }
 .esc-rk-asa:hover { transform: translateY(-3px); color: var(--ink); }
 .esc-rk-asa:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-edge); }
 .esc-rk-asa .ico { rotate: 180deg; }
+.esc-rk-asa .ico.esc-rk-chispa { rotate: none; margin-left: 6px; color: var(--accent); }
 @keyframes esc-asa-sube { from { opacity: 0; translate: -50% 140%; } }
 .esc.arrastrando .esc-rk-asa, .esc.redim .esc-rk-asa { opacity: 0; pointer-events: none; }
 /* al pasar del Inicio a una app, la barra flotante de Rockie entra con un fundido corto (no se ven dos barras a la vez) */

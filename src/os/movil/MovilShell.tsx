@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode, type TouchEvent } from 'react'
+import { useEffect, useRef, type CSSProperties, type ReactNode, type TouchEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, matchPath, useLocation, useNavigate } from 'react-router'
 import { motion, useTransform, type MotionValue } from 'motion/react'
@@ -9,8 +9,6 @@ import { precargar, precargarPagina } from '../../lib/precarga'
 import { AppSwitcher } from '../AppSwitcher'
 import { CuentaBoton } from '../../features/cuenta/Cuenta'
 import { appOf, appTint } from '../apps'
-import { rockieLook } from '../habitos'
-import { RockieArt } from '../RockieArt'
 import { useSlideSelect, useTinta } from './useSlideSelect'
 import './movil-shell.css'
 
@@ -187,15 +185,14 @@ export function RockieCentro(p: {
   listening?: boolean
   level?: MotionValue<number>
   pressed?: boolean
-  /** Otra cara para el mismo Rockie (el Inicio le pone la de cómo va tu día). */
+  /** El personaje va solo donde se pasa (el Inicio pone a Rockie con la cara de cómo va tu día): en Proyectos,
+   *  Cuaderno y Agenda el botón lleva una chispa, porque Rockie es exclusivo de Hábitos. */
   avatar?: ReactNode
   /** Qué hace tocarlo, si no es escribirle (en el Inicio del celular, tocar = hablarle). */
   etiqueta?: string
   /** El micrófono de al lado (un toque): si no se da, hace lo mismo que mantener. */
   onMic?: () => void
 }) {
-  // tu Rockie de Hábitos (su piedra y lo que tiene puesto), el mismo en todas las apps
-  const look = useMemo(() => rockieLook(), [])
   const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const held = useRef(false)
   useEffect(() => () => clearTimeout(hold.current), [])
@@ -269,7 +266,7 @@ export function RockieCentro(p: {
         }}
       >
         {p.listening && p.level && <Ring level={p.level} />}
-        {p.avatar ?? <RockieArt size={58} stone={look.stone} equipped={look.equipped} eyes={p.listening ? 4 : 1} mouth={p.listening ? 7 : 6} />}
+        {p.avatar ?? <Icon name="sparkle" size={28} className="m-rockie-chispa" />}
       </button>
       <button
         type="button"

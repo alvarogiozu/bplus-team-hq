@@ -85,9 +85,11 @@ svg { display: block; }
 .rockie { animation: rfloat 3s ease-in-out infinite; will-change: transform; }
 .rockie.still { animation: none; }
 @keyframes rfloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-/* el Rockie de Hábitos (os/RockieArt) en todas las apps; una persona va sobre su color */
+/* el personaje (os/RockieArt) es exclusivo de Hábitos: aquí una persona es un círculo de su color con una
+   silueta, y donde iba la mascota va una chispa en el color de la app (components/Rockie) */
 .rockie { display: grid; place-items: center; flex: none; }
-.rockie.persona { border-radius: 50%; background: var(--rk); box-shadow: 0 2px 0 color-mix(in srgb, var(--rk) 70%, #000); }
+.rockie.persona { border-radius: 50%; background: var(--rk); color: var(--on-color); box-shadow: 0 2px 0 color-mix(in srgb, var(--rk) 70%, #000); }
+.rockie.chispa { border-radius: 50%; background: color-mix(in srgb, var(--rk) 24%, transparent); color: color-mix(in srgb, var(--rk) 60%, var(--ink)); }
 /* los avatares (still) tampoco parpadean: van repetidos en cada fila y cada parpadeo se repinta;
    con listas largas eso trababa la página (el Rockie grande sigue vivo) */
 .rockie.still .os-blink { animation: none; }
