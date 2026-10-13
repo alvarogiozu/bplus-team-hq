@@ -229,7 +229,7 @@ button.amg-card { font: inherit; color: inherit; appearance: none; -webkit-appea
 /* Toast de accion */
 .amg-toast { position: absolute; top: var(--space-6); left: 50%; transform: translateX(-50%); z-index: 95; background: var(--ink); color: #fff; border-radius: var(--r-xl); padding: var(--space-2) var(--space-4); font-size: var(--text-sm); font-weight: 700; box-shadow: 0 6px 20px rgba(87, 82, 121, 0.35); white-space: nowrap; }
 
-/* ==== Juntos en computadora (>=900px) ====
+/* ==== Juntos en computadora (>=560px) ====
    La composicion vive en routes/desk/JuntosDesk(.jsx/.css); aqui solo queda
    el indicador "En vivo" que comparte con el feed. */
 .jd-live {

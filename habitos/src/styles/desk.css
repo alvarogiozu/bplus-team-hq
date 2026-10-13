@@ -1,5 +1,5 @@
 /* ==== B+ en computadora ====
-   Sistema de pagina para las vistas de escritorio (useDesktop, >=900px).
+   Sistema de pagina para las vistas de escritorio (useDesktop, >=560px).
    Mismo lenguaje del papel con canto (2.5D) que el movil, pero compuesto para
    pantalla ancha: cabecera editorial, tableros en rejilla, paneles laterales,
    hover y atajos de teclado. Solo lo usan los componentes de escritorio, asi
@@ -24,6 +24,11 @@
 @media (max-width: 1199px) {
   .dk-page { padding: var(--space-6) var(--space-6) var(--space-10); }
   .dk-page--fill { padding-bottom: var(--space-5); }
+}
+/* Ventana angosta (560-899px): las columnas fijas no caben lado a lado, asi que se apilan
+   (cada pantalla en su hoja) y scrollea la pagina entera */
+@media (max-width: 899px) {
+  .dk-page--fill { height: auto; min-height: 100%; }
 }
 
 /* ---- Cabecera editorial ---- */
@@ -234,7 +239,7 @@
 /* ==== Hojas moviles cuando se abren en PC ====
    Los flujos que en movil entran de lado (.flow-screen) son un panel lateral
    derecho; la hoja de editar habito y la camara, dialogos centrados. */
-@media (min-width: 900px) {
+@media (min-width: 560px) {
   .desktop-shell .flow-screen,
   .desktop-shell .chat-sheet {
     left: auto !important;

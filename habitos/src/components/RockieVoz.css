@@ -20,7 +20,7 @@
   transition: height 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .rv-sheet.chat { height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--space-3)); }
-@media (min-width: 900px) {
+@media (min-width: 560px) {
   .rv-root { align-items: center; }
   .rv-sheet,
   .rv-sheet.chat { height: min(88dvh, 760px); border-radius: 28px; border-bottom: 2px solid var(--card-line); box-shadow: 0 5px 0 var(--card-edge), 0 24px 60px rgba(0, 0, 0, 0.25); }

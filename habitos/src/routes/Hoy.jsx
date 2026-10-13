@@ -335,7 +335,7 @@ export default function Hoy() {
   const { tasks: hqTasks, validateTask: hqValidateTask, moveTask: hqMoveTask, areas: hqAreas, doneCol, xpLog, members: hqMembers } = useHQ()
 
   const [hoyView, setHoyView] = useState('cartas') // 'cartas' | 'lista' | 'cal'
-  // PC (>=900px): otra composicion completa (HoyDesk), misma logica.
+  // PC (>=560px): otra composicion completa (HoyDesk), misma logica.
   const wide = useDesktop()
   const [calDayOffset, setCalDayOffset] = useState(0)
 

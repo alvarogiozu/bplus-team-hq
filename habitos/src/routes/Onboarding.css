@@ -35,7 +35,7 @@
   align-items: center;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 560px) {
   .onboarding-splash,
   .onboarding-body {
     max-width: 960px;

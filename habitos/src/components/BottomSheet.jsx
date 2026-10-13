@@ -7,7 +7,7 @@ import useDesktop from '../lib/useDesktop.js'
 // Portaleado a `.app-phone` (como HabitEditSheet) para no pelear con el scroll
 // de habitos-screen. El scroll va en un hijo interno: border-radius + overflow
 // en el mismo nodo rompe el fondo en WebKit y deja ver el --paper gris.
-// En PC (>=900px) es un dialogo centrado (sin asa): una hoja que sube desde
+// En PC (>=560px) es un dialogo centrado (sin asa): una hoja que sube desde
 // abajo en una pantalla ancha se siente de telefono.
 // En el celular se cierra tambien arrastrando hacia abajo desde el asa (como en iPhone): suelta lejos o con
 // impulso y baja; si no, vuelve a su lugar.

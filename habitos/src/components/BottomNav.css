@@ -158,7 +158,7 @@ html[data-ventana] .nav-rockie { display: none !important; }
 
 /* En el celular la barra FLOTA sobre la pantalla (como en las demás apps): alrededor de la cápsula y de Rockie se ve
    lo de abajo, no una franja propia del color del marco. La pantalla reserva su alto para que nada quede tapado. */
-@media (max-width: 899px) {
+@media (max-width: 559px) {
   .navbar-wrap {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 40;
     margin: 0; padding: 0 12px calc(10px + env(safe-area-inset-bottom));
@@ -168,8 +168,8 @@ html[data-ventana] .nav-rockie { display: none !important; }
   .app-phone .scroll-area { padding-bottom: calc(68px + 22px + env(safe-area-inset-bottom)); }
 }
 
-/* Shell de escritorio (>=900px): la navegación vive en el rail izquierdo
+/* Shell de escritorio (>=560px): la navegación vive en el rail izquierdo
    (DesktopNav), así que la barra inferior móvil se oculta entera. */
-@media (min-width: 900px) {
+@media (min-width: 560px) {
   .desktop-shell .navbar-wrap { display: none; }
 }

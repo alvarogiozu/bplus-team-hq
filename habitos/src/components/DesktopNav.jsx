@@ -10,7 +10,7 @@ import OsSwitcher from './OsSwitcher.jsx'
 import { abrirVoz } from './RockieVozHost.jsx'
 import './DesktopShell.css'
 
-// Barra lateral de escritorio (>=900px), mismo lenguaje que B+ HQ: papel
+// Barra lateral de escritorio (>=560px), mismo lenguaje que B+ HQ: papel
 // alterno pegado al borde, iconos con su color y el item activo como una
 // tarjeta con canto. Agrupada por intencion (tu dia / tu Rockie / tu equipo).
 // Abajo vive Rockie en miniatura con su nivel, racha y monedas: reemplaza al

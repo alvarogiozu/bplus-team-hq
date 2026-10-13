@@ -70,3 +70,9 @@
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: var(--space-3);
 }
+
+/* Ventana angosta (560-899px): la vitrina pasa arriba (Rockie | como ganar) y el catalogo debajo a todo el ancho */
+@media (max-width: 899px) {
+  .td-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+  .td-vitrina { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+}

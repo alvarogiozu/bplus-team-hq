@@ -1,4 +1,4 @@
-/* ==== Barra lateral de escritorio (>=900px) ====
+/* ==== Barra lateral de escritorio (>=560px) ====
    Mismo lenguaje que B+ HQ: papel alterno pegado al borde, iconos con su
    color (--nc) y el item activo como una tarjeta con canto. El layout del
    contenedor raiz vive en global.css (.app-root.desktop-shell).
@@ -6,7 +6,7 @@
    ademas del gate por JS. */
 .desktop-nav { display: none; }
 
-@media (min-width: 900px) {
+@media (min-width: 560px) {
   .app-root.desktop-shell .desktop-nav {
     display: flex;
     flex-direction: column;
@@ -208,8 +208,8 @@
 .dnav-icon:hover, .dnav-icon.on { background: var(--card); color: var(--ink); }
 .dnav-icon--out:hover { color: var(--coral); }
 
-/* Laptop angosta (900-1099px): la barra se pliega a riel de iconos */
-@media (min-width: 900px) and (max-width: 1099px) {
+/* Laptop angosta (560-1099px): la barra se pliega a riel de iconos */
+@media (min-width: 560px) and (max-width: 1099px) {
   .app-root.desktop-shell .desktop-nav { width: 84px; padding-left: var(--space-2); padding-right: var(--space-2); align-items: center; }
   .dnav-brand { align-items: center; padding: var(--space-1) 0 var(--space-2); }
   .dnav-tag, .dnav-glabel, .dnav-text, .dnav-rockie-info, .dnav-me-text, .dnav-icon--out { display: none; }

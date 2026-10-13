@@ -127,12 +127,12 @@
   background: transparent;
 }
 
-/* ==== En computadora (>=900px): cabecera de pagina y pestanas con nombre ====
+/* ==== En computadora (>=560px): cabecera de pagina y pestanas con nombre ====
    Mismo sistema que el resto de B+ en PC (styles/desk.css): margen amplio,
    titulo editorial y pestanas compactas con icono + texto. El contenido
    se lee en una columna comoda, no de borde a borde. */
 .hq-subnav-label { display: none; }
-@media (min-width: 900px) {
+@media (min-width: 560px) {
   .desktop-shell .hq-nav-wrap {
     background: var(--paper);
     border-bottom: 2px solid var(--card-line);

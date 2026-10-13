@@ -46,7 +46,7 @@
   display: none;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 560px) {
   .login-screen {
     flex-direction: row;
     align-items: stretch;

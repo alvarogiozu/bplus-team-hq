@@ -13,7 +13,7 @@ import useDesktop from '../lib/useDesktop.js'
 // `onEntered` avisa cuando la hoja termino de entrar: sirve para arrancar las
 // animaciones internas DESPUES del deslizamiento (no a la vez), evitando que
 // decenas de springs compitan con el transform de la hoja y generen lag.
-// En PC (>=900px) es un PANEL LATERAL derecho sobre la pantalla: lo de atras
+// En PC (>=560px) es un PANEL LATERAL derecho sobre la pantalla: lo de atras
 // sigue a la vista (p.ej. Rockie mientras lo vistes en el inventario).
 // En el celular entra desde la derecha como una pagina de iPhone (lo de atras se oscurece un poco) y se cierra
 // tambien deslizando desde el borde izquierdo.

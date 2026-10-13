@@ -504,3 +504,15 @@
   .hd-grid { grid-template-columns: minmax(300px, 340px) minmax(0, 1fr); gap: var(--space-4); }
   .hd-support { grid-template-columns: 1fr; }
 }
+
+/* Ventana angosta (560-899px, p. ej. Habitos en una ventana achicada de Rockie OS): una sola
+   columna y scrollea la pagina entera. Orden: el foco (lo que toca ahora) -> tu dia -> apoyo. */
+@media (max-width: 899px) {
+  .hoy-screen:not(.hm) { flex: none; height: auto; min-height: 100%; overflow: visible; }
+  .hd-grid { flex: none; grid-template-columns: minmax(0, 1fr); scroll-margin-top: var(--space-4); }
+  .hd-side { display: contents; }
+  .hd-day { order: 1; }
+  .hd-line { overflow: visible; }
+  .hd-support { order: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hd-keys { order: 3; }
+}

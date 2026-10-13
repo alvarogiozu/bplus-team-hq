@@ -451,8 +451,17 @@ export default function HoyDesk({
   // Al cambiar de accion se cancela el "¿aplazar?"
   useEffect(() => { setConfirmLater(false) }, [active, dayOffset])
 
-  // Mantener visible la fila activa al moverse con el teclado
+  // Mantener visible la fila activa al moverse con el teclado. En ventana angosta (una columna,
+  // HoyDesk.css) el foco queda arriba de la lista: al elegir otra accion se sube a verlo.
+  const gridRef = useRef(null)
+  const prevActive = useRef(active)
   useEffect(() => {
+    const cambio = prevActive.current !== active
+    prevActive.current = active
+    if (window.matchMedia('(max-width: 899px)').matches) {
+      if (cambio) gridRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      return
+    }
     listRef.current?.querySelector('.hd-row.on')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [active])
 
@@ -523,7 +532,7 @@ export default function HoyDesk({
         </div>
       </header>
 
-      <div className="hd-grid">
+      <div className="hd-grid" ref={gridRef}>
         {/* ---- Tu dia ---- */}
         <section className="dk-card hd-day" aria-label="Tu día">
           <div className="hd-week" role="tablist" aria-label="Días de la semana">

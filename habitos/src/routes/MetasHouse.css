@@ -1,4 +1,4 @@
-/* Vida en PC (>=900px): dos tarjetas fijas dentro de la pagina de escritorio
+/* Vida en PC (>=560px): dos tarjetas fijas dentro de la pagina de escritorio
    (styles/desk.css): la rueda de Areas | la lista (Metas o Habitos). Cada una
    scrollea por dentro; los componentes embebidos usan su gutter normal. */
 .vida-desk {
@@ -28,4 +28,10 @@
 }
 @media (max-width: 1099px) {
   .vida-desk { grid-template-columns: minmax(0, 1fr) minmax(340px, 1fr); gap: var(--space-4); }
+}
+/* Ventana angosta (560-899px): la rueda arriba y la lista debajo; scrollea la pagina entera */
+@media (max-width: 899px) {
+  .vida-desk { flex: none; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .vida-desk-col--map { height: min(560px, 72dvh); }
+  .vida-desk-col--list { overflow: visible; }
 }
