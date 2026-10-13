@@ -7,18 +7,20 @@ import { RockieArt } from '../../os/RockieArt'
 import './portada.css'
 
 // La portada de rockie.plus. La idea: Rockie es una MOCHILA (cuatro herramientas en una, que se hablan entre sí,
-// y un solo Rockie), no útiles sueltos amarrados con una liga. Recupera lo vivo de la landing anterior de
-// Hábitos (el arte de Rockie, chips que flotan, la geoda que crece, el abanico de ánimos) con los tokens y
-// cantos de siempre. Colores sólidos (nada pastel): todo se reconoce de lejos.
+// y un solo Rockie), no útiles sueltos amarrados con una liga. Tono sobrio, de lectura: la letra de la cara
+// pública (serif de texto, sans técnica y mono para datos; ver publico.css), secciones numeradas y Rockie
+// solo donde aporta (asoma de la mochila y la figura de la geoda). El producto va primero: «Dile a Rockie»
+// en la portada y, debajo, una ventana de Rockie que se queda fija mientras el scroll recorre un día.
+// Cada pieza entra una vez, en cascada, al asomar. Colores sólidos (nada pastel), tokens y cantos de siempre.
 // La puerta es amplia (estudias, trabajas o emprendes) y ?para=estudiante|profesional|emprendedor abre el día
 // de cada uno, para las campañas. Los planes, las dudas y el pie siguen en Publico.tsx.
 
 const app = (id: AppId) => APPS.find((a) => a.id === id) as OsApp
 const vars = (v: Record<string, string | number>) => v as CSSProperties
-const ARTE = '/landing/portada'
 
-/** Las piezas con .pt-rv entran una vez, cuando asoman en pantalla. Sin IntersectionObserver, todo visible. */
-function useRevelar<T extends HTMLElement>() {
+/** Las piezas con .pt-rv entran una vez, cuando asoman en pantalla; las que asoman juntas entran en cascada
+ *  (--rv-i). Sin IntersectionObserver, todo visible. */
+export function useRevelar<T extends HTMLElement>() {
   const ref = useRef<T>(null)
   useEffect(() => {
     const raiz = ref.current
@@ -27,10 +29,13 @@ function useRevelar<T extends HTMLElement>() {
     raiz.classList.add('pt-anim')
     const io = new IntersectionObserver(
       (entradas) => {
+        let i = 0
         for (const e of entradas) {
           if (!e.isIntersecting) continue
-          e.target.classList.add('vis')
-          io.unobserve(e.target)
+          const pieza = e.target as HTMLElement
+          pieza.style.setProperty('--rv-i', String(Math.min(i++, 5)))
+          pieza.classList.add('vis')
+          io.unobserve(pieza)
         }
       },
       { rootMargin: '0px 0px -10% 0px' },
@@ -41,10 +46,11 @@ function useRevelar<T extends HTMLElement>() {
   return ref
 }
 
-function Ceja({ color = 'var(--accent)', children }: { color?: string; children: ReactNode }) {
+/** El rótulo de cada sección: su número (01, 02…) y su nombre, en mono. */
+export function Ceja({ n, children }: { n?: string; children: ReactNode }) {
   return (
     <p className="pt-ceja pt-rv">
-      <span className="pt-punto" style={{ background: color }} />
+      {n && <span className="pt-ceja-n">{n}</span>}
       {children}
     </p>
   )
@@ -55,39 +61,30 @@ function Ceja({ color = 'var(--accent)', children }: { color?: string; children:
 export function PortadaHero() {
   return (
     <section className="pt-hero">
-      <div className="pt-hero-t">
-        <p className="pt-ceja">
-          <span className="pt-punto" style={{ background: 'var(--title)' }} />
-          Para estudiantes, profesionales y equipos
-        </p>
-        <h1>
-          Todas tus herramientas, en una sola <em>mochila</em>.
-        </h1>
-        <p className="pt-hero-sub">
-          Hábitos con prueba, agenda, apuntes y los proyectos de tu equipo: cuatro herramientas en una sola,
-          conectadas entre sí y con Rockie. Deja de cargar diez apps amarradas con una liga.
-        </p>
-        <div className="pt-hero-btns">
-          <Link className="btn pt-btn-xl" to="/registro">
-            Arma tu mochila gratis
-          </Link>
-          <a className="btn ghost pt-btn-xl" href="#planes">
-            Ver planes
-          </a>
-        </div>
-        <ul className="pt-confianza">
-          <li>
-            <Icon name="lock" className="sm" /> No leemos lo tuyo
-          </li>
-          <li>
-            <Icon name="star" className="sm" /> Gratis para siempre
-          </li>
-          <li>
-            <Icon name="monitor" className="sm" /> Celular y compu, una cuenta
-          </li>
-        </ul>
-      </div>
+      <p className="pt-ceja">Para estudiantes, profesionales y equipos</p>
+      <h1>
+        Todas tus herramientas, en una sola <em>mochila</em>.
+      </h1>
+      <p className="pt-hero-sub">
+        Hábitos con prueba, agenda, apuntes y los proyectos de tu equipo: cuatro herramientas en una sola,
+        conectadas entre sí y con Rockie.
+      </p>
       <Mochila />
+      <Pide />
+      <ul className="pt-confianza">
+        <li>
+          <Icon name="lock" className="sm" /> No leemos lo tuyo
+        </li>
+        <li>
+          <Icon name="star" className="sm" /> Gratis para siempre
+        </li>
+        <li>
+          <Icon name="monitor" className="sm" /> Celular y compu, una cuenta
+        </li>
+        <li>
+          <a href="#planes">Ver planes</a>
+        </li>
+      </ul>
     </section>
   )
 }
@@ -100,20 +97,13 @@ const UTILES: { id: AppId; x: number; y: number; r: number; d: number }[] = [
   { id: 'habitos', x: 75, y: 0.4, r: 16, d: 0.55 },
 ]
 
-const CHIPS: { icon: IconName; t: string; color: string; pos: string }[] = [
-  { icon: 'flame', t: '13 días', color: 'var(--coral)', pos: 'a' },
-  { icon: 'check', t: 'Validado por IA', color: 'var(--green-photo)', pos: 'b' },
-  { icon: 'calendar', t: 'Entrega: vie 23:59', color: app('agenda').color, pos: 'c' },
-  { icon: 'sparkle', t: 'Apuntes listos', color: app('cuaderno').color, pos: 'd' },
-]
-
+/** La mochila, en chico: se apoya sobre la caja de «Dile a Rockie». */
 function Mochila() {
   // la piedra del visitante (si ya usó Hábitos en este navegador) con su sombrero, sin nada en las manos
   const look = useMemo(() => rockieLook(), [])
   return (
     <div className="pt-escena" aria-hidden="true">
       <span className="pt-orbita" />
-      <span className="pt-suelo" />
       <div className="pt-mochila">
         <span className="pt-asa" />
         <span className="pt-tira izq" />
@@ -156,19 +146,95 @@ function Mochila() {
         <span className="pt-bolsillo">
           <span className="pt-cierre-zip" />
           <span className="pt-jalador" />
-          <span className="pt-etiqueta">Todo en uno</span>
         </span>
       </div>
-      {CHIPS.map((c) => (
-        <span key={c.pos} className={`pt-chip pt-chip-${c.pos}`}>
-          <span className="pt-chip-in">
-            <span className="pt-chip-ico" style={{ background: c.color }}>
-              <Icon name={c.icon} className="sm" />
-            </span>
-            <b>{c.t}</b>
-          </span>
-        </span>
-      ))}
+    </div>
+  )
+}
+
+// «Dile a Rockie»: lo que le escribes y dónde lo guarda. Es una muestra (se escribe sola), no un campo.
+const PEDIDOS: { t: string; va: { id: AppId; t: string }[] }[] = [
+  {
+    t: 'Quiero correr a las 7 cada mañana',
+    va: [
+      { id: 'habitos', t: 'Correr · cada día' },
+      { id: 'agenda', t: '07:00 · Correr' },
+    ],
+  },
+  { t: 'Reunión con mi grupo el jueves a las 5', va: [{ id: 'agenda', t: 'jue 17:00 · Reunión de grupo' }] },
+  { t: 'Apunta: ideas para la feria del club', va: [{ id: 'cuaderno', t: 'Ideas para la feria' }] },
+  { t: 'Tengo que entregar el informe el viernes', va: [{ id: 'equipo', t: 'Entregar el informe · vie' }] },
+]
+
+function Pide() {
+  const ref = useRef<HTMLDivElement>(null)
+  // con «reducir movimiento» la frase cambia entera (no letra por letra); la muestra sigue contando lo mismo
+  const quieto = useMemo(() => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches, [])
+  const [est, setEst] = useState({ i: 0, n: quieto ? PEDIDOS[0].t.length : 0 })
+  const [aLaVista, setALaVista] = useState(true)
+  const p = PEDIDOS[est.i]
+  const listo = est.n >= p.t.length
+
+  // fuera de pantalla no escribe: nada corre si nadie lo ve
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !('IntersectionObserver' in window)) return
+    const io = new IntersectionObserver(([e]) => setALaVista(e.isIntersecting))
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!aLaVista) return
+    const id = setTimeout(
+      () => {
+        if (!listo) return setEst({ i: est.i, n: est.n + 1 })
+        const k = (est.i + 1) % PEDIDOS.length
+        setEst({ i: k, n: quieto ? PEDIDOS[k].t.length : 0 })
+      },
+      listo ? 3600 : est.n === 0 ? 500 : 36,
+    )
+    return () => clearTimeout(id)
+  }, [est, listo, aLaVista, quieto])
+
+  return (
+    <div ref={ref} className="pt-pide">
+      <div className="pt-pide-demo" aria-hidden="true">
+        <p className="pt-pide-rot">
+          <Icon name="sparkle" className="sm" /> Dile a Rockie
+        </p>
+        <p className="pt-pide-txt">
+          {p.t.slice(0, est.n)}
+          <i className="pt-cursor" />
+        </p>
+      </div>
+      <div className="pt-pide-pie">
+        <ul className="pt-destinos" aria-hidden="true">
+          {APPS.map((a) => (
+            <li key={a.id} className={listo && p.va.some((v) => v.id === a.id) ? 'on' : ''} style={appTint(a)}>
+              <span className="os-tile sm">
+                <Icon name={a.icon} className="sm" />
+              </span>
+            </li>
+          ))}
+        </ul>
+        <ul key={`${est.i}-${listo}`} className="pt-guardado" aria-hidden="true">
+          {listo ? (
+            p.va.map((v) => (
+              <li key={v.id} style={appTint(app(v.id))}>
+                <Icon name="check" className="sm" />
+                <b>{app(v.id).name}</b>
+                <span>{v.t}</span>
+              </li>
+            ))
+          ) : (
+            <li className="espera">Rockie lo guarda donde toca</li>
+          )}
+        </ul>
+        <Link className="btn pt-btn-xl" to="/registro">
+          Arma tu mochila gratis
+        </Link>
+      </div>
     </div>
   )
 }
@@ -179,13 +245,8 @@ export function PortadaHistoria() {
   const ref = useRevelar<HTMLDivElement>()
   return (
     <div ref={ref} className="pt">
-      <section className="pt-banda pt-rv">
-        <p>
-          No te falta otra app. Te falta que <em>todo se hable</em> entre sí.
-        </p>
-      </section>
+      <Recorrido />
       <LigaVsMochila />
-      <UnDia />
       <ConoceARockie />
       <Cofre />
     </div>
@@ -211,7 +272,7 @@ const BOLSILLO: Record<AppId, { para: string; t: string }> = {
 function LigaVsMochila() {
   return (
     <section id="por-que" className="pt-sec">
-      <Ceja color="var(--coral)">El problema</Ceja>
+      <Ceja n="02">Por qué</Ceja>
       <h2 className="pt-rv">
         Diez apps amarradas con una liga <em>no</em> son un sistema.
       </h2>
@@ -443,14 +504,61 @@ type Paso = {
   tinte: CSSProperties
   nombre: string
   icon: IconName
+  /** el nombre de la hoja abierta, en la ruta de la ventana */
+  ruta: string
   titulo: string
   texto: string
-  arte: string
+  props: [string, string][]
   mock: ReactNode
-  puente?: string
+  /** con qué otra herramienta se habla este paso */
+  puente?: { a: string; t: string }
 }
 
-function UnDia() {
+function medidasRecorrido(el: HTMLElement | null) {
+  const fijo = el?.firstElementChild as HTMLElement | null
+  if (!el || !fijo) return null
+  return { el, tope: parseFloat(getComputedStyle(fijo).top) || 0, total: el.offsetHeight - fijo.offsetHeight }
+}
+
+/** El recorrido se queda fijo mientras bajas: el scroll decide el paso activo y, en --avance (0 a 1), cuánto va
+ *  de ese paso (la barra de su rótulo). Solo cambia el estado al pasar de un paso a otro. */
+function useRecorrido(n: number) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [paso, setPaso] = useState(0)
+  useEffect(() => {
+    let raf = 0
+    const medir = () => {
+      raf = 0
+      const m = medidasRecorrido(ref.current)
+      if (!m || m.total <= 0) return
+      const x = Math.min(n - 0.001, Math.max(0, ((m.tope - m.el.getBoundingClientRect().top) / m.total) * n))
+      const i = Math.floor(x)
+      m.el.style.setProperty('--avance', (x - i).toFixed(3))
+      setPaso((antes) => (antes === i ? antes : i))
+    }
+    const alMover = () => {
+      if (!raf) raf = requestAnimationFrame(medir)
+    }
+    medir()
+    addEventListener('scroll', alMover, { passive: true })
+    addEventListener('resize', alMover)
+    return () => {
+      removeEventListener('scroll', alMover)
+      removeEventListener('resize', alMover)
+      cancelAnimationFrame(raf)
+    }
+  }, [n])
+  /** tocar un rótulo lleva el scroll a la mitad de ese paso */
+  const ir = (i: number) => {
+    const m = medidasRecorrido(ref.current)
+    if (!m) return
+    const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches
+    scrollTo({ top: m.el.getBoundingClientRect().top + scrollY - m.tope + (m.total * (i + 0.5)) / n, behavior: quieto ? 'auto' : 'smooth' })
+  }
+  return { ref, paso, ir }
+}
+
+function Recorrido() {
   const [persona, setPersona] = useState<PersonaId>(personaInicial)
   const d = DIAS[persona]
   const pasos: Paso[] = [
@@ -459,116 +567,196 @@ function UnDia() {
       tinte: appTint(app('habitos')),
       nombre: 'Hábitos',
       icon: 'flame',
+      ruta: 'Hoy',
       titulo: d.habito.titulo,
       texto: d.habito.texto,
-      arte: 'habitos',
+      props: [
+        ['cuándo', `Cada día · ${d.habito.hora}`],
+        ['prueba', 'Una foto'],
+        ['la revisa', 'Rockie, con IA'],
+      ],
       mock: <MockFoto racha={d.habito.racha} />,
-      puente: 'Tu hábito ya está en tu agenda, a su hora.',
+      puente: { a: 'Agenda', t: 'Tu hábito ya está en tu agenda, a su hora.' },
     },
     {
       hora: d.agenda.hora,
       tinte: appTint(app('agenda')),
       nombre: 'Agenda',
       icon: 'calendar',
+      ruta: 'Mi día',
       titulo: d.agenda.titulo,
       texto: d.agenda.texto,
-      arte: 'agenda',
+      props: [
+        ['se llena con', 'Citas, entregas y hábitos'],
+        ['con tu gente', 'Buscan el hueco en común'],
+      ],
       mock: <MockAgenda cita={d.agenda.cita} habito={d.agenda.habito} hueco={d.agenda.hueco} />,
-      puente: d.cuaderno.llega,
+      puente: { a: 'Cuaderno', t: d.cuaderno.llega },
     },
     {
       hora: d.cuaderno.hora,
       tinte: appTint(app('cuaderno')),
       nombre: 'Cuaderno',
       icon: 'notebook',
+      ruta: d.cuaderno.hoja,
       titulo: d.cuaderno.titulo,
       texto: d.cuaderno.texto,
-      arte: 'cuaderno',
+      props: [
+        ['origen', d.cuaderno.archivo],
+        ['lo arma', 'Rockie'],
+        ['queda', 'Enlazado con tus otros apuntes'],
+      ],
       mock: <MockCuaderno archivo={d.cuaderno.archivo} hoja={d.cuaderno.hoja} chip={d.cuaderno.chip} />,
-      puente: 'Compartes tus apuntes con tu equipo en un clic.',
+      puente: { a: 'Proyectos', t: 'Compartes tus apuntes con tu equipo en un clic.' },
     },
     {
       hora: d.equipo.hora,
       tinte: appTint(app('equipo')),
       nombre: 'Proyectos',
       icon: 'projects',
+      ruta: d.equipo.proyecto,
       titulo: d.equipo.titulo,
       texto: d.equipo.texto,
-      arte: 'proyectos',
+      props: [
+        ['entrega', d.equipo.fecha],
+        ['se ve en', 'Tablero y Gantt'],
+        ['a la vista de', 'Todo el equipo'],
+      ],
       mock: <MockGantt proyecto={d.equipo.proyecto} fecha={d.equipo.fecha} />,
-      puente: 'Cada entrega y cada hábito cuentan para tu Rockie.',
+      puente: { a: 'Rockie', t: 'Cada entrega y cada hábito cuentan para tu Rockie.' },
     },
     {
       hora: '22:30',
       tinte: vars({ '--app': 'var(--amber)', '--app-edge': 'var(--amber-edge)' }),
       nombre: 'Rockie',
       icon: 'sparkle',
+      ruta: 'Resumen del día',
       titulo: 'Cierras el día.',
       texto: 'Rockie te cuenta cómo te fue y tu geoda brilla un poco más. Mañana, otra vez.',
-      arte: 'brillo',
+      props: [
+        ['hábitos', 'Cumplidos'],
+        ['entregas', 'Al día'],
+      ],
       mock: <MockCierre />,
     },
   ]
+  const { ref, paso, ir } = useRecorrido(pasos.length)
+  const p = pasos[paso]
   return (
-    <section id="apps" className="pt-sec">
-      <Ceja color={app('habitos').color}>Cómo se siente</Ceja>
+    <section id="apps" className="pt-sec pt-rec-sec">
+      <Ceja n="01">Un día de uso</Ceja>
       <h2 className="pt-rv">
-        Un día cualquiera, <em>todo conectado</em>.
+        No te falta otra app. Te falta que <em>todo se hable</em> entre sí.
       </h2>
       <p className="pt-lead pt-rv">
         Estudies, trabajes o emprendas: cuatro herramientas que se hablan entre sí y cuidan lo que te hace una
-        persona completa. Tu constancia, tu tiempo, tu mente y tu gente.
+        persona completa. Tu constancia, tu tiempo, tu mente y tu gente. Baja y recorre un día.
       </p>
-      <div className="pt-personas pt-rv" role="group" aria-label="Elige tu día">
-        {PERSONAS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            className={`pt-persona${p.id === persona ? ' on' : ''}`}
-            aria-pressed={p.id === persona}
-            onClick={() => setPersona(p.id)}
-          >
-            <Icon name={p.icon} className="sm" />
-            {p.nombre}
-          </button>
-        ))}
-      </div>
-      {/* cada paso conserva su nodo (key = posición) para no perder la entrada al asomar; lo de adentro cambia con la persona */}
-      <ol className="pt-dia">
-        {pasos.map((p, i) => (
-          <li key={i} className={`pt-paso${i % 2 ? ' der' : ''}`} style={p.tinte}>
-            <span className="pt-hora pt-rv">{p.hora}</span>
-            <article className="pt-tarjeta pt-rv">
-              <img
-                className="pt-sticker"
-                src={`${ARTE}/${p.arte}.webp`}
-                alt=""
-                loading="lazy"
-                decoding="async"
-              />
-              <header className="pt-tarjeta-app">
-                <span className="os-tile sm">
-                  <Icon name={p.icon} className="sm" />
-                </span>
-                {p.nombre}
-              </header>
-              <div key={persona} className="pt-cambia">
-                <h3>{p.titulo}</h3>
-                <p>{p.texto}</p>
-                {p.mock}
+      <div ref={ref} className="pt-rec" style={vars({ '--n': pasos.length })}>
+        <div className="pt-rec-fijo">
+          <div className="pt-personas" role="group" aria-label="Elige tu día">
+            {PERSONAS.map((x) => (
+              <button
+                key={x.id}
+                type="button"
+                className={`pt-persona${x.id === persona ? ' on' : ''}`}
+                aria-pressed={x.id === persona}
+                onClick={() => setPersona(x.id)}
+              >
+                <Icon name={x.icon} className="sm" />
+                {x.nombre}
+              </button>
+            ))}
+          </div>
+
+          {/* la ventana es una muestra (lo que se lee está en los rótulos de abajo) */}
+          <div className="pt-win" style={p.tinte} aria-hidden="true">
+            <div className="pt-win-bar">
+              <span className="pt-win-luces">
+                <i />
+                <i />
+                <i />
+              </span>
+              <span className="pt-win-ruta">
+                Rockie / {p.nombre} / <b>{p.ruta}</b>
+              </span>
+              <span className="pt-win-hora">{p.hora}</span>
+            </div>
+            <div className="pt-win-cuerpo">
+              <div className="pt-win-lado">
+                {pasos.map((x, i) => (
+                  <span key={x.nombre} className={`pt-carpeta${i === paso ? ' on' : ''}`} style={x.tinte}>
+                    <Icon name={x.icon} className="sm" />
+                    {x.nombre}
+                  </span>
+                ))}
               </div>
-            </article>
-            {p.puente && (
-              <p className="pt-puente pt-rv">
-                <Icon name="link" className="sm" />
-                <span key={persona} className="pt-cambia">
-                  {p.puente}
-                </span>
-              </p>
-            )}
-          </li>
-        ))}
-      </ol>
+              <div key={`${persona}-${paso}`} className="pt-win-hoja pt-cambia">
+                <h3>{p.titulo}</h3>
+                <p className="pt-hoja-texto">{p.texto}</p>
+                <div className="pt-props">
+                  <b>Propiedades</b>
+                  <dl>
+                    {p.props.map(([k, v]) => (
+                      <div key={k}>
+                        <dt>{k}</dt>
+                        <dd>{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+                {p.mock}
+                {p.puente && (
+                  <p className="pt-enlace en-hoja">
+                    <b>
+                      <Icon name="link" className="sm" /> {p.puente.a}
+                    </b>
+                    {p.puente.t}
+                  </p>
+                )}
+              </div>
+              <div className="pt-win-rel">
+                <b>Conectado con</b>
+                {p.puente ? (
+                  <p key={`${persona}-${paso}`} className="pt-enlace pt-cambia">
+                    <b>
+                      <Icon name="link" className="sm" /> {p.puente.a}
+                    </b>
+                    {p.puente.t}
+                  </p>
+                ) : (
+                  <p key="todo" className="pt-enlace pt-cambia">
+                    <b>
+                      <Icon name="check" className="sm" /> Todo
+                    </b>
+                    Las cuatro herramientas, en un solo resumen.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <ol className="pt-pasos">
+            {pasos.map((x, i) => (
+              <li key={x.nombre} className={i === paso ? 'on' : i < paso ? 'hecho' : ''} style={x.tinte}>
+                <button type="button" onClick={() => ir(i)} aria-current={i === paso ? 'step' : undefined}>
+                  <span className="pt-paso-barra">
+                    <i />
+                  </span>
+                  <span className="pt-paso-n">
+                    0{i + 1}
+                    <i> · {x.hora}</i>
+                  </span>
+                  <b>{x.nombre}</b>
+                  <span key={persona} className="pt-paso-t">
+                    {x.texto}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
     </section>
   )
 }
@@ -683,7 +871,13 @@ function MockGantt({ proyecto, fecha }: { proyecto: string; fecha: string }) {
 function MockCierre() {
   return (
     <div className="mk mk-cierre" aria-hidden="true">
-      <RockieArt size={68} eyes={6} mouth={7} />
+      <span className="mk-anillo">
+        <svg viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="26" />
+          <circle cx="32" cy="32" r="26" pathLength={100} className="mk-anillo-av" />
+        </svg>
+        <b>72%</b>
+      </span>
       <div className="mk-cierre-t">
         <b>¡Día completo!</b>
         <div className="mk-apps">
@@ -693,16 +887,13 @@ function MockCierre() {
             </span>
           ))}
         </div>
-        <span className="mk-progreso">
-          <i />
-        </span>
-        <small>Tu geoda: 72 % para el próximo cristal</small>
+        <small>Tu geoda, camino al próximo cristal</small>
       </div>
     </div>
   )
 }
 
-/* ---------- Rockie ---------- */
+/* ---------- Rockie (una sola figura: la geoda que crece) ---------- */
 
 const ETAPAS = [
   { base: '/rockie-svg/bases/cuarzo/base1.svg', nombre: 'Guijarro', t: 7 },
@@ -711,19 +902,18 @@ const ETAPAS = [
   { base: '/rockie-svg/bases/gema.svg', nombre: 'Gema', t: 11.5 },
 ]
 
-const ANIMOS = [
-  { img: 'amigable', titulo: 'Amigable', sub: 'Presencia cálida', r: -14, y: 3 },
-  { img: 'curioso', titulo: 'Curioso', sub: 'Pregunta qué importa', r: -7, y: 0.8 },
-  { img: 'motivador', titulo: 'Motivador', sub: 'Empuja con cuidado', r: 0, y: 0 },
-  { img: 'divertido', titulo: 'Divertido', sub: 'Sin toxicidad', r: 7, y: 0.8 },
-  { img: 'adaptable', titulo: 'Adaptable', sub: 'A tu ritmo', r: 14, y: 3 },
+const RASGOS = [
+  { t: 'Amigable', d: 'Presencia cálida, nunca un regaño.' },
+  { t: 'Curioso', d: 'Pregunta lo que importa.' },
+  { t: 'Motivador', d: 'Empuja con cuidado.' },
+  { t: 'Adaptable', d: 'Va a tu ritmo.' },
 ]
 
 function ConoceARockie() {
   return (
     <section id="rockie" className="pt-sec pt-rockie">
       <div className="pt-rockie-t">
-        <Ceja color="var(--amber)">Conoce a Rockie</Ceja>
+        <Ceja n="03">Rockie</Ceja>
         <h2 className="pt-rv">
           Una geoda, <em>no</em> un sargento.
         </h2>
@@ -731,41 +921,33 @@ function ConoceARockie() {
           Rockie te acompaña en las cuatro herramientas. Cada cosa que cumples rompe un poco la piedra y
           revela el cristal que ya llevabas dentro.
         </p>
-        <ol className="pt-evo pt-rv" aria-label="Cómo crece Rockie">
+        <dl className="pt-rasgos pt-rv">
+          {RASGOS.map((r) => (
+            <div key={r.t}>
+              <dt>{r.t}</dt>
+              <dd>{r.d}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      <figure className="pt-figura pt-rv">
+        <ol className="pt-evo" aria-label="Cómo crece Rockie">
           {ETAPAS.map((e, i) => (
             <li key={e.nombre} style={vars({ '--t': `${e.t}em`, '--i': i })}>
               <span className="os-rockie pt-etapa">
                 <img src={e.base} alt="" loading="lazy" />
-                <img
-                  src={`/rockie-svg/eyes/ojos${i === 3 ? 6 : 1}.svg`}
-                  alt=""
-                  className="os-blink"
-                  loading="lazy"
-                />
+                <img src={`/rockie-svg/eyes/ojos${i === 3 ? 6 : 1}.svg`} alt="" loading="lazy" />
                 <img src={`/rockie-svg/mouth/boca${i === 3 ? 7 : 6}.svg`} alt="" loading="lazy" />
               </span>
               <small>{e.nombre}</small>
             </li>
           ))}
         </ol>
-      </div>
-      <div className="pt-abanico pt-rv" aria-label="Cómo es Rockie">
-        {ANIMOS.map((m) => (
-          <figure
-            key={m.img}
-            className="pt-carta"
-            tabIndex={0}
-            style={vars({ '--r': `${m.r}deg`, '--y': `${m.y}em` })}
-          >
-            <img src={`${ARTE}/${m.img}.webp`} alt="" loading="lazy" decoding="async" />
-            <figcaption>
-              <b>{m.titulo}</b>
-              <small>{m.sub}</small>
-            </figcaption>
-          </figure>
-        ))}
-      </div>
-      <p className="pt-cita pt-rv">Los hábitos no te arreglan: te revelan.</p>
+        <figcaption>
+          <b>Fig. 1</b> La misma piedra, cuatro etapas: crece con lo que cumples, no con lo que prometes.
+        </figcaption>
+      </figure>
+      <blockquote className="pt-cita pt-rv">Los hábitos no te arreglan: te revelan.</blockquote>
     </section>
   )
 }
@@ -789,7 +971,7 @@ function Cofre() {
         </div>
       </div>
       <div className="pt-cofre-t">
-        <Ceja color="var(--green-photo)">Tu Cofre</Ceja>
+        <Ceja n="04">Tu Cofre</Ceja>
         <h2>
           Lo tuyo viaja <em>cifrado</em>.
         </h2>
@@ -818,7 +1000,6 @@ function Cofre() {
 export function PortadaCierre() {
   return (
     <section className="pt-final">
-      <img src={`${ARTE}/megafono.webp`} alt="" loading="lazy" decoding="async" />
       <div>
         <h2>Arma tu mochila hoy.</h2>
         <p>

@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { Link, Navigate } from 'react-router'
+import { useTheme } from '../../app/theme'
 import { Icon } from '../../components/Icon'
 import { Rockie } from '../../components/Rockie'
 import { soles } from '../../lib/planes'
@@ -10,7 +12,7 @@ import { precioTarifa, preciosNuevos } from '../planes/tarifa'
 import { COMERCIO } from './comercio'
 import { documento } from './legal'
 import { PlanesPublicos } from './PlanesPublicos'
-import { PortadaCierre, PortadaHero, PortadaHistoria } from './Portada'
+import { Ceja, PortadaCierre, PortadaHero, PortadaHistoria } from './Portada'
 import './publico.css'
 
 // La cara pública de rockie.plus: qué es Rockie, sus planes con precio, los textos legales y el Libro de
@@ -26,9 +28,16 @@ export function Raiz() {
 
 export function MarcoPublico({ children }: { children: ReactNode }) {
   const { session } = useAuth()
+  const { theme, toggle } = useTheme()
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [])
+  // el cambio de fondo se funde (donde el navegador lo permite) en vez de saltar
+  function cambiarFondo() {
+    const d = document as Document & { startViewTransition?: (f: () => void) => unknown }
+    if (d.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) d.startViewTransition(() => flushSync(toggle))
+    else toggle()
+  }
   return (
     <div className="pub">
       <header className="pub-top">
@@ -42,6 +51,15 @@ export function MarcoPublico({ children }: { children: ReactNode }) {
           <a href="/#dudas">Dudas</a>
         </nav>
         <span className="pub-sp" />
+        <button
+          type="button"
+          className="pub-tema"
+          onClick={cambiarFondo}
+          aria-label={theme === 'dark' ? 'Cambiar a fondo claro' : 'Cambiar a fondo oscuro'}
+          title={theme === 'dark' ? 'Fondo claro' : 'Fondo oscuro'}
+        >
+          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+        </button>
         {session ? (
           <Link className="btn sm" to="/inicio">
             Ir a mis apps
@@ -140,6 +158,7 @@ function Inicio() {
       <PlanesPublicos />
 
       <section id="dudas" className="pub-sec pub-dudas">
+        <Ceja n="06">Dudas</Ceja>
         <h2>Dudas rápidas</h2>
         <details>
           <summary>¿Rockie es gratis?</summary>

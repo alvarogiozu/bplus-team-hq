@@ -3,8 +3,22 @@
    Primero el celular; solo tokens (var(--*)) para que se vea bien en claro y en oscuro.
    ============================================================ */
 
+/* La letra de la cara pública: más de lectura que de juego. Serif de texto para títulos, sans técnica para
+   el cuerpo y mono para rótulos y datos. Se cambia aquí, en un solo lugar (las fuentes se piden en index.html);
+   adentro todo sigue usando var(--serif) / var(--sans). La marca «Rockie» conserva la letra de la app. */
+.pub {
+  --serif: 'Newsreader', 'Fraunces', Georgia, serif;
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--sans); font-weight: 400; font-variant-numeric: lining-nums;
+}
 .pub { min-height: 100dvh; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); }
-.pub-main { flex: 1; width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 var(--s4) var(--s8); }
+.pub-marca, .pub-pie-marca { font-family: 'Fraunces', Georgia, serif !important; }
+.pub-main { --pub-x: var(--s4); flex: 1; width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 var(--pub-x) var(--s8); }
+/* en pantalla ancha la columna va entre dos líneas finas (y las secciones se separan con otra: ver portada.css) */
+@media (min-width: 1180px) {
+  .pub-main { --pub-x: var(--s10); max-width: 1162px; border-inline: 1px solid var(--line); }
+}
 
 /* ---------- arriba ---------- */
 .pub-top {
@@ -18,11 +32,25 @@
 .pub-nav a { color: var(--ink-soft); text-decoration: none; font-weight: 700; font-size: var(--t-sm); }
 .pub-nav a:hover { color: var(--ink); }
 .pub-sp { flex: 1; }
+/* fondo claro u oscuro: lo elige quien visita (se guarda en este equipo, igual que dentro de la app) */
+.pub-tema {
+  position: relative; display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%;
+  background: var(--card); color: var(--ink-soft); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
+  transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide), color 0.12s;
+}
+.pub-tema::after { content: ''; position: absolute; inset: -5px; }
+.pub-tema:hover { color: var(--ink); }
+.pub-tema:active { transform: translateY(3px); box-shadow: 0 0 0 var(--card-edge); }
+.pub-tema:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.pub-tema .ico { width: 18px; height: 18px; }
 @media (min-width: 720px) {
   .pub-nav { display: flex; }
 }
-/* en un celular muy angosto, el logo sin nombre para que quepan «Entrar» y «Empieza gratis» */
-@media (max-width: 359px) {
+/* en el celular la barra va más apretada (cabe el botón de fondo); en uno muy angosto, el logo sin nombre */
+@media (max-width: 420px) {
+  .pub-top { gap: 6px; padding-left: var(--s3); padding-right: var(--s3); }
+}
+@media (max-width: 374px) {
   .pub-marca span { display: none; }
 }
 /* los botones que son enlaces, sin subrayado */
