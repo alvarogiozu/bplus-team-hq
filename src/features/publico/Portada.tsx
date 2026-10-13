@@ -246,6 +246,7 @@ export function PortadaHistoria() {
   return (
     <div ref={ref} className="pt">
       <Recorrido />
+      <PorDentro />
       <LigaVsMochila />
       <ConoceARockie />
       <Cofre />
@@ -272,7 +273,7 @@ const BOLSILLO: Record<AppId, { para: string; t: string }> = {
 function LigaVsMochila() {
   return (
     <section id="por-que" className="pt-sec">
-      <Ceja n="02">Por qué</Ceja>
+      <Ceja n="03">Por qué</Ceja>
       <h2 className="pt-rv">
         Diez apps amarradas con una liga <em>no</em> son un sistema.
       </h2>
@@ -575,7 +576,7 @@ function Recorrido() {
         ['prueba', 'Una foto'],
         ['la revisa', 'Rockie, con IA'],
       ],
-      mock: <MockFoto racha={d.habito.racha} />,
+      mock: <MockFoto racha={d.habito.racha} hora={d.habito.hora} />,
       puente: { a: 'Agenda', t: 'Tu hábito ya está en tu agenda, a su hora.' },
     },
     {
@@ -669,28 +670,39 @@ function Recorrido() {
             ))}
           </div>
 
-          {/* la ventana es una muestra (lo que se lee está en los rótulos de abajo) */}
+          {/* la ventana es una muestra (lo que se lee está en los rótulos de abajo). Arriba, las pestañas de
+              folder del escritorio de Rockie: Inicio primero y una por herramienta, cada una con su color. */}
+          <div className="pt-tabs" aria-hidden="true">
+            {[pasos.length - 1, 0, 1, 2, 3].map((i) => {
+              const x = pasos[i]
+              const inicio = i === pasos.length - 1
+              return (
+                <span
+                  key={x.nombre}
+                  className={`pt-tab${i === paso ? ' on' : ''}`}
+                  style={inicio ? vars({ '--app': 'var(--title)', '--app-edge': 'var(--coral-edge)' }) : x.tinte}
+                >
+                  <span className="pt-tab-ic">
+                    <Icon name={inicio ? 'home' : x.icon} className="sm" />
+                  </span>
+                  {inicio ? 'Inicio' : x.nombre}
+                </span>
+              )
+            })}
+            <span className="pt-tab-mas">
+              <Icon name="plus" className="sm" />
+            </span>
+          </div>
           <div className="pt-win" style={p.tinte} aria-hidden="true">
             <div className="pt-win-bar">
-              <span className="pt-win-luces">
-                <i />
-                <i />
-                <i />
+              <span className="os-tile sm">
+                <Icon name={p.icon} className="sm" />
               </span>
-              <span className="pt-win-ruta">
-                Rockie / {p.nombre} / <b>{p.ruta}</b>
-              </span>
+              <b>{p.nombre === 'Rockie' ? 'Inicio' : p.nombre}</b>
+              <span className="pt-win-ruta">{p.ruta}</span>
               <span className="pt-win-hora">{p.hora}</span>
             </div>
             <div className="pt-win-cuerpo">
-              <div className="pt-win-lado">
-                {pasos.map((x, i) => (
-                  <span key={x.nombre} className={`pt-carpeta${i === paso ? ' on' : ''}`} style={x.tinte}>
-                    <Icon name={x.icon} className="sm" />
-                    {x.nombre}
-                  </span>
-                ))}
-              </div>
               <div key={`${persona}-${paso}`} className="pt-win-hoja pt-cambia">
                 <h3>{p.titulo}</h3>
                 <p className="pt-hoja-texto">{p.texto}</p>
@@ -761,7 +773,8 @@ function Recorrido() {
   )
 }
 
-function MockFoto({ racha }: { racha: number }) {
+// El hábito validado, como lo muestra la app: la foto de prueba y su logro (XP, racha, monedas, cuántos van hoy).
+function MockFoto({ racha, hora }: { racha: number; hora: string }) {
   return (
     <div className="mk mk-foto" aria-hidden="true">
       <div className="mk-foto-img">
@@ -770,18 +783,41 @@ function MockFoto({ racha }: { racha: number }) {
           <path d="M0 60 C40 38 82 42 120 56 S180 48 200 44 V90 H0Z" style={{ fill: 'var(--olive)' }} />
           <path d="M0 74 C50 60 112 66 200 70 V90 H0Z" style={{ fill: 'var(--green-photo)' }} />
         </svg>
+        <span className="mk-foto-tag">Tu foto · {hora}</span>
         <span className="mk-sello">
           <Icon name="check" />
         </span>
       </div>
-      <div className="mk-fila">
-        <span className="mk-pill verde">
-          <Icon name="check" className="sm" /> Validado por IA
+      <div className="mk-logro">
+        <small>Validado · la IA revisó tu foto</small>
+        <b>+100 XP</b>
+        <div className="mk-fila">
+          <span className="mk-pill coral">
+            <Icon name="flame" className="sm" /> Racha: {racha} días
+          </span>
+          <span className="mk-pill ambar">🪙 +25</span>
+          <span className="mk-pill verde">
+            <Icon name="check" className="sm" /> 2 de 5 hoy
+          </span>
+        </div>
+      </div>
+      {/* las tres formas de cerrar un hábito en la app (se ven cuando la ventana tiene alto de sobra) */}
+      <div className="mk-acciones">
+        <span className="on">
+          <Icon name="image" className="sm" />
+          <b>Validar con foto</b>
+          <small>+100 XP · la IA la revisa</small>
         </span>
-        <span className="mk-pill coral">
-          <Icon name="flame" className="sm" /> {racha} días
+        <span>
+          <Icon name="check" className="sm" />
+          <b>Lo hice</b>
+          <small>+40 XP · sin foto</small>
         </span>
-        <span className="mk-xp">+100 XP</span>
+        <span>
+          <Icon name="clock" className="sm" />
+          <b>Hoy no puede ser</b>
+          <small>Racha protegida</small>
+        </span>
       </div>
     </div>
   )
@@ -893,6 +929,246 @@ function MockCierre() {
   )
 }
 
+/* ---------- por dentro: lo que le da vida a Rockie, tal como es en la app ---------- */
+
+function Demo({
+  tinte,
+  icon,
+  rot,
+  titulo,
+  texto,
+  children,
+}: {
+  tinte: CSSProperties
+  icon: IconName
+  rot: string
+  titulo: string
+  texto: string
+  children: ReactNode
+}) {
+  return (
+    <article className="pt-demo pt-rv" style={tinte}>
+      <div className="pt-demo-m" aria-hidden="true">
+        {children}
+      </div>
+      <div className="pt-demo-t">
+        <p className="pt-demo-rot">
+          <span className="os-tile sm">
+            <Icon name={icon} className="sm" />
+          </span>
+          {rot}
+        </p>
+        <h3>{titulo}</h3>
+        <p>{texto}</p>
+      </div>
+    </article>
+  )
+}
+
+function PorDentro() {
+  const cuaderno = appTint(app('cuaderno'))
+  return (
+    <section id="por-dentro" className="pt-sec">
+      <Ceja n="02">Por dentro</Ceja>
+      <h2 className="pt-rv">
+        Lo que escribes, dibujas o dices <em>queda conectado</em>.
+      </h2>
+      <p className="pt-lead pt-rv">Cuatro cosas que Rockie ya hace hoy, tal como se ven en la app.</p>
+      <div className="pt-demos">
+        <Demo
+          tinte={cuaderno}
+          icon="tree"
+          rot="Cuaderno · Mapa"
+          titulo="Tus notas, enlazadas entre sí."
+          texto="Escribe [[ y la página queda unida a otra. El Mapa junta tus apuntes de la universidad, tus recuerdos y tus proyectos, y cada conexión guarda su porqué. Una página puede vivir también en tu proyecto: el equipo la edita a la vez."
+        >
+          <DemoMapa />
+        </Demo>
+        <Demo
+          tinte={cuaderno}
+          icon="edit"
+          rot="Cuaderno · Dibujar y Pizarra"
+          titulo="Escribe, dibuja y pega en la misma página."
+          texto="Cada página acepta texto, una hoja de dibujo que crece hacia abajo y una pizarra infinita con tus imágenes. Con lápiz, la tinta responde a la presión, como en papel."
+        >
+          <DemoTinta />
+        </Demo>
+        <Demo
+          tinte={vars({ '--app': 'var(--amber)', '--app-edge': 'var(--amber-edge)' })}
+          icon="mic"
+          rot="Rockie · Voz"
+          titulo="Háblale: Rockie entiende de qué se trata."
+          texto="Mantén presionado y habla. Rockie decide si es una nota, un hábito, una cita o una tarea, lo deja listo para confirmar y, si duda, te pregunta dónde guardarlo."
+        >
+          <DemoVoz />
+        </Demo>
+        <Demo
+          tinte={vars({ '--app': 'var(--title)', '--app-edge': 'var(--coral-edge)' })}
+          icon="panel"
+          rot="Escritorio · Pantalla dividida"
+          titulo="Una pestaña al lado de la otra."
+          texto="Arrastra una pestaña a un costado y la pantalla se parte, hasta seis paneles. Tus apuntes junto al proyecto, la agenda junto a tus hábitos."
+        >
+          <DemoDividida />
+        </Demo>
+      </div>
+    </section>
+  )
+}
+
+// El Mapa del Cuaderno en chico: núcleos de color (un cuaderno, una carpeta, un proyecto) unidos a sus páginas.
+const NUCLEOS = [
+  { id: 'calc', t: 'Cálculo II', x: 96, y: 78, r: 13, c: 'var(--berry)' },
+  { id: 'rec', t: 'Recuerdos', x: 262, y: 54, r: 11, c: 'var(--amber)' },
+  { id: 'feria', t: 'Feria del club', x: 232, y: 150, r: 12, c: 'var(--accent)' },
+]
+const PAGINAS = [
+  { t: 'Derivadas', x: 38, y: 132, de: 'calc', lado: 1 },
+  { t: 'Límites', x: 138, y: 136, de: 'calc', lado: 1 },
+  { t: 'Parcial', x: 56, y: 30, de: 'calc', lado: -1 },
+  { t: 'Viaje a Cusco', x: 322, y: 96, de: 'rec', lado: 1 },
+  { t: 'Cumple de mamá', x: 300, y: 18, de: 'rec', lado: -1 },
+  { t: 'Ideas de stand', x: 318, y: 176, de: 'feria', lado: 1 },
+]
+
+function DemoMapa() {
+  const n = (id: string) => NUCLEOS.find((x) => x.id === id) as (typeof NUCLEOS)[number]
+  return (
+    <svg className="dm-mapa" viewBox="0 0 360 200" preserveAspectRatio="xMidYMid meet">
+      {PAGINAS.map((p, i) => (
+        <line key={p.t} className="dm-liga" pathLength={1} x1={n(p.de).x} y1={n(p.de).y} x2={p.x} y2={p.y} style={vars({ stroke: n(p.de).c, '--i': i })} />
+      ))}
+      {/* páginas unidas entre sí, y una página unida a un proyecto */}
+      <line className="dm-liga" pathLength={1} x1={38} y1={132} x2={138} y2={136} style={vars({ '--i': 6 })} />
+      <line className="dm-liga cruce" pathLength={1} x1={138} y1={136} x2={232} y2={150} style={vars({ '--i': 7 })} />
+      {NUCLEOS.map((x, i) => (
+        <g key={x.id} className="dm-nodo" style={vars({ '--i': i })}>
+          <circle cx={x.x} cy={x.y} r={x.r} style={{ fill: x.c }} />
+          <text className="nucleo" x={x.x} y={x.y - x.r - 6} textAnchor="middle">
+            {x.t}
+          </text>
+        </g>
+      ))}
+      {PAGINAS.map((p, i) => (
+        <g key={p.t} className="dm-nodo" style={vars({ '--i': i + 3 })}>
+          <circle className="pagina" cx={p.x} cy={p.y} r={5} style={{ stroke: n(p.de).c }} />
+          <text x={p.x} y={p.y + (p.lado > 0 ? 17 : -10)} textAnchor="middle">
+            {p.t}
+          </text>
+        </g>
+      ))}
+    </svg>
+  )
+}
+
+// Una página con tinta: la curva y su tangente se trazan solas, junto a una imagen pegada.
+function DemoTinta() {
+  return (
+    <svg className="dm-tinta" viewBox="0 0 360 200" preserveAspectRatio="xMidYMid meet">
+      <path className="eje" d="M34 18V176H332" />
+      <path className="trazo" pathLength={1} d="M40 160C86 152 112 64 170 72S252 152 306 44" />
+      <path className="trazo tangente" pathLength={1} d="M104 84L240 58" />
+      <circle className="punto" cx={170} cy={71} r={4.5} />
+      <text className="mano" x={92} y={46}>
+        pendiente = f′(a)
+      </text>
+      <g className="foto" transform="rotate(5 292 150)">
+        <rect x={254} y={118} width={76} height={58} rx={7} />
+        <path d="M260 168l18-22 12 13 9-9 22 18z" />
+        <circle cx={316} cy={131} r={5} />
+      </g>
+    </svg>
+  )
+}
+
+// La voz: la roca escucha, y Rockie deja la tarjeta lista con su destino («Anotar en el Cuaderno»).
+function DemoVoz() {
+  const a = app('cuaderno')
+  return (
+    <div className="dm-voz">
+      <div className="dm-oye">
+        <svg className="dm-roca" viewBox="0 0 64 60">
+          <path className="canto" d="M10 48L6 32L18 14L40 10L56 24L58 44L44 54H20Z" />
+          <path d="M10 44L6 28L18 10L40 6L56 20L58 40L44 50H20Z" />
+          <path className="faceta" d="M18 10L28 26L6 28M28 26L56 20M28 26L34 50" />
+        </svg>
+        <span className="dm-ondas">
+          {[0.5, 0.9, 0.65, 1, 0.55, 0.85, 0.45].map((h, i) => (
+            <i key={i} style={vars({ '--h': h, '--i': i })} />
+          ))}
+        </span>
+        <q>Idea para la tesis: comparar los dos métodos con los datos de 2024</q>
+      </div>
+      <div className="dm-tarjeta">
+        <span className="dm-chips">
+          <span className="dm-chip" style={appTint(a)}>
+            <Icon name={a.icon} className="sm" /> {a.name}
+          </span>
+          <span className="dm-chip gris">Estudio</span>
+        </span>
+        <b>Idea para la tesis</b>
+        <span className="dm-btn">Anotar en el Cuaderno</span>
+      </div>
+    </div>
+  )
+}
+
+// El escritorio: la pestaña del Cuaderno baja a un costado y la pantalla se parte en dos.
+function DemoDividida() {
+  const pr = app('equipo')
+  const cu = app('cuaderno')
+  return (
+    <div className="dm-esc">
+      <div className="dm-esc-tabs">
+        <span className="pt-tab on" style={appTint(pr)}>
+          <span className="pt-tab-ic">
+            <Icon name={pr.icon} className="sm" />
+          </span>
+          {pr.name}
+        </span>
+        <span className="pt-tab va" style={appTint(cu)}>
+          <span className="pt-tab-ic">
+            <Icon name={cu.icon} className="sm" />
+          </span>
+          {cu.name}
+        </span>
+      </div>
+      <div className="dm-mesa">
+        <div className="dm-panel" style={appTint(pr)}>
+          <span className="dm-panel-bar">
+            <span className="os-tile sm">
+              <Icon name={pr.icon} className="sm" />
+            </span>
+            {pr.name}
+          </span>
+          <span className="dm-gantt">
+            <i style={vars({ '--a': '0%', '--w': '46%', '--c': 'var(--berry)' })} />
+            <i style={vars({ '--a': '24%', '--w': '50%', '--c': 'var(--amber)' })} />
+            <i style={vars({ '--a': '52%', '--w': '40%', '--c': 'var(--accent)' })} />
+          </span>
+        </div>
+        <div className="dm-panel b" style={appTint(cu)}>
+          <div className="dm-panel-in">
+            <span className="dm-panel-bar">
+              <span className="os-tile sm">
+                <Icon name={cu.icon} className="sm" />
+              </span>
+              {cu.name}
+            </span>
+            <span className="dm-nota">
+              <b>Ideas de stand</b>
+              <i />
+              <i />
+              <i style={{ width: '58%' }} />
+            </span>
+          </div>
+        </div>
+        <span className="dm-zona" />
+      </div>
+    </div>
+  )
+}
+
 /* ---------- Rockie (una sola figura: la geoda que crece) ---------- */
 
 const ETAPAS = [
@@ -913,7 +1189,7 @@ function ConoceARockie() {
   return (
     <section id="rockie" className="pt-sec pt-rockie">
       <div className="pt-rockie-t">
-        <Ceja n="03">Rockie</Ceja>
+        <Ceja n="04">Rockie</Ceja>
         <h2 className="pt-rv">
           Una geoda, <em>no</em> un sargento.
         </h2>
@@ -971,7 +1247,7 @@ function Cofre() {
         </div>
       </div>
       <div className="pt-cofre-t">
-        <Ceja n="04">Tu Cofre</Ceja>
+        <Ceja n="05">Tu Cofre</Ceja>
         <h2>
           Lo tuyo viaja <em>cifrado</em>.
         </h2>

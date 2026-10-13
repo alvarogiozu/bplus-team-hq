@@ -117,7 +117,7 @@ export function PlanesPublicos() {
 
   return (
     <section ref={ref} id="planes" className="pub-sec pp">
-      <Ceja n="05">Planes</Ceja>
+      <Ceja n="06">Planes</Ceja>
       <h2 className="pt-rv">Empieza gratis. Crece cuando lo necesites.</h2>
       <p className="pub-sub">
         Eliges tu plan y por cuánto tiempo, y pagas con Yape o tarjeta. Con tarjeta, si quieres, se renueva solo (y lo cancelas en un clic).

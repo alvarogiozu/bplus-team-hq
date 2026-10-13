@@ -158,7 +158,7 @@ function Inicio() {
       <PlanesPublicos />
 
       <section id="dudas" className="pub-sec pub-dudas">
-        <Ceja n="06">Dudas</Ceja>
+        <Ceja n="07">Dudas</Ceja>
         <h2>Dudas rápidas</h2>
         <details>
           <summary>¿Rockie es gratis?</summary>
