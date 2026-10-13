@@ -7,7 +7,7 @@
    Movimiento: cada pieza entra UNA vez (en cascada, al asomar); nada gira ni flota en bucle.
    ============================================================ */
 
-.pt, .pt-hero, .pt-final { --pt-ease: cubic-bezier(0.16, 1, 0.3, 1); }
+.pt, .pt-hero, .pt-final { --pt-ease: cubic-bezier(0.16, 1, 0.3, 1); --pub-top: 61px; }
 
 /* ---------- piezas comunes ---------- */
 .pt-ceja {
@@ -17,9 +17,8 @@
 .pt-ceja-n { display: inline-flex; align-items: center; gap: 10px; color: var(--title); }
 .pt-ceja-n::after { content: ''; width: 28px; height: 1px; background: var(--ink-faint); }
 .pt em, .pt-hero em { font-style: italic; color: var(--accent); }
-.pt-sec { padding: clamp(48px, 8vw, 88px) 0 clamp(40px, 6vw, 72px); scroll-margin-top: 60px; }
-.pt-sec:not(.pt-cofre), #planes, #dudas { margin-inline: calc(-1 * var(--pub-x)); padding-inline: var(--pub-x); border-top: 1px solid var(--line); }
-#planes, #dudas { padding-block: clamp(48px, 8vw, 88px) clamp(40px, 6vw, 72px); }
+.pt-sec, #planes, #dudas { padding: clamp(64px, 10vw, 120px) 0 0; scroll-margin-top: 48px; }
+#apps.pt-sec { padding-top: clamp(24px, 4vw, 48px); }
 .pt-sec h2 { margin: 0; font: 600 clamp(28px, 5.4vw, 44px)/1.06 var(--serif); color: var(--title); letter-spacing: -0.02em; max-width: 760px; }
 .pt-lead { margin: var(--s3) 0 0; font: 400 clamp(18px, 2.1vw, 20px)/1.5 var(--serif); color: var(--ink-soft); max-width: 640px; }
 .pt-btn-xl { min-height: 48px; padding: 12px 20px; font-size: var(--t-sm); }
@@ -132,49 +131,29 @@
 @keyframes pt-apachurra { 0%, 100% { transform: none; } 40% { transform: scale(1.035, 0.96); } 75% { transform: scale(0.99, 1.015); } }
 
 /* ============================================================ por dentro ============================================================ */
-/* otro tramo fijo: la lista de lo que hace Rockie y, al lado, la escena. Nada corre solo: cada muestra se arma con
-   el scroll. --p (0 a 1) es cuánto va del paso (llega a 1 antes del final, para verla completa un momento) y cada
-   pieza toma su tramo de --p con clamp(). Solo transform, opacity y el trazo de las líneas. */
-.pt-rec.pd { height: calc(100vh + var(--n) * 85vh); height: calc(100dvh + var(--n) * 85vh); }
-.pd-fijo { justify-content: center; gap: var(--s4); }
-.pd-pips { flex: none; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: var(--s2); }
-.pd-pips span, .pd-barra { display: block; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
-.pd-pips i, .pd-barra i { display: block; height: 100%; background: var(--app); transform: scaleX(0); transform-origin: 0 50%; }
-.pd-pips .hecho i, .pd-lista .hecho .pd-barra i { transform: none; }
-.pd-pips .on i, .pd-lista .on .pd-barra i { transform: scaleX(var(--avance, 0)); }
-
-.pd-escena {
-  --p: clamp(0, calc(var(--avance, 0) / 0.78), 1);
-  order: -1; flex: 0 1 300px; min-height: 200px; position: relative; display: grid; place-items: center; padding: var(--s3); overflow: hidden;
-  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); border-top: 3px solid var(--app); box-shadow: 0 4px 0 var(--card-edge), var(--shadow-card);
+/* un mazo de cuatro cartas: cada una sube, se queda pegada arriba y la siguiente la tapa (la de abajo se achica un
+   poco). La muestra de cada carta NO corre sola: se arma con --p, que es cuánto ha subido la carta, y cada pieza
+   toma su tramo con clamp(). Solo transform, opacity y el trazo de las líneas. */
+.pd-mazo { display: grid; gap: var(--s6); margin-top: var(--s6); }
+/* aire después de la última carta: así las de abajo no se sueltan antes de tiempo */
+.pd-mazo::after { content: ''; height: 22vh; }
+.pd-carta {
+  position: sticky; top: calc(var(--pub-top) + var(--s4) + var(--k) * 14px); display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden;
+  border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); border-top: 4px solid var(--app);
+  box-shadow: 0 4px 0 var(--card-edge), var(--shadow-card); transform-origin: 50% 0; transform: scale(calc(1 - var(--tapa, 0) * 0.035));
 }
-.pd-pips { order: -2; }
-
-/* la lista: en el celular solo se lee el paso en curso; en la PC están los cuatro y el activo se abre */
-.pd-lista { flex: none; display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
-.pd-lista li:not(.on) { display: none; }
-.pd-lista button { display: grid; gap: 6px; width: 100%; padding: 0; text-align: left; font-weight: 400; color: var(--ink-soft); cursor: pointer; }
-.pd-lista button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
-.pd-barra { display: none; }
+.pd-carta-t { display: grid; align-content: center; gap: var(--s2); padding: var(--s5); }
 .pt-demo-rot { display: flex; align-items: center; gap: 8px; margin: 0; font: 500 var(--t-2xs) var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
-.pd-lista b { font: 600 var(--t-2xl)/1.12 var(--serif); letter-spacing: -0.01em; color: var(--title); }
-.pd-texto { font-size: var(--t-s); line-height: 1.5; color: var(--ink-soft); }
-@media (min-width: 900px) {
-  .pt-rec-fijo.pd-fijo { display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr); align-items: center; column-gap: var(--s10); }
-  .pd-pips { display: none; }
-  .pd-escena { order: 0; height: min(460px, 100%); }
-  .pd-lista { gap: var(--s4); }
-  .pd-lista li:not(.on) { display: block; }
-  .pd-lista button { transition: opacity 0.3s; }
-  .pd-lista li:not(.on) button { opacity: 0.5; }
-  .pd-lista li:not(.on) button:hover { opacity: 0.85; }
-  .pd-barra { display: block; margin-bottom: 4px; }
-  .pd-lista b { font-size: var(--t-xl); color: var(--ink); transition: font-size 0.35s var(--pt-ease), color 0.3s; }
-  .pd-lista .on b { font-size: var(--t-2xl); color: var(--title); }
-  /* el texto del activo se abre (y los demás se cierran) sin saltos */
-  .pd-texto { display: grid; grid-template-rows: 0fr; font-size: var(--t-sm); transition: grid-template-rows 0.45s var(--pt-ease); }
-  .pd-texto > span { min-height: 0; overflow: hidden; }
-  .pd-lista .on .pd-texto { grid-template-rows: 1fr; }
+.pd-num { margin-left: auto; color: var(--ink-faint); white-space: nowrap; }
+.pd-carta-t h3 { margin: 0; font: 600 clamp(24px, 3vw, 32px)/1.1 var(--serif); letter-spacing: -0.015em; color: var(--title); }
+.pd-carta-t > p:last-child { margin: 0; font-size: var(--t-sm); line-height: 1.55; color: var(--ink-soft); }
+.pd-escena { position: relative; min-height: 230px; display: grid; place-items: center; padding: var(--s3); background: var(--card-2); border-top: 1px solid var(--line); overflow: hidden; }
+@media (min-width: 860px) {
+  .pd-carta { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); min-height: min(420px, calc(100vh - 220px)); }
+  .pd-carta-t { padding: var(--s8); }
+  .pd-escena { border-top: 0; border-left: 1px solid var(--line); }
+  .pd-carta.par { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); }
+  .pd-carta.par .pd-escena { order: -1; border-left: 0; border-right: 1px solid var(--line); }
 }
 
 /* ---------- 1 · el Mapa: los núcleos ya están; con el scroll salen sus páginas, se trazan las uniones y, al final,
@@ -277,64 +256,59 @@
 .mk-pill.ambar { background: var(--amber); box-shadow: 0 2px 0 var(--amber-edge); }
 @media (min-width: 620px) { .mk-foto { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr); align-items: center; } }
 
-/* ============================================================ liga vs mochila ============================================================ */
-.pt-versus { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); margin-top: var(--s6); align-items: stretch; }
-@media (min-width: 860px) { .pt-versus { grid-template-columns: 1fr auto 1fr; gap: var(--s5); } }
-.pt-panel {
-  display: flex; flex-direction: column; gap: var(--s4); padding: var(--s5); min-width: 0;
+/* ============================================================ por qué: de la liga a la mochila ============================================================ */
+/* una sola escena que cambia con el scroll (--p): la liga aprieta los útiles sueltos, el bulto se encoge y se va,
+   y en su lugar entran los cuatro bolsillos; el rótulo y las cuentas de abajo cambian con ellos */
+.pq {
+  --q0: clamp(0, calc(var(--p, 0) / 0.3), 1); --qa: clamp(0, calc((var(--p, 0) - 0.34) / 0.2), 1); --qd: clamp(0, calc((var(--p, 0) - 0.52) / 0.14), 1);
+  display: grid; gap: var(--s4); margin-top: var(--s6); padding: var(--s5);
   border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge);
 }
-.pt-panel header { display: flex; align-items: center; gap: var(--s2); font: 600 var(--t-xl) var(--serif); color: var(--title); }
+.pq-fila, .pq-escena { display: grid; }
+.pq-fila > *, .pq-escena > * { grid-area: 1 / 1; }
+.pq-escena { align-items: center; }
+.pq-cab b { display: flex; align-items: center; gap: var(--s2); font: 600 var(--t-xl) var(--serif); color: var(--title); }
+.pq-antes { opacity: calc(1 - var(--qa)); }
+.pq-despues { opacity: var(--qd); }
 .pt-tag { padding: 4px 11px; border-radius: var(--r-pill); font: 500 var(--t-3xs)/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--on-color); }
 .pt-tag.mal { background: var(--coral); box-shadow: 0 2px 0 var(--coral-edge); }
 .pt-tag.bien { background: var(--green-photo); box-shadow: 0 2px 0 var(--green-photo-edge); }
 
-.pt-bulto { position: relative; height: 280px; }
+.pt-bulto { position: relative; width: 100%; max-width: 540px; height: 280px; margin: 0 auto; pointer-events: none; transform: scale(calc(1 - var(--qa) * 0.55)); }
 .pt-suelto {
   position: absolute; z-index: 2; left: var(--x); top: var(--y); max-width: 47%;
   display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px;
-  border-radius: var(--r-md); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
-  font-size: var(--t-xs); font-weight: 600; color: var(--ink); line-height: 1.25; transform: rotate(var(--r));
+  border-radius: var(--r-md); background: var(--card-2); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
+  font-size: var(--t-xs); font-weight: 600; color: var(--ink); line-height: 1.25;
+  transform: rotate(calc(var(--r) * (2.2 - 1.2 * var(--q0)))) translateY(calc((1 - var(--q0)) * 10px));
 }
 .pt-suelto-ico { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; flex: none; color: var(--on-color); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18); }
 .pt-suelto-ico .ico { width: 17px; height: 17px; stroke-width: 2.4; }
 .pt-elastico {
-  position: absolute; left: 1%; right: 1%; top: 37%; height: 28%; border-radius: 50%;
-  border: 7px solid transparent; transform: rotate(-7deg); pointer-events: none;
+  position: absolute; left: 1%; right: 1%; top: 37%; height: 28%; border-radius: 50%; border: 7px solid transparent; pointer-events: none;
+  transform: rotate(-7deg) scale(calc(1.14 - 0.14 * var(--q0)), calc(1.5 - 0.5 * var(--q0)));
 }
 .pt-elastico.atras { z-index: 1; border-top-color: var(--amber-edge); }
 .pt-elastico.frente { z-index: 3; border-left-color: var(--amber); border-bottom-color: var(--amber); border-right-color: var(--amber); }
-/* al asomar, la liga se tensa y los útiles se aprietan */
-.pt-anim .pt-liga .pt-suelto { transition: transform 0.7s var(--spring) calc(0.25s + var(--i) * 0.05s); transform: rotate(calc(var(--r) * 2.4)) translateY(10px); }
-.pt-anim .pt-liga.vis .pt-suelto { transform: rotate(var(--r)); }
-.pt-anim .pt-liga .pt-elastico { transition: transform 0.6s var(--spring) 0.5s; transform: rotate(-7deg) scale(1.14, 1.5); }
-.pt-anim .pt-liga.vis .pt-elastico { transform: rotate(-7deg); }
 
-.pt-cuentas { display: flex; flex-wrap: wrap; gap: var(--s2); margin: auto 0 0; padding: 0; list-style: none; }
+.pt-cuentas { display: flex; flex-wrap: wrap; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
 .pt-cuentas li { padding: 6px 13px; border-radius: var(--r-pill); font-size: var(--t-xs); font-weight: 500; color: var(--on-color); }
 .pt-cuentas.mal li { background: var(--coral); box-shadow: 0 3px 0 var(--coral-edge); }
 .pt-cuentas.bien li { background: var(--green-photo); box-shadow: 0 3px 0 var(--green-photo-edge); }
 .pt-cuentas b { font: 500 var(--t-sm) var(--mono); }
 
-.pt-flecha { justify-self: center; align-self: center; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: var(--on-color); box-shadow: 0 4px 0 var(--accent-edge); }
-.pt-flecha .ico { transform: rotate(90deg); }
-@media (min-width: 860px) { .pt-flecha .ico { transform: none; } }
-
-.pt-bolsillos { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); flex: 1; }
+.pt-bolsillos { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+@media (min-width: 860px) { .pt-bolsillos { grid-template-columns: repeat(4, 1fr); } }
 .pt-bolsillo-app {
+  --q: clamp(0, calc((var(--p, 0) - 0.5 - var(--i) * 0.08) / 0.18), 1);
   display: grid; align-content: start; gap: 4px; padding: var(--s3); min-width: 0;
   border-radius: var(--r-lg); background: var(--app); color: var(--on-color); box-shadow: 0 4px 0 var(--app-edge);
-  transition: transform 0.2s var(--spring);
+  opacity: var(--q); transform: translateY(calc((1 - var(--q)) * 22px)) scale(calc(0.9 + 0.1 * var(--q)));
 }
-.pt-bolsillo-app:hover { transform: translateY(-3px); }
-.pt-bolsillo-app .os-tile { background: var(--on-color); color: var(--app); box-shadow: 0 3px 0 var(--app-edge); margin-bottom: 4px; }
+.pt-bolsillo-app .os-tile { background: var(--on-color); color: var(--app); box-shadow: 0 3px 0 var(--app-edge); margin-bottom: 4px; transform: rotate(calc((1 - var(--q)) * -18deg)); }
 .pt-bolsillo-app small { font: 500 var(--t-3xs) var(--mono); letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
 .pt-bolsillo-app b { font: 600 var(--t-lg) var(--serif); }
 .pt-bolsillo-app p { margin: 0; font-size: var(--t-xs); line-height: 1.35; opacity: 0.92; }
-.pt-anim .pt-bolsa .pt-bolsillo-app { opacity: 0; transform: translateY(-14px) scale(0.96); transition: opacity 0.35s, transform 0.5s var(--spring); transition-delay: calc(0.3s + var(--i) * 0.1s); }
-.pt-anim .pt-bolsa.vis .pt-bolsillo-app { opacity: 1; transform: none; }
-.pt-anim .pt-bolsa.vis .pt-bolsillo-app:hover { transform: translateY(-3px); transition-delay: 0s; }
-.pt-bolsa.vis .pt-bolsillo-app .os-tile { animation: pt-salta 0.6s var(--spring) both; animation-delay: calc(0.75s + var(--i) * 0.12s); }
 @keyframes pt-salta { 0% { transform: scale(0.4) rotate(-20deg); } 70% { transform: scale(1.15) rotate(6deg); } 100% { transform: none; } }
 
 /* ============================================================ un día: el recorrido fijo ============================================================ */
@@ -353,11 +327,14 @@
 @keyframes pt-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* el tramo alto da el recorrido de scroll; adentro, la ventana y sus rótulos se quedan fijos bajo la barra */
-.pt-rec { --pub-top: 61px; margin-top: var(--s5); height: calc(100vh + var(--n) * 60vh); height: calc(100dvh + var(--n) * 60vh); }
-.pt-rec-fijo {
-  position: sticky; top: var(--pub-top); display: flex; flex-direction: column; justify-content: center; gap: var(--s3); padding: var(--s3) 0 var(--s4);
-  height: calc(100vh - var(--pub-top)); height: calc(100dvh - var(--pub-top));
-}
+/* el relleno de abajo (un ::after: lo pegajoso no cuenta el padding) da el recorrido de scroll; la caja fija mide lo que su contenido y se pega bajo la barra.
+   --rec-resto = lo que ocupa todo menos la ventana (así la ventana toma el alto que queda en cada pantalla) */
+.pt-rec { --rec-resto: 136px; margin-top: var(--s5); }
+.pt-rec::after { content: ''; display: block; height: calc(var(--n) * 60vh); }
+@media (min-width: 760px) { .pt-rec { --rec-resto: 200px; } }
+@media (min-width: 860px) { .pt-rec { --rec-resto: 272px; } }
+@media (min-width: 1040px) { .pt-rec { --rec-resto: 200px; } }
+.pt-rec-fijo { position: sticky; top: calc(var(--pub-top) + var(--s3)); display: flex; flex-direction: column; gap: var(--s3); }
 
 /* las pestañas de folder del escritorio de Rockie (las mismas formas de os/escritorio): la abierta sube y se pinta */
 .pt-tabs { flex: none; display: none; align-items: flex-end; gap: 6px; height: 46px; padding: 0 var(--s4); margin-bottom: calc(-1 * var(--s3)); }
@@ -381,19 +358,20 @@
 /* en la PC, «Si estudias / trabajas / emprendes» va al costado izquierdo de la ventana, en columna */
 @media (min-width: 1040px) {
   .pt-rec-fijo:not(.pd-fijo) {
-    display: grid; grid-template-columns: 158px minmax(0, 1fr); grid-template-rows: auto minmax(0, 520px) auto; column-gap: var(--s5); row-gap: var(--s3); align-content: center;
+    display: grid; grid-template-columns: 158px minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: var(--s5); row-gap: var(--s3);
   }
   .pt-rec-fijo:not(.pd-fijo) .pt-personas { grid-column: 1; grid-row: 2; flex-direction: column; justify-content: flex-start; align-items: stretch; }
   .pt-rec-fijo:not(.pd-fijo) .pt-personas::before { content: 'Elige tu día'; margin-bottom: 2px; font: 500 var(--t-3xs) var(--mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-muted); }
   .pt-rec-fijo:not(.pd-fijo) .pt-persona { justify-content: flex-start; }
   .pt-rec-fijo:not(.pd-fijo) .pt-tabs { grid-column: 2; grid-row: 1; }
-  .pt-rec-fijo:not(.pd-fijo) .pt-win { grid-column: 2; grid-row: 2; max-height: none; }
+  .pt-rec-fijo:not(.pd-fijo) .pt-win { grid-column: 2; grid-row: 2; }
   .pt-rec-fijo:not(.pd-fijo) .pt-pasos { grid-column: 1 / -1; grid-row: 3; }
 }
 
 /* la ventana de la app abierta: su barra, la hoja en el centro y, a la derecha, con qué se conecta */
 .pt-win {
-  flex: 1 1 auto; min-height: 0; max-height: 520px; display: flex; flex-direction: column; overflow: hidden;
+  flex: none; display: flex; flex-direction: column; overflow: hidden;
+  height: clamp(280px, calc(100vh - var(--pub-top) - var(--rec-resto)), 520px); height: clamp(280px, calc(100dvh - var(--pub-top) - var(--rec-resto)), 520px);
   border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge), var(--shadow-card);
 }
 .pt-win-bar {
@@ -554,26 +532,34 @@
 /* ============================================================ Rockie ============================================================ */
 .pt-rockie { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s6); align-items: center; }
 @media (min-width: 860px) { .pt-rockie { grid-template-columns: 1.1fr 1fr; gap: var(--s8) var(--s10); } }
-/* su carácter, en texto (antes, cinco cartas con cinco Rockies) */
+/* su carácter, en texto */
 .pt-rasgos { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3) var(--s5); margin: var(--s5) 0 0; max-width: 520px; }
 .pt-rasgos > div { padding-top: var(--s2); border-top: 1px solid var(--line); min-width: 0; }
 .pt-rasgos dt { font: 600 var(--t-lg) var(--serif); color: var(--ink); }
 .pt-rasgos dd { margin: 2px 0 0; font-size: var(--t-xs); color: var(--ink-soft); line-height: 1.4; }
-/* la única figura de la sección: la misma piedra en cuatro etapas, con su pie */
+/* la figura: UNA piedra que crece. --e (0 a 3) la mueve el scroll o la regla; cada etapa entra encima de la anterior */
 .pt-figura {
-  margin: 0; padding: var(--s6) var(--s5) var(--s4); min-width: 0;
+  margin: 0; padding: var(--s5) var(--s5) var(--s4); min-width: 0;
   border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge);
 }
-.pt-figura figcaption { margin-top: var(--s5); padding-top: var(--s3); border-top: 1px solid var(--line); font-size: var(--t-xs); line-height: 1.45; color: var(--ink-soft); }
+.pt-crece { display: grid; place-items: end center; height: 12.4em; font-size: min(15px, 3.6vw); }
+.pt-crece .pt-etapa {
+  /* cada etapa releva a la anterior en un cruce corto (a mitad de camino), para que nunca se vean dos caras a la vez */
+  --llega: clamp(0, calc((var(--e, 0) - var(--i) + 0.58) / 0.16), 1);
+  grid-area: 1 / 1; width: var(--t); height: var(--t); transform-origin: 50% 100%;
+  opacity: calc(var(--llega) * clamp(0, calc((var(--i) + 0.58 - var(--e, 0)) / 0.16), 1)); transform: scale(calc(0.9 + 0.1 * var(--llega)));
+}
+.pt-regla { display: block; width: 100%; height: var(--tap); margin: var(--s2) 0 0; accent-color: var(--accent); background: none; cursor: grab; }
+.pt-regla:active { cursor: grabbing; }
+.pt-regla:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: var(--r-pill); }
+.pt-evo-n { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; padding: 0; list-style: none; font: 500 var(--t-3xs) var(--mono); letter-spacing: 0.04em; color: var(--ink-muted); }
+.pt-evo-n li:nth-child(2) { text-align: center; padding-right: 22%; }
+.pt-evo-n li:nth-child(3) { text-align: center; padding-left: 22%; }
+.pt-evo-n li:last-child { text-align: right; }
+.pt-evo-n li { transition: color 0.2s; }
+[data-etapa='0'] .pt-evo-n li:nth-child(1), [data-etapa='1'] .pt-evo-n li:nth-child(2), [data-etapa='2'] .pt-evo-n li:nth-child(3), [data-etapa='3'] .pt-evo-n li:nth-child(4) { color: var(--accent-ink); font-weight: 600; }
+.pt-figura figcaption { margin-top: var(--s4); padding-top: var(--s3); border-top: 1px solid var(--line); font-size: var(--t-xs); line-height: 1.45; color: var(--ink-soft); }
 .pt-figura figcaption b { margin-right: 8px; font: 500 var(--t-2xs) var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--title); }
-.pt-evo { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s2); margin: 0 auto; padding: 0; list-style: none; font-size: min(10px, 1.9vw); max-width: 460px; }
-.pt-evo li { display: grid; justify-items: center; gap: 6px; position: relative; }
-.pt-evo li + li::before { content: ''; position: absolute; left: -26%; bottom: 3.4em; width: 18%; border-top: 1px solid var(--ink-faint); }
-.pt-etapa { width: var(--t); height: var(--t); }
-.pt-evo small { font: 500 max(11px, 1.15em) var(--mono); letter-spacing: 0.04em; color: var(--ink-muted); }
-.pt-evo li:last-child small { color: var(--accent); }
-.pt-anim .pt-figura .pt-etapa { transform: scale(0.6); opacity: 0; transition: transform 0.6s var(--pt-ease), opacity 0.4s; transition-delay: calc(0.2s + var(--i) * 0.14s); }
-.pt-anim .pt-figura.vis .pt-etapa { transform: none; opacity: 1; }
 .pt-cita {
   grid-column: 1 / -1; margin: 0; padding: var(--s1) 0 var(--s1) var(--s5); max-width: 720px;
   border-left: 3px solid var(--title); font: italic 500 clamp(22px, 3.8vw, 30px)/1.25 var(--serif); color: var(--ink);
@@ -581,7 +567,7 @@
 
 /* ============================================================ el Cofre ============================================================ */
 .pt-cofre {
-  display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s6); align-items: center; margin: var(--s8) 0 var(--s4); padding: var(--s6) var(--s5);
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s6); align-items: center; margin: clamp(64px, 10vw, 120px) 0 0; padding: var(--s6) var(--s5);
   border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 4px 0 var(--card-edge);
 }
 @media (min-width: 860px) { .pt-cofre { grid-template-columns: 1fr 1.1fr; padding: var(--s8); } }
@@ -607,12 +593,15 @@
   display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%;
   background: var(--green-photo); color: var(--on-color); box-shadow: 0 4px 0 var(--green-photo-edge);
 }
-.pt-anim .pt-cofre .pt-candado { transform: scale(0.3) rotate(-30deg); transition: transform 0.55s var(--spring) 0.35s; }
-.pt-anim .pt-cofre.vis .pt-candado { transform: none; }
+/* con el scroll (--p): el candado gira y se cierra, y la nota sale cifrada del otro lado (sus letras las pone Portada.tsx) */
+.pt-cofre { --qc: clamp(0, calc((var(--p, 0) - 0.12) / 0.26), 1); }
+.pt-candado { transform: scale(calc(0.55 + 0.45 * var(--qc))) rotate(calc((1 - var(--qc)) * -40deg)); }
+.pt-cofre .pt-nota.cifrada { opacity: clamp(0.12, calc((var(--p, 0) - 0.28) / 0.2), 1); transform: rotate(3deg) translateX(calc((1 - var(--qc)) * -22px)); }
+.pt-cofre .pt-nota.cifrada span { display: block; min-height: 2.7em; }
 
 /* ============================================================ cierre ============================================================ */
 .pt-final {
-  display: grid; justify-items: center; text-align: center; margin: var(--s8) 0 calc(-1 * var(--s8)); padding: var(--s12) 0;
+  display: grid; justify-items: center; text-align: center; margin: clamp(64px, 10vw, 120px) 0 calc(-1 * var(--s8)); padding: var(--s12) 0;
   background: var(--accent); box-shadow: 0 0 0 100vmax var(--accent); clip-path: inset(0 -100vmax);
 }
 .pt-final > div { display: grid; justify-items: center; max-width: 560px; }
@@ -629,5 +618,4 @@
   .pt-anim .pt-rv { transform: none; transition: opacity 0.4s linear; transition-delay: 0s; }
   .pt-hero > *, .pt-util, .pt-asoma, .pt-cambia, .pt-guardado li { animation-name: pt-aparece; animation-duration: 0.4s; animation-timing-function: linear; }
   .pt-mochila, .pt-cursor { animation: none; }
-  .pd-lista b, .pd-texto { transition: none; }
 }

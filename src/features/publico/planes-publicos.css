@@ -1,7 +1,7 @@
 /* ============================================================
-   Planes de rockie.plus (PlanesPublicos.tsx): una tarjeta por plan con su emblema, su precio, qué incluye y
-   sus opciones de compra. Estudiante es un plan aparte, a todo el ancho. Tokens, colores sólidos (nada pastel).
-   Sobrio: el color del plan va en el filo de arriba y en su emblema; el canto de la tarjeta es neutro.
+   Planes de rockie.plus (PlanesPublicos.tsx), en dos actos: «tú» (Gratis → Plus → Pro, una subida que el scroll
+   va llenando) y «¿no vas solo?» (Estudiante, Dúo, Grupo, Club: eliges con quién y se adelanta tu plan).
+   Tokens, colores sólidos (nada pastel). Sobrio: el color del plan va en el filo de arriba y en su emblema.
    Primero el celular.
    ============================================================ */
 .pp { --pt-ease: cubic-bezier(0.16, 1, 0.3, 1); }
@@ -10,10 +10,24 @@
 .pp-pro { --pp: var(--berry); --pp-edge: var(--berry-edge); }
 .pp-club { --pp: var(--green-photo); --pp-edge: var(--green-photo-edge); }
 .pp-estudiante { --pp: var(--coral); --pp-edge: var(--coral-edge); }
+.pp-duo { --pp: var(--olive); --pp-edge: var(--olive-edge); }
+.pp-grupo { --pp: var(--navbar-blue); --pp-edge: var(--navbar-blue-edge); }
 
+/* por mes o pagando el año: cambia el precio grande y marca la opción de compra que corresponde */
+.pp-periodo {
+  display: inline-flex; gap: 4px; margin: 0 0 var(--s6); padding: 4px; border-radius: var(--r-pill);
+  background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
+}
+.pp-periodo button { min-height: 36px; padding: 6px 16px; border-radius: var(--r-pill); font: 600 var(--t-xs) var(--sans); color: var(--ink-soft); transition: background-color 0.2s, color 0.2s, box-shadow 0.2s; }
+.pp-periodo button[aria-pressed='true'] { background: var(--accent); color: var(--on-color); box-shadow: 0 2px 0 var(--accent-edge); }
+.pp-periodo button:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+.pp-periodo em { margin-left: 6px; font: 500 var(--t-3xs) var(--mono); font-style: normal; opacity: 0.9; }
+
+.pp-camino { position: relative; }
+.pp-riel { display: none; }
 .pp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--s4); align-items: stretch; }
 .pp-card {
-  display: flex; flex-direction: column; gap: var(--s3); min-width: 0; padding: var(--s5) var(--s4) var(--s4); scroll-margin-top: 88px;
+  position: relative; display: flex; flex-direction: column; gap: var(--s3); min-width: 0; padding: var(--s5) var(--s4) var(--s4); scroll-margin-top: 88px;
   border-radius: var(--r-xl); background: var(--card); border: 1.5px solid var(--card-line); border-top: 3px solid var(--pp);
   box-shadow: 0 4px 0 var(--card-edge);
 }
@@ -27,7 +41,8 @@
 .pp-emblema .pp-suelo { fill: none; opacity: 0.6; }
 
 .pp-desde { margin: 0; padding-bottom: var(--s3); border-bottom: 1px solid var(--line); color: var(--ink-muted); font-size: var(--t-xs); }
-.pp-desde b { margin-right: 4px; font: 500 34px/1 var(--serif); letter-spacing: -0.02em; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.pp-desde b { display: inline-block; margin-right: 4px; font: 500 34px/1 var(--serif); letter-spacing: -0.02em; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; animation: pp-precio 0.35s var(--pt-ease); }
+@keyframes pp-precio { from { opacity: 0; transform: translateY(8px); } }
 .pp-desde em { display: block; margin-top: 6px; font: 500 var(--t-2xs) var(--mono); letter-spacing: 0.04em; color: var(--coral-ink); }
 .pp-card ul { display: grid; align-content: start; gap: 8px; margin: 0; padding: 0; list-style: none; flex: 1; }
 .pp-card li { display: flex; gap: 8px; align-items: flex-start; font-size: var(--t-xs); color: var(--ink); line-height: 1.4; }
@@ -35,21 +50,17 @@
 .pp-card li.pronto { color: var(--ink-muted); }
 .pp-card li.pronto .ico { color: var(--ink-faint); }
 .pp-card li em { font-style: normal; font-weight: 600; color: var(--ink-muted); }
-.pub a.pp-cruce {
-  display: inline-flex; align-items: center; gap: 6px; align-self: start; min-height: 32px;
-  font-size: var(--t-xs); font-weight: 600; color: var(--accent-ink); text-decoration: none;
-}
-.pub a.pp-cruce:hover { text-decoration: underline; }
-.pp-cruce .ico { transform: rotate(90deg); }
+.pp-pronto { display: flex; align-items: center; gap: 6px; margin: 0; min-height: 52px; padding: 0 14px; border-radius: var(--r-lg); border: 1.5px dashed var(--card-line); font: 500 var(--t-2xs) var(--mono); letter-spacing: 0.04em; color: var(--ink-muted); }
 
 /* las opciones de compra: cada una es un botón con su periodo, su precio y «Comprar» */
 .pp-ops { display: grid; gap: var(--s2); }
 .pp-op {
   display: flex; align-items: center; justify-content: space-between; gap: var(--s2); width: 100%; min-height: 52px; padding: 7px 7px 7px 14px;
   border-radius: var(--r-lg); background: var(--card); border: 1.5px solid var(--card-line); box-shadow: 0 3px 0 var(--card-edge);
-  color: var(--ink); text-align: left; cursor: pointer; transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide), border-color 0.12s;
+  color: var(--ink); text-align: left; cursor: pointer; transition: transform 0.12s var(--glide), box-shadow 0.12s var(--glide), border-color 0.2s;
 }
 .pp-op:hover { transform: translateY(-1px); border-color: var(--pp); }
+.pp-op.elegida { border-color: var(--pp); box-shadow: 0 3px 0 var(--pp-edge); }
 .pp-op:active { transform: translateY(3px); box-shadow: 0 0 0 var(--card-edge); }
 .pp-op:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .pp-op-t { display: grid; min-width: 0; line-height: 1.3; }
@@ -63,11 +74,29 @@
 }
 .pp .btn.block { width: 100%; }
 
-/* Estudiante: plan aparte, a todo el ancho. En pantalla ancha: quién es · qué incluye · cómo se paga. */
-.pp-estudiante { grid-column: 1 / -1; }
-.pp-est-quien { display: grid; gap: var(--s3); min-width: 0; }
-@media (min-width: 860px) {
-  .pp-estudiante { display: grid; grid-template-columns: 1.1fr 1.2fr 1.1fr; align-items: center; gap: var(--s8); padding: var(--s6); }
-  .pp-estudiante .pp-desde { padding-bottom: 0; border-bottom: 0; }
-  .pp-estudiante .pp-ops { align-self: center; }
+/* acto 1 en la PC · la subida: una línea une los tres emblemas y se llena con el scroll (--p); cada plan sube
+   y toma color cuando la línea llega a él */
+@media (min-width: 900px) {
+  .pp-camino { padding-top: 34px; }
+  .pp-riel { display: block; position: absolute; left: 0; right: 0; top: 32px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+  .pp-riel i { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(var(--p, 0)); }
+  .pp-camino .pp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s5); }
+  .pp-camino .pp-card {
+    --q: clamp(0, calc((var(--p, 0) - 0.05 - var(--k) * 0.27) / 0.24), 1);
+    padding-top: 48px; opacity: calc(0.3 + 0.7 * var(--q)); transform: translateY(calc((1 - var(--q)) * 30px));
+  }
+  .pp-camino .pp-cab { display: block; }
+  .pp-camino .pp-emblema { position: absolute; left: var(--s4); top: -32px; width: 60px; height: 60px; filter: grayscale(calc(1 - var(--q))); transform: scale(calc(0.8 + 0.2 * var(--q))); }
+}
+
+/* acto 2 · ¿no vas solo?: eliges con quién vas y tu plan se adelanta */
+.pp-acto { display: grid; justify-items: start; gap: var(--s2); margin: clamp(48px, 7vw, 80px) 0 var(--s6); }
+.pp-acto h3 { margin: 0; font: 600 clamp(24px, 4vw, 34px)/1.08 var(--serif); letter-spacing: -0.02em; color: var(--title); }
+.pp-acto p { margin: 0; font: 400 var(--t-md)/1.5 var(--serif); color: var(--ink-soft); }
+.pp-quien { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
+.pp-juntos .pp-card.vis { transition: opacity 0.6s var(--pt-ease), transform 0.45s var(--pt-ease), box-shadow 0.25s, border-color 0.25s; }
+.pp-juntos .pp-card.elegida { border-color: var(--pp); box-shadow: 0 4px 0 var(--pp-edge), var(--shadow-card); }
+@media (min-width: 900px) {
+  .pp-juntos { grid-template-columns: repeat(4, minmax(0, 1fr)); padding-top: var(--s2); }
+  .pt-anim .pp-juntos .pp-card.vis.elegida { transform: translateY(-8px); }
 }

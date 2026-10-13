@@ -11,7 +11,9 @@ import './portada.css'
 // pública (serif de texto, sans técnica y mono para datos; ver publico.css), secciones numeradas y Rockie
 // solo donde aporta (asoma de la mochila y la figura de la geoda). El producto va primero: «Dile a Rockie»
 // en la portada y, debajo, una ventana de Rockie que se queda fija mientras el scroll recorre un día.
-// Cada pieza entra una vez, en cascada, al asomar. Colores sólidos (nada pastel), tokens y cantos de siempre.
+// Bajar por la página es el recorrido: cada sección responde al scroll con un gesto distinto (la ventana fija,
+// un mazo de cartas que se apilan, los útiles que entran a la mochila, la geoda que crece, la nota que se cifra,
+// la subida de los planes). Colores sólidos (nada pastel), tokens y cantos de siempre.
 // La puerta es amplia (estudias, trabajas o emprendes) y ?para=estudiante|profesional|emprendedor abre el día
 // de cada uno, para las campañas. Los planes, las dudas y el pie siguen en Publico.tsx.
 
@@ -43,6 +45,54 @@ export function useRevelar<T extends HTMLElement>() {
     piezas.forEach((p) => io.observe(p))
     return () => io.disconnect()
   }, [])
+  return ref
+}
+
+// ---------- el scroll es el hilo de la página: un solo oyente reparte el aviso a cada pieza ----------
+const oyentes = new Set<() => void>()
+let cuadro = 0
+const avisar = () => {
+  if (cuadro) return
+  cuadro = requestAnimationFrame(() => {
+    cuadro = 0
+    oyentes.forEach((f) => f())
+  })
+}
+
+/** Deja en `--p` (0 a 1) cuánto ha subido la pieza por la pantalla: 0 cuando su borde de arriba asoma a la altura
+ *  `desde` (fracción del alto de la ventana) y 1 cuando llega a `hasta`. Con eso el CSS arma la pieza poco a poco
+ *  (y la desarma si subes). `alMedir` recibe el mismo número, para lo que no se puede hacer solo con CSS. */
+export function useEntrada<T extends HTMLElement>(desde: number, hasta: number, alMedir?: (p: number, el: T) => void) {
+  const ref = useRef<T>(null)
+  const aviso = useRef(alMedir)
+  useEffect(() => {
+    aviso.current = alMedir
+  })
+  useEffect(() => {
+    let antes = -1
+    const medir = () => {
+      const el = ref.current
+      if (!el) return
+      const p = Math.min(1, Math.max(0, (innerHeight * desde - el.getBoundingClientRect().top) / (innerHeight * (desde - hasta))))
+      if (p === antes) return
+      antes = p
+      el.style.setProperty('--p', p.toFixed(3))
+      aviso.current?.(p, el)
+    }
+    oyentes.add(medir)
+    if (oyentes.size === 1) {
+      addEventListener('scroll', avisar, { passive: true })
+      addEventListener('resize', avisar)
+    }
+    medir()
+    return () => {
+      oyentes.delete(medir)
+      if (!oyentes.size) {
+        removeEventListener('scroll', avisar)
+        removeEventListener('resize', avisar)
+      }
+    }
+  }, [desde, hasta])
   return ref
 }
 
@@ -270,7 +320,10 @@ const BOLSILLO: Record<AppId, { para: string; t: string }> = {
   cuaderno: { para: 'Tu mente', t: 'Apuntes enlazados, pizarra y repaso con IA.' },
 }
 
+// «Por qué»: una sola escena que se transforma al bajar. Los útiles sueltos se aprietan con la liga, se encogen
+// y, en su lugar, aparecen los cuatro bolsillos de la mochila (el rótulo y las cuentas cambian con ellos).
 function LigaVsMochila() {
+  const ref = useEntrada<HTMLDivElement>(0.82, 0.16)
   return (
     <section id="por-que" className="pt-sec">
       <Ceja n="03">Por qué</Ceja>
@@ -279,52 +332,30 @@ function LigaVsMochila() {
       </h2>
       <p className="pt-lead pt-rv">
         El horario en una, los apuntes en otra, el trabajo en equipo en el chat y tus metas en tu cabeza. Nada
-        se habla con nada, y lo que no ves, se olvida.
+        se habla con nada, y lo que no ves, se olvida. Baja y mira cómo cabe todo en una mochila.
       </p>
-      <div className="pt-versus">
-        <article className="pt-panel pt-liga pt-rv" aria-label="Hoy: útiles sueltos">
-          <header>
-            <span className="pt-tag mal">Hoy</span>
-            <b>Útiles sueltos</b>
-          </header>
-          <div className="pt-bulto">
-            <span className="pt-elastico atras" aria-hidden="true" />
-            {SUELTOS.map((s, i) => (
-              <span
-                key={s.t}
-                className="pt-suelto"
-                style={vars({ '--x': `${s.x}%`, '--y': `${s.y}%`, '--r': `${s.r}deg`, '--i': i })}
-              >
+      <div ref={ref} className="pq">
+        <div className="pq-fila pq-cab">
+          <b className="pq-antes">
+            <span className="pt-tag mal">Hoy</span> Útiles sueltos
+          </b>
+          <b className="pq-despues">
+            <span className="pt-tag bien">Con Rockie</span> Una mochila
+          </b>
+        </div>
+        <div className="pq-escena">
+          <div className="pt-bulto pq-antes" aria-hidden="true">
+            <span className="pt-elastico atras" />
+            {SUELTOS.map((s) => (
+              <span key={s.t} className="pt-suelto" style={vars({ '--x': `${s.x}%`, '--y': `${s.y}%`, '--r': `${s.r}deg` })}>
                 <span className="pt-suelto-ico" style={{ background: s.color }}>
                   <Icon name={s.icon} className="sm" />
                 </span>
                 {s.t}
               </span>
             ))}
-            <span className="pt-elastico frente" aria-hidden="true" />
+            <span className="pt-elastico frente" />
           </div>
-          <ul className="pt-cuentas mal">
-            <li>
-              <b>6</b> apps
-            </li>
-            <li>
-              <b>6</b> contraseñas
-            </li>
-            <li>
-              <b>0</b> conexiones
-            </li>
-          </ul>
-        </article>
-
-        <span className="pt-flecha pt-rv" aria-hidden="true">
-          <Icon name="arrow" />
-        </span>
-
-        <article className="pt-panel pt-bolsa pt-rv" aria-label="Con Rockie: una mochila">
-          <header>
-            <span className="pt-tag bien">Con Rockie</span>
-            <b>Una mochila</b>
-          </header>
           <div className="pt-bolsillos">
             {APPS.map((a, i) => (
               <div key={a.id} className="pt-bolsillo-app" style={vars({ ...appTint(a), '--i': i })}>
@@ -337,7 +368,20 @@ function LigaVsMochila() {
               </div>
             ))}
           </div>
-          <ul className="pt-cuentas bien">
+        </div>
+        <div className="pq-fila">
+          <ul className="pt-cuentas mal pq-antes" aria-hidden="true">
+            <li>
+              <b>6</b> apps
+            </li>
+            <li>
+              <b>6</b> contraseñas
+            </li>
+            <li>
+              <b>0</b> conexiones
+            </li>
+          </ul>
+          <ul className="pt-cuentas bien pq-despues">
             <li>
               <b>1</b> cuenta
             </li>
@@ -348,7 +392,7 @@ function LigaVsMochila() {
               <b>Todo</b> conectado
             </li>
           </ul>
-        </article>
+        </div>
       </div>
     </section>
   )
@@ -934,9 +978,7 @@ function MockCierre() {
   )
 }
 
-/* ---------- por dentro: lo que le da vida a Rockie, tal como es en la app ----------
-   Otro tramo fijo: a la izquierda, la lista de lo que hace; a la derecha, la escena. Cada muestra NO corre sola:
-   se arma con el scroll (--avance), poco a poco, y se desarma si subes. */
+/* ---------- por dentro: lo que le da vida a Rockie, tal como es en la app ---------- */
 
 const DICHO = 'Idea para la tesis: comparar los dos métodos con los datos de 2024'
 
@@ -980,68 +1022,52 @@ const MUESTRAS: Muestra[] = [
   },
 ]
 
-function PorDentro() {
+// «Por dentro»: un mazo de cuatro cartas. Cada carta sube, se arma mientras sube (su --p) y se queda arriba;
+// la siguiente la tapa, y la de abajo se achica un poco. Otro gesto que el del día de uso: aquí se apilan.
+function Carta({ m, i }: { m: Muestra; i: number }) {
   const dicho = useRef<HTMLQuoteElement>(null)
-  // lo que «dices» se va escribiendo con el scroll (el resto de cada muestra lo mueve el CSS con --avance)
-  const avanceVoz = useRef(0)
-  const escribir = () => {
-    if (!dicho.current) return
-    const q = Math.min(1, Math.max(0, (avanceVoz.current / 0.78 - 0.04) / 0.42))
-    dicho.current.textContent = DICHO.slice(0, Math.round(q * DICHO.length))
-  }
-  const { ref, paso, ir } = useRecorrido(MUESTRAS.length, (i, avance) => {
-    avanceVoz.current = i === 2 ? avance : i < 2 ? 0 : 1
-    escribir()
+  const ref = useEntrada<HTMLElement>(0.96, 0.22, (p, el) => {
+    ;(el.previousElementSibling as HTMLElement | null)?.style.setProperty('--tapa', p.toFixed(3))
+    // lo que «dices» se escribe con el scroll
+    if (dicho.current) dicho.current.textContent = DICHO.slice(0, Math.round(Math.min(1, Math.max(0, (p - 0.06) / 0.42)) * DICHO.length))
   })
-  // al llegar a la voz de un salto (un clic en la lista), la frase arranca donde toca
-  useEffect(() => {
-    if (paso === 2) escribir()
-  })
-  const m = MUESTRAS[paso]
+  return (
+    <article ref={ref} className={`pd-carta${i % 2 ? ' par' : ''}`} style={{ ...m.tinte, ...vars({ '--k': i }) }}>
+      <div className="pd-carta-t">
+        <p className="pt-demo-rot">
+          <span className="os-tile sm">
+            <Icon name={m.icon} className="sm" />
+          </span>
+          {m.rot}
+          <span className="pd-num">
+            0{i + 1} / 0{MUESTRAS.length}
+          </span>
+        </p>
+        <h3>{m.titulo}</h3>
+        <p>{m.texto}</p>
+      </div>
+      <div className="pd-escena" aria-hidden="true">
+        {i === 0 && <DemoMapa />}
+        {i === 1 && <DemoTinta />}
+        {i === 2 && <DemoVoz dicho={dicho} />}
+        {i === 3 && <DemoDividida />}
+      </div>
+    </article>
+  )
+}
+
+function PorDentro() {
   return (
     <section id="por-dentro" className="pt-sec">
       <Ceja n="02">Por dentro</Ceja>
       <h2 className="pt-rv">
         Lo que escribes, dibujas o dices <em>queda conectado</em>.
       </h2>
-      <p className="pt-lead pt-rv">Sigue bajando: cada cosa se arma delante de ti, tal como pasa en la app.</p>
-      <div ref={ref} className="pt-rec pd" style={vars({ '--n': MUESTRAS.length })}>
-        <div className="pt-rec-fijo pd-fijo">
-          <div className="pd-pips" aria-hidden="true">
-            {MUESTRAS.map((x, i) => (
-              <span key={x.rot} className={i === paso ? 'on' : i < paso ? 'hecho' : ''} style={x.tinte}>
-                <i />
-              </span>
-            ))}
-          </div>
-          <ol className="pd-lista">
-            {MUESTRAS.map((x, i) => (
-              <li key={x.rot} className={i === paso ? 'on' : i < paso ? 'hecho' : ''} style={x.tinte}>
-                <button type="button" onClick={() => ir(i)} aria-current={i === paso ? 'step' : undefined}>
-                  <span className="pd-barra">
-                    <i />
-                  </span>
-                  <span className="pt-demo-rot">
-                    <span className="os-tile sm">
-                      <Icon name={x.icon} className="sm" />
-                    </span>
-                    {x.rot}
-                  </span>
-                  <b>{x.titulo}</b>
-                  <span className="pd-texto">
-                    <span>{x.texto}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
-          <div key={paso} className="pd-escena pt-cambia" style={m.tinte} aria-hidden="true">
-            {paso === 0 && <DemoMapa />}
-            {paso === 1 && <DemoTinta />}
-            {paso === 2 && <DemoVoz dicho={dicho} />}
-            {paso === 3 && <DemoDividida />}
-          </div>
-        </div>
+      <p className="pt-lead pt-rv">Cuatro cartas. Cada una se arma mientras sube, tal como pasa en la app.</p>
+      <div className="pd-mazo">
+        {MUESTRAS.map((m, i) => (
+          <Carta key={m.rot} m={m} i={i} />
+        ))}
       </div>
     </section>
   )
@@ -1236,9 +1262,23 @@ const RASGOS = [
   { t: 'Adaptable', d: 'Va a tu ritmo.' },
 ]
 
+// La geoda crece con el scroll, y también con la mano: la regla de abajo la lleva de guijarro a gema.
 function ConoceARockie() {
+  const fig = useRef<HTMLElement>(null)
+  const regla = useRef<HTMLInputElement>(null)
+  const tocada = useRef(false)
+  const poner = (e: number) => {
+    if (!fig.current) return
+    fig.current.style.setProperty('--e', e.toFixed(2))
+    fig.current.dataset.etapa = String(Math.round(e))
+  }
+  const ref = useEntrada<HTMLElement>(0.72, 0.14, (p) => {
+    if (tocada.current) return // desde que la mueves tú, manda tu mano
+    poner(p * 3)
+    if (regla.current) regla.current.value = String(p * 3)
+  })
   return (
-    <section id="rockie" className="pt-sec pt-rockie">
+    <section ref={ref} id="rockie" className="pt-sec pt-rockie">
       <div className="pt-rockie-t">
         <Ceja n="04">Rockie</Ceja>
         <h2 className="pt-rv">
@@ -1257,21 +1297,38 @@ function ConoceARockie() {
           ))}
         </dl>
       </div>
-      <figure className="pt-figura pt-rv">
-        <ol className="pt-evo" aria-label="Cómo crece Rockie">
+      <figure ref={fig} className="pt-figura pt-rv" data-etapa="0">
+        <div className="pt-crece" aria-hidden="true">
           {ETAPAS.map((e, i) => (
-            <li key={e.nombre} style={vars({ '--t': `${e.t}em`, '--i': i })}>
-              <span className="os-rockie pt-etapa">
-                <img src={e.base} alt="" loading="lazy" />
-                <img src={`/rockie-svg/eyes/ojos${i === 3 ? 6 : 1}.svg`} alt="" loading="lazy" />
-                <img src={`/rockie-svg/mouth/boca${i === 3 ? 7 : 6}.svg`} alt="" loading="lazy" />
-              </span>
-              <small>{e.nombre}</small>
-            </li>
+            <span key={e.nombre} className="os-rockie pt-etapa" style={vars({ '--t': `${e.t}em`, '--i': i })}>
+              <img src={e.base} alt="" loading="lazy" />
+              <img src={`/rockie-svg/eyes/ojos${i === 3 ? 6 : 1}.svg`} alt="" loading="lazy" />
+              <img src={`/rockie-svg/mouth/boca${i === 3 ? 7 : 6}.svg`} alt="" loading="lazy" />
+            </span>
+          ))}
+        </div>
+        <input
+          ref={regla}
+          className="pt-regla"
+          type="range"
+          min={0}
+          max={3}
+          step={0.01}
+          defaultValue={0}
+          aria-label="Cómo crece Rockie: de guijarro a gema"
+          onInput={(ev) => {
+            tocada.current = true
+            poner(Number(ev.currentTarget.value))
+          }}
+        />
+        <ol className="pt-evo-n" aria-hidden="true">
+          {ETAPAS.map((e) => (
+            <li key={e.nombre}>{e.nombre}</li>
           ))}
         </ol>
         <figcaption>
-          <b>Fig. 1</b> La misma piedra, cuatro etapas: crece con lo que cumples, no con lo que prometes.
+          <b>Fig. 1</b> La misma piedra, cuatro etapas: crece con lo que cumples, no con lo que prometes. Arrastra
+          la regla para verla crecer.
         </figcaption>
       </figure>
       <blockquote className="pt-cita pt-rv">Los hábitos no te arreglan: te revelan.</blockquote>
@@ -1281,9 +1338,16 @@ function ConoceARockie() {
 
 /* ---------- el Cofre ---------- */
 
+const CIFRA = 'x8#Lq2·vR0!kd·Zp7$e1·mT4%'
+
+// El Cofre: al bajar, el candado se cierra y tu nota sale del otro lado cifrada, letra por letra.
 function Cofre() {
+  const cifra = useRef<HTMLSpanElement>(null)
+  const ref = useEntrada<HTMLElement>(0.8, 0.3, (p) => {
+    if (cifra.current) cifra.current.textContent = CIFRA.slice(0, Math.max(1, Math.round(Math.min(1, Math.max(0, (p - 0.35) / 0.5)) * CIFRA.length)))
+  })
   return (
-    <section className="pt-sec pt-cofre pt-rv">
+    <section ref={ref} className="pt-sec pt-cofre pt-rv">
       <div className="pt-cofre-demo" aria-hidden="true">
         <div className="pt-nota">
           <b>Mis apuntes</b>
@@ -1294,7 +1358,7 @@ function Cofre() {
         </span>
         <div className="pt-nota cifrada">
           <b>9f2c·a71e·04bd</b>
-          <span>x8#Lq2·vR0!kd·Zp7$e1·mT4%</span>
+          <span ref={cifra}>{CIFRA}</span>
         </div>
       </div>
       <div className="pt-cofre-t">
